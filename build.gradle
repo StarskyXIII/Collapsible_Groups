@@ -1,0 +1,71 @@
+import groovy.json.JsonOutput
+
+plugins {
+    // see https://fabricmc.net/develop/ for new versions
+    id 'fabric-loom' version '1.8-SNAPSHOT' apply false
+    // see https://projects.neoforged.net/neoforged/moddevgradle for new versions
+    id 'net.neoforged.moddev' version '2.0.140' apply false
+}
+
+def groupLangSourceTrees = [
+    fileTree('common/src/main/java') { include '**/defaults/**/*.java' },
+    fileTree('fabric/src/main/java') { include '**/defaults/**/*.java' },
+    fileTree('forge/src/main/java') { include '**/defaults/**/*.java' },
+    fileTree('neoforge/src/main/java') { include '**/defaults/**/*.java' }
+]
+
+def groupLangOutputFile = file(
+    'common/src/main/resources/assets/collapsible_groups/group_lang/en_us.json'
+)
+
+tasks.register('generateGroupLang') {
+    description = 'Generate built-in group lang entries from default group provider sources'
+    group = 'datagen'
+
+    inputs.files(groupLangSourceTrees)
+    outputs.file(groupLangOutputFile)
+
+    doLast {
+        def sourceFiles = groupLangSourceTrees
+            .collectMany { it.files }
+            .findAll { it.name.endsWith('.java') }
+            .sort { a, b -> a.absolutePath.replace('\\', '/') <=> b.absolutePath.replace('\\', '/') }
+
+        def pattern = ~/group\(\s*"([^"]+)"\s*,\s*"([^"]+)"/
+        def entries = [:]
+
+        sourceFiles.each { sourceFile ->
+            def content = sourceFile.getText('UTF-8')
+            def matcher = pattern.matcher(content)
+            while (matcher.find()) {
+                def groupId = matcher.group(1)
+                def fallbackName = matcher.group(2)
+                def translationKey = "collapsible_groups.group.${groupId}"
+                def previous = entries.putIfAbsent(translationKey, fallbackName)
+                if (previous != null && previous != fallbackName) {
+                    throw new GradleException(
+                        "Conflicting fallback names for ${translationKey}: '${previous}' vs '${fallbackName}' in ${sourceFile}"
+                    )
+                }
+            }
+
+        }
+
+        if (entries.isEmpty()) {
+            throw new GradleException(
+                'No built-in group entries found. Check the default provider source scan paths and group(...) call pattern.'
+            )
+        }
+
+        def sortedEntries = new TreeMap<String, String>(entries)
+        groupLangOutputFile.parentFile.mkdirs()
+        groupLangOutputFile.setText(
+            JsonOutput.prettyPrint(JsonOutput.toJson(sortedEntries)),
+            'UTF-8'
+        )
+
+        logger.lifecycle(
+            "Generated ${project.relativePath(groupLangOutputFile)} with ${sortedEntries.size()} entries"
+        )
+    }
+}
