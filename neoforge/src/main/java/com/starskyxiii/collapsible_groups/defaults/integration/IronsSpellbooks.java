@@ -163,6 +163,16 @@ public final class IronsSpellbooks implements DefaultGroupProvider {
 		);
 	}
 
+	/**
+	 * Convenience factory for a single-spell scroll group.
+	 *
+	 * <p><strong>Lang-gen contract:</strong> {@code groupId} and {@code fallbackName} must be
+	 * passed as string literals at every call site. The {@code generateGroupLang} Gradle task
+	 * scans source files for calls whose first string literal starts with {@code __default_} —
+	 * it uses that prefix to distinguish group-defining calls from nested helpers
+	 * (e.g. {@code component()}, {@code item()}).  If either argument is a variable rather
+	 * than a literal, that entry will be silently omitted from {@code en_us.json}.
+	 */
 	private static GroupDefinition scroll(String groupId, String fallbackName, String spellId) {
 		return group(
 			groupId,

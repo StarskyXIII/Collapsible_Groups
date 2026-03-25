@@ -31,7 +31,13 @@ tasks.register('generateGroupLang') {
             .findAll { it.name.endsWith('.java') }
             .sort { a, b -> a.absolutePath.replace('\\', '/') <=> b.absolutePath.replace('\\', '/') }
 
-        def pattern = ~/group\(\s*"([^"]+)"\s*,\s*"([^"]+)"/
+        // Matches any method call whose first string literal argument starts with "__default_".
+        // Convention: every method inside a DefaultGroupProvider that wraps group()
+        // MUST pass groupId (which always starts with "__default_") as the first string
+        // literal and fallbackName as the second string literal.
+        // Using the "__default_" prefix as a discriminator avoids false matches on nested
+        // helper calls (e.g. component(), item()) whose first argument is a registry key.
+        def pattern = ~/\w+\(\s*"(__default_[^"]+)"\s*,\s*"([^"]+)"/
         def entries = [:]
 
         sourceFiles.each { sourceFile ->
