@@ -16,7 +16,7 @@ import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.elements.IngredientElement;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -222,10 +222,10 @@ public abstract class MixinIngredientFilter {
 	private static List<ITypedIngredient<?>> cg$resolveIconIds(List<String> iconIds) {
 		List<ITypedIngredient<?>> result = new ArrayList<>(iconIds.size());
 		for (String iconId : iconIds) {
-			ResourceLocation loc = ResourceLocation.tryParse(iconId);
+			Identifier loc = Identifier.tryParse(iconId);
 			if (loc == null) continue;
-			Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(loc);
-			if (item == net.minecraft.world.item.Items.AIR) continue;
+			Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(loc).map(ref -> ref.value()).orElse(null);
+			if (item == null || item == net.minecraft.world.item.Items.AIR) continue;
 			ItemStack stack = new ItemStack(item);
 			result.add(TypedIngredient.createUnvalidated(mezz.jei.api.constants.VanillaTypes.ITEM_STACK, stack));
 		}

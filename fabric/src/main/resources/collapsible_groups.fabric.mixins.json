@@ -4,10 +4,11 @@
   "package": "com.starskyxiii.collapsible_groups.mixin",
   "plugin": "com.starskyxiii.collapsible_groups.mixin.CollapsibleGroupsMixinPlugin",
   "refmap": "${mod_id}.refmap.json",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_25",
   "mixins": [],
   "client": [
     "MixinIngredientFilter",
+    "MixinIngredientListRenderer",
     "MixinIngredientListOverlay",
     "MixinGuiTextFieldFilterAccessor",
     "MixinIconButtonAccessor"

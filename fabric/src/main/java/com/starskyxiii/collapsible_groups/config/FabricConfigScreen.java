@@ -5,7 +5,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
@@ -253,15 +253,15 @@ public class FabricConfigScreen extends Screen {
 	// ── Rendering ────────────────────────────────────────────────────────────
 
 	@Override
-	public void render(GuiGraphics g, int mx, int my, float pt) {
-		this.renderBackground(g, mx, my, pt);
+	public void extractRenderState(GuiGraphicsExtractor g, int mx, int my, float pt) {
+		this.extractTransparentBackground(g);
 
 		int cx = this.width / 2;
 		int vpTop = viewportTop();
 		int vpBot = viewportBottom();
 
 		// Title (fixed, above viewport)
-		g.drawCenteredString(this.font, this.title, cx, 8, 0xFFFFFF);
+		g.centeredText(this.font, this.title, cx, 8, 0xFFFFFFFF);
 
 		// Update toggle button screen positions before rendering
 		updateTogglePositions();
@@ -273,20 +273,20 @@ public class FabricConfigScreen extends Screen {
 		for (int i = 0; i < sectionContentY.size(); i++) {
 			int screenY = vpTop + sectionContentY.get(i) - scrollOffset;
 			if (screenY + SEC_H > vpTop && screenY < vpBot) {
-				g.drawCenteredString(this.font, sectionLabel.get(i), cx, screenY, 0xFFFFFF);
+				g.centeredText(this.font, sectionLabel.get(i), cx, screenY, 0xFFFFFFFF);
 			}
 		}
 
 		// Toggle buttons only (visible ones will render inside scissor)
 		for (Button btn : toggleButtons) {
-			btn.render(g, mx, my, pt);
+			btn.extractRenderState(g, mx, my, pt);
 		}
 
 		g.disableScissor();
 
 		// ── Footer buttons (outside scissor) ──
-		saveButton.render(g, mx, my, pt);
-		cancelButton.render(g, mx, my, pt);
+		saveButton.extractRenderState(g, mx, my, pt);
+		cancelButton.extractRenderState(g, mx, my, pt);
 
 		// ── Scrollbar ──
 		if (contentHeight > viewportHeight()) {

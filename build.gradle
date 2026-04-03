@@ -2,15 +2,15 @@ import groovy.json.JsonOutput
 
 plugins {
     // see https://fabricmc.net/develop/ for new versions
-    id 'fabric-loom' version '1.8-SNAPSHOT' apply false
+    id 'fabric-loom' version '1.15.5' apply false
+    id 'net.fabricmc.fabric-loom-companion' version '1.15.5'
     // see https://projects.neoforged.net/neoforged/moddevgradle for new versions
-    id 'net.neoforged.moddev' version '2.0.140' apply false
+    id 'net.neoforged.moddev' version '2.0.141' apply false
 }
 
 def groupLangSourceTrees = [
     fileTree('common/src/main/java') { include '**/defaults/**/*.java' },
     fileTree('fabric/src/main/java') { include '**/defaults/**/*.java' },
-    fileTree('forge/src/main/java') { include '**/defaults/**/*.java' },
     fileTree('neoforge/src/main/java') { include '**/defaults/**/*.java' }
 ]
 

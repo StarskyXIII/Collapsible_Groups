@@ -6,7 +6,7 @@ import com.google.gson.JsonPrimitive;
 import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
 
@@ -14,7 +14,7 @@ public final class ItemStackIngredientView implements IngredientView {
 	private static final String STACK_PREFIX = "stack:";
 
 	private final ItemStack stack;
-	private final ResourceLocation itemId;
+	private final Identifier itemId;
 
 	public ItemStackIngredientView(ItemStack stack) {
 		this.stack = stack;
@@ -27,12 +27,12 @@ public final class ItemStackIngredientView implements IngredientView {
 	}
 
 	@Override
-	public ResourceLocation resourceLocation() {
+	public Identifier resourceLocation() {
 		return itemId;
 	}
 
 	@Override
-	public boolean hasTag(ResourceLocation tagId) {
+	public boolean hasTag(Identifier tagId) {
 		return stack.is(TagKey.create(Registries.ITEM, tagId));
 	}
 
@@ -45,18 +45,18 @@ public final class ItemStackIngredientView implements IngredientView {
 
 	@Override
 	public boolean hasComponent(String componentTypeId, String encodedValue) {
-		ResourceLocation typeId = ResourceLocation.tryParse(componentTypeId);
+		Identifier typeId = Identifier.tryParse(componentTypeId);
 		if (typeId == null) return false;
-		DataComponentType<?> type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(typeId);
+		DataComponentType<?> type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(typeId).map(ref -> ref.value()).orElse(null);
 		if (type == null || type.codec() == null) return false;
 		return matchesComponentValue(type, encodedValue);
 	}
 
 	@Override
 	public boolean hasComponentPath(String componentTypeId, String path, String expectedValue) {
-		ResourceLocation typeId = ResourceLocation.tryParse(componentTypeId);
+		Identifier typeId = Identifier.tryParse(componentTypeId);
 		if (typeId == null) return false;
-		DataComponentType<?> type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(typeId);
+		DataComponentType<?> type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(typeId).map(ref -> ref.value()).orElse(null);
 		if (type == null || type.codec() == null) return false;
 		return matchesComponentPath(type, path, expectedValue);
 	}

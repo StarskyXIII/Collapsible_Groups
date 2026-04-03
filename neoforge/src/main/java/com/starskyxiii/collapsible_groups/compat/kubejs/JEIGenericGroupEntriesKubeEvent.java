@@ -9,7 +9,7 @@ import dev.latvian.mods.rhino.Wrapper;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -34,7 +34,7 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 	}
 
 	@Override
-	public void group(Context cx, Object filter, ResourceLocation groupId, Component description) {
+	public void group(Context cx, Object filter, Identifier groupId, Component description) {
 		String id = "__kjs_" + typeId.replace(':', '_').replace('/', '_') + "_"
 			+ groupId.toString().replace(':', '_').replace('/', '_');
 		String name = description.getString();
@@ -59,7 +59,7 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 			if (!predicate.test(ingredient)) {
 				continue;
 			}
-			ResourceLocation loc = helper.getResourceLocation(ingredient);
+			Identifier loc = helper.getIdentifier(ingredient);
 			if (loc != null) {
 				nodes.add(KubeJsFilterLowering.lowerResolvedGenericIngredient(typeId, loc));
 			}
@@ -96,17 +96,17 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 		if (str.startsWith("@")) {
 			String namespace = str.substring(1);
 			return ingredient -> {
-				ResourceLocation loc = helper.getResourceLocation(ingredient);
+				Identifier loc = helper.getIdentifier(ingredient);
 				return loc != null && namespace.equals(loc.getNamespace());
 			};
 		}
 		if (str.startsWith("#")) {
-			ResourceLocation tagId = ResourceLocation.parse(str.substring(1));
+			Identifier tagId = Identifier.parse(str.substring(1));
 			return ingredient -> helper.getTagStream(ingredient).anyMatch(tagId::equals);
 		}
-		ResourceLocation exactId = ResourceLocation.tryParse(str);
+		Identifier exactId = Identifier.tryParse(str);
 		if (exactId == null) return ingredient -> false;
-		return ingredient -> exactId.equals(helper.getResourceLocation(ingredient));
+		return ingredient -> exactId.equals(helper.getIdentifier(ingredient));
 	}
 
 	private static Object unwrap(Object filter) {

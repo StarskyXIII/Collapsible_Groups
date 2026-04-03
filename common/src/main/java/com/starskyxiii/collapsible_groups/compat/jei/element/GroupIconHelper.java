@@ -3,7 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.element;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.subtypes.UidContext;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Locale;
@@ -26,19 +26,13 @@ public final class GroupIconHelper implements IIngredientHelper<GroupIcon> {
 	}
 
 	@Override
-	@SuppressWarnings("deprecation")
-	public String getUniqueId(GroupIcon ingredient, UidContext context) {
-		return "collapsible_groups:" + ingredient.groupId();
-	}
-
-	@Override
 	public Object getUid(GroupIcon ingredient, UidContext context) {
 		return ingredient.groupId();
 	}
 
 	@Override
-	public ResourceLocation getResourceLocation(GroupIcon ingredient) {
-		return ResourceLocation.fromNamespaceAndPath("collapsible_groups", sanitizePath(ingredient.groupId()));
+	public Identifier getIdentifier(GroupIcon ingredient) {
+		return Identifier.fromNamespaceAndPath("collapsible_groups", sanitizePath(ingredient.groupId()));
 	}
 
 	@Override

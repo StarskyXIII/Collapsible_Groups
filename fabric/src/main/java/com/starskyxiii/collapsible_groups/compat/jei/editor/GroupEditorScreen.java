@@ -12,10 +12,11 @@ import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterClauseFormatter;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
@@ -27,12 +28,12 @@ import java.util.List;
  * Item-only variant with the shared tabbed editor chrome.
  */
 public class GroupEditorScreen extends Screen {
-	private static final int DEFAULT_TEXT_COLOR = 0xFFFFFF;
-	private static final int ERROR_TEXT_COLOR   = 0xFF4444;
+	private static final int DEFAULT_TEXT_COLOR = 0xFFFFFFFF;
+	private static final int ERROR_TEXT_COLOR   = 0xFFFF4444;
 	private static final int HINT_TEXT_COLOR    = 0xFF7A7A7A;
-	private static final int RULE_LABEL_COLOR   = 0x86AFC3;
-	private static final int RULE_TEXT_COLOR    = 0xD8E7EF;
-	private static final int HEADER_TEXT_COLOR  = 0x8CA6B7;
+	private static final int RULE_LABEL_COLOR   = 0xFF86AFC3;
+	private static final int RULE_TEXT_COLOR    = 0xFFD8E7EF;
+	private static final int HEADER_TEXT_COLOR  = 0xFF8CA6B7;
 	private static final int TAB_HEIGHT         = 18;
 	private static final int CHIP_HEIGHT        = 18;
 	private static final int SEARCH_HEIGHT      = 18;
@@ -121,8 +122,8 @@ public class GroupEditorScreen extends Screen {
 		}
 
 		@Override
-		public void renderWidget(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
-			super.renderWidget(g, mouseX, mouseY, partialTicks);
+		public void extractWidgetRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
+			super.extractWidgetRenderState(g, mouseX, mouseY, partialTicks);
 			if (overlayHint == null || isFocused() || !getValue().isEmpty()) return;
 			int x = getX() + 4;
 			int y = EditorChrome.centeredTextY(font, getY(), getHeight());
@@ -130,10 +131,10 @@ public class GroupEditorScreen extends Screen {
 			String text = font.plainSubstrByWidth(overlayHint.getString(), maxWidth);
 			int color = (currentTextColor & 0xFFFFFF) == (ERROR_TEXT_COLOR & 0xFFFFFF)
 				? ERROR_TEXT_COLOR : HINT_TEXT_COLOR;
-			g.pose().pushPose();
-			g.pose().translate(0, 0, 1);
-			g.drawString(font, text, x, y, color, false);
-			g.pose().popPose();
+			g.pose().pushMatrix();
+			g.nextStratum();
+			g.text(font, text, x, y, color, false);
+			g.pose().popMatrix();
 		}
 	}
 
@@ -209,6 +210,11 @@ public class GroupEditorScreen extends Screen {
 		return false;
 	}
 
+	@Override
+	public boolean isInGameUi() {
+		return true;
+	}
+
 	private void saveAndClose() {
 		GroupDefinition saved = state.trySave().orElse(null);
 		if (saved == null) {
@@ -224,8 +230,8 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
-		renderBackground(g, mouseX, mouseY, partialTicks);
+	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
+		extractBackground(g, mouseX, mouseY, partialTicks);
 
 		int headerH  = EditorLayout.HEADER_HEIGHT;
 		int footerY  = this.height - EditorLayout.FOOTER_HEIGHT;
@@ -281,38 +287,38 @@ public class GroupEditorScreen extends Screen {
 			Component.translatable(ModTranslationKeys.EDITOR_CHIP_HIDE_USED).getString(),
 			leftPanel.isHideUsed(), hideUsedChipRect().contains(mouseX, mouseY));
 
-		g.drawString(font, leftPanel.currentPanelHeader(),
+		g.text(font, leftPanel.currentPanelHeader(),
 			layout.leftGridX(), panelHeaderY(), HEADER_TEXT_COLOR, false);
 
 		if (activeGroupTab == GroupTab.CONTENTS) {
-			g.drawString(font,
+			g.text(font,
 				Component.translatable(ModTranslationKeys.EDITOR_PANEL_CONTENTS_HEADER, rightPanel.groupSummary()).getString(),
 				layout.rightGridX(), panelHeaderY(), HEADER_TEXT_COLOR, false);
 		} else {
-			g.drawString(font,
+			g.text(font,
 				Component.translatable(ModTranslationKeys.EDITOR_PANEL_RULES_HEADER).getString(),
 				layout.rightGridX(), panelHeaderY(), HEADER_TEXT_COLOR, false);
 		}
 
-		g.drawString(font, leftPanel.countLabel(), 6, footerTextY, 0x8899AABB, false);
+		g.text(font, leftPanel.countLabel(), 6, footerTextY, 0x8899AABB, false);
 		String footerRightText = activeGroupTab == GroupTab.CONTENTS
 			? rightPanel.groupSummary()
 			: state.filterEditStatusLabel();
-		g.drawString(font, footerRightText, divX + 6, footerTextY, 0x8899AABB, false);
+		g.text(font, footerRightText, divX + 6, footerTextY, 0x8899AABB, false);
 
 		for (var child : this.children()) {
 			if (child instanceof net.minecraft.client.gui.components.Renderable r) {
-				r.render(g, mouseX, mouseY, partialTicks);
+				r.extractRenderState(g, mouseX, mouseY, partialTicks);
 			}
 		}
 
 		GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font);
 		if (btnSave != null && !btnSave.active && isMouseOverWidget(btnSave, mouseX, mouseY)) {
-			g.renderComponentTooltip(font, state.saveBlockedTooltip(), mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, state.saveBlockedTooltip(), mouseX, mouseY);
 		}
 	}
 
-	private void drawBrowserTabs(GuiGraphics g, int mouseX, int mouseY) {
+	private void drawBrowserTabs(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		for (BrowserTab tab : BrowserTab.values()) {
 			EditorChrome.Rect rect = browserTabRect(tab);
 			EditorChrome.drawTab(g, font, rect, tab.label(),
@@ -320,7 +326,7 @@ public class GroupEditorScreen extends Screen {
 		}
 	}
 
-	private void drawGroupTabs(GuiGraphics g, int mouseX, int mouseY) {
+	private void drawGroupTabs(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		for (GroupTab tab : GroupTab.values()) {
 			EditorChrome.Rect rect = groupTabRect(tab);
 			EditorChrome.drawTab(g, font, rect, tab.label(),
@@ -328,7 +334,7 @@ public class GroupEditorScreen extends Screen {
 		}
 	}
 
-	private void renderRulesPanel(GuiGraphics g, RulesContent rulesContent) {
+	private void renderRulesPanel(GuiGraphicsExtractor g, RulesContent rulesContent) {
 		EditorChrome.Rect viewport = rulesViewportRect();
 		int x = viewport.x() + RULE_TEXT_PADDING;
 		int y = viewport.y() + RULE_TEXT_PADDING - rulesScrollOffset;
@@ -336,12 +342,12 @@ public class GroupEditorScreen extends Screen {
 		g.enableScissor(viewport.x(), viewport.y(), viewport.right(), viewport.bottom());
 		try {
 			for (RuleSection section : rulesContent.sections()) {
-				g.drawString(font, section.title(), x, y, RULE_LABEL_COLOR, false);
+				g.text(font, section.title(), x, y, RULE_LABEL_COLOR, false);
 				y += font.lineHeight + 2;
 				for (RuleLine line : section.lines()) {
 					int lineX = x + line.depth() * RULE_CLAUSE_INDENT;
 					for (FormattedCharSequence wrappedLine : line.wrappedLines()) {
-						g.drawString(font, wrappedLine, lineX, y, line.color(), false);
+						g.text(font, wrappedLine, lineX, y, line.color(), false);
 						y += font.lineHeight;
 					}
 				}
@@ -403,7 +409,7 @@ public class GroupEditorScreen extends Screen {
 			: clause.label() + ": " + value;
 	}
 
-	private void drawPanelBorder(GuiGraphics g, int x1, int y1, int x2, int y2, int color,
+	private void drawPanelBorder(GuiGraphicsExtractor g, int x1, int y1, int x2, int y2, int color,
 	                             boolean drawLeftEdge, boolean drawRightEdge) {
 		g.fill(x1, y1, x2, y1 + 1, color);
 		g.fill(x1, y2 - 1, x2, y2, color);
@@ -412,10 +418,13 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (nameField != null && !nameField.isMouseOver(mouseX, mouseY)) nameField.setFocused(false);
 		if (searchField != null && !searchField.isMouseOver(mouseX, mouseY)) searchField.setFocused(false);
-		if (super.mouseClicked(mouseX, mouseY, button)) return true;
+		if (super.mouseClicked(event, doubleClick)) return true;
 		if (handleChromeClick(mouseX, mouseY, button)) return true;
 		if (leftPanel.mouseClicked(mouseX, mouseY, button, layout)) return true;
 		if (activeGroupTab == GroupTab.RULES && handleRulesClick(mouseX, mouseY, button)) return true;
@@ -425,20 +434,24 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-		if (button != 0) return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+	public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
+		if (button != 0) return super.mouseDragged(event, deltaX, deltaY);
 		if (leftPanel.mouseDragged(mouseX, mouseY, button, layout)) return true;
 		if (activeGroupTab == GroupTab.RULES && handleRulesDrag(mouseY)) return true;
 		if (activeGroupTab == GroupTab.CONTENTS && rightPanel.mouseDragged(mouseX, mouseY, button, layout)) return true;
-		return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+		return super.mouseDragged(event, deltaX, deltaY);
 	}
 
 	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+	public boolean mouseReleased(MouseButtonEvent event) {
+		int button = event.button();
 		leftPanel.mouseReleased(button);
 		rightPanel.mouseReleased(button);
 		isDraggingRulesScrollbar = false;
-		return super.mouseReleased(mouseX, mouseY, button);
+		return super.mouseReleased(event);
 	}
 
 	@Override

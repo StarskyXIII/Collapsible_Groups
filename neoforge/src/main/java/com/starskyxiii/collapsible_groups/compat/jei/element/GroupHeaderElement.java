@@ -18,6 +18,7 @@ import mezz.jei.gui.overlay.IngredientGridTooltipHelper;
 import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.util.FocusUtil;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -30,7 +31,7 @@ import java.util.Optional;
  * control over rendering via {@link GroupIconRenderer}. This eliminates
  * the need for separate Item/Fluid/Generic/Mixed header element subclasses.
  */
-public final class GroupHeaderElement implements IElement<GroupIcon> {
+public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderIngredientGridElement {
 
 	private final ITypedIngredient<GroupIcon> typedIcon;
 	private final Component countLabel;
@@ -69,6 +70,13 @@ public final class GroupHeaderElement implements IElement<GroupIcon> {
 	}
 
 	@Override
+	public void drawPreRender(GuiGraphicsExtractor guiGraphics, int xOffset, int yOffset) {
+		boolean expanded = GroupRegistry.isExpandedById(icon().groupId());
+		int background = expanded ? GroupExpandOverlay.EXPANDED_BACKGROUND : GroupExpandOverlay.COLLAPSED_BACKGROUND;
+		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17, background);
+	}
+
+	@Override
 	public void show(IRecipesGui recipesGui, FocusUtil focusUtil, List<RecipeIngredientRole> roles) {
 		// Group placeholder ??recipe lookup intentionally disabled.
 	}
@@ -92,7 +100,9 @@ public final class GroupHeaderElement implements IElement<GroupIcon> {
 
 	@Override
 	public boolean handleClick(UserInput input, IInternalKeyMappings keyBindings) {
-		if (!input.is(keyBindings.getLeftClick())) return false;
+		boolean leftClick = input.is(keyBindings.getLeftClick())
+			|| input.ifMouseEvent((event, doubleClick) -> event.button() == 0);
+		if (!leftClick) return false;
 		if (!input.isSimulate()) {
 			GroupRegistry.toggleById(icon().groupId());
 			onToggle.run();

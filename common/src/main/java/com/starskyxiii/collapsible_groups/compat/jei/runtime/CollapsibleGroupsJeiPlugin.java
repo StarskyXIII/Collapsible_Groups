@@ -1,6 +1,5 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
-import com.mojang.serialization.Codec;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIconHelper;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIconRenderer;
@@ -8,7 +7,7 @@ import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.registration.IModIngredientRegistration;
 import mezz.jei.api.runtime.IJeiRuntime;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.Collections;
 
@@ -25,8 +24,8 @@ import java.util.Collections;
 public class CollapsibleGroupsJeiPlugin implements IModPlugin {
 
 	@Override
-	public ResourceLocation getPluginUid() {
-		return ResourceLocation.fromNamespaceAndPath("collapsible_groups", "jei_plugin");
+	public Identifier getPluginUid() {
+		return Identifier.fromNamespaceAndPath("collapsible_groups", "jei_plugin");
 	}
 
 	@Override
@@ -36,7 +35,7 @@ public class CollapsibleGroupsJeiPlugin implements IModPlugin {
 			Collections.emptyList(),
 			new GroupIconHelper(),
 			new GroupIconRenderer(),
-			Codec.unit(() -> new GroupIcon("", "", "", Collections.emptyList()))
+			GroupIcon.CODEC
 		);
 	}
 

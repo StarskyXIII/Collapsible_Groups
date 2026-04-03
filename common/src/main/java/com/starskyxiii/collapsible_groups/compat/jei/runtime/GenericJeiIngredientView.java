@@ -4,7 +4,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
 import com.starskyxiii.collapsible_groups.core.IngredientView;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.subtypes.UidContext;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 /**
  * Wraps an arbitrary JEI ingredient type as an {@link IngredientView} for filter matching.
@@ -27,8 +27,8 @@ public final class GenericJeiIngredientView<T> implements IngredientView {
 	}
 
 	@Override
-	public ResourceLocation resourceLocation() {
-		ResourceLocation resourceLocation = helper.getResourceLocation(ingredient);
+	public Identifier resourceLocation() {
+		Identifier resourceLocation = helper.getIdentifier(ingredient);
 		if (resourceLocation != null) {
 			return resourceLocation;
 		}
@@ -37,14 +37,14 @@ public final class GenericJeiIngredientView<T> implements IngredientView {
 			if (uid == null) {
 				return null;
 			}
-			return ResourceLocation.tryParse(uid.toString());
+			return Identifier.tryParse(uid.toString());
 		} catch (RuntimeException ignored) {
 			return null;
 		}
 	}
 
 	@Override
-	public boolean hasTag(ResourceLocation tagId) {
+	public boolean hasTag(Identifier tagId) {
 		return helper.getTagStream(ingredient).anyMatch(tagId::equals);
 	}
 

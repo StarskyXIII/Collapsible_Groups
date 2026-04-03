@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /** Static utility for scrollbar rendering and drag/click math used by the group editor screens. */
 public final class ScrollbarHelper {
@@ -11,7 +11,7 @@ public final class ScrollbarHelper {
 	private ScrollbarHelper() {}
 
 	/** Renders a vertical scrollbar track + thumb. */
-	public static void render(GuiGraphics guiGraphics, int x, int y, int height, int visibleRows, int totalRows, int scrollRow) {
+	public static void render(GuiGraphicsExtractor guiGraphics, int x, int y, int height, int visibleRows, int totalRows, int scrollRow) {
 		// Match the group manager scrollbar so the editor does not show a bright left highlight.
 		guiGraphics.fill(x, y, x + WIDTH, y + height, 0x18667799);
 		if (totalRows <= visibleRows || totalRows <= 0) {
@@ -50,7 +50,7 @@ public final class ScrollbarHelper {
 	}
 
 	/** Renders a vertical scrollbar for pixel-based scrolling surfaces. */
-	public static void renderPixels(GuiGraphics guiGraphics, int x, int y, int height,
+	public static void renderPixels(GuiGraphicsExtractor guiGraphics, int x, int y, int height,
 	                                int visibleHeight, int contentHeight, int scrollOffset) {
 		guiGraphics.fill(x, y, x + WIDTH, y + height, 0x18667799);
 		if (contentHeight <= visibleHeight || contentHeight <= 0) {

@@ -11,7 +11,7 @@ import mezz.jei.gui.input.handlers.CombinedInputHandler;
 import mezz.jei.gui.input.handlers.ProxyInputHandler;
 import mezz.jei.gui.overlay.IngredientListOverlay;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
@@ -71,7 +71,7 @@ public abstract class MixinIngredientListOverlay {
 	}
 
 	@Inject(method = "drawScreen", at = @At("TAIL"))
-	private void cg$drawScreen(Minecraft minecraft, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+	private void cg$drawScreen(Minecraft minecraft, GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
 		GroupBorderRenderer.renderAndClear(guiGraphics);
 		if (cg$shouldShowGroupsButton()) {
 			this.cg$groupsButton.draw(guiGraphics, mouseX, mouseY, partialTicks);
@@ -79,7 +79,7 @@ public abstract class MixinIngredientListOverlay {
 	}
 
 	@Inject(method = "drawTooltips", at = @At("TAIL"))
-	private void cg$drawTooltips(Minecraft minecraft, GuiGraphics guiGraphics, int mouseX, int mouseY, CallbackInfo ci) {
+	private void cg$drawTooltips(Minecraft minecraft, GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, CallbackInfo ci) {
 		if (cg$shouldShowGroupsButton()) {
 			this.cg$groupsButton.drawTooltips(guiGraphics, mouseX, mouseY);
 		}

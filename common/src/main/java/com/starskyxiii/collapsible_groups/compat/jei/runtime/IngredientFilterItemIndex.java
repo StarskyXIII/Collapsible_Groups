@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import mezz.jei.api.ingredients.ITypedIngredient;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -22,15 +22,15 @@ public final class IngredientFilterItemIndex {
 	public record ItemEntry(ITypedIngredient<?> typed, ItemStack stack, int ordinal) {}
 
 	private final List<ItemEntry> orderedEntries;
-	private final Map<ResourceLocation, List<ItemEntry>> byId;
+	private final Map<Identifier, List<ItemEntry>> byId;
 	private final Map<String, List<ItemEntry>> byNamespace;
-	private final Map<ResourceLocation, List<ItemEntry>> byTag;
+	private final Map<Identifier, List<ItemEntry>> byTag;
 
 	private IngredientFilterItemIndex(
 		List<ItemEntry> orderedEntries,
-		Map<ResourceLocation, List<ItemEntry>> byId,
+		Map<Identifier, List<ItemEntry>> byId,
 		Map<String, List<ItemEntry>> byNamespace,
-		Map<ResourceLocation, List<ItemEntry>> byTag
+		Map<Identifier, List<ItemEntry>> byTag
 	) {
 		this.orderedEntries = orderedEntries;
 		this.byId = byId;
@@ -39,9 +39,9 @@ public final class IngredientFilterItemIndex {
 	}
 
 	public static IngredientFilterItemIndex build(List<ITypedIngredient<?>> all) {
-		Map<ResourceLocation, List<ItemEntry>> byId = new HashMap<>();
+		Map<Identifier, List<ItemEntry>> byId = new HashMap<>();
 		Map<String, List<ItemEntry>> byNamespace = new HashMap<>();
-		Map<ResourceLocation, List<ItemEntry>> byTag = new HashMap<>();
+		Map<Identifier, List<ItemEntry>> byTag = new HashMap<>();
 		List<ItemEntry> orderedEntries = new ArrayList<>();
 
 		for (ITypedIngredient<?> ingredient : all) {
@@ -49,7 +49,7 @@ public final class IngredientFilterItemIndex {
 				ItemEntry entry = new ItemEntry(ingredient, stack, orderedEntries.size());
 				orderedEntries.add(entry);
 
-				ResourceLocation id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
+				Identifier id = net.minecraft.core.registries.BuiltInRegistries.ITEM.getKey(stack.getItem());
 				if (id != null) {
 					byId.computeIfAbsent(id, k -> new ArrayList<>()).add(entry);
 					byNamespace.computeIfAbsent(id.getNamespace(), k -> new ArrayList<>()).add(entry);
@@ -73,7 +73,7 @@ public final class IngredientFilterItemIndex {
 		return orderedEntries;
 	}
 
-	public List<ItemEntry> byId(ResourceLocation id) {
+	public List<ItemEntry> byId(Identifier id) {
 		return byId.getOrDefault(id, List.of());
 	}
 
@@ -81,7 +81,7 @@ public final class IngredientFilterItemIndex {
 		return byNamespace.getOrDefault(namespace, List.of());
 	}
 
-	public List<ItemEntry> byTag(ResourceLocation tagId) {
+	public List<ItemEntry> byTag(Identifier tagId) {
 		return byTag.getOrDefault(tagId, List.of());
 	}
 

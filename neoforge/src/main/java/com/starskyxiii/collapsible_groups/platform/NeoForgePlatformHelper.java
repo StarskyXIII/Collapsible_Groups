@@ -6,10 +6,9 @@ import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.neoforge.NeoForgeTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import net.neoforged.fml.ModList;
-import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
 import net.neoforged.neoforge.fluids.FluidStack;
 
@@ -37,7 +36,9 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
     @Override
     public boolean isDevelopmentEnvironment() {
 
-        return !FMLLoader.isProduction();
+        // FMLLoader.isProduction() is no longer static in NeoForge 26.1.1+
+        // TODO: update when the new FMLLoader API is confirmed
+        return false;
     }
 
     @Override
@@ -48,13 +49,13 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
     @Override
     public boolean fluidMatchesTag(Object fluidStack, String tagId) {
         return ((FluidStack) fluidStack).is(
-            TagKey.create(Registries.FLUID, ResourceLocation.parse(tagId)));
+            TagKey.create(Registries.FLUID, Identifier.parse(tagId)));
     }
 
     @Override
     public IngredientView createFluidView(Object fluidStack) {
         FluidStack fs = (FluidStack) fluidStack;
-        ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(fs.getFluid());
+        Identifier fluidId = BuiltInRegistries.FLUID.getKey(fs.getFluid());
         return new IngredientView() {
             @Override
             public String ingredientType() {
@@ -62,12 +63,12 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
             }
 
             @Override
-            public ResourceLocation resourceLocation() {
+            public Identifier resourceLocation() {
                 return fluidId;
             }
 
             @Override
-            public boolean hasTag(ResourceLocation tagId) {
+            public boolean hasTag(Identifier tagId) {
                 return fs.is(TagKey.create(Registries.FLUID, tagId));
             }
 

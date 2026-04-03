@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.element;
 
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import mezz.jei.api.gui.drawable.IDrawable;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 /**
  * Overlay drawn on group header elements in the JEI ingredient grid.
@@ -13,6 +13,10 @@ import net.minecraft.client.gui.GuiGraphics;
  * background tint to distinguish the group header from regular slots.
  */
 public final class GroupExpandOverlay implements IDrawable {
+	static final int EXPANDED_BACKGROUND = 0x18FFFFFF;
+	static final int COLLAPSED_BACKGROUND = 0x26FFFFFF;
+	private static final int EXPANDED_EDGE = 0x66FFFFFF;
+	private static final int COLLAPSED_EDGE = 0x99FFFFFF;
 	private final String groupId;
 
 	public GroupExpandOverlay(String groupId) {
@@ -30,11 +34,9 @@ public final class GroupExpandOverlay implements IDrawable {
 	}
 
 	@Override
-	public void draw(GuiGraphics guiGraphics, int xOffset, int yOffset) {
-		boolean expanded = GroupRegistry.isExpandedById(groupId);
-
-		// Semi-transparent background tint
-		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17,
-			expanded ? 0x34FFFFFF : 0x53FFFFFF);
+	public void draw(GuiGraphicsExtractor guiGraphics, int xOffset, int yOffset) {
+		if (!GroupRegistry.isExpandedById(groupId)) {
+			return;
+		}
 	}
 }

@@ -25,8 +25,7 @@ public final class Generic implements DefaultGroupProvider {
 			group("__default_enchanted_books",   "Enchanted Books",   item("minecraft:enchanted_book")),
 			group("__default_paintings",         "Paintings",         item("minecraft:painting")),
 			group("__default_music_discs",       "Music Discs",       tag("c:music_discs")),
-			group("__default_pottery_sherds",    "Pottery Sherds",    tag("minecraft:decorated_pot_sherds")),
-			group("__default_trim_templates",    "Trim Templates",    tag("minecraft:trim_templates"))
+			group("__default_pottery_sherds",    "Pottery Sherds",    tag("minecraft:decorated_pot_sherds"))
 		);
 	}
 }

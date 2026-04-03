@@ -21,10 +21,11 @@ neoForge {
     if (at.exists()) {
         accessTransformers.from(at.absolutePath)
     }
-    parchment {
-        minecraftVersion = parchment_minecraft
-        mappingsVersion = parchment_version
-    }
+    // TODO: Re-enable parchment when available for MC 26.1
+    // parchment {
+    //     minecraftVersion = parchment_minecraft
+    //     mappingsVersion = parchment_version
+    // }
     runs {
         configureEach {
             systemProperty('neoforge.enabledGameTestNamespaces', mod_id)
@@ -54,10 +55,12 @@ neoForge {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
+// KubeJS integration deferred until a 26.1.1-compatible build is available
+sourceSets.main.java.exclude 'com/starskyxiii/collapsible_groups/compat/kubejs/**'
+
 dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    // Optional — provides RecipeViewerEvents.groupEntries support when KubeJS is present.
-    // Adjust kubejs_version in gradle.properties to match the installed KubeJS build.
-    compileOnly "dev.latvian.mods:kubejs-neoforge:${kubejs_version}"
+    // TODO: KubeJS integration deferred until KubeJS publishes a 26.1.1 build
+    // compileOnly "dev.latvian.mods:kubejs-neoforge:${kubejs_version}"
 }

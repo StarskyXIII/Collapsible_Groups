@@ -8,11 +8,11 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
-import com.starskyxiii.collapsible_groups.platform.Services;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -134,8 +134,10 @@ public class GroupManagerScreen extends Screen {
 	// Fields
 	// -----------------------------------------------------------------------
 
+	// KubeJS integration is currently deferred on MC 26.1.1, so keep its filter UI hidden.
+	private static final boolean KUBEJS_FILTER_ENABLED = false;
+
 	private final Screen previousScreen;
-	private final boolean kubeJsLoaded;
 	private final Map<String, Integer> previewScrollOffsets = new HashMap<>();
 	private List<AnyCard> allCards      = new ArrayList<>();
 	private List<AnyCard> filteredCards = new ArrayList<>();
@@ -168,7 +170,6 @@ public class GroupManagerScreen extends Screen {
 	public GroupManagerScreen(Screen previousScreen) {
 		super(Component.translatable(ModTranslationKeys.SCREEN_TITLE));
 		this.previousScreen = previousScreen;
-		this.kubeJsLoaded   = Services.PLATFORM.isModLoaded("kubejs");
 	}
 
 	@Override
@@ -259,8 +260,8 @@ public class GroupManagerScreen extends Screen {
 	// -----------------------------------------------------------------------
 
 	@Override
-	public void render(GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks) {
-		renderBackground(guiGraphics, mouseX, mouseY, partialTicks);
+	public void extractRenderState(GuiGraphicsExtractor guiGraphics, int mouseX, int mouseY, float partialTicks) {
+		extractBackground(guiGraphics, mouseX, mouseY, partialTicks);
 
 		hoveredCardIndex  = -1;
 		hoveredButtonType = -1;
@@ -296,8 +297,8 @@ public class GroupManagerScreen extends Screen {
 			Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_BUILTIN).getString(),
 			showBuiltin, builtinHover || builtinFilterHeld, 0xAA665533);
 
-		// KubeJS filter button ??only shown when KubeJS is installed
-		if (kubeJsLoaded) {
+		// KubeJS integration is deferred, so keep the filter button hidden for now.
+		if (KUBEJS_FILTER_ENABLED) {
 			boolean kubejsHover = isMouseOver(mouseX, mouseY, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H);
 			renderFilterButton(guiGraphics, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H,
 				Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_KUBEJS).getString(),
@@ -311,22 +312,22 @@ public class GroupManagerScreen extends Screen {
 			Component.translatable(ModTranslationKeys.MANAGER_BTN_NEW_GROUP).getString(), newHover || newGroupButtonHeld);
 
 		// Title and group count centered at top
-		guiGraphics.drawCenteredString(font, this.title, this.width / 2, 8, 0xFFFFFF);
+		guiGraphics.centeredText(font, this.title, this.width / 2, 8, 0xFFFFFFFF);
 		Component countText = filteredCards.size() == allCards.size()
 			? Component.translatable(ModTranslationKeys.MANAGER_COUNT_ALL, allCards.size())
 			: Component.translatable(ModTranslationKeys.MANAGER_COUNT_FILTERED, filteredCards.size(), allCards.size());
-		guiGraphics.drawCenteredString(font, countText, this.width / 2, 20, 0x8899AABB);
+		guiGraphics.centeredText(font, countText, this.width / 2, 20, 0x8899AABB);
 
 		// Footer info text
-		guiGraphics.drawString(font, Component.translatable(ModTranslationKeys.MANAGER_FOOTER_HINT),
+		guiGraphics.text(font, Component.translatable(ModTranslationKeys.MANAGER_FOOTER_HINT),
 			6, vpBottom + (FOOTER_HEIGHT - font.lineHeight) / 2 + 1, 0x8899AABB, false);
 
 		for (var renderable : this.renderables) {
-			renderable.render(guiGraphics, mouseX, mouseY, partialTicks);
+			renderable.extractRenderState(guiGraphics, mouseX, mouseY, partialTicks);
 		}
 	}
 
-	private void renderCard(GuiGraphics guiGraphics, int index, int mouseX, int mouseY) {
+	private void renderCard(GuiGraphicsExtractor guiGraphics, int index, int mouseX, int mouseY) {
 		AnyCard card = filteredCards.get(index);
 		int[] pos = cardPos(index);
 		int x = pos[0], y = pos[1];
@@ -373,8 +374,8 @@ public class GroupManagerScreen extends Screen {
 
 		// Title (scrolling marquee when hovered) and count
 		boolean cardHovered = isMouseOver(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
-		renderScrollingText(guiGraphics, card.displayName(), x + 4, y + 4, CARD_WIDTH - 8, 0xFFFFFF, cardHovered);
-		guiGraphics.drawString(font, countLabel(card), x + 4, y + 14, 0x7799AABB, false);
+		renderScrollingText(guiGraphics, card.displayName(), x + 4, y + 4, CARD_WIDTH - 8, 0xFFFFFFFF, cardHovered);
+		guiGraphics.text(font, countLabel(card), x + 4, y + 14, 0x7799AABB, false);
 
 		// Buttons (editable) or read-only badge
 		boolean inVp    = isInsideCardViewport(mouseX, mouseY);
@@ -420,11 +421,11 @@ public class GroupManagerScreen extends Screen {
 	// Preview rendering
 	// -----------------------------------------------------------------------
 
-	private void renderCardPreview(GuiGraphics guiGraphics, AnyCard card, int previewX, int previewY, int rowOffset) {
+	private void renderCardPreview(GuiGraphicsExtractor guiGraphics, AnyCard card, int previewX, int previewY, int rowOffset) {
 		renderPreviewEntries(guiGraphics, card.previewEntries(), previewX, previewY, rowOffset);
 	}
 
-	private void renderPreviewEntries(GuiGraphics guiGraphics, List<GroupPreviewEntry> entries,
+	private void renderPreviewEntries(GuiGraphicsExtractor guiGraphics, List<GroupPreviewEntry> entries,
 	                                  int previewX, int previewY, int rowOffset) {
 		int remaining  = entries.size() - (rowOffset + PREVIEW_ROWS) * PREVIEW_COLS;
 		int maxVisible = remaining > 0 ? PREVIEW_ROWS * PREVIEW_COLS - 1 : PREVIEW_ROWS * PREVIEW_COLS;
@@ -441,59 +442,59 @@ public class GroupManagerScreen extends Screen {
 	}
 
 	/** Renders a "+N" badge in the last preview slot when there are more entries than visible. */
-	private void renderOverflowBadge(GuiGraphics guiGraphics, int remaining, int previewX, int previewY) {
+	private void renderOverflowBadge(GuiGraphicsExtractor guiGraphics, int remaining, int previewX, int previewY) {
 		if (remaining <= 0) return;
 		int lastX  = previewX + (PREVIEW_COLS - 1) * ITEM_SIZE;
 		int lastY  = previewY + (PREVIEW_ROWS - 1) * ITEM_SIZE;
 		String more = "+" + (remaining + 1);
-		guiGraphics.pose().pushPose();
-		guiGraphics.pose().translate(0, 0, 200);
+		guiGraphics.pose().pushMatrix();
+		guiGraphics.nextStratum();
 		guiGraphics.fill(lastX, lastY, lastX + ITEM_SIZE, lastY + ITEM_SIZE, 0x88000000);
-		guiGraphics.drawString(font, more,
+		guiGraphics.text(font, more,
 			lastX + (ITEM_SIZE - font.width(more)) / 2,
 			lastY + (ITEM_SIZE - 8) / 2,
-			0xFFFFFF, false);
-		guiGraphics.pose().popPose();
+			0xFFFFFFFF, false);
+		guiGraphics.pose().popMatrix();
 	}
 
 	// -----------------------------------------------------------------------
 	// Button / badge / text rendering
 	// -----------------------------------------------------------------------
 
-	private void renderCardButton(GuiGraphics guiGraphics, int x, int y, int w, int h, String label, boolean hovered) {
+	private void renderCardButton(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, String label, boolean hovered) {
 		int bg     = hovered ? 0xCC1A1A2E : 0x880E0E1A;
 		int border = hovered ? 0x8899AABB : 0x44667799;
 		int text   = hovered ? 0xFFFFFFFF : 0xCC99AABB;
 		guiGraphics.fill(x, y, x + w, y + h, bg);
 		drawOutline(guiGraphics, x, y, w, h, border);
-		guiGraphics.drawString(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
+		guiGraphics.text(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
 	}
 
 	/**
 	 * Filter toggle button. When {@code active} the category is visible; when inactive it is hidden.
 	 * {@code accentBorder} is the coloured border used when the filter is active.
 	 */
-	private void renderFilterButton(GuiGraphics g, int x, int y, int w, int h,
+	private void renderFilterButton(GuiGraphicsExtractor g, int x, int y, int w, int h,
 	                                String label, boolean active, boolean hovered, int accentBorder) {
 		int bg     = hovered ? 0xCC1A1A2E : 0x880E0E1A;
 		int border = hovered ? 0x8899AABB : (active ? accentBorder : 0x44334444);
 		int text   = hovered ? 0xFFFFFFFF : (active ? 0xCC99AABB : 0x55667788);
 		g.fill(x, y, x + w, y + h, bg);
 		drawOutline(g, x, y, w, h, border);
-		g.drawString(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
+		g.text(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
 	}
 
-	private void renderReadOnlyBadge(GuiGraphics guiGraphics, int x, int y, int w, int h, AnyCard card) {
+	private void renderReadOnlyBadge(GuiGraphicsExtractor guiGraphics, int x, int y, int w, int h, AnyCard card) {
 		boolean isBuiltin = card instanceof AnyCard.ItemCard ic && GroupRegistry.isBuiltin(ic.id());
 		String label  = Component.translatable(isBuiltin ? ModTranslationKeys.MANAGER_BADGE_BUILTIN : ModTranslationKeys.MANAGER_BADGE_KUBEJS).getString();
 		int    border = isBuiltin ? 0x44665533 : 0x44664488;
 		int    text   = isBuiltin ? 0x88BBAA66 : 0x8899AABB;
 		guiGraphics.fill(x, y, x + w, y + h, 0x880E0E1A);
 		drawOutline(guiGraphics, x, y, w, h, border);
-		guiGraphics.drawString(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
+		guiGraphics.text(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
 	}
 
-	private void drawOutline(GuiGraphics g, int x, int y, int width, int height, int color) {
+	private void drawOutline(GuiGraphicsExtractor g, int x, int y, int width, int height, int color) {
 		int right = x + width;
 		int bottom = y + height;
 		g.fill(x, y, right, y + 1, color);
@@ -506,16 +507,16 @@ public class GroupManagerScreen extends Screen {
 	 * Renders text clipped to {@code maxWidth}. When hovered and text is wider than the clip region,
 	 * shows a looping marquee; when not hovered, truncates with "??.
 	 */
-	private void renderScrollingText(GuiGraphics g, String text, int x, int y,
+	private void renderScrollingText(GuiGraphicsExtractor g, String text, int x, int y,
 	                                 int maxWidth, int color, boolean hovered) {
 		int textWidth = font.width(text);
 		if (textWidth <= maxWidth) {
-			g.drawString(font, text, x, y, color, true);
+			g.text(font, text, x, y, color, true);
 			return;
 		}
 		if (!hovered) {
 			String truncated = font.plainSubstrByWidth(text, maxWidth - font.width("...")) + "...";
-			g.drawString(font, truncated, x, y, color, true);
+			g.text(font, truncated, x, y, color, true);
 			return;
 		}
 		// Marquee scroll (outer viewport scissor already active; inner scissor is intersected)
@@ -525,8 +526,8 @@ public class GroupManagerScreen extends Screen {
 		float scrollOffset = (System.currentTimeMillis() % (totalCycle * 30L)) / 30.0f;
 		int   drawX1      = (int)(x - scrollOffset);
 		int   drawX2      = drawX1 + totalCycle;
-		g.drawString(font, text, drawX1, y, color, true);
-		g.drawString(font, text, drawX2, y, color, true);
+		g.text(font, text, drawX1, y, color, true);
+		g.text(font, text, drawX2, y, color, true);
 		g.disableScissor();
 	}
 
@@ -535,7 +536,10 @@ public class GroupManagerScreen extends Screen {
 	// -----------------------------------------------------------------------
 
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		// Header buttons: record held state on press; action fires on release
 		if (button == 0 && isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) {
 			backButtonHeld = true;
@@ -545,7 +549,7 @@ public class GroupManagerScreen extends Screen {
 			builtinFilterHeld = true;
 			return true;
 		}
-		if (kubeJsLoaded && button == 0 && isMouseOver(mouseX, mouseY, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H)) {
+		if (KUBEJS_FILTER_ENABLED && button == 0 && isMouseOver(mouseX, mouseY, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H)) {
 			kubejsFilterHeld = true;
 			return true;
 		}
@@ -554,7 +558,7 @@ public class GroupManagerScreen extends Screen {
 			newGroupButtonHeld = true;
 			return true;
 		}
-		if (super.mouseClicked(mouseX, mouseY, button)) return true;
+		if (super.mouseClicked(event, doubleClick)) return true;
 		if (button != 0) return false;
 
 		// Scrollbar click
@@ -615,7 +619,9 @@ public class GroupManagerScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+	public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
+		double mouseY = event.y();
+		int button = event.button();
 		if (button == 0 && isDraggingScrollbar) {
 			int maxPx = maxScrollPixels();
 			if (maxPx > 0) {
@@ -631,11 +637,14 @@ public class GroupManagerScreen extends Screen {
 			}
 			return true;
 		}
-		return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+		return super.mouseDragged(event, deltaX, deltaY);
 	}
 
 	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+	public boolean mouseReleased(MouseButtonEvent event) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		// Header buttons: fire action only if the cursor is still over the button on release
 		if (button == 0 && backButtonHeld) {
 			backButtonHeld = false;
@@ -655,7 +664,7 @@ public class GroupManagerScreen extends Screen {
 		}
 		if (button == 0 && kubejsFilterHeld) {
 			kubejsFilterHeld = false;
-			if (kubeJsLoaded && isMouseOver(mouseX, mouseY, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H)) {
+			if (KUBEJS_FILTER_ENABLED && isMouseOver(mouseX, mouseY, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H)) {
 				showKubeJs = !showKubeJs;
 				GroupUiState.setShowKubeJs(showKubeJs);
 				rebuildFilteredCards();
@@ -671,7 +680,7 @@ public class GroupManagerScreen extends Screen {
 			return true;
 		}
 		if (button == 0) isDraggingScrollbar = false;
-		return super.mouseReleased(mouseX, mouseY, button);
+		return super.mouseReleased(event);
 	}
 
 	@Override
@@ -710,6 +719,11 @@ public class GroupManagerScreen extends Screen {
 	@Override
 	public boolean isPauseScreen() {
 		return false;
+	}
+
+	@Override
+	public boolean isInGameUi() {
+		return true;
 	}
 
 	// -----------------------------------------------------------------------
@@ -757,7 +771,7 @@ public class GroupManagerScreen extends Screen {
 		return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
 	}
 
-	private void renderScrollbar(GuiGraphics guiGraphics) {
+	private void renderScrollbar(GuiGraphicsExtractor guiGraphics) {
 		int x      = this.width - CARD_PADDING - SCROLLBAR_WIDTH;
 		int y      = HEADER_HEIGHT + CARD_PADDING;
 		int height = contentHeight();

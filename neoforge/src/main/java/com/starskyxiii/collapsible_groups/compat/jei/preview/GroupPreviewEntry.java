@@ -6,7 +6,7 @@ import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.neoforge.NeoForgeTypes;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
@@ -43,9 +43,9 @@ public final class GroupPreviewEntry {
 		return new GroupPreviewEntry(null, null, (IIngredientType<Object>) type, ingredient);
 	}
 
-	public void render(GuiGraphics guiGraphics, int x, int y) {
+	public void render(GuiGraphicsExtractor guiGraphics, int x, int y) {
 		if (item != null) {
-			guiGraphics.renderItem(item, x, y);
+			guiGraphics.item(item, x, y);
 			return;
 		}
 		if (fluid != null) {
@@ -110,31 +110,31 @@ public final class GroupPreviewEntry {
 		return List.copyOf(result);
 	}
 
-	private static void renderFluid(GuiGraphics guiGraphics, FluidStack fluid, int x, int y) {
+	private static void renderFluid(GuiGraphicsExtractor guiGraphics, FluidStack fluid, int x, int y) {
 		var runtime = JeiRuntimeHolder.get();
 		if (runtime != null) {
 			var renderer = runtime.getIngredientManager().getIngredientRenderer(NeoForgeTypes.FLUID_STACK);
-			guiGraphics.pose().pushPose();
-			guiGraphics.pose().translate(x, y, 0);
+			guiGraphics.pose().pushMatrix();
+			guiGraphics.pose().translate(x, y);
 			renderer.render(guiGraphics, fluid);
-			guiGraphics.pose().popPose();
+			guiGraphics.pose().popMatrix();
 			return;
 		}
 
 		var bucket = fluid.getFluid().getBucket();
 		if (bucket != net.minecraft.world.item.Items.AIR) {
-			guiGraphics.renderItem(new ItemStack(bucket), x, y);
+			guiGraphics.item(new ItemStack(bucket), x, y);
 		}
 	}
 
 	@SuppressWarnings("unchecked")
-	private static void renderGeneric(GuiGraphics guiGraphics, IIngredientType<Object> type, Object ingredient, int x, int y) {
+	private static void renderGeneric(GuiGraphicsExtractor guiGraphics, IIngredientType<Object> type, Object ingredient, int x, int y) {
 		var runtime = JeiRuntimeHolder.get();
 		if (runtime == null) return;
 		IIngredientRenderer<Object> renderer = runtime.getIngredientManager().getIngredientRenderer(type);
-		guiGraphics.pose().pushPose();
-		guiGraphics.pose().translate(x, y, 0);
+		guiGraphics.pose().pushMatrix();
+		guiGraphics.pose().translate(x, y);
 		renderer.render(guiGraphics, ingredient);
-		guiGraphics.pose().popPose();
+		guiGraphics.pose().popMatrix();
 	}
 }

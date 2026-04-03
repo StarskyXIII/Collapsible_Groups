@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -28,11 +28,11 @@ public record HoverableTextLine(
 		return new HoverableTextLine(text, displayText, x, y, Math.min(maxWidth, font.width(displayText)), color);
 	}
 
-	public void render(GuiGraphics g, Font font) {
+	public void render(GuiGraphicsExtractor g, Font font) {
 		if (width <= 0 || displayText.isEmpty()) {
 			return;
 		}
-		g.drawString(font, displayText, x, y, color, false);
+		g.text(font, displayText, x, y, color, false);
 	}
 
 	public boolean isHovered(double mouseX, double mouseY, Font font) {

@@ -1,11 +1,13 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
+import com.mojang.serialization.Codec;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.core.GroupDisplayName;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.network.chat.Component;
 
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -14,11 +16,16 @@ import java.util.List;
  * over the rendering pipeline ??no dependency on JEI's item/fluid renderers.
  *
  * <p>{@link GroupIconRenderer} displays up to 2 stacked ingredients.
- * Items are rendered via vanilla {@code GuiGraphics.renderItem()};
+ * Items are rendered via vanilla {@code GuiGraphicsExtractor.item()};
  * non-item types (fluids, generics) are delegated to JEI's own renderers.
  */
 public final class GroupIcon {
 	public static final IIngredientType<GroupIcon> TYPE = () -> GroupIcon.class;
+	/** Serializes only the groupId; display name and ingredients are rebuilt at runtime. */
+	public static final Codec<GroupIcon> CODEC = Codec.STRING.xmap(
+		id -> new GroupIcon(id, "", id, Collections.emptyList()),
+		GroupIcon::groupId
+	);
 
 	private final String groupId;
 	private final String groupTranslationKey;

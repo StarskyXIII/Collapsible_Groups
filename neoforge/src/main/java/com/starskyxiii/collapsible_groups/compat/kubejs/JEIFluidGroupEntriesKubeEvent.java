@@ -6,7 +6,7 @@ import dev.latvian.mods.kubejs.recipe.viewer.GroupEntriesKubeEvent;
 import dev.latvian.mods.kubejs.recipe.viewer.RecipeViewerEntryType;
 import dev.latvian.mods.rhino.Context;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.ArrayList;
@@ -29,7 +29,7 @@ public class JEIFluidGroupEntriesKubeEvent implements GroupEntriesKubeEvent {
 
 	@Override
 	@SuppressWarnings({"unchecked", "rawtypes"})
-	public void group(Context cx, Object filter, ResourceLocation groupId, Component description) {
+	public void group(Context cx, Object filter, Identifier groupId, Component description) {
 		String id = "__kjs_fluid_" + groupId.toString().replace(':', '_').replace('/', '_');
 		String name = description.getString();
 

@@ -2,11 +2,13 @@ package com.starskyxiii.collapsible_groups.core;
 
 import com.starskyxiii.collapsible_groups.Constants;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.Identifier;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
 
@@ -59,7 +61,7 @@ public final class GroupItemSelector {
 
 	public static Optional<String> tryExactSelector(ItemStack stack) {
 		ItemStack normalized = normalizedCopy(stack);
-		return ItemStack.STRICT_SINGLE_ITEM_CODEC
+		return ItemStack.CODEC
 			.encodeStart(serializationContext(), normalized)
 			.resultOrPartial(error -> Constants.LOG.warn("Failed to encode exact group selector for {}: {}", normalized, error))
 			.map(encoded -> STACK_PREFIX + encoded);
@@ -72,11 +74,46 @@ public final class GroupItemSelector {
 
 		try {
 			JsonElement encoded = JsonParser.parseString(selector.substring(STACK_PREFIX.length()));
-			return ItemStack.STRICT_SINGLE_ITEM_CODEC.parse(serializationContext(), encoded)
+			return ItemStack.CODEC.parse(serializationContext(), encoded)
 				.resultOrPartial(error -> Constants.LOG.warn("Failed to decode exact group selector '{}': {}", selector, error))
 				.map(GroupItemSelector::normalizedCopy);
 		} catch (RuntimeException e) {
 			Constants.LOG.warn("Invalid exact group selector '{}'", selector, e);
+			return Optional.empty();
+		}
+	}
+
+	public static boolean hasStructurallyValidExactPayload(String encodedPayload) {
+		return extractExactPayloadItemId(encodedPayload).isPresent();
+	}
+
+	public static Optional<Identifier> extractExactPayloadItemId(String encodedPayload) {
+		try {
+			JsonElement encoded = JsonParser.parseString(encodedPayload);
+			if (!(encoded instanceof JsonObject obj)) {
+				return Optional.empty();
+			}
+			if (!obj.has("id")) {
+				return Optional.empty();
+			}
+
+			Identifier itemId = Identifier.tryParse(obj.get("id").getAsString());
+			if (itemId == null) {
+				return Optional.empty();
+			}
+
+			if (obj.has("count")) {
+				JsonElement countNode = obj.get("count");
+				if (!countNode.isJsonPrimitive() || !countNode.getAsJsonPrimitive().isNumber()) {
+					return Optional.empty();
+				}
+				if (countNode.getAsInt() <= 0) {
+					return Optional.empty();
+				}
+			}
+
+			return Optional.of(itemId);
+		} catch (RuntimeException e) {
 			return Optional.empty();
 		}
 	}

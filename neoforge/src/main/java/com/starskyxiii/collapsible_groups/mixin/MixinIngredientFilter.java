@@ -28,7 +28,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.client.Minecraft;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.fml.ModList;
@@ -359,16 +359,15 @@ public abstract class MixinIngredientFilter {
 			this.cg$cachedFullList = all;
 		}
 
-		if (!GroupRegistry.isKubeJsApplied() && ModList.get().isLoaded("kubejs")) {
+		// KubeJS integration deferred until a 26.1.1-compatible build is available
+		// TODO: re-enable KubeJS block when KubeJS publishes a 26.1.1 build
+		if (false && !GroupRegistry.isKubeJsApplied() && ModList.get().isLoaded("kubejs")) {
 			@SuppressWarnings("unchecked")
 			List<FluidStack> fluidsForKjs = (List<FluidStack>) (List<?>) GroupRegistry.getJeiAllFluids();
-			com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge.applyGroups(
-				GroupRegistry.getJeiAllItems(),
-				fluidsForKjs,
-				this.ingredientManager
-			);
+			// com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge.applyGroups(
+			//     GroupRegistry.getJeiAllItems(), fluidsForKjs, this.ingredientManager);
 			GroupRegistry.markKubeJsApplied();
-			// KubeJS added new groups ??the existing index (if any) is stale.
+			// KubeJS added new groups — the existing index (if any) is stale.
 			this.cg$ingredientGroupIndex = null;
 			this.cg$pendingIndex = null;
 		}
@@ -538,10 +537,10 @@ public abstract class MixinIngredientFilter {
 	private static List<ITypedIngredient<?>> cg$resolveIconIds(List<String> iconIds) {
 		List<ITypedIngredient<?>> result = new ArrayList<>(iconIds.size());
 		for (String iconId : iconIds) {
-			ResourceLocation loc = ResourceLocation.tryParse(iconId);
+			Identifier loc = Identifier.tryParse(iconId);
 			if (loc == null) continue;
-			Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(loc);
-			if (item == net.minecraft.world.item.Items.AIR) continue;
+			Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.get(loc).map(ref -> ref.value()).orElse(null);
+			if (item == null || item == net.minecraft.world.item.Items.AIR) continue;
 			ItemStack stack = new ItemStack(item);
 			result.add(TypedIngredient.createUnvalidated(mezz.jei.api.constants.VanillaTypes.ITEM_STACK, stack));
 		}

@@ -7,10 +7,10 @@ import com.starskyxiii.collapsible_groups.config.FabricConfig;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
-import net.fabricmc.fabric.api.client.rendering.v1.TooltipComponentCallback;
+import net.fabricmc.fabric.api.client.rendering.v1.ClientTooltipComponentCallback;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.packs.PackType;
 import net.minecraft.server.packs.resources.ResourceManager;
 public class CollapsibleGroupsFabric implements ClientModInitializer {
@@ -26,8 +26,8 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
         ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(
             new SimpleSynchronousResourceReloadListener() {
                 @Override
-                public ResourceLocation getFabricId() {
-                    return ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "overlay_lang");
+                public Identifier getFabricId() {
+                    return Identifier.fromNamespaceAndPath(Constants.MOD_ID, "overlay_lang");
                 }
 
                 @Override
@@ -42,7 +42,7 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
             com.starskyxiii.collapsible_groups.command.CgClientCommand.register(dispatcher));
 
         // Register PreviewTooltipComponent so Minecraft renders the ingredient preview grid.
-        TooltipComponentCallback.EVENT.register(data ->
+        ClientTooltipComponentCallback.EVENT.register(data ->
             data instanceof PreviewTooltipComponent p ? p : null);
     }
 

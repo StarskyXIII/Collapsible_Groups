@@ -4,7 +4,7 @@ import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -33,8 +33,8 @@ import java.util.Optional;
 public final class EditorItemIndex {
 
 	private final List<ItemStack> orderedItems;
-	private final Map<ResourceLocation, List<ItemStack>> byId;
-	private final Map<ResourceLocation, List<ItemStack>> byTag;
+	private final Map<Identifier, List<ItemStack>> byId;
+	private final Map<Identifier, List<ItemStack>> byTag;
 	/** Maps each ItemStack object identity ??its stable index in JEI order. */
 	private final IdentityHashMap<ItemStack, Integer> orderByIdentity;
 
@@ -43,8 +43,8 @@ public final class EditorItemIndex {
 
 	private EditorItemIndex(
 		List<ItemStack> orderedItems,
-		Map<ResourceLocation, List<ItemStack>> byId,
-		Map<ResourceLocation, List<ItemStack>> byTag,
+		Map<Identifier, List<ItemStack>> byId,
+		Map<Identifier, List<ItemStack>> byTag,
 		IdentityHashMap<ItemStack, Integer> orderByIdentity
 	) {
 		this.orderedItems = orderedItems;
@@ -60,15 +60,15 @@ public final class EditorItemIndex {
 	public static EditorItemIndex build(List<ItemStack> jeiItems) {
 		long traceStart = PerformanceTrace.begin();
 
-		Map<ResourceLocation, List<ItemStack>> byId = new HashMap<>();
-		Map<ResourceLocation, List<ItemStack>> byTag = new HashMap<>();
+		Map<Identifier, List<ItemStack>> byId = new HashMap<>();
+		Map<Identifier, List<ItemStack>> byTag = new HashMap<>();
 		IdentityHashMap<ItemStack, Integer> orderByIdentity = new IdentityHashMap<>(jeiItems.size() * 2);
 
 		for (int i = 0; i < jeiItems.size(); i++) {
 			ItemStack stack = jeiItems.get(i);
 			orderByIdentity.put(stack, i);
 
-			ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+			Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
 			if (id != null) {
 				byId.computeIfAbsent(id, k -> new ArrayList<>()).add(stack);
 			}
@@ -114,7 +114,7 @@ public final class EditorItemIndex {
 		for (String selector : draft.explicitItemSelectors()) {
 			if (GroupItemSelector.isWholeItemSelector(selector)) {
 				// Whole-item selector: all JEI variants of this registry ID
-				ResourceLocation id = ResourceLocation.tryParse(selector);
+				Identifier id = Identifier.tryParse(selector);
 				if (id != null) {
 					List<ItemStack> bucket = byId.get(id);
 					if (bucket != null) {
@@ -125,7 +125,7 @@ public final class EditorItemIndex {
 				// Exact-stack selector: decode once, then narrow to registry-ID bucket
 				Optional<ItemStack> decoded = GroupItemSelector.decodeExactSelector(selector);
 				decoded.ifPresent(reference -> {
-					ResourceLocation id = BuiltInRegistries.ITEM.getKey(reference.getItem());
+					Identifier id = BuiltInRegistries.ITEM.getKey(reference.getItem());
 					if (id != null) {
 						List<ItemStack> bucket = byId.get(id);
 						if (bucket != null) {
@@ -142,7 +142,7 @@ public final class EditorItemIndex {
 
 		// --- Item tag selectors ---
 		for (String tagId : draft.itemTags()) {
-			ResourceLocation tagRl = ResourceLocation.tryParse(tagId);
+			Identifier tagRl = Identifier.tryParse(tagId);
 			if (tagRl != null) {
 				List<ItemStack> bucket = byTag.get(tagRl);
 				if (bucket != null) {

@@ -3,7 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -20,7 +20,7 @@ final class GroupEditorTooltipHelper {
 
 	private GroupEditorTooltipHelper() {}
 
-	static void render(GuiGraphics g, int mouseX, int mouseY,
+	static void render(GuiGraphicsExtractor g, int mouseX, int mouseY,
 	                   EditorLeftPanel left, EditorRightPanel right,
 	                   GroupEditorState state, Font font) {
 
@@ -30,7 +30,7 @@ final class GroupEditorTooltipHelper {
 			List<Component> lines = new ArrayList<>(stack.getTooltipLines(Item.TooltipContext.EMPTY, null, TooltipFlag.Default.NORMAL));
 			appendOtherGroups(lines, left.otherGroupsForItem(stack));
 			appendItemHint(lines, state, stack);
-			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
 			return;
 		}
 
@@ -48,7 +48,7 @@ final class GroupEditorTooltipHelper {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_REMOVE_THIS));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_CTRL_REMOVE_ALL));
 			}
-			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
 		}
 	}
 

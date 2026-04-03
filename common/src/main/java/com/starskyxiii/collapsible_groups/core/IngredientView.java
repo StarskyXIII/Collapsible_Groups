@@ -1,15 +1,15 @@
 package com.starskyxiii.collapsible_groups.core;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.jetbrains.annotations.Nullable;
 
 public interface IngredientView {
 	String ingredientType();
 
 	@Nullable
-	ResourceLocation resourceLocation();
+	Identifier resourceLocation();
 
-	boolean hasTag(ResourceLocation tagId);
+	boolean hasTag(Identifier tagId);
 
 	boolean matchesExactStack(String encodedStack);
 

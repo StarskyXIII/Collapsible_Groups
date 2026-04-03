@@ -14,7 +14,7 @@ import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.subtypes.UidContext;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -246,7 +246,7 @@ final class EditorLeftPanel {
 	// Render
 	// -----------------------------------------------------------------------
 
-	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
+	void render(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout) {
 		hoveredItem = hoveredFluid = hoveredGeneric = -1;
 		if (isShowingFluids()) {
 			renderGrid(g, mouseX, mouseY, layout);
@@ -260,7 +260,7 @@ final class EditorLeftPanel {
 		}
 	}
 
-	private void renderGrid(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
+	private void renderGrid(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout) {
 		List<?> list = currentList();
 		int start = scrollRow * layout.leftCols();
 		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
@@ -274,7 +274,7 @@ final class EditorLeftPanel {
 		}
 	}
 
-	private void renderCell(GuiGraphics g, Object entry, int x, int y, int idx) {
+	private void renderCell(GuiGraphicsExtractor g, Object entry, int x, int y, int idx) {
 		if (isShowingFluids()) {
 			FluidStack fluid = (FluidStack) entry;
 			if (state.isFluidSelected(fluid))                  g.fill(x, y, x+16, y+16, 0x4455BB77);
@@ -291,7 +291,7 @@ final class EditorLeftPanel {
 			boolean inExact = state.isExactSelected(stack);
 			if (inWhole || inExact) g.fill(x, y, x+16, y+16, inWhole ? 0x4455BB77 : 0x4466DDAA);
 			else if (!otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty()) g.fill(x, y, x+16, y+16, 0x33CC8844);
-			g.renderItem(stack, x, y);
+			g.item(stack, x, y);
 		}
 	}
 
@@ -363,7 +363,7 @@ final class EditorLeftPanel {
 		} else {
 			ItemStack stack = (ItemStack) entry;
 			boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
-			if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
+			if (com.mojang.blaze3d.platform.InputConstants.isKeyDown(net.minecraft.client.Minecraft.getInstance().getWindow(), 341) || com.mojang.blaze3d.platform.InputConstants.isKeyDown(net.minecraft.client.Minecraft.getInstance().getWindow(), 345)) state.toggleWholeItemSelection(stack);
 			else                                                          state.toggleSingleSelection(stack);
 			state.syncEditItems();
 			onChange.run();
@@ -578,7 +578,7 @@ final class EditorLeftPanel {
 			IIngredientType<Object> type     = ref.type();
 			IIngredientHelper<Object> helper   = mgr.getIngredientHelper(type);
 			IIngredientRenderer<Object> renderer = mgr.getIngredientRenderer(type);
-			var rl = helper.getResourceLocation(ref.ingredient());
+			var rl = helper.getIdentifier(ref.ingredient());
 			String resourceId = rl != null
 				? rl.toString()
 				: helper.getUid(ref.ingredient(), UidContext.Ingredient).toString();

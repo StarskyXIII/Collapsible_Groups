@@ -12,8 +12,8 @@ import static org.junit.jupiter.api.Assertions.*;
  * These tests exercise the pure model layer (records, sealed interface) without
  * requiring Minecraft runtime.
  *
- * Tests that require GroupDefinition construction (which calls ResourceLocation
- * and GroupFilterValidator) are excluded here because ResourceLocation requires
+ * Tests that require GroupDefinition construction (which calls Identifier
+ * and GroupFilterValidator) are excluded here because Identifier requires
  * Minecraft bootstrap. Those are covered by game-integration tests.
  */
 class ComponentPathFilterStructureTest {

@@ -15,7 +15,7 @@ import mezz.jei.gui.overlay.IngredientGridTooltipHelper;
 import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.elements.IngredientElement;
 import mezz.jei.gui.util.FocusUtil;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -27,7 +27,9 @@ import java.util.Optional;
  * Registers its render position with GroupBorderRenderer so fluid groups
  * receive the same connected-border treatment as item groups.
  */
-public class FluidChildElement implements IElement<FluidStack> {
+public class FluidChildElement implements IElement<FluidStack>, PreRenderIngredientGridElement {
+	private static final int EXPANDED_BACKGROUND = 0x14FFFFFF;
+
 	private final IngredientElement<FluidStack> delegate;
 	private final String groupId;
 
@@ -44,7 +46,7 @@ public class FluidChildElement implements IElement<FluidStack> {
 
 	@Override
 	public @Nullable IDrawable createRenderOverlay() {
-		return new FluidChildOverlay(groupId);
+		return null;
 	}
 
 	@Override
@@ -66,14 +68,9 @@ public class FluidChildElement implements IElement<FluidStack> {
 		return delegate.handleClick(input, keyBindings);
 	}
 
-	private static class FluidChildOverlay implements IDrawable {
-		private final String groupId;
-		FluidChildOverlay(String groupId) { this.groupId = groupId; }
-		@Override public int getWidth() { return 16; }
-		@Override public int getHeight() { return 16; }
-		@Override
-		public void draw(GuiGraphics guiGraphics, int xOffset, int yOffset) {
-			GroupBorderRenderer.registerPosition(groupId, xOffset, yOffset);
-		}
+	@Override
+	public void drawPreRender(GuiGraphicsExtractor guiGraphics, int xOffset, int yOffset) {
+		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17, EXPANDED_BACKGROUND);
+		GroupBorderRenderer.registerPosition(groupId, xOffset, yOffset);
 	}
 }

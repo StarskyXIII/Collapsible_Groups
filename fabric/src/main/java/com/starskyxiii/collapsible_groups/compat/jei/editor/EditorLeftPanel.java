@@ -6,7 +6,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
@@ -139,7 +139,7 @@ final class EditorLeftPanel {
 	// Render
 	// -----------------------------------------------------------------------
 
-	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
+	void render(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout) {
 		hoveredItem = -1;
 		int start = scrollRow * layout.leftCols();
 		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < filteredItems.size(); i++) {
@@ -153,13 +153,13 @@ final class EditorLeftPanel {
 		}
 	}
 
-	private void renderCell(GuiGraphics g, ItemStack stack, int x, int y) {
+	private void renderCell(GuiGraphicsExtractor g, ItemStack stack, int x, int y) {
 		boolean inWhole = state.isWholeItemSelected(stack);
 		boolean inExact = state.isExactSelected(stack);
 		if (inWhole || inExact) g.fill(x, y, x + 16, y + 16, inWhole ? 0x4455BB77 : 0x4466DDAA);
 		else if (!otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty())
 			g.fill(x, y, x + 16, y + 16, 0x33CC8844);
-		g.renderItem(stack, x, y);
+		g.item(stack, x, y);
 	}
 
 	// -----------------------------------------------------------------------
@@ -201,7 +201,7 @@ final class EditorLeftPanel {
 			if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
 			ItemStack stack = filteredItems.get(start + i);
 			boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
-			if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
+			if (com.mojang.blaze3d.platform.InputConstants.isKeyDown(net.minecraft.client.Minecraft.getInstance().getWindow(), 341) || com.mojang.blaze3d.platform.InputConstants.isKeyDown(net.minecraft.client.Minecraft.getInstance().getWindow(), 345)) state.toggleWholeItemSelection(stack);
 			else                                                          state.toggleSingleSelection(stack);
 			state.syncEditItems();
 			onChange.run();

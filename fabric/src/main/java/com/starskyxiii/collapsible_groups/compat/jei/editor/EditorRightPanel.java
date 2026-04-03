@@ -5,7 +5,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -80,7 +80,7 @@ final class EditorRightPanel {
 	// Render
 	// -----------------------------------------------------------------------
 
-	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
+	void render(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout) {
 		hoveredItem = -1;
 
 		g.enableScissor(layout.rightGridX(), layout.gridTop(),
@@ -97,7 +97,7 @@ final class EditorRightPanel {
 		}
 	}
 
-	private void renderItemRow(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
+	private void renderItemRow(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
 		int rowStart = row * layout.rightCols();
 		for (int col = 0; col < layout.rightCols() && rowStart + col < groupItems.size(); col++) {
 			ItemStack stack = groupItems.get(rowStart + col);
@@ -108,7 +108,7 @@ final class EditorRightPanel {
 			boolean explicit = isExact || isWhole;
 			if (!explicit) g.fill(x, y, x + 16, y + 16, 0x332266BB);
 			else if (isWhole) g.fill(x, y, x + 16, y + 16, 0x2855BB77);
-			g.renderItem(stack, x, y);
+			g.item(stack, x, y);
 			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
 				hoveredItem = idx;
 				g.fill(x, y, x + 16, y + 16, explicit ? 0x28FF5555 : 0x1CFFFFFF);
@@ -143,7 +143,7 @@ final class EditorRightPanel {
 				int x = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
 				if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
 				ItemStack stack = groupItems.get(rowStart + col);
-				if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.removeAllSelectionsForItem(stack);
+				if (com.mojang.blaze3d.platform.InputConstants.isKeyDown(net.minecraft.client.Minecraft.getInstance().getWindow(), 341) || com.mojang.blaze3d.platform.InputConstants.isKeyDown(net.minecraft.client.Minecraft.getInstance().getWindow(), 345)) state.removeAllSelectionsForItem(stack);
 				else state.removeSingleSelection(stack, allItems);
 				state.syncEditItems();
 				onChange.run();

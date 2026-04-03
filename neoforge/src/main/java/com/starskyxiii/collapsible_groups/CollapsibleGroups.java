@@ -13,7 +13,7 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
-import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
+import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
 import net.neoforged.neoforge.client.gui.ConfigurationScreen;
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
@@ -37,14 +37,13 @@ public class CollapsibleGroups {
 		eventBus.addListener(this::onRegisterReloadListeners);
 		NeoForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
 
-		// Register the KubeJS remote-data listener on the game event bus only when
-		// KubeJS is present. The class is loaded lazily so KubeJS types are never
-		// touched when the mod is absent.
-		if (ModList.get().isLoaded("kubejs")) {
-			NeoForge.EVENT_BUS.register(
-				com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSRemoteListener.class
-			);
-		}
+		// KubeJS integration deferred until a 26.1.1-compatible build is available
+		// TODO: re-enable when KubeJS publishes a 26.1.1 build
+		// if (ModList.get().isLoaded("kubejs")) {
+		//     NeoForge.EVENT_BUS.register(
+		//         com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSRemoteListener.class
+		//     );
+		// }
 
 		// Register curated ingredient types for known mods via reflection so we
 		// have no compile-time dependency on them.
@@ -56,8 +55,9 @@ public class CollapsibleGroups {
 		}
 	}
 
-	private void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
-		event.registerReloadListener(
+	private void onRegisterReloadListeners(AddClientReloadListenersEvent event) {
+		event.addListener(
+			net.minecraft.resources.Identifier.fromNamespaceAndPath(Constants.MOD_ID, "overlay_lang"),
 			(net.minecraft.server.packs.resources.ResourceManagerReloadListener)
 				resourceManager -> GroupLangBootstrap.refresh()
 		);

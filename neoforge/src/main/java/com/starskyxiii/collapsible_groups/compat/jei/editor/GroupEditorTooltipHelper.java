@@ -4,7 +4,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
@@ -23,7 +23,7 @@ final class GroupEditorTooltipHelper {
 
 	private GroupEditorTooltipHelper() {}
 
-	static void render(GuiGraphics g, int mouseX, int mouseY,
+	static void render(GuiGraphicsExtractor g, int mouseX, int mouseY,
 	                   EditorLeftPanel left, EditorRightPanel right,
 	                   GroupEditorState state, Font font) {
 
@@ -33,7 +33,7 @@ final class GroupEditorTooltipHelper {
 			List<Component> lines = new ArrayList<>(stack.getTooltipLines(Item.TooltipContext.EMPTY, null, TooltipFlag.Default.NORMAL));
 			appendOtherGroups(lines, left.otherGroupsForItem(stack));
 			if (left.isShowingItems()) appendItemHint(lines, state, stack);
-			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
 			return;
 		}
 		if (left.hoveredFluid >= 0 && left.hoveredFluid < left.filteredFluids().size()) {
@@ -47,7 +47,7 @@ final class GroupEditorTooltipHelper {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_ADD_TO_GROUP));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_ADD_FLUIDS));
 			}
-			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
 			return;
 		}
 		if (left.hoveredGeneric >= 0 && left.hoveredGeneric < left.filteredGeneric().size()) {
@@ -61,7 +61,7 @@ final class GroupEditorTooltipHelper {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_ADD_TO_GROUP));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_ADD_ENTRIES));
 			}
-			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
 			return;
 		}
 
@@ -79,7 +79,7 @@ final class GroupEditorTooltipHelper {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_REMOVE_THIS));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_CTRL_REMOVE_ALL));
 			}
-			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
 			return;
 		}
 		if (right.hoveredFluid >= 0 && right.hoveredFluid < right.groupFluids().size()) {
@@ -87,7 +87,7 @@ final class GroupEditorTooltipHelper {
 			List<Component> lines = buildFluidLines(fluid);
 			if (state.isFluidSelected(fluid)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else                              lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
-			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
 			return;
 		}
 		if (right.hoveredGeneric >= 0 && right.hoveredGeneric < right.groupGeneric().size()) {
@@ -95,7 +95,7 @@ final class GroupEditorTooltipHelper {
 			List<Component> lines = buildGenericLines(entry);
 			if (state.isGenericSelected(entry))        lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else if (state.isGenericTagMatched(entry)) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
-			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
 		}
 	}
 

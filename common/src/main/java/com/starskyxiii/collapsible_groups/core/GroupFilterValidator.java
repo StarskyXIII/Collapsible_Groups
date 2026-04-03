@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.core;
 
 import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -10,8 +10,6 @@ import java.util.regex.Pattern;
 public final class GroupFilterValidator {
 	private static final String ITEM_TYPE = "item";
 	private static final String FLUID_TYPE = "fluid";
-	private static final String STACK_PREFIX = "stack:";
-
 	/**
 	 * Restricted path grammar:
 	 * segment = [A-Za-z_][A-Za-z0-9_-]*(\[[0-9]+\])?
@@ -49,29 +47,29 @@ public final class GroupFilterValidator {
 			case GroupFilter.Not not -> validateNode(not.child(), errors);
 			case GroupFilter.Id id -> {
 				validateType(id.ingredientType(), errors, "id");
-				validateResourceLocation(id.id(), errors, "id");
+				validateIdentifier(id.id(), errors, "id");
 			}
 			case GroupFilter.Tag tag -> {
 				validateType(tag.ingredientType(), errors, "tag");
-				validateResourceLocation(tag.tag(), errors, "tag");
+				validateIdentifier(tag.tag(), errors, "tag");
 			}
 			case GroupFilter.Namespace namespace -> {
 				validateType(namespace.ingredientType(), errors, "namespace");
-				if (!ResourceLocation.isValidNamespace(namespace.namespace())) {
+				if (!Identifier.isValidNamespace(namespace.namespace())) {
 					errors.add("Invalid namespace '" + namespace.namespace() + "'");
 				}
 			}
 			case GroupFilter.ExactStack exactStack -> {
 				if (exactStack.encodedStack().isBlank()) {
 					errors.add("Exact stack filter cannot be blank");
-				} else if (GroupItemSelector.decodeExactSelector(STACK_PREFIX + exactStack.encodedStack()).isEmpty()) {
+				} else if (!GroupItemSelector.hasStructurallyValidExactPayload(exactStack.encodedStack())) {
 					errors.add("Invalid exact stack payload");
 				}
 			}
 			case GroupFilter.HasComponent hc -> {
 				if (hc.componentTypeId().isBlank()) {
 					errors.add("HasComponent node has blank componentTypeId");
-				} else if (ResourceLocation.tryParse(hc.componentTypeId()) == null) {
+				} else if (Identifier.tryParse(hc.componentTypeId()) == null) {
 					errors.add("HasComponent node has invalid componentTypeId: " + hc.componentTypeId());
 				}
 				if (hc.encodedValue().isBlank()) {
@@ -81,7 +79,7 @@ public final class GroupFilterValidator {
 			case GroupFilter.ComponentPath cp -> {
 				if (cp.componentTypeId().isBlank()) {
 					errors.add("ComponentPath node has blank componentTypeId");
-				} else if (ResourceLocation.tryParse(cp.componentTypeId()) == null) {
+				} else if (Identifier.tryParse(cp.componentTypeId()) == null) {
 					errors.add("ComponentPath node has invalid componentTypeId: " + cp.componentTypeId());
 				}
 				if (cp.path().isBlank()) {
@@ -108,18 +106,18 @@ public final class GroupFilterValidator {
 		if (IngredientTypeRegistry.getCanonicalId(type) != null) {
 			return;
 		}
-		if (ResourceLocation.tryParse(type) != null) {
+		if (Identifier.tryParse(type) != null) {
 			return;
 		}
 		errors.add("Invalid ingredient type '" + type + "'");
 	}
 
-	private static void validateResourceLocation(String value, List<String> errors, String nodeName) {
+	private static void validateIdentifier(String value, List<String> errors, String nodeName) {
 		if (value == null || value.isBlank()) {
 			errors.add("Filter node '" + nodeName + "' is missing its value");
 			return;
 		}
-		if (ResourceLocation.tryParse(value) == null) {
+		if (Identifier.tryParse(value) == null) {
 			errors.add("Invalid resource location '" + value + "'");
 		}
 	}

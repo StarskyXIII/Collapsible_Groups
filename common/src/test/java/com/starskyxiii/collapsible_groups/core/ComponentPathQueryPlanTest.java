@@ -14,7 +14,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
  *
  * NOTE: The test that verifies {@code all(itemId(...), componentPath(...))} still
  * produces candidate reduction via the {@code itemId} branch CANNOT run without
- * Minecraft bootstrap because {@code compileId} calls {@code ResourceLocation.tryParse}.
+ * Minecraft bootstrap because {@code compileId} calls {@code Identifier.tryParse}.
  * That test is documented here as an integration test requirement:
  *
  *   Expected: ItemFilterQueryCompiler.compile(

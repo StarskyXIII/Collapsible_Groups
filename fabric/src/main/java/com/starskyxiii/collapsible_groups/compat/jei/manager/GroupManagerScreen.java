@@ -9,8 +9,9 @@ import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -133,8 +134,8 @@ public class GroupManagerScreen extends Screen {
 	}
 
 	@Override
-	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
-		renderBackground(g, mouseX, mouseY, partialTicks);
+	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
+		extractBackground(g, mouseX, mouseY, partialTicks);
 		hoveredCardIndex  = -1;
 		hoveredButtonType = -1;
 
@@ -173,22 +174,22 @@ public class GroupManagerScreen extends Screen {
 		renderCardButton(g, newBtnX, BACK_BTN_Y, NEW_BTN_W, NEW_BTN_H,
 			Component.translatable(ModTranslationKeys.MANAGER_BTN_NEW_GROUP).getString(), newHover || newGroupButtonHeld);
 
-		g.drawCenteredString(font, this.title, this.width / 2, 8, 0xFFFFFF);
+		g.centeredText(font, this.title, this.width / 2, 8, 0xFFFFFFFF);
 		Component countText = filteredCards.size() == allCards.size()
 			? Component.translatable(ModTranslationKeys.MANAGER_COUNT_ALL, allCards.size())
 			: Component.translatable(ModTranslationKeys.MANAGER_COUNT_FILTERED, filteredCards.size(), allCards.size());
-		g.drawCenteredString(font, countText, this.width / 2, 20, 0x8899AABB);
-		g.drawString(font, Component.translatable(ModTranslationKeys.MANAGER_FOOTER_HINT),
+		g.centeredText(font, countText, this.width / 2, 20, 0x8899AABB);
+		g.text(font, Component.translatable(ModTranslationKeys.MANAGER_FOOTER_HINT),
 			6, vpBottom + (FOOTER_HEIGHT - font.lineHeight) / 2 + 1, 0x8899AABB, false);
 
 		for (var child : this.children()) {
 			if (child instanceof net.minecraft.client.gui.components.Renderable r) {
-				r.render(g, mouseX, mouseY, partialTicks);
+				r.extractRenderState(g, mouseX, mouseY, partialTicks);
 			}
 		}
 	}
 
-	private void renderCard(GuiGraphics g, int index, int mouseX, int mouseY) {
+	private void renderCard(GuiGraphicsExtractor g, int index, int mouseX, int mouseY) {
 		ItemCard card = filteredCards.get(index);
 		int[] pos = cardPos(index);
 		int x = pos[0], y = pos[1];
@@ -221,9 +222,9 @@ public class GroupManagerScreen extends Screen {
 			g.fill(x, y, x + CARD_WIDTH, y + CARD_HEIGHT - 22, 0x18667799);
 
 		boolean cardHovered = isMouseOver(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
-		renderScrollingText(g, card.displayName(), x + 4, y + 4, CARD_WIDTH - 8, 0xFFFFFF, cardHovered);
+		renderScrollingText(g, card.displayName(), x + 4, y + 4, CARD_WIDTH - 8, 0xFFFFFFFF, cardHovered);
 		Component countLabel = Component.translatable(ModTranslationKeys.COUNT_ITEMS, card.items().size());
-		g.drawString(font, countLabel, x + 4, y + 14, 0x7799AABB, false);
+		g.text(font, countLabel, x + 4, y + 14, 0x7799AABB, false);
 
 		boolean inVp    = isInsideCardViewport(mouseX, mouseY);
 		int buttonY     = y + BTN_Y_OFF;
@@ -248,11 +249,11 @@ public class GroupManagerScreen extends Screen {
 				g.fill(x + 2, buttonY, x + CARD_WIDTH - 2, buttonY + BTN_H, 0x880E0E1A);
 				int w = CARD_WIDTH - 4;
 				drawOutline(g, x + 2, buttonY, w, BTN_H, border);
-				g.drawString(font, label, x + 2 + (w - font.width(label)) / 2, buttonY + (BTN_H - 8) / 2, text, false);
+				g.text(font, label, x + 2 + (w - font.width(label)) / 2, buttonY + (BTN_H - 8) / 2, text, false);
 			}
 		}
 
-	private void renderPreviewEntries(GuiGraphics g, List<GroupPreviewEntry> entries, int previewX, int previewY, int rowOffset) {
+	private void renderPreviewEntries(GuiGraphicsExtractor g, List<GroupPreviewEntry> entries, int previewX, int previewY, int rowOffset) {
 		int remaining  = entries.size() - (rowOffset + PREVIEW_ROWS) * PREVIEW_COLS;
 		int maxVisible = remaining > 0 ? PREVIEW_ROWS * PREVIEW_COLS - 1 : PREVIEW_ROWS * PREVIEW_COLS;
 		int idx = rowOffset * PREVIEW_COLS;
@@ -268,31 +269,31 @@ public class GroupManagerScreen extends Screen {
 			int lastX = previewX + (PREVIEW_COLS - 1) * ITEM_SIZE;
 			int lastY = previewY + (PREVIEW_ROWS - 1) * ITEM_SIZE;
 			String more = "+" + (remaining + 1);
-			g.pose().pushPose(); g.pose().translate(0, 0, 200);
+			g.pose().pushMatrix(); g.nextStratum();
 			g.fill(lastX, lastY, lastX + ITEM_SIZE, lastY + ITEM_SIZE, 0x88000000);
-			g.drawString(font, more, lastX + (ITEM_SIZE - font.width(more)) / 2, lastY + (ITEM_SIZE - 8) / 2, 0xFFFFFF, false);
-			g.pose().popPose();
+			g.text(font, more, lastX + (ITEM_SIZE - font.width(more)) / 2, lastY + (ITEM_SIZE - 8) / 2, 0xFFFFFFFF, false);
+			g.pose().popMatrix();
 		}
 	}
 
-	private void renderCardButton(GuiGraphics g, int x, int y, int w, int h, String label, boolean hovered) {
+	private void renderCardButton(GuiGraphicsExtractor g, int x, int y, int w, int h, String label, boolean hovered) {
 		int bg = hovered ? 0xCC1A1A2E : 0x880E0E1A, border = hovered ? 0x8899AABB : 0x44667799, text = hovered ? 0xFFFFFFFF : 0xCC99AABB;
 		g.fill(x, y, x + w, y + h, bg);
 		drawOutline(g, x, y, w, h, border);
-		g.drawString(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
+		g.text(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
 	}
 
-	private void renderFilterButton(GuiGraphics g, int x, int y, int w, int h,
+	private void renderFilterButton(GuiGraphicsExtractor g, int x, int y, int w, int h,
 	                                String label, boolean active, boolean hovered, int accentBorder) {
 		int bg     = hovered ? 0xCC1A1A2E : 0x880E0E1A;
 		int border = hovered ? 0x8899AABB : (active ? accentBorder : 0x44334444);
 		int text   = hovered ? 0xFFFFFFFF : (active ? 0xCC99AABB : 0x55667788);
 		g.fill(x, y, x + w, y + h, bg);
 		drawOutline(g, x, y, w, h, border);
-		g.drawString(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
+		g.text(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
 	}
 
-	private void drawOutline(GuiGraphics g, int x, int y, int width, int height, int color) {
+	private void drawOutline(GuiGraphicsExtractor g, int x, int y, int width, int height, int color) {
 		int right = x + width;
 		int bottom = y + height;
 		g.fill(x, y, right, y + 1, color);
@@ -301,16 +302,16 @@ public class GroupManagerScreen extends Screen {
 		g.fill(right - 1, y + 1, right, bottom - 1, color);
 	}
 
-	private void renderScrollingText(GuiGraphics g, String text, int x, int y,
+	private void renderScrollingText(GuiGraphicsExtractor g, String text, int x, int y,
 	                                 int maxWidth, int color, boolean hovered) {
 		int textWidth = font.width(text);
 		if (textWidth <= maxWidth) {
-			g.drawString(font, text, x, y, color, true);
+			g.text(font, text, x, y, color, true);
 			return;
 		}
 		if (!hovered) {
 			String truncated = font.plainSubstrByWidth(text, maxWidth - font.width("...")) + "...";
-			g.drawString(font, truncated, x, y, color, true);
+			g.text(font, truncated, x, y, color, true);
 			return;
 		}
 		g.enableScissor(x, y - 1, x + maxWidth, y + font.lineHeight + 1);
@@ -319,19 +320,22 @@ public class GroupManagerScreen extends Screen {
 		float scrollOffset = (System.currentTimeMillis() % (totalCycle * 30L)) / 30.0f;
 		int   drawX1     = (int)(x - scrollOffset);
 		int   drawX2     = drawX1 + totalCycle;
-		g.drawString(font, text, drawX1, y, color, true);
-		g.drawString(font, text, drawX2, y, color, true);
+		g.text(font, text, drawX1, y, color, true);
+		g.text(font, text, drawX2, y, color, true);
 		g.disableScissor();
 	}
 
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (button == 0 && isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) { backButtonHeld = true; return true; }
 		if (button == 0 && isMouseOver(mouseX, mouseY, BUILTIN_BTN_X, BACK_BTN_Y, BUILTIN_BTN_W, BACK_BTN_H)) { builtinFilterHeld = true; return true; }
 		if (kubeJsLoaded && button == 0 && isMouseOver(mouseX, mouseY, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H)) { kubejsFilterHeld = true; return true; }
 		int newBtnX = this.width - NEW_BTN_W - 6;
 		if (button == 0 && isMouseOver(mouseX, mouseY, newBtnX, BACK_BTN_Y, NEW_BTN_W, NEW_BTN_H)) { newGroupButtonHeld = true; return true; }
-		if (super.mouseClicked(mouseX, mouseY, button)) return true;
+		if (super.mouseClicked(event, doubleClick)) return true;
 		if (button != 0) return false;
 
 		int sbX = this.width - CARD_PADDING - SCROLLBAR_WIDTH;
@@ -379,7 +383,10 @@ public class GroupManagerScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+	public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (button == 0 && isDraggingScrollbar) {
 			int maxPx = maxScrollPixels();
 			if (maxPx > 0) {
@@ -390,11 +397,14 @@ public class GroupManagerScreen extends Screen {
 			}
 			return true;
 		}
-		return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+		return super.mouseDragged(event, deltaX, deltaY);
 	}
 
 	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+	public boolean mouseReleased(MouseButtonEvent event) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (button == 0 && backButtonHeld) {
 			backButtonHeld = false;
 			if (isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) Minecraft.getInstance().setScreen(previousScreen);
@@ -425,7 +435,7 @@ public class GroupManagerScreen extends Screen {
 			return true;
 		}
 		if (button == 0) isDraggingScrollbar = false;
-		return super.mouseReleased(mouseX, mouseY, button);
+		return super.mouseReleased(event);
 	}
 
 	@Override
@@ -450,6 +460,7 @@ public class GroupManagerScreen extends Screen {
 
 	@Override public void onClose() { Minecraft.getInstance().setScreen(previousScreen); }
 	@Override public boolean isPauseScreen() { return false; }
+	@Override public boolean isInGameUi() { return true; }
 
 	public void onGroupSaved() { rebuildCards(); scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels()); }
 
@@ -471,7 +482,7 @@ public class GroupManagerScreen extends Screen {
 	private static boolean isMouseOver(double mx, double my, int x, int y, int w, int h) { return mx >= x && mx < x + w && my >= y && my < y + h; }
 	private static int clamp(int v, int min, int max) { return Math.max(min, Math.min(max, v)); }
 
-	private void renderScrollbar(GuiGraphics g) {
+	private void renderScrollbar(GuiGraphicsExtractor g) {
 		int x = this.width - CARD_PADDING - SCROLLBAR_WIDTH, y = HEADER_HEIGHT + CARD_PADDING, height = contentHeight();
 		g.fill(x, y, x + SCROLLBAR_WIDTH, y + height, 0x18667799);
 		int maxPx = maxScrollPixels();

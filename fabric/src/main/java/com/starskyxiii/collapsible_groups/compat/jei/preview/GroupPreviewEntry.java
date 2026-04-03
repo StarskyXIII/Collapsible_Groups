@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.preview;
 
 import mezz.jei.api.ingredients.ITypedIngredient;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -22,9 +22,9 @@ public final class GroupPreviewEntry {
 		return new GroupPreviewEntry(stack);
 	}
 
-	public void render(GuiGraphics guiGraphics, int x, int y) {
+	public void render(GuiGraphicsExtractor guiGraphics, int x, int y) {
 		if (item != null) {
-			guiGraphics.renderItem(item, x, y);
+			guiGraphics.item(item, x, y);
 		}
 	}
 

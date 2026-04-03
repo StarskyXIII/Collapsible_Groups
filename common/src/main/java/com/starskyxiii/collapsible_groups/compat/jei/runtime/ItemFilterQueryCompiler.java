@@ -5,7 +5,7 @@ import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterNormalizer;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -119,14 +119,14 @@ public final class ItemFilterQueryCompiler {
 
 	private static ItemQueryPlan compileId(GroupFilter.Id id) {
 		if (!isItemType(id.ingredientType())) return EMPTY;
-		ResourceLocation resourceLocation = ResourceLocation.tryParse(id.id());
+		Identifier resourceLocation = Identifier.tryParse(id.id());
 		if (resourceLocation == null) return EMPTY;
 		return new CandidatePlan(index -> index.byId(resourceLocation));
 	}
 
 	private static ItemQueryPlan compileTag(GroupFilter.Tag tag) {
 		if (!isItemType(tag.ingredientType())) return EMPTY;
-		ResourceLocation tagId = ResourceLocation.tryParse(tag.tag());
+		Identifier tagId = Identifier.tryParse(tag.tag());
 		if (tagId == null) return EMPTY;
 		return new CandidatePlan(index -> index.byTag(tagId));
 	}
@@ -139,7 +139,7 @@ public final class ItemFilterQueryCompiler {
 	private static ItemQueryPlan compileExactStack(GroupFilter.ExactStack exactStack) {
 		return GroupItemSelector.decodeExactSelector("stack:" + exactStack.encodedStack())
 			.map(reference -> {
-				ResourceLocation id = BuiltInRegistries.ITEM.getKey(reference.getItem());
+				Identifier id = BuiltInRegistries.ITEM.getKey(reference.getItem());
 				if (id == null) return (ItemQueryPlan) EMPTY;
 				ItemStack normalized = GroupItemSelector.normalizedCopy(reference);
 				return (ItemQueryPlan) new CandidatePlan(index -> {
@@ -154,7 +154,9 @@ public final class ItemFilterQueryCompiler {
 					return List.copyOf(matches);
 				});
 			})
-			.orElse(EMPTY);
+			.orElseGet(() -> GroupItemSelector.extractExactPayloadItemId(exactStack.encodedStack())
+				.<ItemQueryPlan>map(id -> new CandidatePlan(index -> index.byId(id)))
+				.orElse(EMPTY));
 	}
 
 	private static boolean isItemType(String type) {

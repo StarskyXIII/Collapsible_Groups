@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.preview;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.world.inventory.tooltip.TooltipComponent;
 
@@ -27,7 +27,7 @@ public record PreviewTooltipComponent(List<GroupPreviewEntry> entries) implement
 	private static final int MAX_INGREDIENTS = MAX_PER_LINE * MAX_LINES;
 
 	@Override
-	public int getHeight() {
+	public int getHeight(Font font) {
 		return getLineCount() * INGREDIENT_SIZE + (2 * INGREDIENT_PADDING);
 	}
 
@@ -37,7 +37,7 @@ public record PreviewTooltipComponent(List<GroupPreviewEntry> entries) implement
 	}
 
 	@Override
-	public void renderImage(Font font, int x, int y, GuiGraphics guiGraphics) {
+	public void extractImage(Font font, int x, int y, int w, int h, GuiGraphicsExtractor guiGraphics) {
 		if (entries.size() <= MAX_INGREDIENTS) {
 			drawEntries(guiGraphics, x, y, entries.size());
 			return;
@@ -52,10 +52,10 @@ public record PreviewTooltipComponent(List<GroupPreviewEntry> entries) implement
 		int textWidth = font.width(countString);
 		int textCenterX = x + (MAX_PER_LINE - 1) * INGREDIENT_SIZE + ((INGREDIENT_SIZE - textWidth) / 2);
 		int textCenterY = y + (MAX_LINES - 1) * INGREDIENT_SIZE + ((INGREDIENT_SIZE - textHeight) / 2);
-		guiGraphics.drawString(font, countString, textCenterX, textCenterY, 0xAAAAAA, false);
+		guiGraphics.text(font, countString, textCenterX, textCenterY, 0xFFAAAAAA, false);
 	}
 
-	private void drawEntries(GuiGraphics guiGraphics, int x, int y, int maxEntries) {
+	private void drawEntries(GuiGraphicsExtractor guiGraphics, int x, int y, int maxEntries) {
 		int maxPerLine = divideCeil(maxEntries, getLineCount());
 		for (int i = 0; i < entries.size() && i < maxEntries; i++) {
 			int column = i % maxPerLine;

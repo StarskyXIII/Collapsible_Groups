@@ -15,7 +15,7 @@ import mezz.jei.gui.overlay.IngredientGridTooltipHelper;
 import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.elements.IngredientElement;
 import mezz.jei.gui.util.FocusUtil;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
@@ -26,7 +26,9 @@ import java.util.Optional;
  * Registers its render position with GroupBorderRenderer so generic groups
  * receive the same connected-border treatment as item and fluid groups.
  */
-public class GenericChildElement<T> implements IElement<T> {
+public class GenericChildElement<T> implements IElement<T>, PreRenderIngredientGridElement {
+	private static final int EXPANDED_BACKGROUND = 0x14FFFFFF;
+
 	private final IngredientElement<T> delegate;
 	private final String groupId;
 
@@ -43,7 +45,7 @@ public class GenericChildElement<T> implements IElement<T> {
 
 	@Override
 	public @Nullable IDrawable createRenderOverlay() {
-		return new GenericChildOverlay(groupId);
+		return null;
 	}
 
 	@Override
@@ -65,14 +67,9 @@ public class GenericChildElement<T> implements IElement<T> {
 		return delegate.handleClick(input, keyBindings);
 	}
 
-	private static class GenericChildOverlay implements IDrawable {
-		private final String groupId;
-		GenericChildOverlay(String groupId) { this.groupId = groupId; }
-		@Override public int getWidth() { return 16; }
-		@Override public int getHeight() { return 16; }
-		@Override
-		public void draw(GuiGraphics guiGraphics, int xOffset, int yOffset) {
-			GroupBorderRenderer.registerPosition(groupId, xOffset, yOffset);
-		}
+	@Override
+	public void drawPreRender(GuiGraphicsExtractor guiGraphics, int xOffset, int yOffset) {
+		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17, EXPANDED_BACKGROUND);
+		GroupBorderRenderer.registerPosition(groupId, xOffset, yOffset);
 	}
 }

@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.kubejs;
 
 import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
@@ -19,7 +19,7 @@ public final class KubeJsFilterLowering {
 		return Filters.fluidId(BuiltInRegistries.FLUID.getKey(stack.getFluid()).toString());
 	}
 
-	public static GroupFilter lowerResolvedGenericIngredient(String typeId, ResourceLocation id) {
+	public static GroupFilter lowerResolvedGenericIngredient(String typeId, Identifier id) {
 		return Filters.genericId(typeId, id.toString());
 	}
 
