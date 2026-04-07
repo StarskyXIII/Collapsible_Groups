@@ -59,6 +59,10 @@ public final class GroupFilterClauseFormatter {
 				clauses.add(new Clause(depth, typedLabel(tag.ingredientType(), "Tag"), tag.tag()));
 			case GroupFilter.BlockTag blockTag ->
 				clauses.add(new Clause(depth, "Block Tag", blockTag.tag()));
+			case GroupFilter.ItemPathStartsWith startsWith ->
+				clauses.add(new Clause(depth, "Item Path Starts With", startsWith.prefix()));
+			case GroupFilter.ItemPathEndsWith endsWith ->
+				clauses.add(new Clause(depth, "Item Path Ends With", endsWith.suffix()));
 			case GroupFilter.Namespace namespace ->
 				clauses.add(new Clause(depth, typedLabel(namespace.ingredientType(), "Namespace"), namespace.namespace()));
 			case GroupFilter.ExactStack stack ->
@@ -79,6 +83,8 @@ public final class GroupFilterClauseFormatter {
 			case GroupFilter.Any any -> any.children().stream().anyMatch(GroupFilterClauseFormatter::hasSpecialClause);
 			case GroupFilter.Tag ignored -> true;
 			case GroupFilter.BlockTag ignored -> true;
+			case GroupFilter.ItemPathStartsWith ignored -> true;
+			case GroupFilter.ItemPathEndsWith ignored -> true;
 			case GroupFilter.Namespace ignored -> true;
 			case GroupFilter.All ignored -> true;
 			case GroupFilter.Not ignored -> true;

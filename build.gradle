@@ -26,6 +26,22 @@ tasks.register('generateGroupLang') {
     outputs.file(groupLangOutputFile)
 
     doLast {
+        def addEntry = { Map<String, String> map, String groupId, String fallbackName, File sourceFile ->
+            def translationKey = "collapsible_groups.group.${groupId}"
+            def previous = map.putIfAbsent(translationKey, fallbackName)
+            if (previous != null && previous != fallbackName) {
+                throw new GradleException(
+                    "Conflicting fallback names for ${translationKey}: '${previous}' vs '${fallbackName}' in ${sourceFile}"
+                )
+            }
+        }
+        def titleCase = { String snakeCase ->
+            snakeCase
+                .split('_')
+                .collect { word -> word.isEmpty() ? word : Character.toString(Character.toUpperCase(word.charAt(0))) + word.substring(1) }
+                .join(' ')
+        }
+
         def sourceFiles = groupLangSourceTrees
             .collectMany { it.files }
             .findAll { it.name.endsWith('.java') }
@@ -38,19 +54,72 @@ tasks.register('generateGroupLang') {
         // Using the "__default_" prefix as a discriminator avoids false matches on nested
         // helper calls (e.g. component(), item()) whose first argument is a registry key.
         def pattern = ~/\w+\(\s*"(__default_[^"]+)"\s*,\s*"([^"]+)"/
+        def moduleSpecPattern = ~/(?s)private\s+static\s+final\s+ModuleSpec\s+(\w+)\s*=\s*new\s+ModuleSpec\(\s*"([^"]+)"\s*,\s*"(__default_[^"]+)"\s*,\s*"([^"]+)"\s*,\s*new String\[\]\s*\{(.*?)\}\s*\);/
+        def moduleSpecTagPattern = ~/"([^"]+)"/
+        def displayNameOverridePattern = ~/case\s+"([^"]+)"\s*->\s*"([^"]+)"/
+        def pathGroupArrayPattern = ~/(?s)private\s+static\s+final\s+PathGroupSpec\[\]\s+(\w+)\s*=\s*\{(.*?)\};/
+        def pathGroupEntryPattern = ~/new\s+PathGroupSpec\(\s*"([^"]+)"\s*,\s*"([^"]+)"/
+        def pathGroupPrefixPattern = ~/(?s)for\s*\(\s*PathGroupSpec\s+(\w+)\s*:\s*(\w+)\s*\)\s*\{\s*groups\.add\(group\(\s*"(__default_[^"]+)"\s*\+\s*\1\.idSuffix\(\)\s*,\s*\1\.displayName\(\)/
         def entries = [:]
 
         sourceFiles.each { sourceFile ->
             def content = sourceFile.getText('UTF-8')
+            def displayNameOverrides = [:]
+            def displayNameOverrideMatcher = displayNameOverridePattern.matcher(content)
+            while (displayNameOverrideMatcher.find()) {
+                displayNameOverrides[displayNameOverrideMatcher.group(1)] = displayNameOverrideMatcher.group(2)
+            }
+
             def matcher = pattern.matcher(content)
             while (matcher.find()) {
-                def groupId = matcher.group(1)
-                def fallbackName = matcher.group(2)
-                def translationKey = "collapsible_groups.group.${groupId}"
-                def previous = entries.putIfAbsent(translationKey, fallbackName)
-                if (previous != null && previous != fallbackName) {
+                addEntry(entries, matcher.group(1), matcher.group(2), sourceFile)
+            }
+
+            def moduleSpecMatcher = moduleSpecPattern.matcher(content)
+            while (moduleSpecMatcher.find()) {
+                def groupIdPrefix = moduleSpecMatcher.group(3)
+                def displayPrefix = moduleSpecMatcher.group(4)
+                def tagsBody = moduleSpecMatcher.group(5)
+                def moduleSpecTagMatcher = moduleSpecTagPattern.matcher(tagsBody)
+                while (moduleSpecTagMatcher.find()) {
+                    def tag = moduleSpecTagMatcher.group(1)
+                    def displayName = displayNameOverrides.getOrDefault(tag, titleCase(tag))
+                    addEntry(entries, groupIdPrefix + tag, displayPrefix + displayName, sourceFile)
+                }
+            }
+
+            def pathGroupPrefixes = [:]
+            def parsedPathGroupEntries = [:].withDefault { 0 }
+            def prefixMatcher = pathGroupPrefixPattern.matcher(content)
+            while (prefixMatcher.find()) {
+                def arrayName = prefixMatcher.group(2)
+                def groupIdPrefix = prefixMatcher.group(3)
+                pathGroupPrefixes[arrayName] = groupIdPrefix
+            }
+
+            def pathGroupArrayMatcher = pathGroupArrayPattern.matcher(content)
+            while (pathGroupArrayMatcher.find()) {
+                def arrayName = pathGroupArrayMatcher.group(1)
+                def body = pathGroupArrayMatcher.group(2)
+                def groupIdPrefix = pathGroupPrefixes[arrayName]
+                if (groupIdPrefix == null) {
+                    continue
+                }
+
+                def pathGroupEntryMatcher = pathGroupEntryPattern.matcher(body)
+                while (pathGroupEntryMatcher.find()) {
+                    def groupId = groupIdPrefix + pathGroupEntryMatcher.group(1)
+                    def fallbackName = pathGroupEntryMatcher.group(2)
+                    addEntry(entries, groupId, fallbackName, sourceFile)
+                    parsedPathGroupEntries[arrayName] = parsedPathGroupEntries[arrayName] + 1
+                }
+            }
+
+            pathGroupPrefixes.each { arrayName, groupIdPrefix ->
+                if (parsedPathGroupEntries[arrayName] == 0) {
                     throw new GradleException(
-                        "Conflicting fallback names for ${translationKey}: '${previous}' vs '${fallbackName}' in ${sourceFile}"
+                        "No PathGroupSpec entries were generated for ${arrayName} (${groupIdPrefix}*) in ${sourceFile}. " +
+                        "Check generateGroupLang regex compatibility with the current source layout."
                     )
                 }
             }

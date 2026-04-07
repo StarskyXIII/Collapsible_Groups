@@ -34,6 +34,8 @@ public final class CompiledFilter {
 			case GroupFilter.Id id -> new IdNode(canonicalType(id.ingredientType()), Identifier.parse(id.id()));
 			case GroupFilter.Tag tag -> new TagNode(canonicalType(tag.ingredientType()), Identifier.parse(tag.tag()));
 			case GroupFilter.BlockTag blockTag -> new BlockTagNode(Identifier.parse(blockTag.tag()));
+			case GroupFilter.ItemPathStartsWith startsWith -> new ItemPathStartsWithNode(startsWith.prefix());
+			case GroupFilter.ItemPathEndsWith endsWith -> new ItemPathEndsWithNode(endsWith.suffix());
 			case GroupFilter.Namespace namespace -> new NamespaceNode(canonicalType(namespace.ingredientType()), namespace.namespace());
 			case GroupFilter.ExactStack exactStack -> new ExactStackNode(exactStack.encodedStack());
 			case GroupFilter.HasComponent hc -> new HasComponentNode(hc.componentTypeId(), hc.encodedValue());
@@ -47,7 +49,7 @@ public final class CompiledFilter {
 	}
 
 	private sealed interface CompiledNode
-		permits AnyNode, AllNode, NotNode, IdNode, TagNode, BlockTagNode, NamespaceNode, ExactStackNode, HasComponentNode, ComponentPathNode {
+		permits AnyNode, AllNode, NotNode, IdNode, TagNode, BlockTagNode, ItemPathStartsWithNode, ItemPathEndsWithNode, NamespaceNode, ExactStackNode, HasComponentNode, ComponentPathNode {
 		boolean matches(IngredientView view);
 	}
 
@@ -90,6 +92,28 @@ public final class CompiledFilter {
 		@Override
 		public boolean matches(IngredientView view) {
 			return sameType("item", view) && view.hasBlockTag(tagId);
+		}
+	}
+
+	private record ItemPathStartsWithNode(String prefix) implements CompiledNode {
+		@Override
+		public boolean matches(IngredientView view) {
+			if (!sameType("item", view)) {
+				return false;
+			}
+			Identifier resourceLocation = view.resourceLocation();
+			return resourceLocation != null && resourceLocation.getPath().startsWith(prefix);
+		}
+	}
+
+	private record ItemPathEndsWithNode(String suffix) implements CompiledNode {
+		@Override
+		public boolean matches(IngredientView view) {
+			if (!sameType("item", view)) {
+				return false;
+			}
+			Identifier resourceLocation = view.resourceLocation();
+			return resourceLocation != null && resourceLocation.getPath().endsWith(suffix);
 		}
 	}
 

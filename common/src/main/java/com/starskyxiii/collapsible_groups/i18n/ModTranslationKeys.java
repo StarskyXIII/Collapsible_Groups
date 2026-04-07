@@ -206,6 +206,10 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_UNSUPPORTED_NODE_NOT_REASON      = "collapsible_groups.editor.unsupported_node.not.reason";
 	public static final String EDITOR_UNSUPPORTED_NODE_BLOCK_TAG_LABEL  = "collapsible_groups.editor.unsupported_node.block_tag.label";
 	public static final String EDITOR_UNSUPPORTED_NODE_BLOCK_TAG_REASON = "collapsible_groups.editor.unsupported_node.block_tag.reason";
+	public static final String EDITOR_UNSUPPORTED_NODE_ITEM_PATH_STARTS_WITH_LABEL  = "collapsible_groups.editor.unsupported_node.item_path_starts_with.label";
+	public static final String EDITOR_UNSUPPORTED_NODE_ITEM_PATH_STARTS_WITH_REASON = "collapsible_groups.editor.unsupported_node.item_path_starts_with.reason";
+	public static final String EDITOR_UNSUPPORTED_NODE_ITEM_PATH_ENDS_WITH_LABEL    = "collapsible_groups.editor.unsupported_node.item_path_ends_with.label";
+	public static final String EDITOR_UNSUPPORTED_NODE_ITEM_PATH_ENDS_WITH_REASON   = "collapsible_groups.editor.unsupported_node.item_path_ends_with.reason";
 	public static final String EDITOR_UNSUPPORTED_NODE_NAMESPACE_LABEL  = "collapsible_groups.editor.unsupported_node.namespace.label";
 	public static final String EDITOR_UNSUPPORTED_NODE_NAMESPACE_REASON = "collapsible_groups.editor.unsupported_node.namespace.reason";
 	public static final String EDITOR_UNSUPPORTED_NODE_NESTED_LABEL    = "collapsible_groups.editor.unsupported_node.nested.label";
