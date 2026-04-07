@@ -67,6 +67,14 @@ public final class Filters {
 		return new GroupFilter.BlockTag(tag);
 	}
 
+	public static GroupFilter itemPathStartsWith(String prefix) {
+		return new GroupFilter.ItemPathStartsWith(prefix);
+	}
+
+	public static GroupFilter itemPathEndsWith(String suffix) {
+		return new GroupFilter.ItemPathEndsWith(suffix);
+	}
+
 	public static GroupFilter itemNamespace(String namespace) {
 		return namespace(ITEM_TYPE, namespace);
 	}

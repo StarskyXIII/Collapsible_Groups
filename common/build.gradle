@@ -40,6 +40,13 @@ dependencies {
     testImplementation 'com.google.code.gson:gson:2.10.1'
 }
 
+sourceSets {
+    test {
+        compileClasspath += sourceSets.main.compileClasspath
+        runtimeClasspath += sourceSets.main.compileClasspath
+    }
+}
+
 test {
     useJUnitPlatform()
 }

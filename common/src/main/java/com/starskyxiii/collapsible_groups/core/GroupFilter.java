@@ -10,6 +10,8 @@ public sealed interface GroupFilter
 	        GroupFilter.Id,
 	        GroupFilter.Tag,
 	        GroupFilter.BlockTag,
+	        GroupFilter.ItemPathStartsWith,
+	        GroupFilter.ItemPathEndsWith,
 	        GroupFilter.Namespace,
 	        GroupFilter.ExactStack,
 	        GroupFilter.HasComponent,
@@ -52,6 +54,18 @@ public sealed interface GroupFilter
 	record BlockTag(String tag) implements GroupFilter {
 		public BlockTag {
 			Objects.requireNonNull(tag, "tag");
+		}
+	}
+
+	record ItemPathStartsWith(String prefix) implements GroupFilter {
+		public ItemPathStartsWith {
+			Objects.requireNonNull(prefix, "prefix");
+		}
+	}
+
+	record ItemPathEndsWith(String suffix) implements GroupFilter {
+		public ItemPathEndsWith {
+			Objects.requireNonNull(suffix, "suffix");
 		}
 	}
 

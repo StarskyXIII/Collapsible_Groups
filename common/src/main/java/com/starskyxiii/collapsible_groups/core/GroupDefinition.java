@@ -163,6 +163,8 @@ public final class GroupDefinition {
 			case GroupFilter.Id id -> id.ingredientType();
 			case GroupFilter.Tag tag -> tag.ingredientType();
 			case GroupFilter.BlockTag ignored -> "item";
+			case GroupFilter.ItemPathStartsWith ignored -> "item";
+			case GroupFilter.ItemPathEndsWith ignored -> "item";
 			case GroupFilter.Namespace namespace -> namespace.ingredientType();
 			case GroupFilter.ExactStack ignored -> "item";
 			case GroupFilter.HasComponent ignored -> "item";

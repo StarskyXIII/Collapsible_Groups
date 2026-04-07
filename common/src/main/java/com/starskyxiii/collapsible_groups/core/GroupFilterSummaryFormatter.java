@@ -31,6 +31,8 @@ public final class GroupFilterSummaryFormatter {
 			case GroupFilter.Id id -> formatId(id.ingredientType(), id.id());
 			case GroupFilter.Tag tag -> formatTag(tag.ingredientType(), tag.tag());
 			case GroupFilter.BlockTag blockTag -> "block tag " + blockTag.tag();
+			case GroupFilter.ItemPathStartsWith startsWith -> "item path starts with " + startsWith.prefix();
+			case GroupFilter.ItemPathEndsWith endsWith -> "item path ends with " + endsWith.suffix();
 			case GroupFilter.Namespace namespace -> formatNamespace(namespace.ingredientType(), namespace.namespace());
 			case GroupFilter.ExactStack ignored -> "exact stack";
 			case GroupFilter.HasComponent hc -> "has component " + hc.componentTypeId() + "=" + hc.encodedValue();
@@ -89,6 +91,8 @@ public final class GroupFilterSummaryFormatter {
 		return filter instanceof GroupFilter.Id
 			|| filter instanceof GroupFilter.Tag
 			|| filter instanceof GroupFilter.BlockTag
+			|| filter instanceof GroupFilter.ItemPathStartsWith
+			|| filter instanceof GroupFilter.ItemPathEndsWith
 			|| filter instanceof GroupFilter.Namespace
 			|| filter instanceof GroupFilter.ExactStack
 			|| filter instanceof GroupFilter.HasComponent
@@ -100,6 +104,8 @@ public final class GroupFilterSummaryFormatter {
 			case GroupFilter.Id id -> categoryPrefix(id.ingredientType()) + "id";
 			case GroupFilter.Tag tag -> categoryPrefix(tag.ingredientType()) + "tag";
 			case GroupFilter.BlockTag ignored -> "block tag";
+			case GroupFilter.ItemPathStartsWith ignored -> "item path starts with";
+			case GroupFilter.ItemPathEndsWith ignored -> "item path ends with";
 			case GroupFilter.Namespace namespace -> categoryPrefix(namespace.ingredientType()) + "namespace";
 			case GroupFilter.ExactStack ignored -> "exact stack";
 			case GroupFilter.HasComponent ignored -> "has component";

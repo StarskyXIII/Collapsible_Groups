@@ -43,6 +43,7 @@ import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Pattern;
 
 public final class KubeJsFilterCompiler {
@@ -55,9 +56,17 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 
+		if (filter instanceof GroupFilter groupFilter) {
+			return groupFilter;
+		}
+
 		List<?> list = ListJS.of(filter);
 		if (list != null) {
 			return compileItemList(cx, list);
+		}
+
+		if (filter instanceof Map<?, ?> map) {
+			return compileItemObject(map);
 		}
 
 		if (filter instanceof ItemStack stack) {
@@ -201,6 +210,25 @@ public final class KubeJsFilterCompiler {
 		}
 
 		return compileItemFilter(IngredientWrapper.wrap(cx, trimmed));
+	}
+
+	private static @Nullable GroupFilter compileItemObject(Map<?, ?> map) {
+		List<GroupFilter> children = new ArrayList<>(6);
+
+		addIfPresent(children, compileItemPathStartsWith(map));
+		addIfPresent(children, compileItemPathEndsWith(map));
+		addIfPresent(children, compileItemNamespace(map));
+		addIfPresent(children, compileItemId(map));
+		addIfPresent(children, compileItemTag(map));
+		addIfPresent(children, compileBlockTag(map));
+
+		if (children.isEmpty()) {
+			return null;
+		}
+		if (children.size() == 1) {
+			return children.getFirst();
+		}
+		return Filters.all(children.toArray(GroupFilter[]::new));
 	}
 
 	private static @Nullable GroupFilter compileFluidString(Context cx, String input) {
@@ -353,6 +381,75 @@ public final class KubeJsFilterCompiler {
 			filter = wrapper.unwrap();
 		}
 		return filter;
+	}
+
+	private static @Nullable GroupFilter compileItemPathStartsWith(Map<?, ?> map) {
+		String prefix = stringProperty(map, "itemPathStartsWith");
+		if (prefix == null) {
+			return null;
+		}
+		prefix = prefix.trim();
+		return prefix.isEmpty() ? null : Filters.itemPathStartsWith(prefix);
+	}
+
+	private static @Nullable GroupFilter compileItemPathEndsWith(Map<?, ?> map) {
+		String suffix = stringProperty(map, "itemPathEndsWith");
+		if (suffix == null) {
+			return null;
+		}
+		suffix = suffix.trim();
+		return suffix.isEmpty() ? null : Filters.itemPathEndsWith(suffix);
+	}
+
+	private static @Nullable GroupFilter compileItemNamespace(Map<?, ?> map) {
+		String namespace = stringProperty(map, "itemNamespace");
+		if (namespace == null) {
+			return null;
+		}
+		namespace = namespace.trim();
+		return namespace.isEmpty() ? null : Filters.itemNamespace(namespace);
+	}
+
+	private static @Nullable GroupFilter compileItemId(Map<?, ?> map) {
+		String id = stringProperty(map, "itemId");
+		if (id == null) {
+			return null;
+		}
+		id = id.trim();
+		return isValidResourceLocation(id) ? Filters.itemId(id) : null;
+	}
+
+	private static @Nullable GroupFilter compileItemTag(Map<?, ?> map) {
+		String tag = stringProperty(map, "itemTag");
+		if (tag == null) {
+			return null;
+		}
+		tag = tag.trim();
+		return isValidResourceLocation(tag) ? Filters.itemTag(tag) : null;
+	}
+
+	private static @Nullable GroupFilter compileBlockTag(Map<?, ?> map) {
+		String tag = stringProperty(map, "blockTag");
+		if (tag == null) {
+			return null;
+		}
+		tag = tag.trim();
+		return isValidResourceLocation(tag) ? Filters.blockTag(tag) : null;
+	}
+
+	private static void addIfPresent(List<GroupFilter> children, @Nullable GroupFilter filter) {
+		if (filter != null) {
+			children.add(filter);
+		}
+	}
+
+	private static @Nullable String stringProperty(Map<?, ?> map, String key) {
+		Object value = map.get(key);
+		return value instanceof CharSequence chars ? chars.toString() : null;
+	}
+
+	private static boolean isValidResourceLocation(String value) {
+		return !value.isEmpty() && ResourceLocation.tryParse(value) != null;
 	}
 
 	private static boolean isRegexLike(Object filter) {

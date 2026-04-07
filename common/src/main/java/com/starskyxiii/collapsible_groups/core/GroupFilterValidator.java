@@ -56,6 +56,8 @@ public final class GroupFilterValidator {
 				validateResourceLocation(tag.tag(), errors, "tag");
 			}
 			case GroupFilter.BlockTag blockTag -> validateResourceLocation(blockTag.tag(), errors, "block_tag");
+			case GroupFilter.ItemPathStartsWith startsWith -> validatePartialPath(startsWith.prefix(), errors, "item_path_starts_with");
+			case GroupFilter.ItemPathEndsWith endsWith -> validatePartialPath(endsWith.suffix(), errors, "item_path_ends_with");
 			case GroupFilter.Namespace namespace -> {
 				validateType(namespace.ingredientType(), errors, "namespace");
 				if (!ResourceLocation.isValidNamespace(namespace.namespace())) {
@@ -122,6 +124,12 @@ public final class GroupFilterValidator {
 		}
 		if (ResourceLocation.tryParse(value) == null) {
 			errors.add("Invalid resource location '" + value + "'");
+		}
+	}
+
+	private static void validatePartialPath(String value, List<String> errors, String nodeName) {
+		if (value == null || value.isBlank()) {
+			errors.add("Filter node '" + nodeName + "' is missing its value");
 		}
 	}
 }

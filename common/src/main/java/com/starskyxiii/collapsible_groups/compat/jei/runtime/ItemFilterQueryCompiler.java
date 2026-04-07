@@ -36,6 +36,8 @@ public final class ItemFilterQueryCompiler {
 			case GroupFilter.Id id -> compileId(id);
 			case GroupFilter.Tag tag -> compileTag(tag);
 			case GroupFilter.BlockTag blockTag -> compileBlockTag(blockTag);
+			case GroupFilter.ItemPathStartsWith ignored -> FULL_SCAN;
+			case GroupFilter.ItemPathEndsWith ignored -> FULL_SCAN;
 			case GroupFilter.Namespace namespace -> compileNamespace(namespace);
 			case GroupFilter.ExactStack exactStack -> compileExactStack(exactStack);
 			case GroupFilter.HasComponent ignored -> FULL_SCAN;

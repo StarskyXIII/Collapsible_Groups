@@ -344,6 +344,12 @@ public final class GroupConfig {
 		if (obj.has("block_tag")) {
 			return new GroupFilter.BlockTag(obj.get("block_tag").getAsString());
 		}
+		if (obj.has("item_path_starts_with")) {
+			return new GroupFilter.ItemPathStartsWith(obj.get("item_path_starts_with").getAsString());
+		}
+		if (obj.has("item_path_ends_with")) {
+			return new GroupFilter.ItemPathEndsWith(obj.get("item_path_ends_with").getAsString());
+		}
 		if (!obj.has("type")) {
 			throw new IllegalArgumentException("Filter node is missing type: " + obj);
 		}
@@ -378,6 +384,8 @@ public final class GroupConfig {
 				obj.addProperty("tag", tag.tag());
 			}
 			case GroupFilter.BlockTag blockTag -> obj.addProperty("block_tag", blockTag.tag());
+			case GroupFilter.ItemPathStartsWith startsWith -> obj.addProperty("item_path_starts_with", startsWith.prefix());
+			case GroupFilter.ItemPathEndsWith endsWith -> obj.addProperty("item_path_ends_with", endsWith.suffix());
 			case GroupFilter.Namespace namespace -> {
 				obj.addProperty("type", namespace.ingredientType());
 				obj.addProperty("namespace", namespace.namespace());
