@@ -4,12 +4,24 @@ import com.starskyxiii.collapsible_groups.platform.services.IConfigProvider;
 import net.minecraftforge.common.ForgeConfigSpec;
 
 /**
- * Forge config provider ??reads/writes
+ * Forge config provider that reads and writes
  * {@code config/collapsiblegroups/collapsiblegroups.toml} via {@link ForgeConfigSpec}.
  */
 public final class ForgeConfig implements IConfigProvider {
 
-	// ?? IConfigProvider ??????????????????????????????????????????????????????
+	private static final String[] MACAWS_SERIES_MODS = {
+		"mcwwindows",
+		"mcwbridges",
+		"mcwdoors",
+		"mcwfences",
+		"mcwfurnitures",
+		"mcwlights",
+		"mcwpaths",
+		"mcwstairs",
+		"mcwtrpdoors",
+	};
+
+	// IConfigProvider
 
 	@Override public boolean loadDefaultGroups()                   { return LOAD_DEFAULT_GROUPS.get(); }
 	@Override public boolean loadGenericGroups()                   { return LOAD_GENERIC_GROUPS.get(); }
@@ -20,39 +32,51 @@ public final class ForgeConfig implements IConfigProvider {
 			&& LOAD_RECHISELED.get()
 			&& net.minecraftforge.fml.ModList.get().isLoaded("rechiseled");
 	}
+	@Override public boolean shouldLoadMacawsSeries() {
+		return LOAD_DEFAULT_GROUPS.get()
+			&& LOAD_MOD_INTEGRATION_GROUPS.get()
+			&& LOAD_MACAWS_SERIES.get()
+			&& isAnyMacawsSeriesLoaded();
+	}
 	@Override public boolean showManagerButton()                   { return SHOW_MANAGER_BUTTON.get(); }
 	@Override public boolean debugTimingEnabled()                  { return DEBUG_TIMING_LOGS.get(); }
 	@Override public boolean debugStartupIndexVerificationEnabled() { return DEBUG_STARTUP_INDEX_VERIFY.get(); }
 	@Override public boolean debugEditorIndexVerificationEnabled() { return DEBUG_EDITOR_INDEX_VERIFY.get(); }
 
-	// ?? defaultGroups ?????????????????????????????????????????????????????????
+	// defaultGroups
 
-	/** Master switch ??set to false for a completely clean slate with no built-in groups. */
+	/** Master switch: set to false for a completely clean slate with no built-in groups. */
 	public static final ForgeConfigSpec.BooleanValue LOAD_DEFAULT_GROUPS;
 
-	/** Whether to load built-in generic cross-mod groups (potions, enchanted books, spawn eggs, ??. */
+	/** Whether to load built-in generic cross-mod groups (potions, enchanted books, spawn eggs, etc.). */
 	public static final ForgeConfigSpec.BooleanValue LOAD_GENERIC_GROUPS;
 
-	/** Whether to load built-in vanilla groupings (wool, concrete, terracotta, ??. */
+	/** Whether to load built-in vanilla groupings (wool, concrete, terracotta, etc.). */
 	public static final ForgeConfigSpec.BooleanValue LOAD_VANILLA_GROUPS;
 
-	// ?? defaultGroups.ModIntegration ??????????????????????????????????????????
+	// defaultGroups.ModIntegration
 
 	/** Master switch for all mod-integration groups. */
 	public static final ForgeConfigSpec.BooleanValue LOAD_MOD_INTEGRATION_GROUPS;
 
 	/**
 	 * Whether to load built-in Rechiseled block-variant groups.
-	 * Ignored if Rechiseled is not installed ??the setting cannot take effect without the mod.
+	 * Ignored if Rechiseled is not installed; the setting cannot take effect without the mod.
 	 */
 	public static final ForgeConfigSpec.BooleanValue LOAD_RECHISELED;
 
-	// ?? ui ????????????????????????????????????????????????????????????????????
+	/**
+	 * Whether to load built-in Macaw's series groups.
+	 * Ignored if none of the supported Macaw's mods are installed.
+	 */
+	public static final ForgeConfigSpec.BooleanValue LOAD_MACAWS_SERIES;
+
+	// ui
 
 	/** Whether to show the group manager button in the JEI overlay. */
 	public static final ForgeConfigSpec.BooleanValue SHOW_MANAGER_BUTTON;
 
-	// ?? debug ?????????????????????????????????????????????????????????????????
+	// debug
 
 	/** Whether to emit debug timing/performance logs. */
 	public static final ForgeConfigSpec.BooleanValue DEBUG_TIMING_LOGS;
@@ -97,6 +121,12 @@ public final class ForgeConfig implements IConfigProvider {
 				"Has no effect if Rechiseled is not installed."
 			)
 			.define("loadRechiseled", true);
+		LOAD_MACAWS_SERIES = builder
+			.comment(
+				"Whether to load built-in Macaw's series block-tag groups.",
+				"Has no effect if none of the supported Macaw's mods are installed."
+			)
+			.define("loadMacawsSeries", true);
 		// Note: Chipped and RS2 integration groups are not yet implemented on Forge.
 		// IConfigProvider defaults shouldLoadChipped() and shouldLoadRS2() to false.
 		builder.pop(); // ModIntegration
@@ -135,4 +165,14 @@ public final class ForgeConfig implements IConfigProvider {
 	}
 
 	public ForgeConfig() {}
+
+	private static boolean isAnyMacawsSeriesLoaded() {
+		net.minecraftforge.fml.ModList modList = net.minecraftforge.fml.ModList.get();
+		for (String modId : MACAWS_SERIES_MODS) {
+			if (modList.isLoaded(modId)) {
+				return true;
+			}
+		}
+		return false;
+	}
 }

@@ -1,8 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
-import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
@@ -23,7 +23,7 @@ import java.util.Optional;
  *
  * <p>Lifecycle: owned by {@link GroupRegistry}, lazily built on first editable
  * preview rebuild, invalidated whenever {@code jeiAllItems} is replaced or cleared.
- * The index is not invalidated on every edit ??it is keyed on stable JEI item
+ * The index is not invalidated on every edit because it is keyed on stable JEI item
  * identity and does not depend on the current group definition or draft.
  *
  * <p>Order preservation: output order matches the original JEI item order, the same
@@ -35,7 +35,7 @@ public final class EditorItemIndex {
 	private final List<ItemStack> orderedItems;
 	private final Map<Identifier, List<ItemStack>> byId;
 	private final Map<Identifier, List<ItemStack>> byTag;
-	/** Maps each ItemStack object identity ??its stable index in JEI order. */
+	/** Maps each ItemStack object identity to its stable index in JEI order. */
 	private final IdentityHashMap<ItemStack, Integer> orderByIdentity;
 
 	private static final String VERIFY_OVERRIDE =
@@ -107,13 +107,12 @@ public final class EditorItemIndex {
 			return List.of();
 		}
 
-		// Identity set ??deduplication is automatic across overlapping selectors/tags
+		// Identity set: deduplication is automatic across overlapping selectors/tags
 		IdentityHashMap<ItemStack, Boolean> matched = new IdentityHashMap<>();
 
 		// --- Explicit item selectors (whole-item or exact-stack) ---
 		for (String selector : draft.explicitItemSelectors()) {
 			if (GroupItemSelector.isWholeItemSelector(selector)) {
-				// Whole-item selector: all JEI variants of this registry ID
 				Identifier id = Identifier.tryParse(selector);
 				if (id != null) {
 					List<ItemStack> bucket = byId.get(id);
@@ -122,7 +121,6 @@ public final class EditorItemIndex {
 					}
 				}
 			} else {
-				// Exact-stack selector: decode once, then narrow to registry-ID bucket
 				Optional<ItemStack> decoded = GroupItemSelector.decodeExactSelector(selector);
 				decoded.ifPresent(reference -> {
 					Identifier id = BuiltInRegistries.ITEM.getKey(reference.getItem());

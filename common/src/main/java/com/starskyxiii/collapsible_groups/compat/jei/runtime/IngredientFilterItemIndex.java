@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.resources.Identifier;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -25,23 +26,27 @@ public final class IngredientFilterItemIndex {
 	private final Map<Identifier, List<ItemEntry>> byId;
 	private final Map<String, List<ItemEntry>> byNamespace;
 	private final Map<Identifier, List<ItemEntry>> byTag;
+	private final Map<Identifier, List<ItemEntry>> byBlockTag;
 
 	private IngredientFilterItemIndex(
 		List<ItemEntry> orderedEntries,
 		Map<Identifier, List<ItemEntry>> byId,
 		Map<String, List<ItemEntry>> byNamespace,
-		Map<Identifier, List<ItemEntry>> byTag
+		Map<Identifier, List<ItemEntry>> byTag,
+		Map<Identifier, List<ItemEntry>> byBlockTag
 	) {
 		this.orderedEntries = orderedEntries;
 		this.byId = byId;
 		this.byNamespace = byNamespace;
 		this.byTag = byTag;
+		this.byBlockTag = byBlockTag;
 	}
 
 	public static IngredientFilterItemIndex build(List<ITypedIngredient<?>> all) {
 		Map<Identifier, List<ItemEntry>> byId = new HashMap<>();
 		Map<String, List<ItemEntry>> byNamespace = new HashMap<>();
 		Map<Identifier, List<ItemEntry>> byTag = new HashMap<>();
+		Map<Identifier, List<ItemEntry>> byBlockTag = new HashMap<>();
 		List<ItemEntry> orderedEntries = new ArrayList<>();
 
 		for (ITypedIngredient<?> ingredient : all) {
@@ -58,6 +63,12 @@ public final class IngredientFilterItemIndex {
 				stack.getItem().builtInRegistryHolder().tags().forEach(tagKey ->
 					byTag.computeIfAbsent(tagKey.location(), k -> new ArrayList<>()).add(entry)
 				);
+
+				if (stack.getItem() instanceof BlockItem blockItem) {
+					blockItem.getBlock().builtInRegistryHolder().tags().forEach(tagKey ->
+						byBlockTag.computeIfAbsent(tagKey.location(), k -> new ArrayList<>()).add(entry)
+					);
+				}
 			});
 		}
 
@@ -65,7 +76,8 @@ public final class IngredientFilterItemIndex {
 			List.copyOf(orderedEntries),
 			freezeBuckets(byId),
 			freezeBuckets(byNamespace),
-			freezeBuckets(byTag)
+			freezeBuckets(byTag),
+			freezeBuckets(byBlockTag)
 		);
 	}
 
@@ -83,6 +95,10 @@ public final class IngredientFilterItemIndex {
 
 	public List<ItemEntry> byTag(Identifier tagId) {
 		return byTag.getOrDefault(tagId, List.of());
+	}
+
+	public List<ItemEntry> byBlockTag(Identifier tagId) {
+		return byBlockTag.getOrDefault(tagId, List.of());
 	}
 
 	public static List<ItemEntry> collectOrderedUnion(List<List<ItemEntry>> buckets) {

@@ -37,6 +37,7 @@ public final class GroupFilterEditorDraft {
 	public enum UnsupportedEditorNodeKind {
 		ALL(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_ALL_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_ALL_REASON),
 		NOT(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NOT_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NOT_REASON),
+		BLOCK_TAG(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_BLOCK_TAG_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_BLOCK_TAG_REASON),
 		NAMESPACE(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NAMESPACE_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NAMESPACE_REASON),
 		NESTED_STRUCTURE(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NESTED_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NESTED_REASON),
 		HAS_COMPONENT(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_HAS_COMPONENT_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_HAS_COMPONENT_REASON),
@@ -224,6 +225,10 @@ public final class GroupFilterEditorDraft {
 			case GroupFilter.Id id -> addIdNode(id, draft);
 			case GroupFilter.Tag tag -> addTagNode(tag, draft);
 			case GroupFilter.ExactStack stack -> draft.explicitItemSelectors.add(STACK_PREFIX + stack.encodedStack());
+			case GroupFilter.BlockTag ignored -> {
+				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.BLOCK_TAG);
+				yield false;
+			}
 			case GroupFilter.All all -> {
 				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.ALL);
 				if (all.children().stream().anyMatch(GroupFilterEditorDraft::isComposite)) {

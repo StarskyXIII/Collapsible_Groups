@@ -35,10 +35,11 @@ public final class ItemFilterQueryCompiler {
 			case GroupFilter.Not not -> compileNot(not.child());
 			case GroupFilter.Id id -> compileId(id);
 			case GroupFilter.Tag tag -> compileTag(tag);
+			case GroupFilter.BlockTag blockTag -> compileBlockTag(blockTag);
 			case GroupFilter.Namespace namespace -> compileNamespace(namespace);
 			case GroupFilter.ExactStack exactStack -> compileExactStack(exactStack);
 			case GroupFilter.HasComponent ignored -> FULL_SCAN;
-		case GroupFilter.ComponentPath ignored -> FULL_SCAN;
+			case GroupFilter.ComponentPath ignored -> FULL_SCAN;
 		};
 	}
 
@@ -129,6 +130,12 @@ public final class ItemFilterQueryCompiler {
 		Identifier tagId = Identifier.tryParse(tag.tag());
 		if (tagId == null) return EMPTY;
 		return new CandidatePlan(index -> index.byTag(tagId));
+	}
+
+	private static ItemQueryPlan compileBlockTag(GroupFilter.BlockTag blockTag) {
+		Identifier tagId = Identifier.tryParse(blockTag.tag());
+		if (tagId == null) return EMPTY;
+		return new CandidatePlan(index -> index.byBlockTag(tagId));
 	}
 
 	private static ItemQueryPlan compileNamespace(GroupFilter.Namespace namespace) {

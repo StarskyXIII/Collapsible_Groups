@@ -8,6 +8,7 @@ import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.BlockItem;
 import net.minecraft.world.item.ItemStack;
 
 public final class ItemStackIngredientView implements IngredientView {
@@ -34,6 +35,14 @@ public final class ItemStackIngredientView implements IngredientView {
 	@Override
 	public boolean hasTag(Identifier tagId) {
 		return stack.is(TagKey.create(Registries.ITEM, tagId));
+	}
+
+	@Override
+	public boolean hasBlockTag(Identifier tagId) {
+		if (stack.getItem() instanceof BlockItem blockItem) {
+			return blockItem.getBlock().builtInRegistryHolder().is(TagKey.create(Registries.BLOCK, tagId));
+		}
+		return false;
 	}
 
 	@Override

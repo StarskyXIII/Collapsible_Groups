@@ -23,7 +23,7 @@ public final class MekanismIngredientTypeLoader {
 			CGApi.registerIngredientTypeAlias("chemical", "mekanism:chemical");
 			Constants.LOG.info("[CollapsibleGroups] Registered Mekanism chemical ingredient type.");
 		} catch (ClassNotFoundException e) {
-			// Mekanism JEI plugin class not present ??safe to ignore
+			// Mekanism JEI plugin class not present - safe to ignore
 		} catch (Exception e) {
 			Constants.LOG.warn("[CollapsibleGroups] Failed to register Mekanism ingredient type: {}", e.getMessage());
 		}

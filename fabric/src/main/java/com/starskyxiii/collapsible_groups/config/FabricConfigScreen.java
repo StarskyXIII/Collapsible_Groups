@@ -47,6 +47,7 @@ public class FabricConfigScreen extends Screen {
 	private boolean loadChipped;
 	private boolean loadRechiseled;
 	private boolean loadRS2;
+	private boolean loadMacawsSeries;
 	private boolean showManagerButton;
 	private boolean timingLogs;
 	private boolean verifyStartupIndex;
@@ -91,6 +92,7 @@ public class FabricConfigScreen extends Screen {
 			loadChipped          = d.defaultGroups.modIntegration.loadChipped;
 			loadRechiseled       = d.defaultGroups.modIntegration.loadRechiseled;
 			loadRS2              = d.defaultGroups.modIntegration.loadRS2;
+			loadMacawsSeries     = d.defaultGroups.modIntegration.loadMacawsSeries;
 			showManagerButton    = d.ui.showManagerButton;
 			timingLogs           = d.debug.enableTimingLogs;
 			verifyStartupIndex   = d.debug.verifyStartupIndex;
@@ -127,6 +129,8 @@ public class FabricConfigScreen extends Screen {
 			() -> loadRechiseled, v -> loadRechiseled = v);            y += ROW_H + ROW_GAP;
 		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_LOAD_RS2,
 			() -> loadRS2, v -> loadRS2 = v);                          y += ROW_H + ROW_GAP;
+		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_LOAD_MACAWS_SERIES,
+			() -> loadMacawsSeries, v -> loadMacawsSeries = v);        y += ROW_H + ROW_GAP;
 
 		// ── UI ──
 		y += SEC_GAP;
@@ -227,6 +231,7 @@ public class FabricConfigScreen extends Screen {
 		newData.defaultGroups.modIntegration.loadChipped           = loadChipped;
 		newData.defaultGroups.modIntegration.loadRechiseled        = loadRechiseled;
 		newData.defaultGroups.modIntegration.loadRS2               = loadRS2;
+		newData.defaultGroups.modIntegration.loadMacawsSeries      = loadMacawsSeries;
 		newData.ui.showManagerButton                               = showManagerButton;
 		newData.debug.enableTimingLogs         = timingLogs;
 		newData.debug.verifyStartupIndex       = verifyStartupIndex;

@@ -6,7 +6,6 @@ import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 
 import java.util.List;
@@ -16,7 +15,7 @@ import java.util.List;
  *
  * <p>Rendering approach based on REI's CollapsedEntriesBorderRenderer:
  * <ul>
- *   <li>All ingredients are scaled to 90% and centred within the 16?16 slot</li>
+ *   <li>All ingredients are scaled to 90% and centered within the 16x16 slot</li>
  *   <li>Up to 2 ingredients are offset diagonally to create a stacked appearance</li>
  *   <li>Z-depth separation (+10 per layer) prevents z-fighting</li>
  *   <li>A +/- indicator in the bottom-right corner shows the expand/collapse state</li>
@@ -34,13 +33,13 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 
 		// --- Stacked ingredient rendering (REI style) ---
 		// Scale 0.9; positions derived from REI's FloatingRectangle(0.44/0.56, 0.56/0.44, 0.9, 0.9):
-		//   center_back  = (0.56*16, 0.44*16) = (8.96, 7.04) ??top-left ??(2, 0) at scale 0.9
-		//   center_front = (0.44*16, 0.56*16) = (7.04, 8.96) ??top-left ??(0, 2) at scale 0.9
+		//   center_back  = (0.56*16, 0.44*16) = (8.96, 7.04) -> top-left (2, 0) at scale 0.9
+		//   center_front = (0.44*16, 0.56*16) = (7.04, 8.96) -> top-left (0, 2) at scale 0.9
 		g.pose().pushMatrix();
 		g.pose().scale(0.9f, 0.9f);
 
 		if (items.size() == 1) {
-			// Single item: center it ??(16 - 16*0.9)/2 / 0.9 ??0.9
+			// Single item: center it: (16 - 16*0.9)/2 / 0.9 ~= 1
 			renderIngredient(g, items.getFirst(), 1, 1);
 		} else {
 			// Back item (right-up)
@@ -72,14 +71,12 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 	 */
 	@SuppressWarnings("unchecked")
 	private static void renderIngredient(GuiGraphicsExtractor g, ITypedIngredient<?> typed, int x, int y) {
-		// Fast path: items use vanilla rendering (no JEI dependency)
 		var itemOpt = typed.getItemStack();
 		if (itemOpt.isPresent()) {
 			g.item(itemOpt.get(), x, y);
 			return;
 		}
 
-		// Fallback: non-items use JEI's registered renderer
 		var runtime = JeiRuntimeHolder.get();
 		if (runtime != null) {
 			renderViaJei(g, (ITypedIngredient<Object>) typed, runtime, x, y);

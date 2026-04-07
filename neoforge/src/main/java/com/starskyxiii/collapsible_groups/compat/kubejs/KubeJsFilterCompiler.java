@@ -192,6 +192,14 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 
+		if (trimmed.startsWith("block:#")) {
+			String blockTag = trimmed.substring("block:#".length());
+			if (Identifier.tryParse(blockTag) == null) {
+				return null;
+			}
+			return Filters.blockTag(blockTag);
+		}
+
 		return compileItemFilter(IngredientWrapper.wrap(cx, trimmed));
 	}
 

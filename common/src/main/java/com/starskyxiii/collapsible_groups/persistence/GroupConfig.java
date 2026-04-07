@@ -341,6 +341,9 @@ public final class GroupConfig {
 			}
 			return new GroupFilter.ExactStack(obj.get("stack").getAsString());
 		}
+		if (obj.has("block_tag")) {
+			return new GroupFilter.BlockTag(obj.get("block_tag").getAsString());
+		}
 		if (!obj.has("type")) {
 			throw new IllegalArgumentException("Filter node is missing type: " + obj);
 		}
@@ -374,6 +377,7 @@ public final class GroupConfig {
 				obj.addProperty("type", tag.ingredientType());
 				obj.addProperty("tag", tag.tag());
 			}
+			case GroupFilter.BlockTag blockTag -> obj.addProperty("block_tag", blockTag.tag());
 			case GroupFilter.Namespace namespace -> {
 				obj.addProperty("type", namespace.ingredientType());
 				obj.addProperty("namespace", namespace.namespace());

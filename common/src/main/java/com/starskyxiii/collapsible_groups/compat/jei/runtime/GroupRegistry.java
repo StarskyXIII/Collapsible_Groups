@@ -83,9 +83,9 @@ public final class GroupRegistry {
 	private static volatile Map<String, List<Object>>    fullMatchFluidsByGroup = null;
 	private static volatile Map<String, List<GenericIngredientRef>> fullMatchGenericByGroup = null;
 
-	/** ?拙? registry ID ???閰脩??蝢斤? ID ?? (??IngredientFilterHelper 撱箸?) */
+	/** Maps item registry ID -> group IDs that include that item (built by IngredientFilterHelper). */
 	private static volatile Map<String, Set<String>> itemIdToGroupIds = null;
-	/** 瘚? registry ID ???閰脫?擃?蝢斤? ID ?? (??MixinIngredientFilter 撱箸?) */
+	/** Maps fluid registry ID -> group IDs that include that fluid (built by MixinIngredientFilter). */
 	private static volatile Map<String, Set<String>> fluidIdToGroupIds = null;
 
 	private GroupRegistry() {}
@@ -423,12 +423,12 @@ public final class GroupRegistry {
 	// Resolved-items cache  (pre-built by MixinIngredientFilter)
 	// -----------------------------------------------------------------------
 
-	/** Called by MixinIngredientFilter after building the ingredient?roup index. */
+	/** Called by MixinIngredientFilter after building the ingredient-group index. */
 	public static void setResolvedItemsByGroup(Map<String, List<ItemStack>> map) {
 		resolvedItemsByGroup = freezeResolvedMap(map);
 	}
 
-	/** Called by MixinIngredientFilter after building the ingredient?roup index. */
+	/** Called by MixinIngredientFilter after building the ingredient-group index. */
 	public static void setResolvedFluidsByGroup(Map<String, List<Object>> map) {
 		resolvedFluidsByGroup = freezeResolvedMap(map);
 	}

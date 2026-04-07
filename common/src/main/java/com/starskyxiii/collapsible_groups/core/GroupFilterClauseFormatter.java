@@ -57,6 +57,8 @@ public final class GroupFilterClauseFormatter {
 				clauses.add(new Clause(depth, typedLabel(id.ingredientType(), "Id"), id.id()));
 			case GroupFilter.Tag tag ->
 				clauses.add(new Clause(depth, typedLabel(tag.ingredientType(), "Tag"), tag.tag()));
+			case GroupFilter.BlockTag blockTag ->
+				clauses.add(new Clause(depth, "Block Tag", blockTag.tag()));
 			case GroupFilter.Namespace namespace ->
 				clauses.add(new Clause(depth, typedLabel(namespace.ingredientType(), "Namespace"), namespace.namespace()));
 			case GroupFilter.ExactStack stack ->
@@ -76,6 +78,7 @@ public final class GroupFilterClauseFormatter {
 			case GroupFilter.ComponentPath ignored -> true;
 			case GroupFilter.Any any -> any.children().stream().anyMatch(GroupFilterClauseFormatter::hasSpecialClause);
 			case GroupFilter.Tag ignored -> true;
+			case GroupFilter.BlockTag ignored -> true;
 			case GroupFilter.Namespace ignored -> true;
 			case GroupFilter.All ignored -> true;
 			case GroupFilter.Not ignored -> true;

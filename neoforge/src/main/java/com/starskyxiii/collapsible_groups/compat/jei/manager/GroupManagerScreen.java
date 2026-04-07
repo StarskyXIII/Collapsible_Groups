@@ -334,21 +334,21 @@ public class GroupManagerScreen extends Screen {
 
 		if (y + CARD_HEIGHT < HEADER_HEIGHT || y > this.height - FOOTER_HEIGHT) return;
 
-		// Background and border colours ??unified dark theme matching editor
+		// Background and border colours - unified dark theme matching editor
 		int bgColor = 0x55101020;
 		int borderColor;
 		if (card instanceof AnyCard.ItemCard ic && ic.isEditable()) {
 			borderColor = ic.group().enabled() ? 0x55339966 : 0x55993333;
 		} else if (card instanceof AnyCard.ItemCard ic && GroupRegistry.isBuiltin(ic.id())) {
-			borderColor = 0x55665533; // amber ??built-in provider group
+			borderColor = 0x55665533; // amber - built-in provider group
 		} else {
-			borderColor = 0x55664488; // purple ??KubeJS ephemeral group
+			borderColor = 0x55664488; // purple - KubeJS ephemeral group
 		}
 
 		guiGraphics.fill(x + 1, y + 1, x + CARD_WIDTH - 1, y + CARD_HEIGHT - 1, bgColor);
 		drawOutline(guiGraphics, x, y, CARD_WIDTH, CARD_HEIGHT, borderColor);
 
-		// Preview grid (items/fluids/generic) ??rendered before text
+		// Preview grid (items/fluids/generic) - rendered before text
 		int previewX = x + 3;
 		int previewY = y + 25;
 		int rowOffset = previewScrollOffsets.getOrDefault(card.id(), 0);
@@ -505,7 +505,7 @@ public class GroupManagerScreen extends Screen {
 
 	/**
 	 * Renders text clipped to {@code maxWidth}. When hovered and text is wider than the clip region,
-	 * shows a looping marquee; when not hovered, truncates with "??.
+	 * shows a looping marquee; when not hovered, truncates with "...".
 	 */
 	private void renderScrollingText(GuiGraphicsExtractor g, String text, int x, int y,
 	                                 int maxWidth, int color, boolean hovered) {

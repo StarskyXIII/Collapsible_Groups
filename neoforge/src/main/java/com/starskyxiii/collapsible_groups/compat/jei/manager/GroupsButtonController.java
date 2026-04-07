@@ -39,7 +39,7 @@ public class GroupsButtonController implements IIconButtonController {
 		return true;
 	}
 
-	/** IDrawable icon for the groups button ??groups_button.png (24?24) scaled to 16?16. */
+	/** IDrawable icon for the groups button - groups_button.png (24x24) scaled to 16x16. */
 	private static final mezz.jei.api.gui.drawable.IDrawable GROUPS_ICON = new mezz.jei.api.gui.drawable.IDrawable() {
 		private static final float SCALE = 16f / 24f;
 

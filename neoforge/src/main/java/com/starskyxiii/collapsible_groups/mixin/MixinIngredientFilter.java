@@ -78,38 +78,38 @@ public abstract class MixinIngredientFilter {
 	protected abstract void cg$notifyListenersOfChange();
 
 	// -----------------------------------------------------------------
-	// Cache fields ??three levels of granularity
+	// Cache fields - three levels of granularity
 	//
 	// Level 1  cg$ingredientGroupIndex
 	//   Built once at JEI init (or after group/KubeJS changes).
-	//   Maps every JEI ingredient instance ??its GroupDefinition.
-	//   Cost: O(N?G) ??expensive, but paid only once.
+	//   Maps every JEI ingredient instance -> its GroupDefinition.
+	//   Cost: O(N * G) - expensive, but paid only once.
 	//   Benefit: makes every subsequent search O(1) per ingredient.
 	//
 	// Level 2  cg$baseList / cg$baseListGroupIds / cg$childrenByGroupId
-	//   "Structure cache" ??rebuilt whenever the filtered ingredient set
+	//   "Structure cache" - rebuilt whenever the filtered ingredient set
 	//   changes (search text change) using Level-1 O(1) lookups.
-	//   Cost: O(N) ??cheap enough to run on each keystroke.
+	//   Cost: O(N) - cheap enough to run on each keystroke.
 	//
 	// Level 3  ingredientListCached  (JEI's own field, shadowed)
-	//   "Display cache" ??the flat ordered element list actually shown.
+	//   "Display cache" - the flat ordered element list actually shown.
 	//   Rebuilt from Level-2 cache on toggle: O(N + expanded_children).
-	//   Never rebuilt from scratch on toggle ??that was the original freeze.
+	//   Never rebuilt from scratch on toggle - that was the original freeze.
 	// -----------------------------------------------------------------
 
-	/** ingredient instance ??owning group. Ungrouped ingredients have no entry in this map. Covers ALL JEI ingredients. */
+	/** ingredient instance -> owning group. Ungrouped ingredients have no entry in this map. Covers ALL JEI ingredients. */
 	@Unique @Nullable private Map<ITypedIngredient<?>, GroupDefinition> cg$ingredientGroupIndex = null;
 
 	/** Ordered element list without any children (all groups collapsed). */
 	@Unique @Nullable private List<IElement<?>> cg$baseList = null;
 
-	/** Parallel to cg$baseList ??null for regular elements, groupId for group headers. */
+	/** Parallel to cg$baseList: null for regular elements, groupId for group headers. */
 	@Unique @Nullable private List<String> cg$baseListGroupIds = null;
 
 	/** Pre-built child element lists per group id. */
 	@Unique @Nullable private Map<String, List<IElement<?>>> cg$childrenByGroupId = null;
 
-	/** Set of enabled group IDs ??rebuilt on structure cache invalidation. */
+	/** Set of enabled group IDs, rebuilt on structure cache invalidation. */
 	@Unique @Nullable private Set<String> cg$enabledGroupIds = null;
 
 	/** Cached full ingredient list to avoid re-fetching on rebuild. */
@@ -216,11 +216,11 @@ public abstract class MixinIngredientFilter {
 	}
 
 	// -----------------------------------------------------------------
-	// Level-1 index builder  O(N?G) ??once per JEI init or group change
+	// Level-1 index builder  O(N * G) - once per JEI init or group change
 	// -----------------------------------------------------------------
 
 	/**
-	 * Builds a complete ingredient?roup mapping over the entire unfiltered
+	 * Builds a complete ingredient-group mapping over the entire unfiltered
 	 * JEI ingredient list. Each ingredient instance is mapped to the first
 	 * group that matches it. Unmapped ingredients are not grouped.
 	 */
@@ -232,7 +232,7 @@ public abstract class MixinIngredientFilter {
 		// Item indexing (+ setResolvedItemsByGroup) delegated to common helper.
 		Map<ITypedIngredient<?>, GroupDefinition> index = IngredientFilterHelper.buildItemGroupIndex(all);
 
-		// Fluid and generic indexing ??NeoForge-specific.
+		// Fluid and generic indexing - NeoForge-specific.
 		Map<String, List<Object>> fluidsByGroup = new HashMap<>();
 		Map<String, List<Object>> fullMatchFluidsByGroup = new HashMap<>();
 		Map<String, List<GenericIngredientRef>> fullMatchGenericByGroup = new HashMap<>();
@@ -280,7 +280,7 @@ public abstract class MixinIngredientFilter {
 		GroupRegistry.setFullMatchFluidsByGroup(fullMatchFluidsByGroup);
 		GroupRegistry.setFullMatchGenericByGroup(fullMatchGenericByGroup);
 
-		// Build fluid reverse index (fluidRegistryId ??Set<groupId>)
+		// Build fluid reverse index (fluidRegistryId -> Set<groupId>)
 		Map<String, Set<String>> fluidIdToGroupIds = new HashMap<>();
 		for (var fluidEntry : fluidsByGroup.entrySet()) {
 			String groupId = fluidEntry.getKey();
@@ -334,7 +334,7 @@ public abstract class MixinIngredientFilter {
 	}
 
 	// -----------------------------------------------------------------
-	// Level-2 structure cache builder  O(N) ??once per search update
+	// Level-2 structure cache builder  O(N) - once per search update
 	// -----------------------------------------------------------------
 
 	/**
@@ -345,7 +345,7 @@ public abstract class MixinIngredientFilter {
 	@Unique
 	private void cg$buildStructureCache(List<ITypedIngredient<?>> ingredients) {
 		long traceStart = PerformanceTrace.begin();
-		// --- Ensure global caches and the ingredient?roup index are ready ---
+		// --- Ensure global caches and the ingredient-group index are ready ---
 
 		List<ITypedIngredient<?>> all = this.cg$cachedFullList;
 
@@ -368,6 +368,7 @@ public abstract class MixinIngredientFilter {
 			//     GroupRegistry.getJeiAllItems(), fluidsForKjs, this.ingredientManager);
 			GroupRegistry.markKubeJsApplied();
 			// KubeJS added new groups — the existing index (if any) is stale.
+			// KubeJS added new groups - the existing index (if any) is stale.
 			this.cg$ingredientGroupIndex = null;
 			this.cg$pendingIndex = null;
 		}
@@ -470,7 +471,7 @@ public abstract class MixinIngredientFilter {
 	}
 
 	// -----------------------------------------------------------------
-	// Level-3 display list builder  O(N) ??on every toggle
+	// Level-3 display list builder  O(N) - on every toggle
 	// -----------------------------------------------------------------
 
 	@Unique

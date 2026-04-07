@@ -28,7 +28,7 @@ import java.util.Map;
  */
 public final class IngredientTypeRegistry {
 	private static final Map<String, IIngredientType<?>> REGISTRY = new LinkedHashMap<>();
-	/** Maps alias ??canonical ID. */
+	/** Maps alias -> canonical ID. */
 	private static final Map<String, String> ALIASES = new LinkedHashMap<>();
 
 	private IngredientTypeRegistry() {}
@@ -94,7 +94,7 @@ public final class IngredientTypeRegistry {
 		return null;
 	}
 
-	/** Returns an unmodifiable view of canonical ID ??type (excludes aliases). */
+	/** Returns an unmodifiable view of canonical ID -> type (excludes aliases). */
 	public static Map<String, IIngredientType<?>> getAll() {
 		return Collections.unmodifiableMap(REGISTRY);
 	}

@@ -37,7 +37,7 @@ public final class GroupIconHelper implements IIngredientHelper<GroupIcon> {
 
 	@Override
 	public GroupIcon copyIngredient(GroupIcon ingredient) {
-		// GroupIcon is effectively immutable ??safe to return the same instance.
+		// GroupIcon is effectively immutable - safe to return the same instance.
 		return ingredient;
 	}
 

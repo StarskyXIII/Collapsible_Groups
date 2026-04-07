@@ -9,6 +9,7 @@ public sealed interface GroupFilter
 	        GroupFilter.Not,
 	        GroupFilter.Id,
 	        GroupFilter.Tag,
+	        GroupFilter.BlockTag,
 	        GroupFilter.Namespace,
 	        GroupFilter.ExactStack,
 	        GroupFilter.HasComponent,
@@ -44,6 +45,12 @@ public sealed interface GroupFilter
 	record Tag(String ingredientType, String tag) implements GroupFilter {
 		public Tag {
 			Objects.requireNonNull(ingredientType, "ingredientType");
+			Objects.requireNonNull(tag, "tag");
+		}
+	}
+
+	record BlockTag(String tag) implements GroupFilter {
+		public BlockTag {
 			Objects.requireNonNull(tag, "tag");
 		}
 	}

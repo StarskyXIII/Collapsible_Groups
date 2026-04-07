@@ -23,7 +23,7 @@ public final class ProductiveBeesIngredientTypeLoader {
 			CGApi.registerIngredientTypeAlias("bee", "productivebees:bee");
 			Constants.LOG.info("[CollapsibleGroups] Registered Productive Bees ingredient type.");
 		} catch (ClassNotFoundException e) {
-			// Productive Bees JEI plugin class not present ??safe to ignore
+			// Productive Bees JEI plugin class not present - safe to ignore
 		} catch (Exception e) {
 			Constants.LOG.warn("[CollapsibleGroups] Failed to register Productive Bees ingredient type: {}", e.getMessage());
 		}

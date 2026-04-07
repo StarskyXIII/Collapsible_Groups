@@ -63,6 +63,10 @@ public final class Filters {
 		return tag(ITEM_TYPE, tag);
 	}
 
+	public static GroupFilter blockTag(String tag) {
+		return new GroupFilter.BlockTag(tag);
+	}
+
 	public static GroupFilter itemNamespace(String namespace) {
 		return namespace(ITEM_TYPE, namespace);
 	}

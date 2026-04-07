@@ -7,13 +7,13 @@ package com.starskyxiii.collapsible_groups.platform.services;
  */
 public interface IConfigProvider {
 
-	/** Master switch ??false means no built-in default groups are loaded. */
+	/** Master switch: false means no built-in default groups are loaded. */
 	boolean loadDefaultGroups();
 
 	/** Whether to load built-in generic cross-mod groups (potions, enchanted books, music discs, etc.). */
 	boolean loadGenericGroups();
 
-	/** Whether to load built-in vanilla item family groups (wool, concrete, terracotta, ??. */
+	/** Whether to load built-in vanilla item family groups (wool, concrete, terracotta, etc.). */
 	boolean loadVanillaGroups();
 
 	/** Whether to show the group manager button in the JEI ingredient list overlay. */
@@ -39,6 +39,12 @@ public interface IConfigProvider {
 	 * Default false; overridden by loaders that support RS2.
 	 */
 	default boolean shouldLoadRS2() { return false; }
+
+	/**
+	 * Whether to load built-in Macaw's series block-tag groups.
+	 * Default false; overridden by loaders that support the Macaw's series mods.
+	 */
+	default boolean shouldLoadMacawsSeries() { return false; }
 
 	/** Whether startup index verification should compare the optimized builder against a reference implementation. */
 	boolean debugStartupIndexVerificationEnabled();

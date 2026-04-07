@@ -129,14 +129,14 @@ final class EditorLeftPanel {
 		otherFluidGroupsCache.clear();
 		otherGenericGroupsCache.clear();
 
-		// Build groupId ??display name map (excluding the group being edited and disabled groups)
+		// Build groupId -> display name map (excluding the group being edited and disabled groups)
 		Map<String, String> groupNames = new HashMap<>();
 		for (GroupDefinition g : GroupRegistry.getAllIncludingKubeJs()) {
 			if (!g.id().equals(state.editId) && g.enabled())
 				groupNames.put(g.id(), displayName(g.id(), g.name()));
 		}
 
-		// ?? Items: reverse index O(items) ??
+		// Items: reverse index O(items)
 		Map<String, Set<String>> itemReverseIndex = GroupRegistry.getItemIdToGroupIds();
 		if (itemReverseIndex != null) {
 			for (ItemStack stack : allItems) {
@@ -161,7 +161,7 @@ final class EditorLeftPanel {
 			}
 		}
 
-		// ?? Fluids: reverse index O(fluids) ??
+		// Fluids: reverse index O(fluids)
 		Map<String, Set<String>> fluidReverseIndex = GroupRegistry.getFluidIdToGroupIds();
 		if (fluidReverseIndex != null) {
 			for (FluidStack fluid : allFluids) {
@@ -185,7 +185,7 @@ final class EditorLeftPanel {
 			}
 		}
 
-		// ?? Generics: still uses live scan (small count, no reverse index) ??
+		// Generics: still uses live scan (small count, no reverse index)
 		List<GroupDefinition> others = GroupRegistry.getAllIncludingKubeJs().stream()
 			.filter(g -> !g.id().equals(state.editId) && g.enabled()).toList();
 		for (GenericIngredientView entry : allGenericIngredients) {
@@ -607,7 +607,7 @@ final class EditorLeftPanel {
 		return List.copyOf(names);
 	}
 
-	// Drag gesture key generators ??used to deduplicate entries in dragVisited
+	// Drag gesture key generators - used to deduplicate entries in dragVisited
 	private String dragAddKey(ItemStack s)    { return GroupItemSelector.exactSelector(s); }
 	private String dragRemoveKey(ItemStack s) {
 		return GroupItemSelector.wholeItemSelector(s) + "|" + state.cachedExactSelector(s).orElse("?");

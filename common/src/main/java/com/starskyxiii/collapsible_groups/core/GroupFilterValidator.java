@@ -53,6 +53,7 @@ public final class GroupFilterValidator {
 				validateType(tag.ingredientType(), errors, "tag");
 				validateIdentifier(tag.tag(), errors, "tag");
 			}
+			case GroupFilter.BlockTag blockTag -> validateIdentifier(blockTag.tag(), errors, "block_tag");
 			case GroupFilter.Namespace namespace -> {
 				validateType(namespace.ingredientType(), errors, "namespace");
 				if (!Identifier.isValidNamespace(namespace.namespace())) {

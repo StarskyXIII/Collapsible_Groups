@@ -32,7 +32,7 @@ public final class Chisel implements DefaultGroupProvider {
 	public List<GroupDefinition> getGroups() {
 		if (!NeoForgeConfig.shouldLoadChisel()) return List.of();
 		return List.of(
-			// ?? Stone & Rock ?????????????????????????????????????????????????
+			// Stone & Rock
 			group("__default_chisel_andesite",          "Chisel: Andesite",                  chiselCarving("andesite")),
 			group("__default_chisel_basalt",            "Chisel: Basalt",                    chiselCarving("basalt")),
 			group("__default_chisel_bricks",            "Chisel: Bricks",                    chiselCarving("bricks")),
@@ -47,18 +47,18 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_purpur",            "Chisel: Purpur",                    chiselCarving("purpur")),
 			group("__default_chisel_netherrack",        "Chisel: Netherrack",                chiselCarving("netherrack")),
 			group("__default_chisel_netherbrick",       "Chisel: Nether Brick",              chiselCarving("netherbrick")),
-			// ?? Sandstone ????????????????????????????????????????????????????
+			// Sandstone
 			group("__default_chisel_sandstone",             "Chisel: Sandstone",             chiselCarving("sandstone")),
 			group("__default_chisel_sandstone_scribbles",   "Chisel: Sandstone Scribbles",   chiselCarving("sandstone_scribbles")),
 			group("__default_chisel_red_sandstone",         "Chisel: Red Sandstone",         chiselCarving("red_sandstone")),
 			group("__default_chisel_sandstonered_scribbles","Chisel: Red Sandstone Scribbles",chiselCarving("sandstonered_scribbles")),
-			// ?? Dirt & Terrain ???????????????????????????????????????????????
+			// Dirt & Terrain
 			group("__default_chisel_dirt",        "Chisel: Dirt",       chiselCarving("dirt")),
 			group("__default_chisel_ice",         "Chisel: Ice",        chiselCarving("ice")),
 			group("__default_chisel_icepillar",   "Chisel: Ice Pillar", chiselCarving("icepillar")),
 			group("__default_chisel_glowstone",   "Chisel: Glowstone",  chiselCarving("glowstone")),
 			group("__default_chisel_quartz",      "Chisel: Quartz",     chiselCarving("quartz")),
-			// ?? Ore Blocks ???????????????????????????????????????????????????
+			// Ore Blocks
 			group("__default_chisel_coal",      "Chisel: Coal",      chiselCarving("coal")),
 			group("__default_chisel_charcoal",  "Chisel: Charcoal",  chiselCarving("charcoal")),
 			group("__default_chisel_diamond",   "Chisel: Diamond",   chiselCarving("diamond")),
@@ -67,7 +67,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_iron",      "Chisel: Iron",      chiselCarving("iron")),
 			group("__default_chisel_lapis",     "Chisel: Lapis",     chiselCarving("lapis")),
 			group("__default_chisel_redstone",  "Chisel: Redstone",  chiselCarving("redstone")),
-			// ?? Planks ???????????????????????????????????????????????????????
+			// Planks
 			group("__default_chisel_planks_acacia",   "Chisel: Acacia Planks",   chiselCarving("planks_acacia")),
 			group("__default_chisel_planks_birch",    "Chisel: Birch Planks",    chiselCarving("planks_birch")),
 			group("__default_chisel_planks_crimson",  "Chisel: Crimson Planks",  chiselCarving("planks_crimson")),
@@ -75,7 +75,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_planks_jungle",   "Chisel: Jungle Planks",   chiselCarving("planks_jungle")),
 			group("__default_chisel_planks_oak",      "Chisel: Oak Planks",      chiselCarving("planks_oak")),
 			group("__default_chisel_planks_spruce",   "Chisel: Spruce Planks",   chiselCarving("planks_spruce")),
-			// ?? Bookshelves ??????????????????????????????????????????????????
+			// Bookshelves
 			group("__default_chisel_bookshelf_acacia",   "Chisel: Acacia Bookshelf",   chiselCarving("bookshelf_acacia")),
 			group("__default_chisel_bookshelf_bamboo",   "Chisel: Bamboo Bookshelf",   chiselCarving("bookshelf_bamboo")),
 			group("__default_chisel_bookshelf_birch",    "Chisel: Birch Bookshelf",    chiselCarving("bookshelf_birch")),
@@ -87,7 +87,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_bookshelf_oak",      "Chisel: Oak Bookshelf",      chiselCarving("bookshelf_oak")),
 			group("__default_chisel_bookshelf_spruce",   "Chisel: Spruce Bookshelf",   chiselCarving("bookshelf_spruce")),
 			group("__default_chisel_bookshelf_warped",   "Chisel: Warped Bookshelf",   chiselCarving("bookshelf_warped")),
-			// ?? Carpet ???????????????????????????????????????????????????????
+			// Carpet
 			group("__default_chisel_carpet_black",      "Chisel: Black Carpet",      chiselCarving("carpet_black")),
 			group("__default_chisel_carpet_blue",       "Chisel: Blue Carpet",       chiselCarving("carpet_blue")),
 			group("__default_chisel_carpet_brown",      "Chisel: Brown Carpet",      chiselCarving("carpet_brown")),
@@ -104,7 +104,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_carpet_red",        "Chisel: Red Carpet",        chiselCarving("carpet_red")),
 			group("__default_chisel_carpet_white",      "Chisel: White Carpet",      chiselCarving("carpet_white")),
 			group("__default_chisel_carpet_yellow",     "Chisel: Yellow Carpet",     chiselCarving("carpet_yellow")),
-			// ?? Concrete ?????????????????????????????????????????????????????
+			// Concrete
 			group("__default_chisel_concrete_black",      "Chisel: Black Concrete",      chiselCarving("concrete_black")),
 			group("__default_chisel_concrete_blue",       "Chisel: Blue Concrete",       chiselCarving("concrete_blue")),
 			group("__default_chisel_concrete_brown",      "Chisel: Brown Concrete",      chiselCarving("concrete_brown")),
@@ -121,7 +121,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_concrete_red",        "Chisel: Red Concrete",        chiselCarving("concrete_red")),
 			group("__default_chisel_concrete_white",      "Chisel: White Concrete",      chiselCarving("concrete_white")),
 			group("__default_chisel_concrete_yellow",     "Chisel: Yellow Concrete",     chiselCarving("concrete_yellow")),
-			// ?? Glass ?????????????????????????????????????????????????????????
+			// Glass
 			group("__default_chisel_glass", "Chisel: Glass", chiselCarving("glass")),
 			group("__default_chisel_glass_stained_black",      "Chisel: Black Stained Glass",      chiselCarving("glass_stained_black")),
 			group("__default_chisel_glass_stained_blue",       "Chisel: Blue Stained Glass",       chiselCarving("glass_stained_blue")),
@@ -139,7 +139,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_glass_stained_red",        "Chisel: Red Stained Glass",        chiselCarving("glass_stained_red")),
 			group("__default_chisel_glass_stained_white",      "Chisel: White Stained Glass",      chiselCarving("glass_stained_white")),
 			group("__default_chisel_glass_stained_yellow",     "Chisel: Yellow Stained Glass",     chiselCarving("glass_stained_yellow")),
-			// ?? Dyed Glass ????????????????????????????????????????????????????
+			// Dyed Glass
 			group("__default_chisel_glassdyed_black",      "Chisel: Black Dyed Glass",      chiselCarving("glassdyed_black")),
 			group("__default_chisel_glassdyed_blue",       "Chisel: Blue Dyed Glass",       chiselCarving("glassdyed_blue")),
 			group("__default_chisel_glassdyed_brown",      "Chisel: Brown Dyed Glass",      chiselCarving("glassdyed_brown")),
@@ -156,7 +156,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_glassdyed_red",        "Chisel: Red Dyed Glass",        chiselCarving("glassdyed_red")),
 			group("__default_chisel_glassdyed_white",      "Chisel: White Dyed Glass",      chiselCarving("glassdyed_white")),
 			group("__default_chisel_glassdyed_yellow",     "Chisel: Yellow Dyed Glass",     chiselCarving("glassdyed_yellow")),
-			// ?? Dyed Glass Pane ???????????????????????????????????????????????
+			// Dyed Glass Pane
 			group("__default_chisel_glasspanedyed_black",      "Chisel: Black Dyed Glass Pane",      chiselCarving("glasspanedyed_black")),
 			group("__default_chisel_glasspanedyed_blue",       "Chisel: Blue Dyed Glass Pane",       chiselCarving("glasspanedyed_blue")),
 			group("__default_chisel_glasspanedyed_brown",      "Chisel: Brown Dyed Glass Pane",      chiselCarving("glasspanedyed_brown")),
@@ -173,7 +173,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_glasspanedyed_red",        "Chisel: Red Dyed Glass Pane",        chiselCarving("glasspanedyed_red")),
 			group("__default_chisel_glasspanedyed_white",      "Chisel: White Dyed Glass Pane",      chiselCarving("glasspanedyed_white")),
 			group("__default_chisel_glasspanedyed_yellow",     "Chisel: Yellow Dyed Glass Pane",     chiselCarving("glasspanedyed_yellow")),
-			// ?? Hexplating ????????????????????????????????????????????????????
+			// Hexplating
 			group("__default_chisel_hexplating_black",      "Chisel: Black Hexplating",      chiselCarving("hexplating_black")),
 			group("__default_chisel_hexplating_blue",       "Chisel: Blue Hexplating",       chiselCarving("hexplating_blue")),
 			group("__default_chisel_hexplating_brown",      "Chisel: Brown Hexplating",      chiselCarving("hexplating_brown")),
@@ -190,7 +190,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_hexplating_red",        "Chisel: Red Hexplating",        chiselCarving("hexplating_red")),
 			group("__default_chisel_hexplating_white",      "Chisel: White Hexplating",      chiselCarving("hexplating_white")),
 			group("__default_chisel_hexplating_yellow",     "Chisel: Yellow Hexplating",     chiselCarving("hexplating_yellow")),
-			// ?? Wool ?????????????????????????????????????????????????????????
+			// Wool
 			group("__default_chisel_wool_black",      "Chisel: Black Wool",      chiselCarving("wool_black")),
 			group("__default_chisel_wool_blue",       "Chisel: Blue Wool",       chiselCarving("wool_blue")),
 			group("__default_chisel_wool_brown",      "Chisel: Brown Wool",      chiselCarving("wool_brown")),
@@ -207,7 +207,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_wool_red",        "Chisel: Red Wool",        chiselCarving("wool_red")),
 			group("__default_chisel_wool_white",      "Chisel: White Wool",      chiselCarving("wool_white")),
 			group("__default_chisel_wool_yellow",     "Chisel: Yellow Wool",     chiselCarving("wool_yellow")),
-			// ?? Mod-exclusive Materials ???????????????????????????????????????
+			// Mod-exclusive Materials
 			group("__default_chisel_antiblock",   "Chisel: Antiblock",   chiselCarving("antiblock")),
 			group("__default_chisel_brownstone",  "Chisel: Brownstone",  chiselCarving("brownstone")),
 			group("__default_chisel_cloud",       "Chisel: Cloud",       chiselCarving("cloud")),
@@ -243,7 +243,7 @@ public final class Chisel implements DefaultGroupProvider {
 			group("__default_chisel_voidstonerunic_anim","Chisel: Voidstone Runic (Anim)",chiselCarving("voidstonerunic_anim")),
 			group("__default_chisel_warning",    "Chisel: Warning",    chiselCarving("warning")),
 			group("__default_chisel_waterstone", "Chisel: Waterstone", chiselCarving("waterstone")),
-			// ?? Compat Metals ?????????????????????????????????????????????????
+			// Compat Metals
 			group("__default_chisel_metals_aluminum", "Chisel: Aluminum Blocks",  chiselCarving("metals_aluminum")),
 			group("__default_chisel_metals_bronze",   "Chisel: Bronze Blocks",    chiselCarving("metals_bronze")),
 			group("__default_chisel_metals_cobalt",   "Chisel: Cobalt Blocks",    chiselCarving("metals_cobalt")),

@@ -78,7 +78,7 @@ public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderI
 
 	@Override
 	public void show(IRecipesGui recipesGui, FocusUtil focusUtil, List<RecipeIngredientRole> roles) {
-		// Group placeholder ??recipe lookup intentionally disabled.
+		// Group placeholder - recipe lookup intentionally disabled.
 	}
 
 	@Override
