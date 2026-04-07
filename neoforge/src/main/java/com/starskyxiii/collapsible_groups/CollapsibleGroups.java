@@ -28,7 +28,7 @@ public class CollapsibleGroups {
 		// Register mod configuration (config/collapsiblegroups/collapsiblegroups.toml)
 		modContainer.registerConfig(ModConfig.Type.CLIENT, NeoForgeConfig.SPEC,
 			"collapsiblegroups/collapsiblegroups.toml");
-		// Register NeoForge's built-in configuration screen (Mods ??Config button)
+		// Register NeoForge's built-in configuration screen (Mods -> Config button)
 		modContainer.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
 
 		eventBus.addListener(this::onClientSetup);

@@ -90,7 +90,7 @@ public final class GroupBorderRenderer {
 			boolean hasBottomLeft  = cellSet.contains(pack(cx - SPACING, cy + SPACING));
 			boolean hasBottomRight = cellSet.contains(pack(cx + SPACING, cy + SPACING));
 
-			// TOP: fStart/fEnd = -1 ??extend 1px outward at diagonal corners
+			// TOP: fStart/fEnd = -1 - extend 1px outward at diagonal corners
 			if (!hasTop) {
 				int fS = (hasLeft  && hasTopLeft)    ? -1 : 0;
 				int fE = (hasRight && hasTopRight)   ? -1 : 0;
@@ -104,7 +104,7 @@ public final class GroupBorderRenderer {
 				g.fill(sl + fS, st + 17, sl + 18 - fE, st + 18, COLOR);
 			}
 
-			// LEFT: fStart/fEnd = 1 ??inset 1px at exposed outer corners
+			// LEFT: fStart/fEnd = 1 - inset 1px at exposed outer corners
 			if (!hasLeft) {
 				int fS = (!hasTop    && !hasTopLeft)    ? 1 : 0;
 				int fE = (!hasBottom && !hasBottomLeft) ? 1 : 0;

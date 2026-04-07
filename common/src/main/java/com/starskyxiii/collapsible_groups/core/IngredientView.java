@@ -11,6 +11,10 @@ public interface IngredientView {
 
 	boolean hasTag(ResourceLocation tagId);
 
+	default boolean hasBlockTag(ResourceLocation tagId) {
+		return false;
+	}
+
 	boolean matchesExactStack(String encodedStack);
 
 	default boolean hasComponent(String componentTypeId, String encodedValue) {

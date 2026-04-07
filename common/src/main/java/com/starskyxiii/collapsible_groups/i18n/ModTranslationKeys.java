@@ -51,7 +51,7 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_TAG_MATCHED = "collapsible_groups.editor.tag_matched";
 
 	// -----------------------------------------------------------------------
-	// Editor item action hints ??left panel
+	// Editor item action hints - left panel
 	// -----------------------------------------------------------------------
 	public static final String EDITOR_HINT_SWITCH_TO_VARIANT = "collapsible_groups.editor.hint.switch_to_variant";
 	public static final String EDITOR_HINT_DRAG_REMOVE       = "collapsible_groups.editor.hint.drag_remove";
@@ -63,7 +63,7 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_HINT_CTRL_ADD_ALL      = "collapsible_groups.editor.hint.ctrl_add_all";
 
 	// -----------------------------------------------------------------------
-	// Editor item action hints ??right panel
+	// Editor item action hints - right panel
 	// -----------------------------------------------------------------------
 	public static final String EDITOR_HINT_REMOVE_ONLY_VARIANT = "collapsible_groups.editor.hint.remove_only_variant";
 
@@ -78,14 +78,14 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_HINT_DRAG_ADD_ENTRIES        = "collapsible_groups.editor.hint.drag_add_entries";
 
 	// -----------------------------------------------------------------------
-	// Count labels ??args: count (int passed as %s)
+	// Count labels - args: count (int passed as %s)
 	// -----------------------------------------------------------------------
 	public static final String COUNT_ITEMS   = "collapsible_groups.count.items";
 	public static final String COUNT_FLUIDS  = "collapsible_groups.count.fluids";
 	public static final String COUNT_ENTRIES = "collapsible_groups.count.entries";
 
 	// -----------------------------------------------------------------------
-	// Config screen ??general
+	// Config screen - general
 	// -----------------------------------------------------------------------
 	/** Args: mod name (%s) */
 	public static final String CONFIG_MOD_NOT_INSTALLED = "collapsible_groups.config.mod_not_installed";
@@ -105,18 +105,19 @@ public final class ModTranslationKeys {
 	public static final String CONFIG_OPT_LOAD_MOD_INTEGRATION    = "collapsible_groups.config.opt.load_mod_integration";
 	public static final String CONFIG_OPT_LOAD_CHIPPED            = "collapsible_groups.config.opt.load_chipped";
 	public static final String CONFIG_OPT_LOAD_RECHISELED         = "collapsible_groups.config.opt.load_rechiseled";
-	public static final String CONFIG_OPT_LOAD_RS2               = "collapsible_groups.config.opt.load_rs2";
-	public static final String CONFIG_OPT_SHOW_MANAGER_BUTTON    = "collapsible_groups.config.opt.show_manager_button";
-	public static final String CONFIG_OPT_TIMING_LOGS            = "collapsible_groups.config.opt.timing_logs";
-	public static final String CONFIG_OPT_VERIFY_STARTUP_INDEX   = "collapsible_groups.config.opt.verify_startup_index";
-	public static final String CONFIG_OPT_VERIFY_EDITOR_INDEX    = "collapsible_groups.config.opt.verify_editor_index";
+	public static final String CONFIG_OPT_LOAD_RS2                = "collapsible_groups.config.opt.load_rs2";
+	public static final String CONFIG_OPT_LOAD_MACAWS_SERIES      = "collapsible_groups.config.opt.load_macaws_series";
+	public static final String CONFIG_OPT_SHOW_MANAGER_BUTTON     = "collapsible_groups.config.opt.show_manager_button";
+	public static final String CONFIG_OPT_TIMING_LOGS             = "collapsible_groups.config.opt.timing_logs";
+	public static final String CONFIG_OPT_VERIFY_STARTUP_INDEX    = "collapsible_groups.config.opt.verify_startup_index";
+	public static final String CONFIG_OPT_VERIFY_EDITOR_INDEX     = "collapsible_groups.config.opt.verify_editor_index";
 
 	// Toggle values
 	public static final String CONFIG_VAL_ON  = "collapsible_groups.config.val.on";
 	public static final String CONFIG_VAL_OFF = "collapsible_groups.config.val.off";
 
 	// -----------------------------------------------------------------------
-	// Group Manager screen ??buttons and labels
+	// Group Manager screen - buttons and labels
 	// -----------------------------------------------------------------------
 	public static final String MANAGER_BTN_BACK           = "collapsible_groups.manager.btn_back";
 	public static final String MANAGER_BTN_FILTER_BUILTIN = "collapsible_groups.manager.btn_filter_builtin";
@@ -139,7 +140,7 @@ public final class ModTranslationKeys {
 	public static final String MANAGER_PREFIX_KUBEJS      = "collapsible_groups.manager.prefix_kubejs";
 
 	// -----------------------------------------------------------------------
-	// Editor ??browser tabs
+	// Editor - browser tabs
 	// -----------------------------------------------------------------------
 	public static final String EDITOR_TAB_ITEMS    = "collapsible_groups.editor.tab.items";
 	public static final String EDITOR_TAB_FLUIDS   = "collapsible_groups.editor.tab.fluids";
@@ -148,7 +149,7 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_TAB_RULES    = "collapsible_groups.editor.tab.rules";
 
 	// -----------------------------------------------------------------------
-	// Editor ??chips and panel headers
+	// Editor - chips and panel headers
 	// -----------------------------------------------------------------------
 	public static final String EDITOR_CHIP_HIDE_USED = "collapsible_groups.editor.chip.hide_used";
 	/** Args: count (%s) */
@@ -170,7 +171,7 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_PANEL_COUNT_ENTRIES   = "collapsible_groups.editor.panel.count_entries";
 
 	// -----------------------------------------------------------------------
-	// Editor ??Rules panel section titles
+	// Editor - Rules panel section titles
 	// -----------------------------------------------------------------------
 	public static final String EDITOR_RULES_STATUS          = "collapsible_groups.editor.rules.status";
 	public static final String EDITOR_RULES_INTERNAL_ID     = "collapsible_groups.editor.rules.internal_id";
@@ -182,7 +183,7 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_RULES_NO_FILTER       = "collapsible_groups.editor.rules.no_filter";
 
 	// -----------------------------------------------------------------------
-	// Editor ??filter status and save-blocked reasons
+	// Editor - filter status and save-blocked reasons
 	// -----------------------------------------------------------------------
 	public static final String EDITOR_FILTER_EDITABLE    = "collapsible_groups.editor.filter.editable";
 	public static final String EDITOR_FILTER_READONLY    = "collapsible_groups.editor.filter.readonly";
@@ -192,7 +193,7 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_SAVE_BLOCKED_NO_FILTER = "collapsible_groups.editor.save_blocked.no_filter";
 
 	// -----------------------------------------------------------------------
-	// Editor ??unsupported filter node reasons
+	// Editor - unsupported filter node reasons
 	// -----------------------------------------------------------------------
 	public static final String EDITOR_UNSUPPORTED_EDITABLE    = "collapsible_groups.editor.unsupported.editable";
 	public static final String EDITOR_UNSUPPORTED_UNAVAILABLE = "collapsible_groups.editor.unsupported.unavailable";
@@ -203,6 +204,8 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_UNSUPPORTED_NODE_ALL_REASON      = "collapsible_groups.editor.unsupported_node.all.reason";
 	public static final String EDITOR_UNSUPPORTED_NODE_NOT_LABEL       = "collapsible_groups.editor.unsupported_node.not.label";
 	public static final String EDITOR_UNSUPPORTED_NODE_NOT_REASON      = "collapsible_groups.editor.unsupported_node.not.reason";
+	public static final String EDITOR_UNSUPPORTED_NODE_BLOCK_TAG_LABEL  = "collapsible_groups.editor.unsupported_node.block_tag.label";
+	public static final String EDITOR_UNSUPPORTED_NODE_BLOCK_TAG_REASON = "collapsible_groups.editor.unsupported_node.block_tag.reason";
 	public static final String EDITOR_UNSUPPORTED_NODE_NAMESPACE_LABEL  = "collapsible_groups.editor.unsupported_node.namespace.label";
 	public static final String EDITOR_UNSUPPORTED_NODE_NAMESPACE_REASON = "collapsible_groups.editor.unsupported_node.namespace.reason";
 	public static final String EDITOR_UNSUPPORTED_NODE_NESTED_LABEL    = "collapsible_groups.editor.unsupported_node.nested.label";
@@ -213,12 +216,12 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_UNSUPPORTED_NODE_COMPONENT_PATH_REASON = "collapsible_groups.editor.unsupported_node.component_path.reason";
 
 	// -----------------------------------------------------------------------
-	// Editor ??preview ownership note
+	// Editor - preview ownership note
 	// -----------------------------------------------------------------------
 	public static final String EDITOR_PREVIEW_NOTE = "collapsible_groups.editor.preview_note";
 
 	// -----------------------------------------------------------------------
-	// Command feedback ??/cg group_key dump
+	// Command feedback - /cg group_key dump
 	// -----------------------------------------------------------------------
 	public static final String COMMAND_DUMP_SUCCESS = "collapsible_groups.command.dump_success";
 	public static final String COMMAND_DUMP_EMPTY   = "collapsible_groups.command.dump_empty";
@@ -227,7 +230,7 @@ public final class ModTranslationKeys {
 	public static final String COMMAND_DUMP_CLEANED = "collapsible_groups.command.dump_cleaned";
 
 	// -----------------------------------------------------------------------
-	// Editor ??pending internal ID labels (NeoForge)
+	// Editor - pending internal ID labels (NeoForge)
 	// -----------------------------------------------------------------------
 	public static final String EDITOR_PENDING_ID_GENERATING     = "collapsible_groups.editor.pending_id.generating";
 	/** Args: id (%s) */

@@ -138,7 +138,7 @@ public abstract class MixinIngredientFilter {
 		return IngredientFilterHelper.buildItemGroupIndex(all);
 	}
 
-	/** Level-2: structure cache ??item groups only. */
+	/** Level-2: structure cache - item groups only. */
 	@Unique
 	private void cg$buildStructureCache(List<ITypedIngredient<?>> ingredients) {
 		List<ITypedIngredient<?>> all = this.cg$cachedFullList;

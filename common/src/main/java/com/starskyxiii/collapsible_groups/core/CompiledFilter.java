@@ -33,10 +33,11 @@ public final class CompiledFilter {
 			case GroupFilter.Not not -> new NotNode(compileNode(not.child()));
 			case GroupFilter.Id id -> new IdNode(canonicalType(id.ingredientType()), ResourceLocation.parse(id.id()));
 			case GroupFilter.Tag tag -> new TagNode(canonicalType(tag.ingredientType()), ResourceLocation.parse(tag.tag()));
+			case GroupFilter.BlockTag blockTag -> new BlockTagNode(ResourceLocation.parse(blockTag.tag()));
 			case GroupFilter.Namespace namespace -> new NamespaceNode(canonicalType(namespace.ingredientType()), namespace.namespace());
 			case GroupFilter.ExactStack exactStack -> new ExactStackNode(exactStack.encodedStack());
 			case GroupFilter.HasComponent hc -> new HasComponentNode(hc.componentTypeId(), hc.encodedValue());
-		case GroupFilter.ComponentPath cp -> new ComponentPathNode(cp.componentTypeId(), cp.path(), cp.expectedValue());
+			case GroupFilter.ComponentPath cp -> new ComponentPathNode(cp.componentTypeId(), cp.path(), cp.expectedValue());
 		};
 	}
 
@@ -46,7 +47,7 @@ public final class CompiledFilter {
 	}
 
 	private sealed interface CompiledNode
-		permits AnyNode, AllNode, NotNode, IdNode, TagNode, NamespaceNode, ExactStackNode, HasComponentNode, ComponentPathNode {
+		permits AnyNode, AllNode, NotNode, IdNode, TagNode, BlockTagNode, NamespaceNode, ExactStackNode, HasComponentNode, ComponentPathNode {
 		boolean matches(IngredientView view);
 	}
 
@@ -82,6 +83,13 @@ public final class CompiledFilter {
 		@Override
 		public boolean matches(IngredientView view) {
 			return sameType(ingredientType, view) && view.hasTag(tagId);
+		}
+	}
+
+	private record BlockTagNode(ResourceLocation tagId) implements CompiledNode {
+		@Override
+		public boolean matches(IngredientView view) {
+			return sameType("item", view) && view.hasBlockTag(tagId);
 		}
 	}
 

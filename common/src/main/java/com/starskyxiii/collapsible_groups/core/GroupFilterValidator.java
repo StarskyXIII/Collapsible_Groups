@@ -55,6 +55,7 @@ public final class GroupFilterValidator {
 				validateType(tag.ingredientType(), errors, "tag");
 				validateResourceLocation(tag.tag(), errors, "tag");
 			}
+			case GroupFilter.BlockTag blockTag -> validateResourceLocation(blockTag.tag(), errors, "block_tag");
 			case GroupFilter.Namespace namespace -> {
 				validateType(namespace.ingredientType(), errors, "namespace");
 				if (!ResourceLocation.isValidNamespace(namespace.namespace())) {

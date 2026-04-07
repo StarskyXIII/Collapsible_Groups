@@ -89,7 +89,7 @@ final class EditorLeftPanel {
 			if (!g.id().equals(state.editId) && g.enabled())
 				groupNames.put(g.id(), displayName(g.id(), g.name()));
 		}
-		// ??謜??????????? O(items)
+		// Items: reverse index O(items)
 		Map<String, java.util.Set<String>> itemReverseIndex = GroupRegistry.getItemIdToGroupIds();
 		if (itemReverseIndex != null) {
 			for (ItemStack stack : allItems) {

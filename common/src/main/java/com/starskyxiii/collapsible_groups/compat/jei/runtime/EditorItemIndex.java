@@ -35,7 +35,7 @@ public final class EditorItemIndex {
 	private final List<ItemStack> orderedItems;
 	private final Map<ResourceLocation, List<ItemStack>> byId;
 	private final Map<ResourceLocation, List<ItemStack>> byTag;
-	/** Maps each ItemStack object identity ??its stable index in JEI order. */
+	/** Maps each ItemStack object identity -> its stable index in JEI order. */
 	private final IdentityHashMap<ItemStack, Integer> orderByIdentity;
 
 	private static final String VERIFY_OVERRIDE =
@@ -107,7 +107,7 @@ public final class EditorItemIndex {
 			return List.of();
 		}
 
-		// Identity set ??deduplication is automatic across overlapping selectors/tags
+		// Identity set - deduplication is automatic across overlapping selectors/tags
 		IdentityHashMap<ItemStack, Boolean> matched = new IdentityHashMap<>();
 
 		// --- Explicit item selectors (whole-item or exact-stack) ---

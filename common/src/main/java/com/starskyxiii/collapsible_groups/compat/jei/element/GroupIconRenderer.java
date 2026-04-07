@@ -34,13 +34,13 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 
 		// --- Stacked ingredient rendering (REI style) ---
 		// Scale 0.9; positions derived from REI's FloatingRectangle(0.44/0.56, 0.56/0.44, 0.9, 0.9):
-		//   center_back  = (0.56*16, 0.44*16) = (8.96, 7.04) ??top-left ??(2, 0) at scale 0.9
-		//   center_front = (0.44*16, 0.56*16) = (7.04, 8.96) ??top-left ??(0, 2) at scale 0.9
+		//   center_back  = (0.56*16, 0.44*16) = (8.96, 7.04) -> top-left (2, 0) at scale 0.9
+		//   center_front = (0.44*16, 0.56*16) = (7.04, 8.96) -> top-left (0, 2) at scale 0.9
 		g.pose().pushPose();
 		g.pose().scale(0.9f, 0.9f, 0.9f);
 
 		if (items.size() == 1) {
-			// Single item: center it ??(16 - 16*0.9)/2 / 0.9 ??0.9
+			// Single item: center it: (16 - 16*0.9)/2 / 0.9 ~= 1
 			renderIngredient(g, items.getFirst(), 1, 1);
 		} else {
 			// Back item (right-up)
