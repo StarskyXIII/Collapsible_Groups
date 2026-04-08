@@ -8,8 +8,10 @@ import java.util.List;
 import java.util.Set;
 
 public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
-	private static final String JEI_MIXIN_CLASS = "com.starskyxiii.collapsible_groups.mixin.MixinIngredientFilter";
-	private static final String JEI_FILTER_CLASS = "mezz.jei.gui.ingredients.IngredientFilter";
+	private static final Set<String> OPTIONAL_JEI_MIXINS = Set.of(
+		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientFilter",
+		"com.starskyxiii.collapsible_groups.mixin.MixinBookmarkList"
+	);
 
 	@Override
 	public void onLoad(String mixinPackage) {
@@ -22,8 +24,8 @@ public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
 
 	@Override
 	public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-		if (JEI_MIXIN_CLASS.equals(mixinClassName)) {
-			return isClassPresent(JEI_FILTER_CLASS);
+		if (OPTIONAL_JEI_MIXINS.contains(mixinClassName)) {
+			return isClassPresent(targetClassName);
 		}
 		return true;
 	}
