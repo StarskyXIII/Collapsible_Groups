@@ -449,7 +449,7 @@ public final class KubeJsFilterCompiler {
 	}
 
 	private static boolean isValidResourceLocation(String value) {
-		return !value.isEmpty() && ResourceLocation.tryParse(value) != null;
+		return !value.isEmpty() && Identifier.tryParse(value) != null;
 	}
 
 	private static boolean isRegexLike(Object filter) {

@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.core;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -12,16 +12,16 @@ class ItemPathCompiledFilterTest {
 	void itemPathStartsWithMatchesOnlyItemPathsWithRequestedPrefix() {
 		CompiledFilter filter = CompiledFilter.compile(Filters.itemPathStartsWith("gutter_"));
 
-		assertTrue(filter.matches(new FakeIngredientView("item", ResourceLocation.parse("mcwroofs:gutter_middle_yellow"))));
-		assertFalse(filter.matches(new FakeIngredientView("item", ResourceLocation.parse("mcwroofs:yellow_striped_awning"))));
+		assertTrue(filter.matches(new FakeIngredientView("item", Identifier.parse("mcwroofs:gutter_middle_yellow"))));
+		assertFalse(filter.matches(new FakeIngredientView("item", Identifier.parse("mcwroofs:yellow_striped_awning"))));
 	}
 
 	@Test
 	void itemPathEndsWithMatchesOnlyItemPathsWithRequestedSuffix() {
 		CompiledFilter filter = CompiledFilter.compile(Filters.itemPathEndsWith("_chair"));
 
-		assertTrue(filter.matches(new FakeIngredientView("item", ResourceLocation.parse("mcwfurnitures:jungle_chair"))));
-		assertFalse(filter.matches(new FakeIngredientView("item", ResourceLocation.parse("mcwfurnitures:jungle_table"))));
+		assertTrue(filter.matches(new FakeIngredientView("item", Identifier.parse("mcwfurnitures:jungle_chair"))));
+		assertFalse(filter.matches(new FakeIngredientView("item", Identifier.parse("mcwfurnitures:jungle_table"))));
 	}
 
 	@Test
@@ -29,8 +29,8 @@ class ItemPathCompiledFilterTest {
 		CompiledFilter startsWith = CompiledFilter.compile(Filters.itemPathStartsWith("gutter_"));
 		CompiledFilter endsWith = CompiledFilter.compile(Filters.itemPathEndsWith("_chair"));
 
-		assertFalse(startsWith.matches(new FakeIngredientView("fluid", ResourceLocation.parse("minecraft:water"))));
-		assertFalse(endsWith.matches(new FakeIngredientView("mekanism:chemical", ResourceLocation.parse("mekanism:hydrogen"))));
+		assertFalse(startsWith.matches(new FakeIngredientView("fluid", Identifier.parse("minecraft:water"))));
+		assertFalse(endsWith.matches(new FakeIngredientView("mekanism:chemical", Identifier.parse("mekanism:hydrogen"))));
 	}
 
 	@Test
@@ -42,9 +42,9 @@ class ItemPathCompiledFilterTest {
 		assertFalse(endsWith.matches(new FakeIngredientView("item", null)));
 	}
 
-	private record FakeIngredientView(String ingredientType, ResourceLocation resourceLocation) implements IngredientView {
+	private record FakeIngredientView(String ingredientType, Identifier resourceLocation) implements IngredientView {
 		@Override
-		public boolean hasTag(ResourceLocation tagId) {
+		public boolean hasTag(Identifier tagId) {
 			return false;
 		}
 
