@@ -97,13 +97,19 @@ final class GroupEditorState {
 	}
 
 	GroupDefinition buildPreviewDefinition() {
-		GroupFilter previewFilter = buildCurrentFilter()
-			.filter(filter -> GroupFilterValidator.validate(filter).isEmpty())
-			.map(filter -> {
-				lastValidPreviewFilter = filter;
-				return filter;
-			})
-			.orElse(lastValidPreviewFilter);
+		Optional<GroupFilter> currentFilter = buildCurrentFilter();
+		GroupFilter previewFilter;
+		if (currentFilter.isEmpty()) {
+			previewFilter = EMPTY_PREVIEW_FILTER;
+		} else {
+			previewFilter = currentFilter
+				.filter(filter -> GroupFilterValidator.validate(filter).isEmpty())
+				.map(filter -> {
+					lastValidPreviewFilter = filter;
+					return filter;
+				})
+				.orElse(lastValidPreviewFilter);
+		}
 		return new GroupDefinition(
 			editId != null ? editId : "__preview__",
 			editName,
