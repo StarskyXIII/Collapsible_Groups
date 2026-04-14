@@ -29,6 +29,7 @@ crash-reports
 # local
 .claude
 .code-review-graph
+.code-review-graphignore
 note
 .reference
 .vscode
