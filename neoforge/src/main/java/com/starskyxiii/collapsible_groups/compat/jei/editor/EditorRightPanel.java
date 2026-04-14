@@ -64,7 +64,7 @@ final class EditorRightPanel {
 	void rebuild() {
 		long traceStart = PerformanceTrace.begin();
 		GroupDefinition temp = state.buildPreviewDefinition();
-		if (state.isStructurallyEditable()) {
+		if (state.canUseIndexedItemPreview()) {
 			// New indexed path: avoids full JEI item scan on every edit
 			List<ItemStack> indexed = GroupRegistry.resolveEditorDraftItems(state.draft, state.editEnabled);
 			if (com.starskyxiii.collapsible_groups.compat.jei.runtime.EditorItemIndex.isVerifyEnabled()) {
@@ -73,7 +73,8 @@ final class EditorRightPanel {
 			}
 			groupItems = indexed;
 		} else {
-			// Non-structurally-editable: keep existing full-scan path
+			// Complex rules use the full preview path because the flat draft no longer
+			// captures the full filter tree.
 			groupItems = GroupRegistry.resolveItems(temp);
 		}
 		groupFluids             = GroupRegistry.resolveFluids(temp);
@@ -282,6 +283,7 @@ final class EditorRightPanel {
 				for (int col = 0; col < layout.rightCols() && rowStart + col < groupItems.size(); col++) {
 					int x = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
 					if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
+					if (!state.canEditContents()) return true;
 					ItemStack stack = groupItems.get(rowStart + col);
 					if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.removeAllSelectionsForItem(stack);
 					else state.removeSingleSelection(stack, allItems);
@@ -294,6 +296,7 @@ final class EditorRightPanel {
 				for (int col = 0; col < layout.rightCols() && rowStart + col < groupFluids.size(); col++) {
 					int x = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
 					if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
+					if (!state.canEditContents()) return true;
 					FluidStack fluid = (FluidStack) groupFluids.get(rowStart + col);
 					if (state.isFluidSelected(fluid)) { state.removeFluidSelection(fluid); onChange.run(); }
 					return true;
@@ -303,6 +306,7 @@ final class EditorRightPanel {
 				for (int col = 0; col < layout.rightCols() && rowStart + col < groupGenericIngredients.size(); col++) {
 					int x = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
 					if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
+					if (!state.canEditContents()) return true;
 					GenericIngredientView entry = groupGenericIngredients.get(rowStart + col);
 					if (state.isGenericSelected(entry)) { state.removeGenericSelection(entry); onChange.run(); }
 					return true;

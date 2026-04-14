@@ -1,7 +1,9 @@
 package com.starskyxiii.collapsible_groups.core;
 
 import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
+import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.network.chat.Component;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,22 +29,34 @@ public final class GroupFilterValidator {
 	private GroupFilterValidator() {}
 
 	public static List<String> validate(GroupFilter filter) {
-		List<String> errors = new ArrayList<>();
+		return validateDetailed(filter).stream()
+			.map(error -> error.toComponent().getString())
+			.toList();
+	}
+
+	public static List<Component> validateComponents(GroupFilter filter) {
+		return validateDetailed(filter).stream()
+			.map(ValidationError::toComponent)
+			.toList();
+	}
+
+	private static List<ValidationError> validateDetailed(GroupFilter filter) {
+		List<ValidationError> errors = new ArrayList<>();
 		validateNode(filter, errors);
 		return List.copyOf(errors);
 	}
 
-	private static void validateNode(GroupFilter filter, List<String> errors) {
+	private static void validateNode(GroupFilter filter, List<ValidationError> errors) {
 		switch (filter) {
 			case GroupFilter.Any any -> {
 				if (any.children().isEmpty()) {
-					errors.add("Filter node 'any' must contain at least one child");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_ANY_EMPTY);
 				}
 				any.children().forEach(child -> validateNode(child, errors));
 			}
 			case GroupFilter.All all -> {
 				if (all.children().isEmpty()) {
-					errors.add("Filter node 'all' must contain at least one child");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_ALL_EMPTY);
 				}
 				all.children().forEach(child -> validateNode(child, errors));
 			}
@@ -61,48 +75,47 @@ public final class GroupFilterValidator {
 			case GroupFilter.Namespace namespace -> {
 				validateType(namespace.ingredientType(), errors, "namespace");
 				if (!ResourceLocation.isValidNamespace(namespace.namespace())) {
-					errors.add("Invalid namespace '" + namespace.namespace() + "'");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_INVALID_NAMESPACE, namespace.namespace());
 				}
 			}
 			case GroupFilter.ExactStack exactStack -> {
 				if (exactStack.encodedStack().isBlank()) {
-					errors.add("Exact stack filter cannot be blank");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_EXACT_STACK_BLANK);
 				} else if (GroupItemSelector.decodeExactSelector(STACK_PREFIX + exactStack.encodedStack()).isEmpty()) {
-					errors.add("Invalid exact stack payload");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_EXACT_STACK_INVALID);
 				}
 			}
 			case GroupFilter.HasComponent hc -> {
 				if (hc.componentTypeId().isBlank()) {
-					errors.add("HasComponent node has blank componentTypeId");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_HAS_COMPONENT_TYPE_BLANK);
 				} else if (ResourceLocation.tryParse(hc.componentTypeId()) == null) {
-					errors.add("HasComponent node has invalid componentTypeId: " + hc.componentTypeId());
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_HAS_COMPONENT_TYPE_INVALID, hc.componentTypeId());
 				}
 				if (hc.encodedValue().isBlank()) {
-					errors.add("HasComponent node has blank encodedValue");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_HAS_COMPONENT_VALUE_BLANK);
 				}
 			}
 			case GroupFilter.ComponentPath cp -> {
 				if (cp.componentTypeId().isBlank()) {
-					errors.add("ComponentPath node has blank componentTypeId");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_COMPONENT_PATH_TYPE_BLANK);
 				} else if (ResourceLocation.tryParse(cp.componentTypeId()) == null) {
-					errors.add("ComponentPath node has invalid componentTypeId: " + cp.componentTypeId());
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_COMPONENT_PATH_TYPE_INVALID, cp.componentTypeId());
 				}
 				if (cp.path().isBlank()) {
-					errors.add("ComponentPath node has blank path");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_COMPONENT_PATH_BLANK);
 				} else if (!PATH_PATTERN.matcher(cp.path()).matches()) {
-					errors.add("ComponentPath node has invalid path grammar: '" + cp.path()
-						+ "'. Allowed: field, parent.child, array[n], array[n].field");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_COMPONENT_PATH_GRAMMAR, cp.path());
 				}
 				if (cp.expectedValue().isBlank()) {
-					errors.add("ComponentPath node has blank expectedValue");
+					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_COMPONENT_PATH_VALUE_BLANK);
 				}
 			}
 		}
 	}
 
-	private static void validateType(String type, List<String> errors, String nodeName) {
+	private static void validateType(String type, List<ValidationError> errors, String nodeName) {
 		if (type == null || type.isBlank()) {
-			errors.add("Filter node '" + nodeName + "' is missing type");
+			addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_MISSING_TYPE, nodeName);
 			return;
 		}
 		if (ITEM_TYPE.equals(type) || FLUID_TYPE.equals(type)) {
@@ -114,22 +127,32 @@ public final class GroupFilterValidator {
 		if (ResourceLocation.tryParse(type) != null) {
 			return;
 		}
-		errors.add("Invalid ingredient type '" + type + "'");
+		addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_INVALID_TYPE, type);
 	}
 
-	private static void validateResourceLocation(String value, List<String> errors, String nodeName) {
+	private static void validateResourceLocation(String value, List<ValidationError> errors, String nodeName) {
 		if (value == null || value.isBlank()) {
-			errors.add("Filter node '" + nodeName + "' is missing its value");
+			addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_MISSING_VALUE, nodeName);
 			return;
 		}
 		if (ResourceLocation.tryParse(value) == null) {
-			errors.add("Invalid resource location '" + value + "'");
+			addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_INVALID_RESOURCE_LOCATION, value);
 		}
 	}
 
-	private static void validatePartialPath(String value, List<String> errors, String nodeName) {
+	private static void validatePartialPath(String value, List<ValidationError> errors, String nodeName) {
 		if (value == null || value.isBlank()) {
-			errors.add("Filter node '" + nodeName + "' is missing its value");
+			addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_MISSING_VALUE, nodeName);
+		}
+	}
+
+	private static void addError(List<ValidationError> errors, String key, Object... args) {
+		errors.add(new ValidationError(key, args == null ? new Object[0] : args));
+	}
+
+	private record ValidationError(String key, Object[] args) {
+		private Component toComponent() {
+			return Component.translatable(key, args);
 		}
 	}
 }

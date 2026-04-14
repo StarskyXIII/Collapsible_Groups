@@ -348,6 +348,9 @@ final class EditorLeftPanel {
 	}
 
 	private void handleCellClick(Object entry, int idx) {
+		if (!state.canEditContents()) {
+			return;
+		}
 		if (isShowingFluids()) {
 			FluidStack fluid = (FluidStack) entry;
 			boolean was = state.isFluidSelected(fluid);
@@ -421,6 +424,9 @@ final class EditorLeftPanel {
 	}
 
 	private void applyDragToEntry(Object entry) {
+		if (!state.canEditContents()) {
+			return;
+		}
 		switch (dragGesture) {
 			case ITEM_ADD -> {
 				ItemStack stack = (ItemStack) entry;

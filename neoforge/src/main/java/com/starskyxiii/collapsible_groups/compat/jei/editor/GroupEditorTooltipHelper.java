@@ -40,7 +40,9 @@ final class GroupEditorTooltipHelper {
 			FluidStack fluid = left.filteredFluids().get(left.hoveredFluid);
 			List<Component> lines = buildFluidLines(fluid);
 			appendOtherGroups(lines, left.otherGroupsForFluid(fluid));
-			if (state.isFluidSelected(fluid)) {
+			if (!state.canEditContents()) {
+				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			} else if (state.isFluidSelected(fluid)) {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE_FLUIDS));
 			} else {
@@ -54,7 +56,9 @@ final class GroupEditorTooltipHelper {
 			GenericIngredientView entry = left.filteredGeneric().get(left.hoveredGeneric);
 			List<Component> lines = buildGenericLines(entry);
 			appendOtherGroups(lines, left.otherGroupsForGeneric(entry));
-			if (state.isGenericSelected(entry)) {
+			if (!state.canEditContents()) {
+				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			} else if (state.isGenericSelected(entry)) {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE_ENTRIES));
 			} else {
@@ -71,7 +75,8 @@ final class GroupEditorTooltipHelper {
 			boolean isExact = state.isExactSelected(stack);
 			boolean isWhole = state.isWholeItemSelected(stack);
 			List<Component> lines = new ArrayList<>(stack.getTooltipLines(Item.TooltipContext.EMPTY, null, TooltipFlag.Default.NORMAL));
-			if (!isExact && !isWhole) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
+			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			else if (!isExact && !isWhole) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			else if (isWhole) {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_REMOVE_ONLY_VARIANT));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_CTRL_REMOVE_ALL));
@@ -85,7 +90,8 @@ final class GroupEditorTooltipHelper {
 		if (right.hoveredFluid >= 0 && right.hoveredFluid < right.groupFluids().size()) {
 			FluidStack fluid = (FluidStack) right.groupFluids().get(right.hoveredFluid);
 			List<Component> lines = buildFluidLines(fluid);
-			if (state.isFluidSelected(fluid)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
+			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			else if (state.isFluidSelected(fluid)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else                              lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 			return;
@@ -93,7 +99,8 @@ final class GroupEditorTooltipHelper {
 		if (right.hoveredGeneric >= 0 && right.hoveredGeneric < right.groupGeneric().size()) {
 			GenericIngredientView entry = right.groupGeneric().get(right.hoveredGeneric);
 			List<Component> lines = buildGenericLines(entry);
-			if (state.isGenericSelected(entry))        lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
+			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			else if (state.isGenericSelected(entry))   lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else if (state.isGenericTagMatched(entry)) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 		}
@@ -104,7 +111,9 @@ final class GroupEditorTooltipHelper {
 	// -----------------------------------------------------------------------
 
 	private static void appendItemHint(List<Component> lines, GroupEditorState state, ItemStack stack) {
-		if (state.isWholeItemSelected(stack)) {
+		if (!state.canEditContents()) {
+			lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+		} else if (state.isWholeItemSelected(stack)) {
 			lines.add(hint(ModTranslationKeys.EDITOR_HINT_SWITCH_TO_VARIANT));
 			lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE));
 			lines.add(hint2(ModTranslationKeys.EDITOR_HINT_CTRL_REMOVE_ALL));
