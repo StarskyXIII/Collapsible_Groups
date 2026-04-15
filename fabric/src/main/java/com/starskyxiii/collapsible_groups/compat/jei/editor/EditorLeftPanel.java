@@ -7,8 +7,8 @@ import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.network.chat.Component;
 import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * Manages the left pane of {@link GroupEditorScreen}: item browsing,
  * filtering, scrolling, click/drag-selection, and hover tracking.
- * Item-only variant (no fluid/generic support on Fabric).
+ * Item-only variant (no fluid/generic support on Forge).
  */
 final class EditorLeftPanel {
 
@@ -199,6 +199,7 @@ final class EditorLeftPanel {
 			int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
 			int y = layout.gridTop()   + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
 			if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
+			if (!state.canEditContents()) return true;
 			ItemStack stack = filteredItems.get(start + i);
 			boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
 			if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
@@ -260,6 +261,9 @@ final class EditorLeftPanel {
 	}
 
 	private void applyDragToEntry(ItemStack stack) {
+		if (!state.canEditContents()) {
+			return;
+		}
 		switch (dragGesture) {
 			case ITEM_ADD -> {
 				String key = dragAddKey(stack);
@@ -297,22 +301,18 @@ final class EditorLeftPanel {
 	}
 
 	void showFluids(String searchQuery) {
-		// Item-only editor on Fabric: keep the visible source on items.
+		// Item-only editor on Forge: keep the visible source on items.
 	}
 
 	void showGeneric(String searchQuery) {
-		// Item-only editor on Fabric: keep the visible source on items.
+		// Item-only editor on Forge: keep the visible source on items.
 	}
 
-	boolean isHideUsed()       { return hideUsed; }
-	String currentSourceLabel() { return "Items"; }
-	String currentPanelHeader() {
-		return Component.translatable(ModTranslationKeys.EDITOR_PANEL_ITEMS_HEADER, entryCount()).getString();
-	}
-	int    entryCount()  { return filteredItems.size(); }
-	String countLabel()  {
-		return Component.translatable(ModTranslationKeys.EDITOR_PANEL_COUNT_ENTRIES, entryCount()).getString();
-	}
+	boolean isHideUsed()        { return hideUsed; }
+	String currentSourceLabel() { return Component.translatable(ModTranslationKeys.EDITOR_TAB_ITEMS).getString(); }
+	String currentPanelHeader() { return Component.translatable(ModTranslationKeys.EDITOR_PANEL_ITEMS_HEADER, entryCount()).getString(); }
+	int    entryCount()         { return filteredItems.size(); }
+	String countLabel()         { return Component.translatable(ModTranslationKeys.EDITOR_PANEL_COUNT_ENTRIES, entryCount()).getString(); }
 
 	// -----------------------------------------------------------------------
 	// Accessors for tooltip helper

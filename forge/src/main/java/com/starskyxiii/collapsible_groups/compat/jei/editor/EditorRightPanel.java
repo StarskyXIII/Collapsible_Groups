@@ -52,10 +52,10 @@ final class EditorRightPanel {
 	// -----------------------------------------------------------------------
 
 	void rebuild() {
-		if (state.isStructurallyEditable()) {
+		GroupDefinition temp = state.buildPreviewDefinition();
+		if (state.canUseIndexedItemPreview()) {
 			groupItems = GroupRegistry.resolveEditorDraftItems(state.draft, state.editEnabled);
 		} else {
-			GroupDefinition temp = state.buildPreviewDefinition();
 			groupItems = GroupRegistry.resolveItems(temp);
 		}
 	}
@@ -142,6 +142,7 @@ final class EditorRightPanel {
 			for (int col = 0; col < layout.rightCols() && rowStart + col < groupItems.size(); col++) {
 				int x = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
 				if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
+				if (!state.canEditContents()) return true;
 				ItemStack stack = groupItems.get(rowStart + col);
 				if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.removeAllSelectionsForItem(stack);
 				else state.removeSingleSelection(stack, allItems);

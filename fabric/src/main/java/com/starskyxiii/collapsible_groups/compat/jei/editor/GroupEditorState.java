@@ -4,13 +4,14 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
-import com.starskyxiii.collapsible_groups.core.GroupFilterClauseFormatter;
+import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
 import com.starskyxiii.collapsible_groups.core.GroupFilterSummaryFormatter;
+import com.starskyxiii.collapsible_groups.core.GroupFilterValidator;
 import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -19,9 +20,11 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * Holds all mutable edit state for {@link GroupEditorScreen} and exposes the
- * business logic for item selection, filter draft building, and saving.
- * Item-only variant (no fluid/generic support on Fabric).
+ * Holds all mutable edit state for {@link GroupEditorScreen}.
+ *
+ * <p>The Forge editor remains item-only, but now mirrors the NeoForge rules workflow:
+ * a flat contents draft powers quick item editing while a rule-tree draft powers the
+ * Rules tab and persistence.
  */
 final class GroupEditorState {
 	private static final GroupFilter EMPTY_PREVIEW_FILTER = Filters.itemTag("minecraft:__cg_preview_empty__");
@@ -34,19 +37,17 @@ final class GroupEditorState {
 	final List<String> editTags;
 	final Set<String> explicitSet;
 
+	final GroupFilterRuleDraft ruleDraft;
+	private GroupFilterRuleDraft.Node selectedRuleNode;
+	private boolean contentsQuickEditAvailable;
+
 	private final IdentityHashMap<ItemStack, Optional<String>> exactSelectorCache = new IdentityHashMap<>();
-	private final GroupDefinition existingDefinition;
-	private final boolean structurallyEditable;
-	private final Set<GroupFilterEditorDraft.UnsupportedEditorNodeKind> unsupportedNodeKinds;
+	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
 
 	GroupEditorState(GroupDefinition existing) {
-		this.existingDefinition = existing;
-		GroupFilterEditorDraft.DecodeResult decoded = existing != null
-			? GroupFilterEditorDraft.decode(existing.filter())
-			: new GroupFilterEditorDraft.DecodeResult(GroupFilterEditorDraft.empty(), true, Set.of());
-		this.structurallyEditable = existing == null || decoded.structurallyEditable();
-		this.unsupportedNodeKinds = decoded.unsupportedNodeKinds();
-		this.draft = structurallyEditable ? decoded.draft() : GroupFilterEditorDraft.empty();
+		this.draft = GroupFilterEditorDraft.empty();
+		this.ruleDraft = existing != null ? GroupFilterRuleDraft.decode(existing.filter()) : GroupFilterRuleDraft.empty();
+		this.selectedRuleNode = ruleDraft.root();
 
 		if (existing != null) {
 			this.editId = existing.id();
@@ -60,6 +61,11 @@ final class GroupEditorState {
 
 		this.editTags = draft.itemTags();
 		this.explicitSet = draft.explicitItemSelectors();
+
+		refreshContentsDraftFromRules();
+		buildCurrentFilter()
+			.filter(filter -> GroupFilterValidator.validate(filter).isEmpty())
+			.ifPresent(filter -> lastValidPreviewFilter = filter);
 	}
 
 	Optional<String> cachedExactSelector(ItemStack stack) {
@@ -67,24 +73,37 @@ final class GroupEditorState {
 	}
 
 	Optional<GroupFilter> buildCurrentFilter() {
-		return draft.toFilter();
+		return ruleDraft.toFilter();
 	}
 
 	GroupDefinition buildPreviewDefinition() {
-		if (!structurallyEditable && existingDefinition != null) {
-			return existingDefinition;
+		Optional<GroupFilter> currentFilter = buildCurrentFilter();
+		GroupFilter previewFilter;
+		if (currentFilter.isEmpty()) {
+			previewFilter = EMPTY_PREVIEW_FILTER;
+		} else {
+			previewFilter = currentFilter
+				.filter(filter -> GroupFilterValidator.validate(filter).isEmpty())
+				.map(filter -> {
+					lastValidPreviewFilter = filter;
+					return filter;
+				})
+				.orElse(lastValidPreviewFilter);
 		}
-		GroupFilter filter = buildCurrentFilter().orElse(EMPTY_PREVIEW_FILTER);
 		return new GroupDefinition(
 			editId != null ? editId : "__preview__",
 			editName,
 			editEnabled,
-			filter
+			previewFilter
 		);
 	}
 
-	boolean isStructurallyEditable() {
-		return structurallyEditable;
+	boolean canUseIndexedItemPreview() {
+		return contentsQuickEditAvailable;
+	}
+
+	boolean canEditContents() {
+		return contentsQuickEditAvailable;
 	}
 
 	boolean isWholeItemSelected(ItemStack stack) {
@@ -97,24 +116,36 @@ final class GroupEditorState {
 
 	void toggleSingleSelection(ItemStack stack) {
 		String exactSelector = GroupItemSelector.exactSelector(stack);
-		if (explicitSet.remove(exactSelector)) return;
+		if (explicitSet.remove(exactSelector)) {
+			syncRulesFromContentsDraft();
+			return;
+		}
 		explicitSet.remove(GroupItemSelector.wholeItemSelector(stack));
 		explicitSet.add(exactSelector);
+		syncRulesFromContentsDraft();
 	}
 
 	void toggleWholeItemSelection(ItemStack stack) {
 		String wholeItemSelector = GroupItemSelector.wholeItemSelector(stack);
-		if (explicitSet.remove(wholeItemSelector)) return;
+		if (explicitSet.remove(wholeItemSelector)) {
+			syncRulesFromContentsDraft();
+			return;
+		}
 		removeExactSelectionsForItem(stack);
 		explicitSet.add(wholeItemSelector);
+		syncRulesFromContentsDraft();
 	}
 
 	void removeSingleSelection(ItemStack stack, List<ItemStack> allItems) {
 		String exactSelector = GroupItemSelector.exactSelector(stack);
-		if (explicitSet.remove(exactSelector)) return;
+		if (explicitSet.remove(exactSelector)) {
+			syncRulesFromContentsDraft();
+			return;
+		}
 		String wholeItemSelector = GroupItemSelector.wholeItemSelector(stack);
 		if (explicitSet.remove(wholeItemSelector)) {
 			addAllSiblingVariantsExcept(stack, allItems);
+			syncRulesFromContentsDraft();
 		}
 	}
 
@@ -123,6 +154,7 @@ final class GroupEditorState {
 			.filter(selector -> GroupItemSelector.isSelectorForSameItem(selector, stack))
 			.collect(Collectors.toSet());
 		explicitSet.removeAll(selectors);
+		syncRulesFromContentsDraft();
 	}
 
 	private void removeExactSelectionsForItem(ItemStack stack) {
@@ -147,7 +179,7 @@ final class GroupEditorState {
 	}
 
 	void syncEditItems() {
-		// The draft now owns the explicit selector set directly.
+		// No-op: the contents collections are live views backed by the draft.
 	}
 
 	Optional<GroupDefinition> trySave() {
@@ -163,46 +195,10 @@ final class GroupEditorState {
 		}
 	}
 
-	boolean isSaveBlockedByUnsupportedFilter() {
-		return !structurallyEditable;
-	}
-
-	String filterEditStatusLabel() {
-		return Component.translatable(structurallyEditable
-			? ModTranslationKeys.EDITOR_FILTER_EDITABLE
-			: ModTranslationKeys.EDITOR_FILTER_READONLY).getString();
-	}
-
-	String filterSummary() {
-		GroupFilter filter = summaryFilter();
-		if (filter == null) return Component.translatable(ModTranslationKeys.EDITOR_RULES_NO_FILTER).getString();
-		return GroupFilterSummaryFormatter.format(filter);
-	}
-
-	String unsupportedReasonSummary() {
-		if (unsupportedNodeKinds.isEmpty()) {
-			return Component.translatable(structurallyEditable
-				? ModTranslationKeys.EDITOR_UNSUPPORTED_EDITABLE
-				: ModTranslationKeys.EDITOR_UNSUPPORTED_UNAVAILABLE).getString();
-		}
-		return unsupportedNodeKinds.stream()
-			.map(k -> Component.translatable(k.reasonKey()).getString())
-			.collect(Collectors.joining(", "));
-	}
-
-	String unsupportedNodeKindsLabel() {
-		if (unsupportedNodeKinds.isEmpty()) {
-			return Component.translatable(ModTranslationKeys.EDITOR_UNSUPPORTED_NONE).getString();
-		}
-		return unsupportedNodeKinds.stream()
-			.map(k -> Component.translatable(k.labelKey()).getString())
-			.collect(Collectors.joining(", "));
-	}
-
 	boolean canSave() {
 		return !(editName == null || editName.isBlank())
-			&& structurallyEditable
-			&& buildCurrentFilter().isPresent();
+			&& buildCurrentFilter().isPresent()
+			&& currentValidationErrors().isEmpty();
 	}
 
 	List<Component> saveBlockedTooltip() {
@@ -212,37 +208,137 @@ final class GroupEditorState {
 				Component.translatable(ModTranslationKeys.EDITOR_SAVE_BLOCKED_NO_NAME)
 			);
 		}
-		if (!structurallyEditable) {
-			return List.of(
-				Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR),
-				Component.translatable(ModTranslationKeys.EDITOR_SAVE_BLOCKED_READONLY, unsupportedReasonSummary())
-			);
-		}
 		if (buildCurrentFilter().isEmpty()) {
 			return List.of(
 				Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR),
 				Component.translatable(ModTranslationKeys.EDITOR_SAVE_BLOCKED_NO_FILTER)
 			);
 		}
+		List<Component> errors = currentValidationErrors();
+		if (!errors.isEmpty()) {
+			return List.of(
+				Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR),
+				errors.getFirst()
+			);
+		}
 		return List.of();
+	}
+
+	String filterSummary() {
+		GroupFilter filter = buildCurrentFilter().orElse(null);
+		if (filter == null) return Component.translatable(ModTranslationKeys.EDITOR_RULES_NO_FILTER).getString();
+		return GroupFilterSummaryFormatter.format(filter);
 	}
 
 	String previewOwnershipNote() {
 		return Component.translatable(ModTranslationKeys.EDITOR_PREVIEW_NOTE).getString();
 	}
 
-	GroupFilter rulesDisplayFilter() {
-		return summaryFilter();
+	List<GroupFilterRuleDraft.FlatNode> flattenedRuleNodes() {
+		return ruleDraft.flatten();
 	}
 
-	boolean shouldShowRuleClauses() {
-		return GroupFilterClauseFormatter.shouldDisplay(summaryFilter());
+	GroupFilterRuleDraft.Node selectedRuleNode() {
+		return selectedRuleNode;
 	}
 
-	private GroupFilter summaryFilter() {
-		if (!structurallyEditable && existingDefinition != null) {
-			return existingDefinition.filter();
+	void selectRuleNode(GroupFilterRuleDraft.Node node) {
+		selectedRuleNode = node;
+	}
+
+	void ensureRuleSelection() {
+		if (selectedRuleNode == null) {
+			selectedRuleNode = ruleDraft.root();
 		}
-		return buildCurrentFilter().orElse(null);
+	}
+
+	boolean canInsertRuleRelative() {
+		return ruleDraft.canInsertRelativeTo(selectedRuleNode);
+	}
+
+	boolean canWrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
+		return ruleDraft.canWrap(selectedRuleNode, kind);
+	}
+
+	boolean canDeleteSelectedRule() {
+		return selectedRuleNode != null;
+	}
+
+	GroupFilterRuleDraft.Node insertRuleRelative(GroupFilterRuleDraft.NodeKind kind) {
+		GroupFilterRuleDraft.Node node = ruleDraft.insertRelativeTo(selectedRuleNode, kind);
+		if (node != null) {
+			selectedRuleNode = node;
+			refreshContentsDraftFromRules();
+		}
+		return node;
+	}
+
+	GroupFilterRuleDraft.Node wrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
+		if (selectedRuleNode == null) {
+			return null;
+		}
+		GroupFilterRuleDraft.Node node = ruleDraft.wrap(selectedRuleNode, kind);
+		if (node != null) {
+			selectedRuleNode = node;
+			refreshContentsDraftFromRules();
+		}
+		return node;
+	}
+
+	void deleteSelectedRule() {
+		if (selectedRuleNode == null) {
+			return;
+		}
+		selectedRuleNode = ruleDraft.delete(selectedRuleNode);
+		if (selectedRuleNode == null) {
+			selectedRuleNode = ruleDraft.root();
+		}
+		refreshContentsDraftFromRules();
+	}
+
+	void markRulesChanged() {
+		refreshContentsDraftFromRules();
+	}
+
+	List<Component> currentValidationErrors() {
+		return buildCurrentFilter()
+			.map(GroupFilterValidator::validateComponents)
+			.orElse(List.of());
+	}
+
+	private void syncRulesFromContentsDraft() {
+		if (!contentsQuickEditAvailable) {
+			return;
+		}
+		GroupFilterRuleDraft replacement = draft.toFilter()
+			.map(GroupFilterRuleDraft::decode)
+			.orElseGet(GroupFilterRuleDraft::empty);
+		ruleDraft.replaceWith(replacement);
+		selectedRuleNode = ruleDraft.root();
+	}
+
+	private void refreshContentsDraftFromRules() {
+		clearContentsDraft();
+		Optional<GroupFilter> filter = buildCurrentFilter();
+		if (filter.isEmpty()) {
+			contentsQuickEditAvailable = !ruleDraft.hasRoot();
+			return;
+		}
+
+		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(filter.get());
+		contentsQuickEditAvailable = decoded.structurallyEditable();
+		if (contentsQuickEditAvailable) {
+			copyContentsDraft(decoded.draft());
+		}
+	}
+
+	private void clearContentsDraft() {
+		explicitSet.clear();
+		editTags.clear();
+	}
+
+	private void copyContentsDraft(GroupFilterEditorDraft source) {
+		explicitSet.addAll(source.explicitItemSelectors());
+		editTags.addAll(source.itemTags());
 	}
 }

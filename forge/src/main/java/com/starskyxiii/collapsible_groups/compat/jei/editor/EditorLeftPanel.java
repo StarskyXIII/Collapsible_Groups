@@ -199,6 +199,7 @@ final class EditorLeftPanel {
 			int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
 			int y = layout.gridTop()   + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
 			if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
+			if (!state.canEditContents()) return true;
 			ItemStack stack = filteredItems.get(start + i);
 			boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
 			if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
@@ -260,6 +261,9 @@ final class EditorLeftPanel {
 	}
 
 	private void applyDragToEntry(ItemStack stack) {
+		if (!state.canEditContents()) {
+			return;
+		}
 		switch (dragGesture) {
 			case ITEM_ADD -> {
 				String key = dragAddKey(stack);
