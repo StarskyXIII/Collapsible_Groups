@@ -33,10 +33,10 @@ import java.util.List;
 public class GroupEditorScreen extends Screen {
 
     // ── Shared chrome constants ────────────────────────────────────────────
-    private static final int DEFAULT_TEXT_COLOR = 0xFFFFFF;
-    private static final int ERROR_TEXT_COLOR   = 0xFF4444;
+    private static final int DEFAULT_TEXT_COLOR = 0xFFFFFFFF;
+    private static final int ERROR_TEXT_COLOR   = 0xFFFF4444;
     private static final int HINT_TEXT_COLOR    = 0xFF7A7A7A;
-    private static final int HEADER_TEXT_COLOR  = 0x8CA6B7;
+    private static final int HEADER_TEXT_COLOR  = 0xFF8CA6B7;
     private static final int TAB_HEIGHT   = 18;
     private static final int CHIP_HEIGHT  = 18;
     private static final int SEARCH_HEIGHT = 18;

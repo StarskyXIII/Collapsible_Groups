@@ -41,12 +41,12 @@ final class EditorRulesPanel {
     private static final int CONFIG_SCROLLBAR_GAP = 2;
 
     // ── Colors ────────────────────────────────────────────────────────────
-    private static final int COL_DEFAULT = 0xFFFFFF;
-    private static final int COL_LABEL   = 0x86AFC3;
-    private static final int COL_TEXT    = 0xD8E7EF;
-    private static final int COL_META    = 0xBBD7E6;
-    private static final int COL_HINT    = 0x7A7A7A;
-    private static final int COL_ERROR   = 0xFF4444;
+    private static final int COL_DEFAULT = 0xFFFFFFFF;
+    private static final int COL_LABEL   = 0xFF86AFC3;
+    private static final int COL_TEXT    = 0xFFD8E7EF;
+    private static final int COL_META    = 0xFFBBD7E6;
+    private static final int COL_HINT    = 0xFF7A7A7A;
+    private static final int COL_ERROR   = 0xFFFF4444;
     private static final int COL_SEL_BG  = 0x334488AA;
 
     // ── Rule kind arrays ──────────────────────────────────────────────────
@@ -396,7 +396,7 @@ final class EditorRulesPanel {
         int lblY  = content.y() - modalScrollOffset;
 
         g.text(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_ADD).getString(),
-            m.x() + GAP, topY, 0x8CA6B7, false);
+            m.x() + GAP, topY, COL_LABEL, false);
 
         g.enableScissor(content.x(), content.y(), content.right(), content.bottom());
         try {
