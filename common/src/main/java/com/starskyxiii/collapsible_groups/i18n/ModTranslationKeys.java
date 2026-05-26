@@ -281,6 +281,10 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_UNSUPPORTED_NODE_HAS_COMPONENT_REASON = "collapsible_groups.editor.unsupported_node.has_component.reason";
 
+	public static final String EDITOR_UNSUPPORTED_NODE_ITEM_PATH_CONTAINS_LABEL = "collapsible_groups.editor.unsupported_node.item_path_contains.label";
+
+	public static final String EDITOR_UNSUPPORTED_NODE_ITEM_PATH_CONTAINS_REASON = "collapsible_groups.editor.unsupported_node.item_path_contains.reason";
+
 	public static final String EDITOR_UNSUPPORTED_NODE_ITEM_PATH_ENDS_WITH_LABEL = "collapsible_groups.editor.unsupported_node.item_path_ends_with.label";
 
 	public static final String EDITOR_UNSUPPORTED_NODE_ITEM_PATH_ENDS_WITH_REASON = "collapsible_groups.editor.unsupported_node.item_path_ends_with.reason";

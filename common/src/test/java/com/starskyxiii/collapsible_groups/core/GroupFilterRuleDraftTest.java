@@ -24,6 +24,29 @@ class GroupFilterRuleDraftTest {
 	}
 
 	@Test
+	void rootLeafCanBeWrappedEvenWhenRelativeInsertIsUnavailable() {
+		for (GroupFilterRuleDraft.NodeKind wrapperKind : java.util.List.of(
+			GroupFilterRuleDraft.NodeKind.ANY,
+			GroupFilterRuleDraft.NodeKind.ALL,
+			GroupFilterRuleDraft.NodeKind.NOT
+		)) {
+			GroupFilterRuleDraft draft = GroupFilterRuleDraft.empty();
+			GroupFilterRuleDraft.Node root = draft.insertRelativeTo(null, GroupFilterRuleDraft.NodeKind.ID);
+
+			assertNotNull(root);
+			assertFalse(draft.canInsertRelativeTo(root));
+			assertTrue(draft.canWrap(root, wrapperKind));
+
+			GroupFilterRuleDraft.Node wrapper = draft.wrap(root, wrapperKind);
+
+			assertNotNull(wrapper);
+			assertSame(wrapper, draft.root());
+			assertSame(wrapper, root.parent());
+			assertEquals(java.util.List.of(root), wrapper.children());
+		}
+	}
+
+	@Test
 	void insertWrapAndDeleteMutateTreeAsExpected() {
 		GroupFilterRuleDraft draft = GroupFilterRuleDraft.empty();
 		GroupFilterRuleDraft.Node root = draft.insertRelativeTo(null, GroupFilterRuleDraft.NodeKind.ID);
@@ -57,5 +80,18 @@ class GroupFilterRuleDraftTest {
 		assertNotNull(anyRoot);
 		assertTrue(anyDraft.hasRoot());
 		assertTrue(anyDraft.toFilter().isEmpty(), "Empty ANY node should not crash or encode");
+	}
+
+	@Test
+	void decodeAndEncodePreservesItemPathContains() {
+		GroupFilter original = new GroupFilter.ItemPathContains("_beam_");
+
+		GroupFilterRuleDraft draft = GroupFilterRuleDraft.decode(original);
+
+		assertTrue(draft.hasRoot());
+		assertEquals(GroupFilterRuleDraft.NodeKind.ITEM_PATH_CONTAINS, draft.root().kind());
+		assertEquals("_beam_", draft.root().primaryValue());
+		assertTrue(draft.toFilter().isPresent());
+		assertEquals(original, draft.toFilter().get());
 	}
 }

@@ -26,10 +26,31 @@ class ItemPathQueryPlanTest {
 	}
 
 	@Test
+	void standaloneItemPathContainsCompilesToFullScan() {
+		GroupFilter filter = new GroupFilter.ItemPathContains("_beam_");
+
+		ItemFilterQueryCompiler.ItemQueryPlan plan = ItemFilterQueryCompiler.compile(filter);
+
+		assertInstanceOf(ItemFilterQueryCompiler.FullScanPlan.class, plan);
+	}
+
+	@Test
 	void namespaceAndItemPathEndsWithCompilesToCandidatePlan() {
 		GroupFilter filter = Filters.all(
 			Filters.itemNamespace("mcwfurnitures"),
 			Filters.itemPathEndsWith("_chair")
+		);
+
+		ItemFilterQueryCompiler.ItemQueryPlan plan = ItemFilterQueryCompiler.compile(filter);
+
+		assertInstanceOf(ItemFilterQueryCompiler.CandidatePlan.class, plan);
+	}
+
+	@Test
+	void namespaceAndItemPathContainsCompilesToCandidatePlan() {
+		GroupFilter filter = Filters.all(
+			Filters.itemNamespace("mcwbridges"),
+			Filters.itemPathContains("_beam_")
 		);
 
 		ItemFilterQueryCompiler.ItemQueryPlan plan = ItemFilterQueryCompiler.compile(filter);

@@ -35,6 +35,7 @@ public final class CompiledFilter {
 			case GroupFilter.Tag tag -> new TagNode(canonicalType(tag.ingredientType()), Identifier.parse(tag.tag()));
 			case GroupFilter.BlockTag blockTag -> new BlockTagNode(Identifier.parse(blockTag.tag()));
 			case GroupFilter.ItemPathStartsWith startsWith -> new ItemPathStartsWithNode(startsWith.prefix());
+			case GroupFilter.ItemPathContains contains -> new ItemPathContainsNode(contains.needle());
 			case GroupFilter.ItemPathEndsWith endsWith -> new ItemPathEndsWithNode(endsWith.suffix());
 			case GroupFilter.Namespace namespace -> new NamespaceNode(canonicalType(namespace.ingredientType()), namespace.namespace());
 			case GroupFilter.ExactStack exactStack -> new ExactStackNode(exactStack.encodedStack());
@@ -49,7 +50,7 @@ public final class CompiledFilter {
 	}
 
 	private sealed interface CompiledNode
-		permits AnyNode, AllNode, NotNode, IdNode, TagNode, BlockTagNode, ItemPathStartsWithNode, ItemPathEndsWithNode, NamespaceNode, ExactStackNode, HasComponentNode, ComponentPathNode {
+		permits AnyNode, AllNode, NotNode, IdNode, TagNode, BlockTagNode, ItemPathStartsWithNode, ItemPathContainsNode, ItemPathEndsWithNode, NamespaceNode, ExactStackNode, HasComponentNode, ComponentPathNode {
 		boolean matches(IngredientView view);
 	}
 
@@ -103,6 +104,17 @@ public final class CompiledFilter {
 			}
 			Identifier resourceLocation = view.resourceLocation();
 			return resourceLocation != null && resourceLocation.getPath().startsWith(prefix);
+		}
+	}
+
+	private record ItemPathContainsNode(String needle) implements CompiledNode {
+		@Override
+		public boolean matches(IngredientView view) {
+			if (!sameType("item", view)) {
+				return false;
+			}
+			ResourceLocation resourceLocation = view.resourceLocation();
+			return resourceLocation != null && resourceLocation.getPath().contains(needle);
 		}
 	}
 

@@ -347,6 +347,9 @@ public final class GroupConfig {
 		if (obj.has("item_path_starts_with")) {
 			return new GroupFilter.ItemPathStartsWith(obj.get("item_path_starts_with").getAsString());
 		}
+		if (obj.has("item_path_contains")) {
+			return new GroupFilter.ItemPathContains(obj.get("item_path_contains").getAsString());
+		}
 		if (obj.has("item_path_ends_with")) {
 			return new GroupFilter.ItemPathEndsWith(obj.get("item_path_ends_with").getAsString());
 		}
@@ -385,6 +388,7 @@ public final class GroupConfig {
 			}
 			case GroupFilter.BlockTag blockTag -> obj.addProperty("block_tag", blockTag.tag());
 			case GroupFilter.ItemPathStartsWith startsWith -> obj.addProperty("item_path_starts_with", startsWith.prefix());
+			case GroupFilter.ItemPathContains contains -> obj.addProperty("item_path_contains", contains.needle());
 			case GroupFilter.ItemPathEndsWith endsWith -> obj.addProperty("item_path_ends_with", endsWith.suffix());
 			case GroupFilter.Namespace namespace -> {
 				obj.addProperty("type", namespace.ingredientType());

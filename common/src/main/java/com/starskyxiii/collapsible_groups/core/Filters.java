@@ -71,6 +71,10 @@ public final class Filters {
 		return new GroupFilter.ItemPathStartsWith(prefix);
 	}
 
+	public static GroupFilter itemPathContains(String needle) {
+		return new GroupFilter.ItemPathContains(needle);
+	}
+
 	public static GroupFilter itemPathEndsWith(String suffix) {
 		return new GroupFilter.ItemPathEndsWith(suffix);
 	}

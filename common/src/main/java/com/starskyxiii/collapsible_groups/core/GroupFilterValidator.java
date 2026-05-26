@@ -71,6 +71,7 @@ public final class GroupFilterValidator {
 			}
 			case GroupFilter.BlockTag blockTag -> validateIdentifier(blockTag.tag(), errors, "block_tag");
 			case GroupFilter.ItemPathStartsWith startsWith -> validatePartialPath(startsWith.prefix(), errors, "item_path_starts_with");
+			case GroupFilter.ItemPathContains contains -> validatePartialPath(contains.needle(), errors, "item_path_contains");
 			case GroupFilter.ItemPathEndsWith endsWith -> validatePartialPath(endsWith.suffix(), errors, "item_path_ends_with");
 			case GroupFilter.Namespace namespace -> {
 				validateType(namespace.ingredientType(), errors, "namespace");

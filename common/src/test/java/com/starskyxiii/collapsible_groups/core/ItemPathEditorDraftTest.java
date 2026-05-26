@@ -37,6 +37,17 @@ class ItemPathEditorDraftTest {
 	}
 
 	@Test
+	void itemPathContainsMarksGroupAsNotStructurallyEditable() {
+		GroupFilter filter = new GroupFilter.ItemPathContains("_beam_");
+
+		GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
+
+		assertFalse(result.structurallyEditable());
+		assertTrue(result.hasUnsupportedNodeKinds());
+		assertTrue(result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.ITEM_PATH_CONTAINS));
+	}
+
+	@Test
 	void itemPathUnsupportedNodeKindsHaveTranslationKeys() {
 		assertEquals(
 			"collapsible_groups.editor.unsupported_node.item_path_starts_with.label",
@@ -54,6 +65,14 @@ class ItemPathEditorDraftTest {
 			"collapsible_groups.editor.unsupported_node.item_path_ends_with.reason",
 			GroupFilterEditorDraft.UnsupportedEditorNodeKind.ITEM_PATH_ENDS_WITH.reasonKey()
 		);
+		assertEquals(
+			"collapsible_groups.editor.unsupported_node.item_path_contains.label",
+			GroupFilterEditorDraft.UnsupportedEditorNodeKind.ITEM_PATH_CONTAINS.labelKey()
+		);
+		assertEquals(
+			"collapsible_groups.editor.unsupported_node.item_path_contains.reason",
+			GroupFilterEditorDraft.UnsupportedEditorNodeKind.ITEM_PATH_CONTAINS.reasonKey()
+		);
 	}
 
 	@Test
@@ -66,6 +85,10 @@ class ItemPathEditorDraftTest {
 			"item path ends with _chair",
 			GroupFilterSummaryFormatter.format(new GroupFilter.ItemPathEndsWith("_chair"))
 		);
+		assertEquals(
+			"item path contains _beam_",
+			GroupFilterSummaryFormatter.format(new GroupFilter.ItemPathContains("_beam_"))
+		);
 	}
 
 	@Test
@@ -74,6 +97,8 @@ class ItemPathEditorDraftTest {
 			GroupFilterClauseFormatter.format(new GroupFilter.ItemPathStartsWith("gutter_"));
 		List<GroupFilterClauseFormatter.Clause> endsWithClauses =
 			GroupFilterClauseFormatter.format(new GroupFilter.ItemPathEndsWith("_chair"));
+		List<GroupFilterClauseFormatter.Clause> containsClauses =
+			GroupFilterClauseFormatter.format(new GroupFilter.ItemPathContains("_beam_"));
 
 		assertEquals(1, startsWithClauses.size());
 		assertEquals("Item Path Starts With", startsWithClauses.getFirst().label());
@@ -82,5 +107,9 @@ class ItemPathEditorDraftTest {
 		assertEquals(1, endsWithClauses.size());
 		assertEquals("Item Path Ends With", endsWithClauses.getFirst().label());
 		assertEquals("_chair", endsWithClauses.getFirst().value());
+
+		assertEquals(1, containsClauses.size());
+		assertEquals("Item Path Contains", containsClauses.getFirst().label());
+		assertEquals("_beam_", containsClauses.getFirst().value());
 	}
 }

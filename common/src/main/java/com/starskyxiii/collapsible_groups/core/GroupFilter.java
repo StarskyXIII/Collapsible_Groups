@@ -11,6 +11,7 @@ public sealed interface GroupFilter
 	        GroupFilter.Tag,
 	        GroupFilter.BlockTag,
 	        GroupFilter.ItemPathStartsWith,
+	        GroupFilter.ItemPathContains,
 	        GroupFilter.ItemPathEndsWith,
 	        GroupFilter.Namespace,
 	        GroupFilter.ExactStack,
@@ -60,6 +61,12 @@ public sealed interface GroupFilter
 	record ItemPathStartsWith(String prefix) implements GroupFilter {
 		public ItemPathStartsWith {
 			Objects.requireNonNull(prefix, "prefix");
+		}
+	}
+
+	record ItemPathContains(String needle) implements GroupFilter {
+		public ItemPathContains {
+			Objects.requireNonNull(needle, "needle");
 		}
 	}
 

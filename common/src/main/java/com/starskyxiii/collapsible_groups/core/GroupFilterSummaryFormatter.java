@@ -32,6 +32,7 @@ public final class GroupFilterSummaryFormatter {
 			case GroupFilter.Tag tag -> formatTag(tag.ingredientType(), tag.tag());
 			case GroupFilter.BlockTag blockTag -> "block tag " + blockTag.tag();
 			case GroupFilter.ItemPathStartsWith startsWith -> "item path starts with " + startsWith.prefix();
+			case GroupFilter.ItemPathContains contains -> "item path contains " + contains.needle();
 			case GroupFilter.ItemPathEndsWith endsWith -> "item path ends with " + endsWith.suffix();
 			case GroupFilter.Namespace namespace -> formatNamespace(namespace.ingredientType(), namespace.namespace());
 			case GroupFilter.ExactStack ignored -> "exact stack";
@@ -92,6 +93,7 @@ public final class GroupFilterSummaryFormatter {
 			|| filter instanceof GroupFilter.Tag
 			|| filter instanceof GroupFilter.BlockTag
 			|| filter instanceof GroupFilter.ItemPathStartsWith
+			|| filter instanceof GroupFilter.ItemPathContains
 			|| filter instanceof GroupFilter.ItemPathEndsWith
 			|| filter instanceof GroupFilter.Namespace
 			|| filter instanceof GroupFilter.ExactStack
@@ -105,6 +107,7 @@ public final class GroupFilterSummaryFormatter {
 			case GroupFilter.Tag tag -> categoryPrefix(tag.ingredientType()) + "tag";
 			case GroupFilter.BlockTag ignored -> "block tag";
 			case GroupFilter.ItemPathStartsWith ignored -> "item path starts with";
+			case GroupFilter.ItemPathContains ignored -> "item path contains";
 			case GroupFilter.ItemPathEndsWith ignored -> "item path ends with";
 			case GroupFilter.Namespace namespace -> categoryPrefix(namespace.ingredientType()) + "namespace";
 			case GroupFilter.ExactStack ignored -> "exact stack";
