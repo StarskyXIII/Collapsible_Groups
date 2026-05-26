@@ -172,6 +172,8 @@
   "collapsible_groups.editor.unsupported_node.component_path.reason": "contains Component Path filter",
   "collapsible_groups.editor.unsupported_node.has_component.label": "Has Component",
   "collapsible_groups.editor.unsupported_node.has_component.reason": "contains Has Component filter",
+  "collapsible_groups.editor.unsupported_node.item_path_contains.label": "Item Path Contains",
+  "collapsible_groups.editor.unsupported_node.item_path_contains.reason": "contains Item Path Contains filter",
   "collapsible_groups.editor.unsupported_node.item_path_ends_with.label": "Item Path Ends With",
   "collapsible_groups.editor.unsupported_node.item_path_ends_with.reason": "contains Item Path Ends With filter",
   "collapsible_groups.editor.unsupported_node.item_path_starts_with.label": "Item Path Starts With",

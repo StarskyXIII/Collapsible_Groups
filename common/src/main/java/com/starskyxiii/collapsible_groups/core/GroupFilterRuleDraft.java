@@ -23,6 +23,7 @@ public final class GroupFilterRuleDraft {
 		TAG(false, 0, 0),
 		BLOCK_TAG(false, 0, 0),
 		ITEM_PATH_STARTS_WITH(false, 0, 0),
+		ITEM_PATH_CONTAINS(false, 0, 0),
 		ITEM_PATH_ENDS_WITH(false, 0, 0),
 		NAMESPACE(false, 0, 0),
 		EXACT_STACK(false, 0, 0),
@@ -324,6 +325,11 @@ public final class GroupFilterRuleDraft {
 				node.primaryValue = startsWith.prefix();
 				yield node;
 			}
+			case GroupFilter.ItemPathContains contains -> {
+				Node node = new Node(NodeKind.ITEM_PATH_CONTAINS);
+				node.primaryValue = contains.needle();
+				yield node;
+			}
 			case GroupFilter.ItemPathEndsWith endsWith -> {
 				Node node = new Node(NodeKind.ITEM_PATH_ENDS_WITH);
 				node.primaryValue = endsWith.suffix();
@@ -371,6 +377,7 @@ public final class GroupFilterRuleDraft {
 			case TAG -> Filters.tag(node.ingredientType, node.primaryValue);
 			case BLOCK_TAG -> Filters.blockTag(node.primaryValue);
 			case ITEM_PATH_STARTS_WITH -> Filters.itemPathStartsWith(node.primaryValue);
+			case ITEM_PATH_CONTAINS -> Filters.itemPathContains(node.primaryValue);
 			case ITEM_PATH_ENDS_WITH -> Filters.itemPathEndsWith(node.primaryValue);
 			case NAMESPACE -> Filters.namespace(node.ingredientType, node.primaryValue);
 			case EXACT_STACK -> Filters.exactStack(node.primaryValue);

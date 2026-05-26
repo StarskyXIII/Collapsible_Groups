@@ -213,9 +213,10 @@ public final class KubeJsFilterCompiler {
 	}
 
 	private static @Nullable GroupFilter compileItemObject(Map<?, ?> map) {
-		List<GroupFilter> children = new ArrayList<>(6);
+		List<GroupFilter> children = new ArrayList<>(7);
 
 		addIfPresent(children, compileItemPathStartsWith(map));
+		addIfPresent(children, compileItemPathContains(map));
 		addIfPresent(children, compileItemPathEndsWith(map));
 		addIfPresent(children, compileItemNamespace(map));
 		addIfPresent(children, compileItemId(map));
@@ -390,6 +391,15 @@ public final class KubeJsFilterCompiler {
 		}
 		prefix = prefix.trim();
 		return prefix.isEmpty() ? null : Filters.itemPathStartsWith(prefix);
+	}
+
+	private static @Nullable GroupFilter compileItemPathContains(Map<?, ?> map) {
+		String needle = stringProperty(map, "itemPathContains");
+		if (needle == null) {
+			return null;
+		}
+		needle = needle.trim();
+		return needle.isEmpty() ? null : Filters.itemPathContains(needle);
 	}
 
 	private static @Nullable GroupFilter compileItemPathEndsWith(Map<?, ?> map) {

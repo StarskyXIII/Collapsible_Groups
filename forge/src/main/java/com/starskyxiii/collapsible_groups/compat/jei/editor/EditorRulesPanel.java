@@ -58,6 +58,7 @@ final class EditorRulesPanel {
         GroupFilterRuleDraft.NodeKind.NAMESPACE,
         GroupFilterRuleDraft.NodeKind.BLOCK_TAG,
         GroupFilterRuleDraft.NodeKind.ITEM_PATH_STARTS_WITH,
+        GroupFilterRuleDraft.NodeKind.ITEM_PATH_CONTAINS,
         GroupFilterRuleDraft.NodeKind.ITEM_PATH_ENDS_WITH,
         GroupFilterRuleDraft.NodeKind.HAS_COMPONENT,
         GroupFilterRuleDraft.NodeKind.COMPONENT_PATH,
@@ -936,7 +937,7 @@ final class EditorRulesPanel {
         if (btnAdd == null) return;
         GroupFilterRuleDraft.Node sel = state.selectedRuleNode();
 
-        btnAdd.active    = !modalOpen && state.canInsertRuleRelative();
+        btnAdd.active    = !modalOpen && canOpenAddModal();
         btnDelete.active = !modalOpen && state.canDeleteSelectedRule();
 
         for (int i = 0; i < COMPOUND_KINDS.length; i++) {
@@ -964,6 +965,14 @@ final class EditorRulesPanel {
             clampConfigureScroll();
             layoutConfigureFields();
         }
+    }
+
+    private boolean canOpenAddModal() {
+        if (state.canInsertRuleRelative()) return true;
+        for (GroupFilterRuleDraft.NodeKind kind : WRAP_KINDS) {
+            if (state.canWrapSelectedRule(kind)) return true;
+        }
+        return false;
     }
 
     private void syncFieldsFromNode() {
@@ -1063,6 +1072,7 @@ final class EditorRulesPanel {
             case NAMESPACE       -> n.ingredientType() + " namespace: " + n.primaryValue();
             case BLOCK_TAG       -> "block tag: "                       + n.primaryValue();
             case ITEM_PATH_STARTS_WITH -> "path starts: "              + n.primaryValue();
+            case ITEM_PATH_CONTAINS    -> "path contains: "            + n.primaryValue();
             case ITEM_PATH_ENDS_WITH   -> "path ends: "                + n.primaryValue();
             case EXACT_STACK     -> "exact: "                          + n.primaryValue();
             case HAS_COMPONENT   -> "has component: "  + n.primaryValue() + " = " + n.secondaryValue();
@@ -1088,6 +1098,7 @@ final class EditorRulesPanel {
             case NAMESPACE             -> "Namespace";
             case BLOCK_TAG             -> "Block Tag";
             case ITEM_PATH_STARTS_WITH -> "Path Starts";
+            case ITEM_PATH_CONTAINS    -> "Path Contains";
             case ITEM_PATH_ENDS_WITH   -> "Path Ends";
             case HAS_COMPONENT         -> "Has Component";
             case COMPONENT_PATH        -> "Component Path";
@@ -1115,7 +1126,7 @@ final class EditorRulesPanel {
             case ID              -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_ID);
             case TAG, BLOCK_TAG  -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_TAG);
             case NAMESPACE       -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_NAMESPACE);
-            case ITEM_PATH_STARTS_WITH, ITEM_PATH_ENDS_WITH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PATH);
+            case ITEM_PATH_STARTS_WITH, ITEM_PATH_CONTAINS, ITEM_PATH_ENDS_WITH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PATH);
             case EXACT_STACK     -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_STACK);
             case HAS_COMPONENT, COMPONENT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_COMPONENT);
             default              -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);

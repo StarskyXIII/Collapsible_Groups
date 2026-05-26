@@ -33,4 +33,14 @@ class GroupFilterValidatorTest {
 		assertEquals("collapsible_groups.editor.rules.error.component_path_grammar", contents.getKey());
 		assertEquals("bad path", contents.getArgs()[0]);
 	}
+
+	@Test
+	void validateComponentsReturnsTranslatedMessagesForBlankItemPathContains() {
+		List<Component> errors = GroupFilterValidator.validateComponents(new GroupFilter.ItemPathContains(" "));
+
+		assertEquals(1, errors.size());
+		TranslatableContents contents = assertInstanceOf(TranslatableContents.class, errors.getFirst().getContents());
+		assertEquals("collapsible_groups.editor.rules.error.missing_value", contents.getKey());
+		assertEquals("item_path_contains", contents.getArgs()[0]);
+	}
 }

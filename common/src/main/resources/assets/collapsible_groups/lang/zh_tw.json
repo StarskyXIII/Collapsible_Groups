@@ -172,6 +172,8 @@
   "collapsible_groups.editor.unsupported_node.component_path.reason": "包含「元件路徑」條件",
   "collapsible_groups.editor.unsupported_node.has_component.label": "包含元件",
   "collapsible_groups.editor.unsupported_node.has_component.reason": "包含「包含元件」條件",
+  "collapsible_groups.editor.unsupported_node.item_path_contains.label": "物品路徑包含",
+  "collapsible_groups.editor.unsupported_node.item_path_contains.reason": "包含「物品路徑包含」條件",
   "collapsible_groups.editor.unsupported_node.item_path_ends_with.label": "物品路徑後綴",
   "collapsible_groups.editor.unsupported_node.item_path_ends_with.reason": "包含「物品路徑後綴」條件",
   "collapsible_groups.editor.unsupported_node.item_path_starts_with.label": "物品路徑前綴",

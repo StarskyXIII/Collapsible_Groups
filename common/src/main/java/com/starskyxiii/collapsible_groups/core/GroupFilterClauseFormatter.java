@@ -61,6 +61,8 @@ public final class GroupFilterClauseFormatter {
 				clauses.add(new Clause(depth, "Block Tag", blockTag.tag()));
 			case GroupFilter.ItemPathStartsWith startsWith ->
 				clauses.add(new Clause(depth, "Item Path Starts With", startsWith.prefix()));
+			case GroupFilter.ItemPathContains contains ->
+				clauses.add(new Clause(depth, "Item Path Contains", contains.needle()));
 			case GroupFilter.ItemPathEndsWith endsWith ->
 				clauses.add(new Clause(depth, "Item Path Ends With", endsWith.suffix()));
 			case GroupFilter.Namespace namespace ->
@@ -84,6 +86,7 @@ public final class GroupFilterClauseFormatter {
 			case GroupFilter.Tag ignored -> true;
 			case GroupFilter.BlockTag ignored -> true;
 			case GroupFilter.ItemPathStartsWith ignored -> true;
+			case GroupFilter.ItemPathContains ignored -> true;
 			case GroupFilter.ItemPathEndsWith ignored -> true;
 			case GroupFilter.Namespace ignored -> true;
 			case GroupFilter.All ignored -> true;

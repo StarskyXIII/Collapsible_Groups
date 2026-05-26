@@ -25,20 +25,32 @@ class ItemPathCompiledFilterTest {
 	}
 
 	@Test
+	void itemPathContainsMatchesOnlyItemPathsWithRequestedNeedle() {
+		CompiledFilter filter = CompiledFilter.compile(Filters.itemPathContains("_beam_"));
+
+		assertTrue(filter.matches(new FakeIngredientView("item", ResourceLocation.parse("mcwbridges:oak_beam_bridge"))));
+		assertFalse(filter.matches(new FakeIngredientView("item", ResourceLocation.parse("mcwbridges:oak_bridge"))));
+	}
+
+	@Test
 	void itemPathFiltersDoNotMatchNonItemViews() {
 		CompiledFilter startsWith = CompiledFilter.compile(Filters.itemPathStartsWith("gutter_"));
+		CompiledFilter contains = CompiledFilter.compile(Filters.itemPathContains("_beam_"));
 		CompiledFilter endsWith = CompiledFilter.compile(Filters.itemPathEndsWith("_chair"));
 
 		assertFalse(startsWith.matches(new FakeIngredientView("fluid", ResourceLocation.parse("minecraft:water"))));
+		assertFalse(contains.matches(new FakeIngredientView("fluid", ResourceLocation.parse("minecraft:water"))));
 		assertFalse(endsWith.matches(new FakeIngredientView("mekanism:chemical", ResourceLocation.parse("mekanism:hydrogen"))));
 	}
 
 	@Test
 	void itemPathFiltersDoNotMatchViewsWithoutResourceLocation() {
 		CompiledFilter startsWith = CompiledFilter.compile(Filters.itemPathStartsWith("gutter_"));
+		CompiledFilter contains = CompiledFilter.compile(Filters.itemPathContains("_beam_"));
 		CompiledFilter endsWith = CompiledFilter.compile(Filters.itemPathEndsWith("_chair"));
 
 		assertFalse(startsWith.matches(new FakeIngredientView("item", null)));
+		assertFalse(contains.matches(new FakeIngredientView("item", null)));
 		assertFalse(endsWith.matches(new FakeIngredientView("item", null)));
 	}
 

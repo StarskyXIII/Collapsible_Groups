@@ -39,6 +39,7 @@ public final class GroupFilterEditorDraft {
 		NOT(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NOT_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NOT_REASON),
 		BLOCK_TAG(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_BLOCK_TAG_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_BLOCK_TAG_REASON),
 		ITEM_PATH_STARTS_WITH(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_ITEM_PATH_STARTS_WITH_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_ITEM_PATH_STARTS_WITH_REASON),
+		ITEM_PATH_CONTAINS(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_ITEM_PATH_CONTAINS_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_ITEM_PATH_CONTAINS_REASON),
 		ITEM_PATH_ENDS_WITH(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_ITEM_PATH_ENDS_WITH_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_ITEM_PATH_ENDS_WITH_REASON),
 		NAMESPACE(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NAMESPACE_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NAMESPACE_REASON),
 		NESTED_STRUCTURE(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NESTED_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NESTED_REASON),
@@ -233,6 +234,10 @@ public final class GroupFilterEditorDraft {
 			}
 			case GroupFilter.ItemPathStartsWith ignored -> {
 				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.ITEM_PATH_STARTS_WITH);
+				yield false;
+			}
+			case GroupFilter.ItemPathContains ignored -> {
+				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.ITEM_PATH_CONTAINS);
 				yield false;
 			}
 			case GroupFilter.ItemPathEndsWith ignored -> {
