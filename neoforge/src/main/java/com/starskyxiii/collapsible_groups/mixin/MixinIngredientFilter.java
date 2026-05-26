@@ -359,8 +359,8 @@ public abstract class MixinIngredientFilter {
 			this.cg$cachedFullList = all;
 		}
 
-		// KubeJS integration deferred until a 26.1.1-compatible build is available
-		// TODO: re-enable KubeJS block when KubeJS publishes a 26.1.1 build
+		// KubeJS integration deferred until a 26.1.2-compatible build is available
+		// TODO: re-enable KubeJS block when KubeJS publishes a 26.1.2 build
 		if (false && !GroupRegistry.isKubeJsApplied() && ModList.get().isLoaded("kubejs")) {
 			@SuppressWarnings("unchecked")
 			List<FluidStack> fluidsForKjs = (List<FluidStack>) (List<?>) GroupRegistry.getJeiAllFluids();

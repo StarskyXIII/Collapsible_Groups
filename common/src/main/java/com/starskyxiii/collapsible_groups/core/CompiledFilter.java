@@ -113,7 +113,7 @@ public final class CompiledFilter {
 			if (!sameType("item", view)) {
 				return false;
 			}
-			ResourceLocation resourceLocation = view.resourceLocation();
+			Identifier resourceLocation = view.resourceLocation();
 			return resourceLocation != null && resourceLocation.getPath().contains(needle);
 		}
 	}

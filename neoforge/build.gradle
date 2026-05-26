@@ -55,12 +55,12 @@ neoForge {
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
 
-// KubeJS integration deferred until a 26.1.1-compatible build is available
+// KubeJS integration deferred until a 26.1.2-compatible build is available
 sourceSets.main.java.exclude 'com/starskyxiii/collapsible_groups/compat/kubejs/**'
 
 dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-    // TODO: KubeJS integration deferred until KubeJS publishes a 26.1.1 build
+    // TODO: KubeJS integration deferred until KubeJS publishes a 26.1.2 build
     // compileOnly "dev.latvian.mods:kubejs-neoforge:${kubejs_version}"
 }

@@ -202,7 +202,7 @@ final class EditorLeftPanel {
 			if (!state.canEditContents()) return true;
 			ItemStack stack = filteredItems.get(start + i);
 			boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
-			if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
+			if (com.mojang.blaze3d.platform.InputConstants.isKeyDown(net.minecraft.client.Minecraft.getInstance().getWindow(), 341) || com.mojang.blaze3d.platform.InputConstants.isKeyDown(net.minecraft.client.Minecraft.getInstance().getWindow(), 345)) state.toggleWholeItemSelection(stack);
 			else                                                          state.toggleSingleSelection(stack);
 			state.syncEditItems();
 			onChange.run();

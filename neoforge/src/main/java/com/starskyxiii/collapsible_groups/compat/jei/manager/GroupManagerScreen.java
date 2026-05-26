@@ -134,7 +134,7 @@ public class GroupManagerScreen extends Screen {
 	// Fields
 	// -----------------------------------------------------------------------
 
-	// KubeJS integration is currently deferred on MC 26.1.1, so keep its filter UI hidden.
+	// KubeJS integration is currently deferred on MC 26.1.2, so keep its filter UI hidden.
 	private static final boolean KUBEJS_FILTER_ENABLED = false;
 
 	private final Screen previousScreen;

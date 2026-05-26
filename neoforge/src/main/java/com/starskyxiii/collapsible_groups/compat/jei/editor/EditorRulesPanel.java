@@ -9,6 +9,9 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.AbstractWidget;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.minecraft.util.FormattedCharSequence;
 
@@ -441,7 +444,10 @@ final class EditorRulesPanel {
     // Input
     // ─────────────────────────────────────────────────────────────────────
 
-    boolean mouseClicked(double mx, double my, int button) {
+    boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mx = event.x();
+        double my = event.y();
+        int button = event.button();
         if (button != 0) return false;
         if (modalOpen) {
             EditorChrome.Rect m = currentModalRect();
@@ -461,10 +467,10 @@ final class EditorRulesPanel {
             if (m.contains(mx, my)) {
                 if (!modalContentRect(m).contains(mx, my)) return true;
                 for (Button b : insertButtons) {
-                    if (b.visible && isOver(b, mx, my) && b.mouseClicked(mx, my, button)) return true;
+                    if (b.visible && isOver(b, mx, my) && b.mouseClicked(event, doubleClick)) return true;
                 }
                 for (Button b : wrapButtons) {
-                    if (b.visible && isOver(b, mx, my) && b.mouseClicked(mx, my, button)) return true;
+                    if (b.visible && isOver(b, mx, my) && b.mouseClicked(event, doubleClick)) return true;
                 }
                 return true;
             }
@@ -488,14 +494,14 @@ final class EditorRulesPanel {
         }
 
         // ── Actions (Add / Delete) ─────────────────────────────────────────
-        if (isOver(btnAdd,    mx, my) && btnAdd.mouseClicked(mx, my, button))    return true;
-        if (isOver(btnDelete, mx, my) && btnDelete.mouseClicked(mx, my, button)) return true;
+        if (isOver(btnAdd,    mx, my) && btnAdd.mouseClicked(event, doubleClick))    return true;
+        if (isOver(btnDelete, mx, my) && btnDelete.mouseClicked(event, doubleClick)) return true;
 
         // ── Configure fields ──────────────────────────────────────────────
         for (EditBox f : visibleFields()) {
             if (isOver(f, mx, my)) {
                 setFocusedField(f);
-                f.mouseClicked(mx, my, button);
+                f.mouseClicked(event, doubleClick);
                 return true;
             }
         }
@@ -596,10 +602,10 @@ final class EditorRulesPanel {
         return true;
     }
 
-    boolean keyPressed(int key, int scan, int mods) {
+    boolean keyPressed(KeyEvent event) {
         if (focusedField != null && focusedField.isFocused()
-            && focusedField.keyPressed(key, scan, mods)) return true;
-        if (modalOpen && key == 256 /* Escape */) {
+            && focusedField.keyPressed(event)) return true;
+        if (modalOpen && event.key() == 256 /* Escape */) {
             modalOpen = false;
             modalDraggingScroll = false;
             refreshWidgetStates();
@@ -608,8 +614,8 @@ final class EditorRulesPanel {
         return false;
     }
 
-    boolean charTyped(char c, int mods) {
-        if (focusedField != null && focusedField.isFocused()) return focusedField.charTyped(c, mods);
+    boolean charTyped(CharacterEvent event) {
+        if (focusedField != null && focusedField.isFocused()) return focusedField.charTyped(event);
         return false;
     }
 

@@ -15,6 +15,8 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 import net.neoforged.neoforge.fluids.FluidStack;
@@ -301,7 +303,7 @@ public class GroupEditorScreen extends Screen {
         double my = event.y();
         int button = event.button();
         if (activeGroupTab == GroupTab.RULES && rulesPanel.isModalOpen()) {
-            rulesPanel.mouseClicked(mx, my, button);
+            rulesPanel.mouseClicked(event, doubleClick);
             return true;
         }
 
@@ -311,7 +313,7 @@ public class GroupEditorScreen extends Screen {
             if (searchField != null) searchField.setFocused(false);
             setFocused(nameField);
             nameField.setFocused(true);
-            return nameField.mouseClicked(mx, my, button);
+            return nameField.mouseClicked(event, doubleClick);
         }
         if (nameField != null && !nameField.isMouseOver(mx, my)) nameField.setFocused(false);
 
@@ -326,36 +328,36 @@ public class GroupEditorScreen extends Screen {
             if (leftPanel.mouseClicked(mx, my, button, layout)) return true;
             if (rightPanel.mouseClicked(mx, my, button, layout, leftPanel.allItems())) return true;
         } else {
-            if (rulesPanel.mouseClicked(mx, my, button)) return true;
+            if (rulesPanel.mouseClicked(event, doubleClick)) return true;
         }
 
         return false;
     }
 
     @Override
-    public boolean keyPressed(int key, int scan, int mods) {
+    public boolean keyPressed(KeyEvent event) {
         if (activeGroupTab == GroupTab.RULES && rulesPanel.isModalOpen()) {
-            rulesPanel.keyPressed(key, scan, mods);
+            rulesPanel.keyPressed(event);
             return true;
         }
-        if (nameField != null && nameField.isFocused() && nameField.keyPressed(key, scan, mods)) return true;
+        if (nameField != null && nameField.isFocused() && nameField.keyPressed(event)) return true;
         if (searchField != null && searchField.visible && searchField.isFocused()
-            && searchField.keyPressed(key, scan, mods)) return true;
-        if (activeGroupTab == GroupTab.RULES && rulesPanel.keyPressed(key, scan, mods)) return true;
-        return super.keyPressed(key, scan, mods);
+            && searchField.keyPressed(event)) return true;
+        if (activeGroupTab == GroupTab.RULES && rulesPanel.keyPressed(event)) return true;
+        return super.keyPressed(event);
     }
 
     @Override
-    public boolean charTyped(char c, int mods) {
+    public boolean charTyped(CharacterEvent event) {
         if (activeGroupTab == GroupTab.RULES && rulesPanel.isModalOpen()) {
-            rulesPanel.charTyped(c, mods);
+            rulesPanel.charTyped(event);
             return true;
         }
-        if (nameField != null && nameField.isFocused() && nameField.charTyped(c, mods)) return true;
+        if (nameField != null && nameField.isFocused() && nameField.charTyped(event)) return true;
         if (searchField != null && searchField.visible && searchField.isFocused()
-            && searchField.charTyped(c, mods)) return true;
-        if (activeGroupTab == GroupTab.RULES && rulesPanel.charTyped(c, mods)) return true;
-        return super.charTyped(c, mods);
+            && searchField.charTyped(event)) return true;
+        if (activeGroupTab == GroupTab.RULES && rulesPanel.charTyped(event)) return true;
+        return super.charTyped(event);
     }
 
     @Override
