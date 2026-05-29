@@ -49,6 +49,7 @@ public class FabricConfigScreen extends Screen {
 	private boolean loadRS2;
 	private boolean loadMacawsSeries;
 	private boolean showManagerButton;
+	private boolean showGroupBackgrounds;
 	private boolean timingLogs;
 	private boolean verifyStartupIndex;
 	private boolean verifyEditorIndex;
@@ -94,6 +95,7 @@ public class FabricConfigScreen extends Screen {
 			loadRS2              = d.defaultGroups.modIntegration.loadRS2;
 			loadMacawsSeries     = d.defaultGroups.modIntegration.loadMacawsSeries;
 			showManagerButton    = d.ui.showManagerButton;
+			showGroupBackgrounds = d.ui.showGroupBackgrounds;
 			timingLogs           = d.debug.enableTimingLogs;
 			verifyStartupIndex   = d.debug.verifyStartupIndex;
 			verifyEditorIndex    = d.debug.verifyEditorPreviewIndex;
@@ -139,6 +141,8 @@ public class FabricConfigScreen extends Screen {
 
 		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_SHOW_MANAGER_BUTTON,
 			() -> showManagerButton, v -> showManagerButton = v);      y += ROW_H + ROW_GAP;
+		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_SHOW_GROUP_BACKGROUNDS,
+			() -> showGroupBackgrounds, v -> showGroupBackgrounds = v); y += ROW_H + ROW_GAP;
 
 		// ── Debug ──
 		y += SEC_GAP;
@@ -223,6 +227,8 @@ public class FabricConfigScreen extends Screen {
 	// ── Save ─────────────────────────────────────────────────────────────────
 
 	private void onSave() {
+		FabricConfig.FabricConfigData existingData = FabricConfig.getData();
+
 		FabricConfig.FabricConfigData newData = new FabricConfig.FabricConfigData();
 		newData.defaultGroups.enabled                              = defaultGroupsEnabled;
 		newData.defaultGroups.loadGeneric                          = loadGeneric;
@@ -233,6 +239,9 @@ public class FabricConfigScreen extends Screen {
 		newData.defaultGroups.modIntegration.loadRS2               = loadRS2;
 		newData.defaultGroups.modIntegration.loadMacawsSeries      = loadMacawsSeries;
 		newData.ui.showManagerButton                               = showManagerButton;
+		newData.ui.showGroupBackgrounds                            = showGroupBackgrounds;
+		newData.ui.collapsedGroupBackgroundColor                   = existingData.ui.collapsedGroupBackgroundColor;
+		newData.ui.expandedGroupBackgroundColor                    = existingData.ui.expandedGroupBackgroundColor;
 		newData.debug.enableTimingLogs         = timingLogs;
 		newData.debug.verifyStartupIndex       = verifyStartupIndex;
 		newData.debug.verifyEditorPreviewIndex = verifyEditorIndex;

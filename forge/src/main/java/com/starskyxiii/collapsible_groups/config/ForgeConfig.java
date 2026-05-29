@@ -8,6 +8,8 @@ import net.minecraftforge.common.ForgeConfigSpec;
  * {@code config/collapsiblegroups/collapsiblegroups.toml} via {@link ForgeConfigSpec}.
  */
 public final class ForgeConfig implements IConfigProvider {
+	private static final int COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT = 0x24FFFFFF;
+	private static final int EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT  = 0x24FFFFFF;
 
 	private static final String[] MACAWS_SERIES_MODS = {
 		"mcwwindows",
@@ -39,6 +41,13 @@ public final class ForgeConfig implements IConfigProvider {
 			&& isAnyMacawsSeriesLoaded();
 	}
 	@Override public boolean showManagerButton()                   { return SHOW_MANAGER_BUTTON.get(); }
+	@Override public boolean showGroupBackgrounds()                { return SHOW_GROUP_BACKGROUNDS.get(); }
+	@Override public int collapsedGroupBackgroundColor() {
+		return ColorConfigParser.parseArgb(COLLAPSED_GROUP_BACKGROUND_COLOR.get(), COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
+	@Override public int expandedGroupBackgroundColor() {
+		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BACKGROUND_COLOR.get(), EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
 	@Override public boolean debugTimingEnabled()                  { return DEBUG_TIMING_LOGS.get(); }
 	@Override public boolean debugStartupIndexVerificationEnabled() { return DEBUG_STARTUP_INDEX_VERIFY.get(); }
 	@Override public boolean debugEditorIndexVerificationEnabled() { return DEBUG_EDITOR_INDEX_VERIFY.get(); }
@@ -75,6 +84,15 @@ public final class ForgeConfig implements IConfigProvider {
 
 	/** Whether to show the group manager button in the JEI overlay. */
 	public static final ForgeConfigSpec.BooleanValue SHOW_MANAGER_BUTTON;
+
+	/** Whether grouped slots draw a semi-transparent background tint. */
+	public static final ForgeConfigSpec.BooleanValue SHOW_GROUP_BACKGROUNDS;
+
+	/** ARGB background color for collapsed group headers. */
+	public static final ForgeConfigSpec.ConfigValue<String> COLLAPSED_GROUP_BACKGROUND_COLOR;
+
+	/** ARGB background color for expanded group headers and children. */
+	public static final ForgeConfigSpec.ConfigValue<String> EXPANDED_GROUP_BACKGROUND_COLOR;
 
 	// debug
 
@@ -137,6 +155,24 @@ public final class ForgeConfig implements IConfigProvider {
 		SHOW_MANAGER_BUTTON = builder
 			.comment("Whether to show the group manager button in the JEI ingredient list overlay.")
 			.define("showManagerButton", true);
+		SHOW_GROUP_BACKGROUNDS = builder
+			.comment(
+				"Whether grouped JEI slots draw a semi-transparent background tint.",
+				"Set to false to keep group backgrounds fully transparent while preserving the +/- indicator and borders."
+			)
+			.define("showGroupBackgrounds", true);
+		COLLAPSED_GROUP_BACKGROUND_COLOR = builder
+			.comment(
+				"ARGB background color for collapsed group headers.",
+				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
+			)
+			.define("collapsedGroupBackgroundColor", "#24FFFFFF");
+		EXPANDED_GROUP_BACKGROUND_COLOR = builder
+			.comment(
+				"ARGB background color for expanded group headers and children.",
+				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
+			)
+			.define("expandedGroupBackgroundColor", "#24FFFFFF");
 		builder.pop(); // ui
 
 		// [debug]

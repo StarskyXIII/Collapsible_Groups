@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBorderRenderer;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
@@ -68,7 +69,6 @@ public class GroupChildElement implements IElement<ItemStack> {
 	}
 
 	private static class GroupChildOverlay implements IDrawable {
-		private static final int EXPANDED_BACKGROUND = 0x34FFFFFF;
 		private final String groupId;
 
 		GroupChildOverlay(String groupId) {
@@ -83,7 +83,10 @@ public class GroupChildElement implements IElement<ItemStack> {
 
 		@Override
 		public void draw(GuiGraphics guiGraphics, int xOffset, int yOffset) {
-			guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17, EXPANDED_BACKGROUND);
+			if (Services.CONFIG.showGroupBackgrounds()) {
+				guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17,
+					Services.CONFIG.expandedGroupBackgroundColor());
+			}
 			GroupBorderRenderer.registerPosition(groupId, xOffset, yOffset);
 		}
 	}

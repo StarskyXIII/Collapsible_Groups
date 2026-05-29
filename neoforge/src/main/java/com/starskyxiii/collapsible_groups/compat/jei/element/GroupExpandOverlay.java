@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -31,10 +32,15 @@ public final class GroupExpandOverlay implements IDrawable {
 
 	@Override
 	public void draw(GuiGraphics guiGraphics, int xOffset, int yOffset) {
+		if (!Services.CONFIG.showGroupBackgrounds()) return;
+
 		boolean expanded = GroupRegistry.isExpandedById(groupId);
+		int background = expanded
+			? Services.CONFIG.expandedGroupBackgroundColor()
+			: Services.CONFIG.collapsedGroupBackgroundColor();
 
 		// Semi-transparent background tint
 		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17,
-			expanded ? 0x34FFFFFF : 0x53FFFFFF);
+			background);
 	}
 }
