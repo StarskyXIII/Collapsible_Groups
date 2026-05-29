@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewTooltipComponent;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
@@ -71,8 +72,12 @@ public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderI
 
 	@Override
 	public void drawPreRender(GuiGraphicsExtractor guiGraphics, int xOffset, int yOffset) {
+		if (!Services.CONFIG.showGroupBackgrounds()) return;
+
 		boolean expanded = GroupRegistry.isExpandedById(icon().groupId());
-		int background = expanded ? GroupExpandOverlay.EXPANDED_BACKGROUND : GroupExpandOverlay.COLLAPSED_BACKGROUND;
+		int background = expanded
+			? Services.CONFIG.expandedGroupBackgroundColor()
+			: Services.CONFIG.collapsedGroupBackgroundColor();
 		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17, background);
 	}
 

@@ -98,6 +98,13 @@ public final class FabricConfig implements IConfigProvider {
 			&& isAnyMacawsSeriesLoaded();
 	}
 	@Override public boolean showManagerButton()                    { return data.ui.showManagerButton; }
+	@Override public boolean showGroupBackgrounds()                 { return data.ui.showGroupBackgrounds; }
+	@Override public int collapsedGroupBackgroundColor() {
+		return ColorConfigParser.parseArgb(data.ui.collapsedGroupBackgroundColor, UiData.COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
+	@Override public int expandedGroupBackgroundColor() {
+		return ColorConfigParser.parseArgb(data.ui.expandedGroupBackgroundColor, UiData.EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
 	@Override public boolean debugTimingEnabled()                   { return data.debug.enableTimingLogs; }
 	@Override public boolean debugStartupIndexVerificationEnabled() { return data.debug.verifyStartupIndex; }
 	@Override public boolean debugEditorIndexVerificationEnabled()  { return data.debug.verifyEditorPreviewIndex; }
@@ -126,7 +133,13 @@ public final class FabricConfig implements IConfigProvider {
 	}
 
 	public static final class UiData {
-		public boolean showManagerButton = true;
+		public static final int COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT = 0x24FFFFFF;
+		public static final int EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT  = 0x24FFFFFF;
+
+		public boolean showManagerButton    = true;
+		public boolean showGroupBackgrounds = true;
+		public String collapsedGroupBackgroundColor = "#24FFFFFF";
+		public String expandedGroupBackgroundColor  = "#24FFFFFF";
 	}
 
 	public static final class DebugData {

@@ -40,6 +40,12 @@ public final class ModTranslationKeys {
 
 	public static final String CONFIG_OPT_SHOW_MANAGER_BUTTON = "collapsible_groups.config.opt.show_manager_button";
 
+	public static final String CONFIG_OPT_SHOW_GROUP_BACKGROUNDS = "collapsible_groups.config.opt.show_group_backgrounds";
+
+	public static final String CONFIG_OPT_COLLAPSED_GROUP_BACKGROUND_COLOR = "collapsible_groups.config.opt.collapsed_group_background_color";
+
+	public static final String CONFIG_OPT_EXPANDED_GROUP_BACKGROUND_COLOR = "collapsible_groups.config.opt.expanded_group_background_color";
+
 	public static final String CONFIG_OPT_TIMING_LOGS = "collapsible_groups.config.opt.timing_logs";
 
 	public static final String CONFIG_OPT_VERIFY_EDITOR_INDEX = "collapsible_groups.config.opt.verify_editor_index";

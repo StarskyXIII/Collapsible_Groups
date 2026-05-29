@@ -10,10 +10,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
  * is handled by {@link GroupIconRenderer}.
  */
 public final class GroupExpandOverlay implements IDrawable {
-	static final int EXPANDED_BACKGROUND = 0x18FFFFFF;
-	static final int COLLAPSED_BACKGROUND = 0x26FFFFFF;
-	private static final int EXPANDED_EDGE = 0x66FFFFFF;
-	private static final int COLLAPSED_EDGE = 0x99FFFFFF;
 	private final String groupId;
 
 	public GroupExpandOverlay(String groupId) {

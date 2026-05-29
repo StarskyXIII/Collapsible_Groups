@@ -19,6 +19,15 @@ public interface IConfigProvider {
 	/** Whether to show the group manager button in the JEI ingredient list overlay. */
 	boolean showManagerButton();
 
+	/** Whether group slots should draw their semi-transparent background tint. */
+	default boolean showGroupBackgrounds() { return true; }
+
+	/** ARGB background color for collapsed group headers. */
+	default int collapsedGroupBackgroundColor() { return 0x24FFFFFF; }
+
+	/** ARGB background color for expanded group headers and children. */
+	default int expandedGroupBackgroundColor() { return 0x24FFFFFF; }
+
 	/** Whether debug timing/performance logs should be emitted. */
 	boolean debugTimingEnabled();
 

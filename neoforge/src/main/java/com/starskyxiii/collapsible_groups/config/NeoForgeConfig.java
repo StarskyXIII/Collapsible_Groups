@@ -16,10 +16,14 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *           loadChipped, loadRechiseled, loadMacawsSeries, loadChisel, loadApotheosis
  *   [ui]
  *       showManagerButton
+ *       showGroupBackgrounds
+ *       collapsedGroupBackgroundColor, expandedGroupBackgroundColor
  *   [debug]
  *       enableTimingLogs, verifyStartupIndex, verifyEditorPreviewIndex
  */
 public final class NeoForgeConfig implements IConfigProvider {
+	private static final int COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT = 0x24FFFFFF;
+	private static final int EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT  = 0x24FFFFFF;
 
 	private static final String[] MACAWS_SERIES_MODS = {
 		"mcwwindows",
@@ -38,8 +42,15 @@ public final class NeoForgeConfig implements IConfigProvider {
 	@Override public boolean loadDefaultGroups() { return LOAD_DEFAULT_GROUPS.get(); }
 	@Override public boolean loadGenericGroups()  { return LOAD_GENERIC_GROUPS.get();  }
 	@Override public boolean loadVanillaGroups()  { return LOAD_VANILLA_GROUPS.get();  }
-	@Override public boolean showManagerButton()  { return SHOW_MANAGER_BUTTON.get();  }
-	@Override public boolean debugTimingEnabled() { return DEBUG_TIMING_LOGS.get(); }
+	@Override public boolean showManagerButton()       { return SHOW_MANAGER_BUTTON.get(); }
+	@Override public boolean showGroupBackgrounds()    { return SHOW_GROUP_BACKGROUNDS.get(); }
+	@Override public int collapsedGroupBackgroundColor() {
+		return ColorConfigParser.parseArgb(COLLAPSED_GROUP_BACKGROUND_COLOR.get(), COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
+	@Override public int expandedGroupBackgroundColor() {
+		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BACKGROUND_COLOR.get(), EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
+	@Override public boolean debugTimingEnabled()      { return DEBUG_TIMING_LOGS.get(); }
 	@Override public boolean debugStartupIndexVerificationEnabled() { return DEBUG_STARTUP_INDEX_VERIFY.get(); }
 	@Override public boolean debugEditorIndexVerificationEnabled() { return DEBUG_EDITOR_INDEX_VERIFY.get(); }
 
@@ -118,6 +129,15 @@ public final class NeoForgeConfig implements IConfigProvider {
 
 	/** Whether to show the group manager button in the JEI overlay. */
 	public static final ModConfigSpec.BooleanValue SHOW_MANAGER_BUTTON;
+
+	/** Whether grouped slots draw a semi-transparent background tint. */
+	public static final ModConfigSpec.BooleanValue SHOW_GROUP_BACKGROUNDS;
+
+	/** ARGB background color for collapsed group headers. */
+	public static final ModConfigSpec.ConfigValue<String> COLLAPSED_GROUP_BACKGROUND_COLOR;
+
+	/** ARGB background color for expanded group headers and children. */
+	public static final ModConfigSpec.ConfigValue<String> EXPANDED_GROUP_BACKGROUND_COLOR;
 
 	/** Whether to emit debug timing/performance logs. */
 	public static final ModConfigSpec.BooleanValue DEBUG_TIMING_LOGS;
@@ -232,6 +252,27 @@ public final class NeoForgeConfig implements IConfigProvider {
 			.comment("Whether to show the group manager button in the JEI ingredient list overlay.")
 			.translation("collapsible_groups.configuration.ui.showManagerButton")
 			.define("showManagerButton", true);
+		SHOW_GROUP_BACKGROUNDS = builder
+			.comment(
+				"Whether grouped JEI slots draw a semi-transparent background tint.",
+				"Set to false to keep group backgrounds fully transparent while preserving the +/- indicator and borders."
+			)
+			.translation("collapsible_groups.configuration.ui.showGroupBackgrounds")
+			.define("showGroupBackgrounds", true);
+		COLLAPSED_GROUP_BACKGROUND_COLOR = builder
+			.comment(
+				"ARGB background color for collapsed group headers.",
+				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
+			)
+			.translation("collapsible_groups.configuration.ui.collapsedGroupBackgroundColor")
+			.define("collapsedGroupBackgroundColor", "#24FFFFFF");
+		EXPANDED_GROUP_BACKGROUND_COLOR = builder
+			.comment(
+				"ARGB background color for expanded group headers and children.",
+				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
+			)
+			.translation("collapsible_groups.configuration.ui.expandedGroupBackgroundColor")
+			.define("expandedGroupBackgroundColor", "#24FFFFFF");
 		builder.pop(); // ui
 
 		// [debug]

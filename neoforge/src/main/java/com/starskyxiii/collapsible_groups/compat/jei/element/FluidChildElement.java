@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBorderRenderer;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
@@ -28,8 +29,6 @@ import java.util.Optional;
  * receive the same connected-border treatment as item groups.
  */
 public class FluidChildElement implements IElement<FluidStack>, PreRenderIngredientGridElement {
-	private static final int EXPANDED_BACKGROUND = 0x14FFFFFF;
-
 	private final IngredientElement<FluidStack> delegate;
 	private final String groupId;
 
@@ -70,7 +69,10 @@ public class FluidChildElement implements IElement<FluidStack>, PreRenderIngredi
 
 	@Override
 	public void drawPreRender(GuiGraphicsExtractor guiGraphics, int xOffset, int yOffset) {
-		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17, EXPANDED_BACKGROUND);
+		if (Services.CONFIG.showGroupBackgrounds()) {
+			guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17,
+				Services.CONFIG.expandedGroupBackgroundColor());
+		}
 		GroupBorderRenderer.registerPosition(groupId, xOffset, yOffset);
 	}
 }

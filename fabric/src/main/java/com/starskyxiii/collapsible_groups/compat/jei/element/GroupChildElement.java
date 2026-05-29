@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBorderRenderer;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
@@ -24,8 +25,6 @@ import java.util.List;
 import java.util.Optional;
 
 public class GroupChildElement implements IElement<ItemStack>, PreRenderIngredientGridElement {
-	private static final int EXPANDED_BACKGROUND = 0x14FFFFFF;
-
 	private final IngredientElement<ItemStack> delegate;
 	private final String groupId;
 
@@ -49,7 +48,10 @@ public class GroupChildElement implements IElement<ItemStack>, PreRenderIngredie
 
 	@Override
 	public void drawPreRender(GuiGraphicsExtractor guiGraphics, int xOffset, int yOffset) {
-		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17, EXPANDED_BACKGROUND);
+		if (Services.CONFIG.showGroupBackgrounds()) {
+			guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17,
+				Services.CONFIG.expandedGroupBackgroundColor());
+		}
 		GroupBorderRenderer.registerPosition(groupId, xOffset, yOffset);
 	}
 }
