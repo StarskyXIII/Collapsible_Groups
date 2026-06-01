@@ -110,11 +110,12 @@ final class GroupEditorState {
 				})
 				.orElse(lastValidPreviewFilter);
 		}
-		return new GroupDefinition(
+		return GroupEditorDefinitionFactory.create(
 			editId != null ? editId : "__preview__",
 			editName,
 			editEnabled,
-			previewFilter
+			previewFilter,
+			existingDefinition
 		);
 	}
 
@@ -278,7 +279,7 @@ final class GroupEditorState {
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		String id = (editId != null && !editId.isEmpty()) ? editId : GroupRegistry.generateUniqueId(editName);
 		try {
-			GroupDefinition saved = new GroupDefinition(id, editName, editEnabled, filter.get());
+			GroupDefinition saved = GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition);
 			GroupRegistry.saveQuietly(saved);
 			return Optional.of(saved);
 		} catch (IllegalArgumentException e) {
