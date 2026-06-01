@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
+import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.ArrayList;
@@ -23,7 +24,6 @@ import java.util.Set;
  */
 public final class GroupBorderRenderer {
 	private static final int SPACING = 18;
-	private static final int COLOR   = 0x66FFFFFF;
 
 	/** Positions registered this render pass, keyed by group id. */
 	private static final Map<String, List<int[]>> framePositions = new LinkedHashMap<>();
@@ -55,9 +55,10 @@ public final class GroupBorderRenderer {
 		if (framePositions.isEmpty()) return;
 		guiGraphics.pose().pushPose();
 		guiGraphics.pose().translate(0, 0, 200);
+		int color = Services.CONFIG.expandedGroupBorderColor();
 		try {
 			for (List<int[]> positions : framePositions.values()) {
-				drawBorder(guiGraphics, positions);
+				drawBorder(guiGraphics, positions, color);
 			}
 		} finally {
 			guiGraphics.pose().popPose();
@@ -69,7 +70,7 @@ public final class GroupBorderRenderer {
 	// Border drawing
 	// -----------------------------------------------------------------------
 
-	private static void drawBorder(GuiGraphics g, List<int[]> positions) {
+	private static void drawBorder(GuiGraphics g, List<int[]> positions, int color) {
 		if (positions.isEmpty()) return;
 
 		Set<Long> cellSet = new HashSet<>();
@@ -94,28 +95,28 @@ public final class GroupBorderRenderer {
 			if (!hasTop) {
 				int fS = (hasLeft  && hasTopLeft)    ? -1 : 0;
 				int fE = (hasRight && hasTopRight)   ? -1 : 0;
-				g.fill(sl + fS, st,      sl + 18 - fE, st + 1,  COLOR);
+				g.fill(sl + fS, st,      sl + 18 - fE, st + 1,  color);
 			}
 
 			// BOTTOM
 			if (!hasBottom) {
 				int fS = (hasLeft  && hasBottomLeft)  ? -1 : 0;
 				int fE = (hasRight && hasBottomRight) ? -1 : 0;
-				g.fill(sl + fS, st + 17, sl + 18 - fE, st + 18, COLOR);
+				g.fill(sl + fS, st + 17, sl + 18 - fE, st + 18, color);
 			}
 
 			// LEFT: fStart/fEnd = 1 - inset 1px at exposed outer corners
 			if (!hasLeft) {
 				int fS = (!hasTop    && !hasTopLeft)    ? 1 : 0;
 				int fE = (!hasBottom && !hasBottomLeft) ? 1 : 0;
-				g.fill(sl,      st + fS, sl + 1,  st + 18 - fE, COLOR);
+				g.fill(sl,      st + fS, sl + 1,  st + 18 - fE, color);
 			}
 
 			// RIGHT
 			if (!hasRight) {
 				int fS = (!hasTop    && !hasTopRight)    ? 1 : 0;
 				int fE = (!hasBottom && !hasBottomRight) ? 1 : 0;
-				g.fill(sl + 17, st + fS, sl + 18, st + 18 - fE, COLOR);
+				g.fill(sl + 17, st + fS, sl + 18, st + 18 - fE, color);
 			}
 		}
 	}

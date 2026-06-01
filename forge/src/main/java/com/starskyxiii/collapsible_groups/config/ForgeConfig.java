@@ -10,6 +10,8 @@ import net.minecraftforge.common.ForgeConfigSpec;
 public final class ForgeConfig implements IConfigProvider {
 	private static final int COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT = 0x24FFFFFF;
 	private static final int EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT  = 0x24FFFFFF;
+	private static final int GROUP_NAME_COLOR_DEFAULT                 = 0x00FFAA00;
+	private static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
 
 	private static final String[] MACAWS_SERIES_MODS = {
 		"mcwwindows",
@@ -47,6 +49,12 @@ public final class ForgeConfig implements IConfigProvider {
 	}
 	@Override public int expandedGroupBackgroundColor() {
 		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BACKGROUND_COLOR.get(), EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
+	@Override public int groupNameColor() {
+		return ColorConfigParser.parseRgb(GROUP_NAME_COLOR.get(), GROUP_NAME_COLOR_DEFAULT);
+	}
+	@Override public int expandedGroupBorderColor() {
+		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BORDER_COLOR.get(), EXPANDED_GROUP_BORDER_COLOR_DEFAULT);
 	}
 	@Override public boolean debugTimingEnabled()                  { return DEBUG_TIMING_LOGS.get(); }
 	@Override public boolean debugStartupIndexVerificationEnabled() { return DEBUG_STARTUP_INDEX_VERIFY.get(); }
@@ -93,6 +101,12 @@ public final class ForgeConfig implements IConfigProvider {
 
 	/** ARGB background color for expanded group headers and children. */
 	public static final ForgeConfigSpec.ConfigValue<String> EXPANDED_GROUP_BACKGROUND_COLOR;
+
+	/** RGB color for group display names. */
+	public static final ForgeConfigSpec.ConfigValue<String> GROUP_NAME_COLOR;
+
+	/** ARGB color for the connected border around expanded groups. */
+	public static final ForgeConfigSpec.ConfigValue<String> EXPANDED_GROUP_BORDER_COLOR;
 
 	// debug
 
@@ -173,6 +187,18 @@ public final class ForgeConfig implements IConfigProvider {
 				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
 			)
 			.define("expandedGroupBackgroundColor", "#24FFFFFF");
+		GROUP_NAME_COLOR = builder
+			.comment(
+				"RGB color for group display names. Alpha is ignored if an ARGB value is provided.",
+				"Accepted formats: #RRGGBB, 0xRRGGBB, RRGGBB, or ARGB variants with ignored alpha."
+			)
+			.define("groupNameColor", "#FFAA00");
+		EXPANDED_GROUP_BORDER_COLOR = builder
+			.comment(
+				"ARGB color for the connected border around expanded groups.",
+				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
+			)
+			.define("expandedGroupBorderColor", "#66FFFFFF");
 		builder.pop(); // ui
 
 		// [debug]

@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupDisplayName;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
+import com.starskyxiii.collapsible_groups.core.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import org.junit.jupiter.api.Test;
 
@@ -11,16 +12,19 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertSame;
 
 class GroupEditorDefinitionFactoryTest {
 	@Test
 	void createPreservesExistingIconsAndTranslationKey() {
+		GroupTheme theme = new GroupTheme("#FFAA00", null, null, null, "#66FFFFFF");
 		GroupDefinition existing = new GroupDefinition(
 			"test_group",
 			new GroupDisplayName.Localized("custom.translation.key", "Old Name"),
 			true,
 			Filters.itemId("minecraft:stone"),
-			List.of("minecraft:diamond", "minecraft:emerald")
+			List.of("minecraft:diamond", "minecraft:emerald"),
+			theme
 		);
 		GroupFilter updatedFilter = Filters.itemTag("minecraft:planks");
 
@@ -37,6 +41,7 @@ class GroupEditorDefinitionFactoryTest {
 		assertEquals("New Name", saved.displayName().fallback());
 		assertFalse(saved.enabled());
 		assertEquals(updatedFilter, saved.filter());
+		assertEquals(theme, saved.theme());
 	}
 
 	@Test
@@ -50,6 +55,7 @@ class GroupEditorDefinitionFactoryTest {
 		);
 
 		assertEquals(List.of(), saved.iconIds());
+		assertSame(GroupTheme.EMPTY, saved.theme());
 		assertEquals(GroupTranslationHelper.keyForGroupId("new_group"), saved.displayName().key());
 		assertEquals("New Group", saved.displayName().fallback());
 	}

@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewTooltipComponent;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
@@ -19,6 +20,7 @@ import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.util.FocusUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 
 import java.util.List;
 import java.util.Optional;
@@ -66,7 +68,8 @@ public final class GroupHeaderElement implements IElement<GroupIcon> {
 	@Override
 	public void getTooltip(JeiTooltip tooltip, IngredientGridTooltipHelper tooltipHelper,
 	                       IIngredientRenderer<GroupIcon> renderer, IIngredientHelper<GroupIcon> helper) {
-		tooltip.add(icon().displayNameComponent().copy().withStyle(ChatFormatting.GOLD));
+		tooltip.add(icon().displayNameComponent().copy()
+			.withStyle(style -> style.withColor(TextColor.fromRgb(Services.CONFIG.groupNameColor()))));
 		tooltip.add(countLabel);
 		if (!icon().isExpanded()) {
 			tooltip.add(new PreviewTooltipComponent(previewEntries));

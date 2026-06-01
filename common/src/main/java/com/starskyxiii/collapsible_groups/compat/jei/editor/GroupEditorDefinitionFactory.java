@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupDisplayName;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
+import com.starskyxiii.collapsible_groups.core.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 
 import java.util.List;
@@ -31,7 +32,8 @@ public final class GroupEditorDefinitionFactory {
 			displayName(id, fallbackName, existing),
 			enabled,
 			filter,
-			preservedIconIds(existing)
+			preservedIconIds(existing),
+			preservedTheme(existing)
 		);
 	}
 
@@ -44,5 +46,9 @@ public final class GroupEditorDefinitionFactory {
 
 	private static List<String> preservedIconIds(GroupDefinition existing) {
 		return existing != null ? existing.iconIds() : List.of();
+	}
+
+	private static GroupTheme preservedTheme(GroupDefinition existing) {
+		return existing != null ? existing.theme() : GroupTheme.EMPTY;
 	}
 }

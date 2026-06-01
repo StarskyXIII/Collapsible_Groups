@@ -18,12 +18,15 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *       showManagerButton
  *       showGroupBackgrounds
  *       collapsedGroupBackgroundColor, expandedGroupBackgroundColor
+ *       groupNameColor, expandedGroupBorderColor
  *   [debug]
  *       enableTimingLogs, verifyStartupIndex, verifyEditorPreviewIndex
  */
 public final class NeoForgeConfig implements IConfigProvider {
 	private static final int COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT = 0x24FFFFFF;
 	private static final int EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT  = 0x24FFFFFF;
+	private static final int GROUP_NAME_COLOR_DEFAULT                 = 0x00FFAA00;
+	private static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
 
 	private static final String[] MACAWS_SERIES_MODS = {
 		"mcwwindows",
@@ -49,6 +52,12 @@ public final class NeoForgeConfig implements IConfigProvider {
 	}
 	@Override public int expandedGroupBackgroundColor() {
 		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BACKGROUND_COLOR.get(), EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
+	@Override public int groupNameColor() {
+		return ColorConfigParser.parseRgb(GROUP_NAME_COLOR.get(), GROUP_NAME_COLOR_DEFAULT);
+	}
+	@Override public int expandedGroupBorderColor() {
+		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BORDER_COLOR.get(), EXPANDED_GROUP_BORDER_COLOR_DEFAULT);
 	}
 	@Override public boolean debugTimingEnabled()      { return DEBUG_TIMING_LOGS.get(); }
 	@Override public boolean debugStartupIndexVerificationEnabled() { return DEBUG_STARTUP_INDEX_VERIFY.get(); }
@@ -138,6 +147,12 @@ public final class NeoForgeConfig implements IConfigProvider {
 
 	/** ARGB background color for expanded group headers and children. */
 	public static final ModConfigSpec.ConfigValue<String> EXPANDED_GROUP_BACKGROUND_COLOR;
+
+	/** RGB color for group display names. */
+	public static final ModConfigSpec.ConfigValue<String> GROUP_NAME_COLOR;
+
+	/** ARGB color for the connected border around expanded groups. */
+	public static final ModConfigSpec.ConfigValue<String> EXPANDED_GROUP_BORDER_COLOR;
 
 	/** Whether to emit debug timing/performance logs. */
 	public static final ModConfigSpec.BooleanValue DEBUG_TIMING_LOGS;
@@ -273,6 +288,20 @@ public final class NeoForgeConfig implements IConfigProvider {
 			)
 			.translation("collapsible_groups.configuration.ui.expandedGroupBackgroundColor")
 			.define("expandedGroupBackgroundColor", "#24FFFFFF");
+		GROUP_NAME_COLOR = builder
+			.comment(
+				"RGB color for group display names. Alpha is ignored if an ARGB value is provided.",
+				"Accepted formats: #RRGGBB, 0xRRGGBB, RRGGBB, or ARGB variants with ignored alpha."
+			)
+			.translation("collapsible_groups.configuration.ui.groupNameColor")
+			.define("groupNameColor", "#FFAA00");
+		EXPANDED_GROUP_BORDER_COLOR = builder
+			.comment(
+				"ARGB color for the connected border around expanded groups.",
+				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
+			)
+			.translation("collapsible_groups.configuration.ui.expandedGroupBorderColor")
+			.define("expandedGroupBorderColor", "#66FFFFFF");
 		builder.pop(); // ui
 
 		// [debug]

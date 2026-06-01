@@ -7,10 +7,12 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.starskyxiii.collapsible_groups.Constants;
+import com.starskyxiii.collapsible_groups.config.ColorConfigParser;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupDisplayName;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterValidator;
+import com.starskyxiii.collapsible_groups.core.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import com.starskyxiii.collapsible_groups.platform.Services;
 
@@ -186,7 +188,14 @@ public final class GroupConfig {
 		try {
 			ParsedGroupJson parsed = parseGroupJson(json);
 			id = parsed.id();
-			return new GroupDefinition(parsed.id(), parsed.displayName(), parsed.enabled(), parsed.filter(), parsed.iconIds());
+			return new GroupDefinition(
+				parsed.id(),
+				parsed.displayName(),
+				parsed.enabled(),
+				parsed.filter(),
+				parsed.iconIds(),
+				parsed.theme()
+			);
 		} catch (IllegalArgumentException e) {
 			Constants.LOG.error("Group '{}': {}", id, e.getMessage());
 			return null;
@@ -221,7 +230,58 @@ public final class GroupConfig {
 		}
 
 		GroupFilter filter = parseFilter(obj.getAsJsonObject("filter"));
-		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds));
+		GroupTheme theme = parseTheme(id, obj.get("theme"));
+		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme);
+	}
+
+	private static GroupTheme parseTheme(String groupId, JsonElement themeElement) {
+		if (themeElement == null || themeElement.isJsonNull()) {
+			return GroupTheme.EMPTY;
+		}
+		if (!themeElement.isJsonObject()) {
+			Constants.LOG.warn("Group '{}': Ignoring non-object 'theme' field.", groupId);
+			return GroupTheme.EMPTY;
+		}
+
+		JsonObject themeObj = themeElement.getAsJsonObject();
+		GroupTheme theme = new GroupTheme(
+			parseThemeColor(groupId, themeObj, "name_color"),
+			parseThemeColor(groupId, themeObj, "collapsed_header_background"),
+			parseThemeColor(groupId, themeObj, "expanded_header_background"),
+			parseThemeColor(groupId, themeObj, "expanded_group_background"),
+			parseThemeColor(groupId, themeObj, "expanded_group_border")
+		);
+		return theme.isEmpty() ? GroupTheme.EMPTY : theme;
+	}
+
+	private static String parseThemeColor(String groupId, JsonObject themeObj, String field) {
+		if (!themeObj.has(field) || themeObj.get(field).isJsonNull()) {
+			return null;
+		}
+
+		JsonElement valueElement = themeObj.get(field);
+		if (!valueElement.isJsonPrimitive()) {
+			Constants.LOG.warn("Group '{}': Ignoring non-primitive theme color '{}'.", groupId, field);
+			return null;
+		}
+		if (!valueElement.getAsJsonPrimitive().isString()) {
+			Constants.LOG.warn("Group '{}': Ignoring non-string theme color '{}'.", groupId, field);
+			return null;
+		}
+
+		String value;
+		try {
+			value = valueElement.getAsString().trim();
+		} catch (Exception e) {
+			Constants.LOG.warn("Group '{}': Ignoring unreadable theme color '{}'.", groupId, field);
+			return null;
+		}
+
+		if (!ColorConfigParser.isValidArgb(value)) {
+			Constants.LOG.warn("Group '{}': Ignoring invalid theme color '{}': {}", groupId, field, value);
+			return null;
+		}
+		return value;
 	}
 
 	/**
@@ -282,8 +342,28 @@ public final class GroupConfig {
 			}
 		}
 
+		if (!group.theme().isEmpty()) {
+			obj.add("theme", serializeTheme(group.theme()));
+		}
+
 		obj.add("filter", serializeFilter(group.filter()));
 		return GSON.toJson(obj);
+	}
+
+	private static JsonObject serializeTheme(GroupTheme theme) {
+		JsonObject obj = new JsonObject();
+		addThemeColor(obj, "name_color", theme.nameColor());
+		addThemeColor(obj, "collapsed_header_background", theme.collapsedHeaderBackground());
+		addThemeColor(obj, "expanded_header_background", theme.expandedHeaderBackground());
+		addThemeColor(obj, "expanded_group_background", theme.expandedGroupBackground());
+		addThemeColor(obj, "expanded_group_border", theme.expandedGroupBorder());
+		return obj;
+	}
+
+	private static void addThemeColor(JsonObject obj, String key, String value) {
+		if (value != null) {
+			obj.addProperty(key, value);
+		}
 	}
 
 	// package-private for testing (GroupConfigComponentPathTest)
@@ -464,7 +544,8 @@ public final class GroupConfig {
 		GroupDisplayName displayName,
 		boolean enabled,
 		GroupFilter filter,
-		List<String> iconIds
+		List<String> iconIds,
+		GroupTheme theme
 	) {}
 
 	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed) {}
