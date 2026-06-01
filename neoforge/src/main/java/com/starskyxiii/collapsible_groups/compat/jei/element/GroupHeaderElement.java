@@ -21,6 +21,7 @@ import mezz.jei.gui.util.FocusUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.TextColor;
 
 import java.util.List;
 import java.util.Optional;
@@ -94,7 +95,8 @@ public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderI
 	@Override
 	public void getTooltip(JeiTooltip tooltip, IngredientGridTooltipHelper tooltipHelper,
 	                       IIngredientRenderer<GroupIcon> renderer, IIngredientHelper<GroupIcon> helper) {
-		tooltip.add(icon().displayNameComponent().copy().withStyle(ChatFormatting.GOLD));
+		tooltip.add(icon().displayNameComponent().copy()
+			.withStyle(style -> style.withColor(TextColor.fromRgb(Services.CONFIG.groupNameColor()))));
 		tooltip.add(countLabel);
 		if (!icon().isExpanded()) {
 			tooltip.add(new PreviewTooltipComponent(previewEntries));

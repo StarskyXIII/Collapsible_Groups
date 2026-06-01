@@ -11,7 +11,26 @@ public final class ColorConfigParser {
 	private ColorConfigParser() {}
 
 	public static int parseArgb(String value, int fallback) {
-		if (value == null) return fallback;
+		String hex = normalizedHex(value);
+		if (hex == null) return fallback;
+
+		long parsed = Long.parseUnsignedLong(hex, 16);
+		if (hex.length() == 6) {
+			return (fallback & 0xFF000000) | (int) parsed;
+		}
+		return (int) parsed;
+	}
+
+	public static int parseRgb(String value, int fallback) {
+		return parseArgb(value, fallback) & 0x00FFFFFF;
+	}
+
+	public static boolean isValidArgb(String value) {
+		return normalizedHex(value) != null;
+	}
+
+	private static String normalizedHex(String value) {
+		if (value == null) return null;
 
 		String hex = value.trim();
 		if (hex.startsWith("#")) {
@@ -22,14 +41,9 @@ public final class ColorConfigParser {
 
 		int length = hex.length();
 		if ((length != 6 && length != 8) || !isHex(hex)) {
-			return fallback;
+			return null;
 		}
-
-		long parsed = Long.parseUnsignedLong(hex, 16);
-		if (length == 6) {
-			return (fallback & 0xFF000000) | (int) parsed;
-		}
-		return (int) parsed;
+		return hex;
 	}
 
 	private static boolean isHex(String value) {

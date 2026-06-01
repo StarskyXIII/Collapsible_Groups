@@ -242,6 +242,8 @@ public class FabricConfigScreen extends Screen {
 		newData.ui.showGroupBackgrounds                            = showGroupBackgrounds;
 		newData.ui.collapsedGroupBackgroundColor                   = existingData.ui.collapsedGroupBackgroundColor;
 		newData.ui.expandedGroupBackgroundColor                    = existingData.ui.expandedGroupBackgroundColor;
+		newData.ui.groupNameColor                                  = existingData.ui.groupNameColor;
+		newData.ui.expandedGroupBorderColor                        = existingData.ui.expandedGroupBorderColor;
 		newData.debug.enableTimingLogs         = timingLogs;
 		newData.debug.verifyStartupIndex       = verifyStartupIndex;
 		newData.debug.verifyEditorPreviewIndex = verifyEditorIndex;

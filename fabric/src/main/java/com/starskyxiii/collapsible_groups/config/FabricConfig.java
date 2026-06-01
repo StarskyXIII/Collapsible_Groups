@@ -105,6 +105,12 @@ public final class FabricConfig implements IConfigProvider {
 	@Override public int expandedGroupBackgroundColor() {
 		return ColorConfigParser.parseArgb(data.ui.expandedGroupBackgroundColor, UiData.EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT);
 	}
+	@Override public int groupNameColor() {
+		return ColorConfigParser.parseRgb(data.ui.groupNameColor, UiData.GROUP_NAME_COLOR_DEFAULT);
+	}
+	@Override public int expandedGroupBorderColor() {
+		return ColorConfigParser.parseArgb(data.ui.expandedGroupBorderColor, UiData.EXPANDED_GROUP_BORDER_COLOR_DEFAULT);
+	}
 	@Override public boolean debugTimingEnabled()                   { return data.debug.enableTimingLogs; }
 	@Override public boolean debugStartupIndexVerificationEnabled() { return data.debug.verifyStartupIndex; }
 	@Override public boolean debugEditorIndexVerificationEnabled()  { return data.debug.verifyEditorPreviewIndex; }
@@ -135,11 +141,15 @@ public final class FabricConfig implements IConfigProvider {
 	public static final class UiData {
 		public static final int COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT = 0x24FFFFFF;
 		public static final int EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT  = 0x24FFFFFF;
+		public static final int GROUP_NAME_COLOR_DEFAULT                 = 0x00FFAA00;
+		public static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
 
 		public boolean showManagerButton    = true;
 		public boolean showGroupBackgrounds = true;
 		public String collapsedGroupBackgroundColor = "#24FFFFFF";
 		public String expandedGroupBackgroundColor  = "#24FFFFFF";
+		public String groupNameColor               = "#FFAA00";
+		public String expandedGroupBorderColor     = "#66FFFFFF";
 	}
 
 	public static final class DebugData {

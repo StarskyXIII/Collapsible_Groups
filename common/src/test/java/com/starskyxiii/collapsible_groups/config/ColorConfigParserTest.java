@@ -3,6 +3,8 @@ package com.starskyxiii.collapsible_groups.config;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ColorConfigParserTest {
 	@Test
@@ -24,5 +26,20 @@ class ColorConfigParserTest {
 		assertEquals(0x18FFFFFF, ColorConfigParser.parseArgb("#XYZ", 0x18FFFFFF));
 		assertEquals(0x18FFFFFF, ColorConfigParser.parseArgb("#12345", 0x18FFFFFF));
 		assertEquals(0x18FFFFFF, ColorConfigParser.parseArgb("#1234567890", 0x18FFFFFF));
+	}
+
+	@Test
+	void parseRgbIgnoresAlpha() {
+		assertEquals(0x00FFAA00, ColorConfigParser.parseRgb("#FFAA00", 0x00FFFFFF));
+		assertEquals(0x00FFAA00, ColorConfigParser.parseRgb("#80FFAA00", 0x00FFFFFF));
+	}
+
+	@Test
+	void validatesArgbFormats() {
+		assertTrue(ColorConfigParser.isValidArgb("#FFAA00"));
+		assertTrue(ColorConfigParser.isValidArgb("#66FFFFFF"));
+		assertTrue(ColorConfigParser.isValidArgb("0x66FFFFFF"));
+		assertFalse(ColorConfigParser.isValidArgb("#XYZ"));
+		assertFalse(ColorConfigParser.isValidArgb(null));
 	}
 }

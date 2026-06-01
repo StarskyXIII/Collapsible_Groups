@@ -8,7 +8,7 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
- * Immutable definition of a collapsible ingredient group: ID, display name, enabled state, filter, and icons.
+ * Immutable definition of a collapsible ingredient group: ID, display name, enabled state, filter, icons, and theme.
  *
  * <p>{@link #displayName()} is the <b>authoritative</b> data source for persistence,
  * dump, and editor operations.  {@link #name()} is a convenience accessor that returns
@@ -20,6 +20,7 @@ public final class GroupDefinition {
 	private final boolean enabled;
 	private final GroupFilter filter;
 	private final List<String> iconIds;
+	private final GroupTheme theme;
 	private final CompiledFilter compiledFilter;
 
 	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter) {
@@ -27,12 +28,17 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter, List<String> iconIds) {
+		this(id, name, enabled, filter, iconIds, GroupTheme.EMPTY);
+	}
+
+	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter, List<String> iconIds, GroupTheme theme) {
 		this(
 			Objects.requireNonNull(id, "id"),
 			new GroupDisplayName.Localized(GroupTranslationHelper.keyForGroupId(id), Objects.requireNonNull(name, "name")),
 			enabled,
 			filter,
-			iconIds
+			iconIds,
+			theme
 		);
 	}
 
@@ -41,6 +47,17 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition(String id, GroupDisplayName displayName, boolean enabled, GroupFilter filter, List<String> iconIds) {
+		this(id, displayName, enabled, filter, iconIds, GroupTheme.EMPTY);
+	}
+
+	public GroupDefinition(
+		String id,
+		GroupDisplayName displayName,
+		boolean enabled,
+		GroupFilter filter,
+		List<String> iconIds,
+		GroupTheme theme
+	) {
 		this.id = Objects.requireNonNull(id, "id");
 		this.displayName = Objects.requireNonNull(displayName, "displayName");
 		this.enabled = enabled;
@@ -50,6 +67,7 @@ public final class GroupDefinition {
 			throw new IllegalArgumentException("Invalid group filter: " + String.join("; ", validationErrors));
 		}
 		this.iconIds = List.copyOf(Objects.requireNonNull(iconIds, "iconIds"));
+		this.theme = Objects.requireNonNullElse(theme, GroupTheme.EMPTY);
 		this.compiledFilter = CompiledFilter.compile(this.filter);
 	}
 
@@ -90,6 +108,10 @@ public final class GroupDefinition {
 		return iconIds;
 	}
 
+	public GroupTheme theme() {
+		return theme;
+	}
+
 	public CompiledFilter compiledFilter() {
 		return compiledFilter;
 	}
@@ -118,7 +140,7 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition withEnabled(boolean enabled) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
 	}
 
 	/** Returns a copy with the given fallback name; the translation key is auto-generated from the group ID. */
@@ -130,15 +152,19 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition withDisplayName(GroupDisplayName displayName) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
 	}
 
 	public GroupDefinition withIconIds(List<String> iconIds) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
 	}
 
 	public GroupDefinition withFilter(GroupFilter filter) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
+	}
+
+	public GroupDefinition withTheme(GroupTheme theme) {
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
 	}
 
 	public boolean isStructurallyEditable() {
@@ -182,12 +208,13 @@ public final class GroupDefinition {
 			&& Objects.equals(id, other.id)
 			&& Objects.equals(displayName, other.displayName)
 			&& Objects.equals(filter, other.filter)
-			&& Objects.equals(iconIds, other.iconIds);
+			&& Objects.equals(iconIds, other.iconIds)
+			&& Objects.equals(theme, other.theme);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, displayName, enabled, filter, iconIds);
+		return Objects.hash(id, displayName, enabled, filter, iconIds, theme);
 	}
 
 	@Override
@@ -196,6 +223,7 @@ public final class GroupDefinition {
 			+ ", displayName=" + displayName
 			+ ", enabled=" + enabled
 			+ ", filter=" + filter
-			+ ", iconIds=" + iconIds + ']';
+			+ ", iconIds=" + iconIds
+			+ ", theme=" + theme + ']';
 	}
 }

@@ -28,6 +28,12 @@ public interface IConfigProvider {
 	/** ARGB background color for expanded group headers and children. */
 	default int expandedGroupBackgroundColor() { return 0x24FFFFFF; }
 
+	/** RGB color for group display names. Alpha is ignored. */
+	int groupNameColor();
+
+	/** ARGB color for the connected border around expanded groups. */
+	int expandedGroupBorderColor();
+
 	/** Whether debug timing/performance logs should be emitted. */
 	boolean debugTimingEnabled();
 
