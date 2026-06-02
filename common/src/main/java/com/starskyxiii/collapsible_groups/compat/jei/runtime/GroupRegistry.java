@@ -58,6 +58,7 @@ public final class GroupRegistry {
 	 * Volatile guarantees visibility across threads.
 	 */
 	private static volatile List<GroupDefinition> groups = List.of();
+	private static volatile Map<String, GroupDefinition> groupsById = Map.of();
 
 	/** Set by MixinIngredientFilter. Triggers a full JEI rebuild, including the ingredient-to-group ownership index. */
 	public static volatile Runnable jeiInvalidateCallback = null;
@@ -118,6 +119,7 @@ public final class GroupRegistry {
 		}
 
 		groups = List.copyOf(merged.values());
+		groupsById = buildGroupsById(groups);
 		GroupExpandState.load(GroupConfig.loadExpandState());
 
 		long itemGroups  = groups.stream().filter(GroupDefinition::hasItemFilters).count();
@@ -137,6 +139,17 @@ public final class GroupRegistry {
 	/** Returns all JSON-persisted groups. */
 	public static List<GroupDefinition> getAll() {
 		return groups;
+	}
+
+	/** Finds a group by ID, checking persisted/provider groups before ephemeral KubeJS groups. */
+	public static Optional<GroupDefinition> findById(String id) {
+		if (id == null || id.isBlank()) return Optional.empty();
+		GroupDefinition group = groupsById.get(id);
+		if (group != null) return Optional.of(group);
+		for (GroupDefinition kjsGroup : KubeJsGroupStore.getGroups()) {
+			if (id.equals(kjsGroup.id())) return Optional.of(kjsGroup);
+		}
+		return Optional.empty();
 	}
 
 	/**
@@ -718,7 +731,18 @@ public final class GroupRegistry {
 
 	private static void replaceGroups(UnaryOperator<List<GroupDefinition>> updater) {
 		synchronized (GroupRegistry.class) {
-			groups = updater.apply(groups);
+			List<GroupDefinition> updated = updater.apply(groups);
+			groups = updated;
+			groupsById = buildGroupsById(updated);
 		}
+	}
+
+	private static Map<String, GroupDefinition> buildGroupsById(List<GroupDefinition> source) {
+		if (source.isEmpty()) return Map.of();
+		Map<String, GroupDefinition> byId = new LinkedHashMap<>(source.size());
+		for (GroupDefinition group : source) {
+			byId.put(group.id(), group);
+		}
+		return Map.copyOf(byId);
 	}
 }
