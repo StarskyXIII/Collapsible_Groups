@@ -1,9 +1,12 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -14,7 +17,6 @@ import java.util.List;
 
 /**
  * Builds and renders hover-tooltips for both panels of {@link GroupEditorScreen}.
- * Item-only variant (no fluid/generic support on Forge).
  */
 final class GroupEditorTooltipHelper {
 
@@ -29,7 +31,23 @@ final class GroupEditorTooltipHelper {
 			ItemStack stack = left.filteredItems().get(left.hoveredItem);
 			List<Component> lines = new ArrayList<>(stack.getTooltipLines(Item.TooltipContext.EMPTY, null, TooltipFlag.Default.NORMAL));
 			appendOtherGroups(lines, left.otherGroupsForItem(stack));
-			appendItemHint(lines, state, stack);
+			if (left.isShowingItems()) appendItemHint(lines, state, stack);
+			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			return;
+		}
+		if (left.hoveredFluid >= 0 && left.hoveredFluid < left.filteredFluids().size()) {
+			IJeiFluidIngredient fluid = left.filteredFluids().get(left.hoveredFluid);
+			List<Component> lines = buildFluidLines(fluid);
+			appendOtherGroups(lines, left.otherGroupsForFluid(fluid));
+			if (!state.canEditContents()) {
+				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			} else if (state.isFluidSelected(fluid)) {
+				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
+				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE_FLUIDS));
+			} else {
+				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_ADD_TO_GROUP));
+				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_ADD_FLUIDS));
+			}
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 			return;
 		}
@@ -49,6 +67,15 @@ final class GroupEditorTooltipHelper {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_REMOVE_THIS));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_CTRL_REMOVE_ALL));
 			}
+			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			return;
+		}
+		if (right.hoveredFluid >= 0 && right.hoveredFluid < right.groupFluids().size()) {
+			IJeiFluidIngredient fluid = (IJeiFluidIngredient) right.groupFluids().get(right.hoveredFluid);
+			List<Component> lines = buildFluidLines(fluid);
+			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			else if (state.isFluidSelected(fluid)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
+			else lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 		}
 	}
@@ -84,6 +111,14 @@ final class GroupEditorTooltipHelper {
 			lines.add(Component.literal("- " + groups.get(i)).withStyle(ChatFormatting.YELLOW));
 		if (groups.size() > limit)
 			lines.add(Component.translatable(ModTranslationKeys.EDITOR_MORE_GROUPS, groups.size() - limit).withStyle(ChatFormatting.DARK_GRAY));
+	}
+
+	private static List<Component> buildFluidLines(IJeiFluidIngredient fluid) {
+		List<Component> lines = new ArrayList<>();
+		lines.add(FluidVariantAttributes.getName(fluid.getFluidVariant()));
+		lines.add(Component.literal(BuiltInRegistries.FLUID.getKey(fluid.getFluidVariant().getFluid()).toString())
+			.withStyle(ChatFormatting.DARK_GRAY));
+		return lines;
 	}
 
 	private static Component hint(String key)  { return Component.translatable(key).withStyle(ChatFormatting.GRAY,      ChatFormatting.ITALIC); }
