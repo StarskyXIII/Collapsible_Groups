@@ -241,13 +241,14 @@ public final class GroupRegistry {
 	 */
 	@SuppressWarnings("unchecked")
 	public static void populateJeiCachesIfEmpty() {
-		if (!isJeiAllItemsEmpty()) return;
 		var runtime = JeiRuntimeHolder.get();
 		if (runtime == null) return;
 		IIngredientManager manager = runtime.getIngredientManager();
-		setJeiAllItems(new ArrayList<>(manager.getAllIngredients(VanillaTypes.ITEM_STACK)));
+		if (isJeiAllItemsEmpty()) {
+			setJeiAllItems(new ArrayList<>(manager.getAllIngredients(VanillaTypes.ITEM_STACK)));
+		}
 		IIngredientType<?> fluidType = Services.PLATFORM.getJeiFluidType();
-		if (fluidType != null) {
+		if (fluidType != null && isJeiAllFluidsEmpty()) {
 			setJeiAllFluids(new ArrayList<>((List<Object>) (List<?>) manager.getAllIngredients(fluidType)));
 		}
 	}
