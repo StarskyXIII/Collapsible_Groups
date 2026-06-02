@@ -3,8 +3,8 @@ package com.starskyxiii.collapsible_groups.compat.jei.element;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewTooltipComponent;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
-import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
@@ -84,7 +84,7 @@ public final class GroupHeaderElement implements IElement<GroupIcon> {
 	public void getTooltip(JeiTooltip tooltip, IngredientGridTooltipHelper tooltipHelper,
 	                       IIngredientRenderer<GroupIcon> renderer, IIngredientHelper<GroupIcon> helper) {
 		tooltip.add(icon().displayNameComponent().copy()
-			.withStyle(style -> style.withColor(TextColor.fromRgb(Services.CONFIG.groupNameColor()))));
+			.withStyle(style -> style.withColor(TextColor.fromRgb(GroupThemeResolver.groupNameColor(icon().groupId())))));
 		tooltip.add(countLabel);
 		if (!icon().isExpanded()) {
 			tooltip.add(new PreviewTooltipComponent(previewEntries));

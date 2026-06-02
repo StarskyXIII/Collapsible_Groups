@@ -1,6 +1,5 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
-import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.ArrayList;
@@ -55,9 +54,10 @@ public final class GroupBorderRenderer {
 		if (framePositions.isEmpty()) return;
 		guiGraphics.pose().pushPose();
 		guiGraphics.pose().translate(0, 0, 200);
-		int color = Services.CONFIG.expandedGroupBorderColor();
 		try {
-			for (List<int[]> positions : framePositions.values()) {
+			for (Map.Entry<String, List<int[]>> entry : framePositions.entrySet()) {
+				int color = GroupThemeResolver.expandedGroupBorderColor(entry.getKey());
+				List<int[]> positions = entry.getValue();
 				drawBorder(guiGraphics, positions, color);
 			}
 		} finally {
