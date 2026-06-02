@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
@@ -10,114 +11,133 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
-/**
- * Manages the left pane of {@link GroupEditorScreen}: item browsing,
- * filtering, scrolling, click/drag-selection, and hover tracking.
- * Item-only variant (no fluid/generic support on Forge).
- */
 final class EditorLeftPanel {
+	private enum SourceTab {
+		ITEMS,
+		FLUIDS
+	}
 
-	// -----------------------------------------------------------------------
-	// Ingredient data
-	// -----------------------------------------------------------------------
-
-	private List<ItemStack> allItems      = List.of();
+	private List<ItemStack> allItems = List.of();
 	private List<ItemStack> filteredItems = List.of();
-
-	// -----------------------------------------------------------------------
-	// Search-key and "other group" caches
-	// -----------------------------------------------------------------------
+	private List<FluidStack> allFluids = List.of();
+	private List<FluidStack> filteredFluids = List.of();
 
 	private List<String> allItemsSearchKeys = List.of();
 	private final Map<ItemStack, List<String>> otherItemGroupsCache = new IdentityHashMap<>();
+	private final Map<FluidStack, List<String>> otherFluidGroupsCache = new IdentityHashMap<>();
 
-	// -----------------------------------------------------------------------
-	// Scroll / hover / drag
-	// -----------------------------------------------------------------------
+	private SourceTab activeTab = SourceTab.ITEMS;
 
-	int scrollRow  = 0;
+	int scrollRow = 0;
 	int hoveredItem = -1;
+	int hoveredFluid = -1;
 
-	private boolean isDraggingSb     = false;
-	private double  sbDragStartMouseY;
-	private int     sbDragStartRow;
+	private boolean isDraggingSb = false;
+	private double sbDragStartMouseY;
+	private int sbDragStartRow;
 
 	boolean hideUsed = false;
 
 	private DragGesture dragGesture = DragGesture.NONE;
 	private final HashSet<String> dragVisited = new HashSet<>();
 
-	private enum DragGesture { NONE, ITEM_ADD, ITEM_REMOVE }
-
-	// -----------------------------------------------------------------------
-	// Dependencies
-	// -----------------------------------------------------------------------
+	private enum DragGesture {
+		NONE,
+		ITEM_ADD,
+		ITEM_REMOVE,
+		FLUID_ADD,
+		FLUID_REMOVE
+	}
 
 	private final GroupEditorState state;
 	private final Runnable onChange;
 
 	EditorLeftPanel(GroupEditorState state, Runnable onChange) {
-		this.state    = state;
+		this.state = state;
 		this.onChange = onChange;
 	}
 
-	// -----------------------------------------------------------------------
-	// Init / rebuild
-	// -----------------------------------------------------------------------
-
-	void init(List<ItemStack> allItems) {
+	void init(List<ItemStack> allItems, List<FluidStack> allFluids) {
 		this.allItems = allItems;
+		this.allFluids = allFluids;
 		buildSearchKeys();
 		buildOtherGroupCaches();
 	}
 
 	void buildOtherGroupCaches() {
 		otherItemGroupsCache.clear();
+		otherFluidGroupsCache.clear();
 
-		// Cache display names for other enabled groups by id.
-		Map<String, String> groupNames = new java.util.HashMap<>();
-		for (GroupDefinition g : GroupRegistry.getAllIncludingKubeJs()) {
-			if (!g.id().equals(state.editId) && g.enabled())
-				groupNames.put(g.id(), displayName(g.id(), g.name()));
+		Map<String, String> groupNames = new HashMap<>();
+		for (GroupDefinition group : GroupRegistry.getAllIncludingKubeJs()) {
+			if (!group.id().equals(state.editId) && group.enabled()) {
+				groupNames.put(group.id(), displayName(group.id(), group.name()));
+			}
 		}
-		// Items: reverse index O(items)
-		Map<String, java.util.Set<String>> itemReverseIndex = GroupRegistry.getItemIdToGroupIds();
+
+		Map<String, Set<String>> itemReverseIndex = GroupRegistry.getItemIdToGroupIds();
 		if (itemReverseIndex != null) {
 			for (ItemStack stack : allItems) {
 				String registryId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-				java.util.Set<String> groupIds = itemReverseIndex.getOrDefault(registryId, java.util.Set.of());
+				Set<String> groupIds = itemReverseIndex.getOrDefault(registryId, Set.of());
 				List<String> names = new ArrayList<>();
-				for (String gid : groupIds) {
-					String name = groupNames.get(gid);
+				for (String groupId : groupIds) {
+					String name = groupNames.get(groupId);
 					if (name != null) names.add(name);
 				}
 				if (!names.isEmpty()) otherItemGroupsCache.put(stack, names);
 			}
 		} else {
-			// Fallback when the reverse index is unavailable.
 			List<GroupDefinition> others = GroupRegistry.getAllIncludingKubeJs().stream()
-				.filter(g -> !g.id().equals(state.editId) && g.enabled()).toList();
+				.filter(group -> !group.id().equals(state.editId) && group.enabled())
+				.toList();
 			for (GroupDefinition other : others) {
 				String name = displayName(other.id(), other.name());
-				for (ItemStack stack : allItems)
-					if (other.matchesIgnoringEnabled(stack))
+				for (ItemStack stack : allItems) {
+					if (other.matchesIgnoringEnabled(stack)) {
 						otherItemGroupsCache.computeIfAbsent(stack, k -> new ArrayList<>()).add(name);
+					}
+				}
+			}
+		}
+
+		Map<String, Set<String>> fluidReverseIndex = GroupRegistry.getFluidIdToGroupIds();
+		if (fluidReverseIndex != null) {
+			for (FluidStack fluid : allFluids) {
+				String registryId = fluidId(fluid);
+				Set<String> groupIds = fluidReverseIndex.getOrDefault(registryId, Set.of());
+				List<String> names = new ArrayList<>();
+				for (String groupId : groupIds) {
+					String name = groupNames.get(groupId);
+					if (name != null) names.add(name);
+				}
+				if (!names.isEmpty()) otherFluidGroupsCache.put(fluid, names);
+			}
+		} else {
+			List<GroupDefinition> others = GroupRegistry.getAllIncludingKubeJs().stream()
+				.filter(group -> !group.id().equals(state.editId) && group.enabled())
+				.toList();
+			for (GroupDefinition other : others) {
+				String name = displayName(other.id(), other.name());
+				for (FluidStack fluid : allFluids) {
+					if (GroupMatcher.matchesFluid(other, fluid)) {
+						otherFluidGroupsCache.computeIfAbsent(fluid, k -> new ArrayList<>()).add(name);
+					}
+				}
 			}
 		}
 	}
-
-	// -----------------------------------------------------------------------
-	// Filter
-	// -----------------------------------------------------------------------
 
 	void setHideUsed(boolean hide) {
 		this.hideUsed = hide;
@@ -126,48 +146,79 @@ final class EditorLeftPanel {
 	void rebuildFilter(String rawQuery) {
 		String q = rawQuery == null ? "" : rawQuery.toLowerCase(Locale.ROOT);
 		scrollRow = 0;
+		if (isShowingFluids()) {
+			rebuildFluidFilter(q);
+		} else {
+			rebuildItemFilter(q);
+		}
+	}
+
+	private void rebuildItemFilter(String q) {
 		List<ItemStack> result = new ArrayList<>();
 		for (int i = 0; i < allItems.size(); i++) {
-			ItemStack s = allItems.get(i);
-			if (hideUsed && !otherItemGroupsCache.getOrDefault(s, List.of()).isEmpty()) continue;
-			if (q.isBlank() || allItemsSearchKeys.get(i).contains(q)) result.add(s);
+			ItemStack stack = allItems.get(i);
+			if (hideUsed && !otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty()) continue;
+			if (q.isBlank() || allItemsSearchKeys.get(i).contains(q)) result.add(stack);
 		}
 		filteredItems = result;
 	}
 
-	// -----------------------------------------------------------------------
-	// Render
-	// -----------------------------------------------------------------------
+	private void rebuildFluidFilter(String q) {
+		filteredFluids = allFluids.stream().filter(fluid -> {
+			if (hideUsed && !otherFluidGroupsCache.getOrDefault(fluid, List.of()).isEmpty()) return false;
+			if (q.isBlank()) return true;
+			String name = fluid.getDisplayName().getString().toLowerCase(Locale.ROOT);
+			String id = fluidId(fluid).toLowerCase(Locale.ROOT);
+			return name.contains(q) || id.contains(q);
+		}).toList();
+	}
 
 	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
 		hoveredItem = -1;
+		hoveredFluid = -1;
+		List<?> list = currentList();
 		int start = scrollRow * layout.leftCols();
-		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < filteredItems.size(); i++) {
+		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
 			int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			int y = layout.gridTop()   + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			renderCell(g, filteredItems.get(start + i), x, y);
+			int y = layout.gridTop() + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
+			renderCell(g, list.get(start + i), x, y);
 			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
-				hoveredItem = start + i;
+				setHover(start + i);
 				g.fill(x, y, x + 16, y + 16, 0x22FFFFFF);
 			}
 		}
 	}
 
-	private void renderCell(GuiGraphics g, ItemStack stack, int x, int y) {
+	private void renderCell(GuiGraphics g, Object entry, int x, int y) {
+		if (isShowingFluids()) {
+			FluidStack fluid = (FluidStack) entry;
+			if (state.isFluidSelected(fluid)) {
+				g.fill(x, y, x + 16, y + 16, 0x4455BB77);
+			} else if (!otherFluidGroupsCache.getOrDefault(fluid, List.of()).isEmpty()) {
+				g.fill(x, y, x + 16, y + 16, 0x33CC8844);
+			}
+			IngredientCellRenderer.renderFluid(g, fluid, x, y);
+			return;
+		}
+
+		ItemStack stack = (ItemStack) entry;
 		boolean inWhole = state.isWholeItemSelected(stack);
 		boolean inExact = state.isExactSelected(stack);
-		if (inWhole || inExact) g.fill(x, y, x + 16, y + 16, inWhole ? 0x4455BB77 : 0x4466DDAA);
-		else if (!otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty())
+		if (inWhole || inExact) {
+			g.fill(x, y, x + 16, y + 16, inWhole ? 0x4455BB77 : 0x4466DDAA);
+		} else if (!otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty()) {
 			g.fill(x, y, x + 16, y + 16, 0x33CC8844);
+		}
 		g.renderItem(stack, x, y);
 	}
 
-	// -----------------------------------------------------------------------
-	// Scroll helpers
-	// -----------------------------------------------------------------------
+	private void setHover(int idx) {
+		if (isShowingFluids()) hoveredFluid = idx;
+		else hoveredItem = idx;
+	}
 
 	int totalRows(EditorLayout layout) {
-		return EditorLayout.totalRows(filteredItems.size(), layout.leftCols());
+		return EditorLayout.totalRows(currentList().size(), layout.leftCols());
 	}
 
 	private int maxScrollRow(EditorLayout layout) {
@@ -177,10 +228,6 @@ final class EditorLeftPanel {
 	void clampScroll(EditorLayout layout) {
 		scrollRow = ScrollbarHelper.clamp(scrollRow, 0, maxScrollRow(layout));
 	}
-
-	// -----------------------------------------------------------------------
-	// Input
-	// -----------------------------------------------------------------------
 
 	boolean mouseClicked(double mouseX, double mouseY, int button, EditorLayout layout) {
 		if (button != 0) return false;
@@ -194,23 +241,40 @@ final class EditorLeftPanel {
 			return true;
 		}
 		if (!layout.isInsideLeft(mouseX, mouseY)) return false;
+
+		List<?> list = currentList();
 		int start = scrollRow * layout.leftCols();
-		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < filteredItems.size(); i++) {
+		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
 			int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			int y = layout.gridTop()   + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
+			int y = layout.gridTop() + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
 			if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
-			if (!state.canEditContents()) return true;
-			ItemStack stack = filteredItems.get(start + i);
-			boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
-			if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
-			else                                                          state.toggleSingleSelection(stack);
-			state.syncEditItems();
-			onChange.run();
-			startDrag(was ? DragGesture.ITEM_REMOVE : DragGesture.ITEM_ADD,
-				was ? dragRemoveKey(stack) : dragAddKey(stack));
+			handleCellClick(list.get(start + i));
 			return true;
 		}
 		return false;
+	}
+
+	private void handleCellClick(Object entry) {
+		if (!state.canEditContents()) {
+			return;
+		}
+		if (isShowingFluids()) {
+			FluidStack fluid = (FluidStack) entry;
+			boolean was = state.isFluidSelected(fluid);
+			state.toggleFluidSelection(fluid);
+			onChange.run();
+			startDrag(was ? DragGesture.FLUID_REMOVE : DragGesture.FLUID_ADD, dragFluidKey(fluid));
+			return;
+		}
+
+		ItemStack stack = (ItemStack) entry;
+		boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
+		if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
+		else state.toggleSingleSelection(stack);
+		state.syncEditItems();
+		onChange.run();
+		startDrag(was ? DragGesture.ITEM_REMOVE : DragGesture.ITEM_ADD,
+			was ? dragRemoveKey(stack) : dragAddKey(stack));
 	}
 
 	boolean mouseDragged(double mouseX, double mouseY, int button, EditorLayout layout) {
@@ -244,28 +308,26 @@ final class EditorLeftPanel {
 		return true;
 	}
 
-	// -----------------------------------------------------------------------
-	// Drag gesture
-	// -----------------------------------------------------------------------
-
 	private void handleDrag(double mouseX, double mouseY, EditorLayout layout) {
 		if (!layout.isInsideLeft(mouseX, mouseY)) return;
+		List<?> list = currentList();
 		int start = scrollRow * layout.leftCols();
-		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < filteredItems.size(); i++) {
+		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
 			int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			int y = layout.gridTop()   + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
+			int y = layout.gridTop() + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
 			if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
-			applyDragToEntry(filteredItems.get(start + i));
+			applyDragToEntry(list.get(start + i));
 			return;
 		}
 	}
 
-	private void applyDragToEntry(ItemStack stack) {
+	private void applyDragToEntry(Object entry) {
 		if (!state.canEditContents()) {
 			return;
 		}
 		switch (dragGesture) {
 			case ITEM_ADD -> {
+				ItemStack stack = (ItemStack) entry;
 				String key = dragAddKey(stack);
 				if (dragVisited.add(key) && !state.isWholeItemSelected(stack) && !state.isExactSelected(stack)) {
 					state.explicitSet.add(GroupItemSelector.exactSelector(stack));
@@ -274,10 +336,27 @@ final class EditorLeftPanel {
 				}
 			}
 			case ITEM_REMOVE -> {
+				ItemStack stack = (ItemStack) entry;
 				String key = dragRemoveKey(stack);
 				if (dragVisited.add(key) && (state.isExactSelected(stack) || state.isWholeItemSelected(stack))) {
 					state.removeSingleSelection(stack, allItems);
 					state.syncEditItems();
+					onChange.run();
+				}
+			}
+			case FLUID_ADD -> {
+				FluidStack fluid = (FluidStack) entry;
+				String key = dragFluidKey(fluid);
+				if (dragVisited.add(key) && !state.isFluidSelected(fluid)) {
+					state.addFluidId(key);
+					onChange.run();
+				}
+			}
+			case FLUID_REMOVE -> {
+				FluidStack fluid = (FluidStack) entry;
+				String key = dragFluidKey(fluid);
+				if (dragVisited.add(key) && state.isFluidSelected(fluid)) {
+					state.removeFluidSelection(fluid);
 					onChange.run();
 				}
 			}
@@ -291,47 +370,69 @@ final class EditorLeftPanel {
 		dragVisited.add(visitKey);
 	}
 
-	// -----------------------------------------------------------------------
-	// Mode management (items-only; mode button is a no-op)
-	// -----------------------------------------------------------------------
-
 	void showItems(String searchQuery) {
+		activeTab = SourceTab.ITEMS;
 		scrollRow = 0;
 		rebuildFilter(searchQuery);
 	}
 
 	void showFluids(String searchQuery) {
-		// Item-only editor on Forge: keep the visible source on items.
+		activeTab = SourceTab.FLUIDS;
+		scrollRow = 0;
+		rebuildFilter(searchQuery);
 	}
 
 	void showGeneric(String searchQuery) {
-		// Item-only editor on Forge: keep the visible source on items.
+		showItems(searchQuery);
 	}
 
-	boolean isHideUsed()        { return hideUsed; }
-	String currentSourceLabel() { return Component.translatable(ModTranslationKeys.EDITOR_TAB_ITEMS).getString(); }
-	String currentPanelHeader() { return Component.translatable(ModTranslationKeys.EDITOR_PANEL_ITEMS_HEADER, entryCount()).getString(); }
-	int    entryCount()         { return filteredItems.size(); }
-	String countLabel()         { return Component.translatable(ModTranslationKeys.EDITOR_PANEL_COUNT_ENTRIES, entryCount()).getString(); }
+	boolean isHideUsed() { return hideUsed; }
 
-	// -----------------------------------------------------------------------
-	// Accessors for tooltip helper
-	// -----------------------------------------------------------------------
+	String currentSourceLabel() {
+		return Component.translatable(isShowingFluids()
+			? ModTranslationKeys.EDITOR_TAB_FLUIDS
+			: ModTranslationKeys.EDITOR_TAB_ITEMS).getString();
+	}
 
-	List<String>    otherGroupsForItem(ItemStack s) { return otherItemGroupsCache.getOrDefault(s, List.of()); }
-	List<ItemStack> filteredItems()                 { return filteredItems; }
-	List<ItemStack> allItems()                      { return allItems; }
+	String currentPanelHeader() {
+		return Component.translatable(isShowingFluids()
+			? ModTranslationKeys.EDITOR_PANEL_FLUIDS_HEADER
+			: ModTranslationKeys.EDITOR_PANEL_ITEMS_HEADER, entryCount()).getString();
+	}
 
-	// -----------------------------------------------------------------------
-	// Private helpers
-	// -----------------------------------------------------------------------
+	int entryCount() {
+		return currentList().size();
+	}
+
+	String countLabel() {
+		return Component.translatable(ModTranslationKeys.EDITOR_PANEL_COUNT_ENTRIES, entryCount()).getString();
+	}
+
+	List<String> otherGroupsForItem(ItemStack stack) {
+		return otherItemGroupsCache.getOrDefault(stack, List.of());
+	}
+
+	List<String> otherGroupsForFluid(FluidStack fluid) {
+		return otherFluidGroupsCache.getOrDefault(fluid, List.of());
+	}
+
+	List<ItemStack> filteredItems() { return filteredItems; }
+	List<FluidStack> filteredFluids() { return filteredFluids; }
+	List<ItemStack> allItems() { return allItems; }
+
+	boolean isShowingFluids() { return activeTab == SourceTab.FLUIDS; }
+	boolean isShowingItems() { return activeTab == SourceTab.ITEMS; }
+
+	private List<?> currentList() {
+		return isShowingFluids() ? filteredFluids : filteredItems;
+	}
 
 	private void buildSearchKeys() {
 		allItemsSearchKeys = new ArrayList<>(allItems.size());
-		for (ItemStack s : allItems) {
-			String nm = s.getHoverName().getString().toLowerCase(Locale.ROOT);
-			String id = BuiltInRegistries.ITEM.getKey(s.getItem()).toString().toLowerCase(Locale.ROOT);
-			allItemsSearchKeys.add(nm + "|" + id);
+		for (ItemStack stack : allItems) {
+			String name = stack.getHoverName().getString().toLowerCase(Locale.ROOT);
+			String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase(Locale.ROOT);
+			allItemsSearchKeys.add(name + "|" + id);
 		}
 	}
 
@@ -339,8 +440,19 @@ final class EditorLeftPanel {
 		return (name != null && !name.isBlank()) ? name : id;
 	}
 
-	private String dragAddKey(ItemStack s)    { return GroupItemSelector.exactSelector(s); }
-	private String dragRemoveKey(ItemStack s) {
-		return GroupItemSelector.wholeItemSelector(s) + "|" + state.cachedExactSelector(s).orElse("?");
+	private static String fluidId(FluidStack fluid) {
+		return BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
+	}
+
+	private String dragAddKey(ItemStack stack) {
+		return GroupItemSelector.exactSelector(stack);
+	}
+
+	private String dragRemoveKey(ItemStack stack) {
+		return GroupItemSelector.wholeItemSelector(stack) + "|" + state.cachedExactSelector(stack).orElse("?");
+	}
+
+	private String dragFluidKey(FluidStack fluid) {
+		return fluidId(fluid);
 	}
 }

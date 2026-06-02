@@ -1,13 +1,17 @@
 package com.starskyxiii.collapsible_groups.mixin;
 
+import com.starskyxiii.collapsible_groups.compat.jei.element.FluidChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupHeaderElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.IngredientFilterHelper;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import com.starskyxiii.collapsible_groups.platform.Services;
+import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.library.ingredients.TypedIngredient;
 import mezz.jei.gui.filter.IFilterTextSource;
@@ -16,10 +20,12 @@ import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.elements.IngredientElement;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
 import org.spongepowered.asm.mixin.Mixin;
@@ -132,20 +138,71 @@ public abstract class MixinIngredientFilter {
 		this.cg$notifyListenersOfChange();
 	}
 
-	/** Level-1: item-only index. Fluids/generic not supported on Forge. */
+	/** Level-1: item/fluid index. Generic ingredients are handled in a later phase. */
 	@Unique
 	private Map<ITypedIngredient<?>, GroupDefinition> cg$buildIngredientGroupIndex(List<ITypedIngredient<?>> all) {
-		return IngredientFilterHelper.buildItemGroupIndex(all);
+		Map<ITypedIngredient<?>, GroupDefinition> index = IngredientFilterHelper.buildItemGroupIndex(all);
+		Map<String, List<Object>> fluidsByGroup = new HashMap<>();
+		Map<String, List<Object>> fullMatchFluidsByGroup = new HashMap<>();
+		IIngredientType<?> fluidType = Services.PLATFORM.getJeiFluidType();
+		List<GroupDefinition> allGroups = GroupRegistry.getAllIncludingKubeJs();
+		List<GroupDefinition> fluidGroups = allGroups.stream()
+			.filter(GroupDefinition::hasFluidFilters)
+			.toList();
+
+		if (fluidType != null && !fluidGroups.isEmpty()) {
+			for (ITypedIngredient<?> ingredient : all) {
+				if (ingredient.getItemStack().isPresent()) continue;
+				var fluidOpt = ingredient.getIngredient(fluidType);
+				if (fluidOpt.isEmpty()) continue;
+				Object fluid = fluidOpt.get();
+				GroupDefinition firstMatch = null;
+				for (GroupDefinition group : fluidGroups) {
+					if (!GroupMatcher.matchesFluidIgnoringEnabled(group, fluid)) continue;
+					if (firstMatch == null) {
+						firstMatch = group;
+						index.put(ingredient, group);
+						fluidsByGroup.computeIfAbsent(group.id(), k -> new ArrayList<>()).add(fluid);
+					}
+					fullMatchFluidsByGroup.computeIfAbsent(group.id(), k -> new ArrayList<>()).add(fluid);
+				}
+			}
+		}
+
+		for (GroupDefinition group : allGroups) {
+			fluidsByGroup.putIfAbsent(group.id(), List.of());
+			fullMatchFluidsByGroup.putIfAbsent(group.id(), List.of());
+		}
+		GroupRegistry.setResolvedFluidsByGroup(fluidsByGroup);
+		GroupRegistry.setFullMatchFluidsByGroup(fullMatchFluidsByGroup);
+
+		Map<String, Set<String>> fluidIdToGroupIds = new HashMap<>();
+		for (var fluidEntry : fluidsByGroup.entrySet()) {
+			String groupId = fluidEntry.getKey();
+			for (Object fluid : fluidEntry.getValue()) {
+				String registryId = Services.PLATFORM.getFluidId(fluid);
+				fluidIdToGroupIds.computeIfAbsent(registryId, k -> new HashSet<>()).add(groupId);
+			}
+		}
+		GroupRegistry.setFluidIdToGroupIds(fluidIdToGroupIds);
+		return index;
 	}
 
-	/** Level-2: structure cache - item groups only. */
+	/** Level-2: structure cache - item and fluid groups. */
 	@Unique
 	private void cg$buildStructureCache(List<ITypedIngredient<?>> ingredients) {
 		List<ITypedIngredient<?>> all = this.cg$cachedFullList;
+		IIngredientType<?> fluidType = Services.PLATFORM.getJeiFluidType();
 		if (GroupRegistry.isJeiAllItemsEmpty()) {
 			if (all == null) all = this.cg$getIngredientListUncached("").toList();
 			this.cg$cachedFullList = all;
 			GroupRegistry.setJeiAllItems(all.stream().flatMap(i -> i.getItemStack().stream()).toList());
+			if (fluidType != null) {
+				GroupRegistry.setJeiAllFluids(all.stream()
+					.flatMap(i -> i.getIngredient(fluidType).stream())
+					.map(o -> (Object) o)
+					.toList());
+			}
 		} else if (all == null) {
 			all = this.cg$getIngredientListUncached("").toList();
 			this.cg$cachedFullList = all;
@@ -164,8 +221,9 @@ public abstract class MixinIngredientFilter {
 			.filter(GroupDefinition::enabled).map(GroupDefinition::id)
 			.collect(Collectors.toSet());
 
-		// Pass 1: bucket items
+		// Pass 1: bucket items and fluids
 		Map<GroupDefinition, List<ITypedIngredient<ItemStack>>> itemGroups = new LinkedHashMap<>();
+		Map<GroupDefinition, List<ITypedIngredient<FluidStack>>> fluidGroups = new LinkedHashMap<>();
 		for (ITypedIngredient<?> ingredient : ingredients) {
 			GroupDefinition group = this.cg$ingredientGroupIndex.get(ingredient);
 			if (group == null || !this.cg$enabledGroupIds.contains(group.id())) continue;
@@ -173,6 +231,10 @@ public abstract class MixinIngredientFilter {
 				@SuppressWarnings("unchecked")
 				ITypedIngredient<ItemStack> item = (ITypedIngredient<ItemStack>) ingredient;
 				itemGroups.computeIfAbsent(group, x -> new ArrayList<>()).add(item);
+			} else if (fluidType != null && ingredient.getIngredient(fluidType).isPresent()) {
+				@SuppressWarnings("unchecked")
+				ITypedIngredient<FluidStack> fluid = (ITypedIngredient<FluidStack>) ingredient;
+				fluidGroups.computeIfAbsent(group, x -> new ArrayList<>()).add(fluid);
 			}
 		}
 
@@ -186,24 +248,33 @@ public abstract class MixinIngredientFilter {
 			GroupDefinition group = this.cg$ingredientGroupIndex.get(ingredient);
 			if (group != null) {
 				List<ITypedIngredient<ItemStack>> itemChildren = itemGroups.getOrDefault(group, List.of());
-				if (itemChildren.size() >= 2) {
+				List<ITypedIngredient<FluidStack>> fluidChildren = fluidGroups.getOrDefault(group, List.of());
+				int totalChildren = itemChildren.size() + fluidChildren.size();
+				if (totalChildren >= 2) {
 					if (emittedHeaders.add(group.id())) {
 						List<ITypedIngredient<?>> displayIngredients = group.iconIds().isEmpty()
 							? List.of() : cg$resolveIconIds(group.iconIds());
 						if (displayIngredients.isEmpty()) {
-							displayIngredients = new ArrayList<>(
-								itemChildren.subList(0, Math.min(2, itemChildren.size())));
+							List<ITypedIngredient<?>> allChildren = new ArrayList<>(totalChildren);
+							allChildren.addAll(itemChildren);
+							allChildren.addAll(fluidChildren);
+							displayIngredients = allChildren.subList(0, Math.min(2, allChildren.size()));
 						}
 						GroupIcon icon = new GroupIcon(group.id(), group.displayName().key(), group.displayName().fallback(), displayIngredients);
 						ITypedIngredient<GroupIcon> typedIcon = TypedIngredient.createUnvalidated(GroupIcon.TYPE, icon);
-						List<GroupPreviewEntry> previewEntries = GroupPreviewEntry.fromTypedIngredients(
-							(List<ITypedIngredient<?>>) (List<?>) itemChildren);
-						Component countLabel = Component.translatable(ModTranslationKeys.COUNT_ITEMS, itemChildren.size()).withStyle(ChatFormatting.GRAY);
+						List<GroupPreviewEntry> previewEntries = new ArrayList<>(totalChildren);
+						for (ITypedIngredient<ItemStack> child : itemChildren)
+							previewEntries.add(GroupPreviewEntry.ofItem(child.getIngredient()));
+						for (ITypedIngredient<FluidStack> child : fluidChildren)
+							previewEntries.add(GroupPreviewEntry.ofFluid(child.getIngredient()));
+						Component countLabel = cg$buildCountLabel(itemChildren.size(), fluidChildren.size());
 						baseList.add(new GroupHeaderElement(typedIcon, countLabel, previewEntries, this::cg$toggleAndRebuildDisplay));
 						baseListGroupIds.add(group.id());
-						List<IElement<?>> children = new ArrayList<>(itemChildren.size());
+						List<IElement<?>> children = new ArrayList<>(totalChildren);
 						for (ITypedIngredient<ItemStack> child : itemChildren)
 							children.add(new GroupChildElement(child, group.id()));
+						for (ITypedIngredient<FluidStack> child : fluidChildren)
+							children.add(new FluidChildElement(child, group.id()));
 						childrenByGroupId.put(group.id(), children);
 					}
 					continue;
@@ -230,6 +301,19 @@ public abstract class MixinIngredientFilter {
 			result.add(TypedIngredient.createUnvalidated(mezz.jei.api.constants.VanillaTypes.ITEM_STACK, stack));
 		}
 		return result;
+	}
+
+	@Unique
+	private static Component cg$buildCountLabel(int itemCount, int fluidCount) {
+		MutableComponent result = null;
+		if (itemCount > 0) {
+			result = Component.translatable(ModTranslationKeys.COUNT_ITEMS, itemCount);
+		}
+		if (fluidCount > 0) {
+			MutableComponent part = Component.translatable(ModTranslationKeys.COUNT_FLUIDS, fluidCount);
+			result = result == null ? part : result.append(", ").append(part);
+		}
+		return (result != null ? result : Component.empty()).withStyle(ChatFormatting.GRAY);
 	}
 
 	/** Level-3: display list from cache. */

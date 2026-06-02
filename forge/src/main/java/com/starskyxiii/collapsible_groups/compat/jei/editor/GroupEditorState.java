@@ -10,8 +10,10 @@ import com.starskyxiii.collapsible_groups.core.GroupFilterValidator;
 import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
+import net.minecraftforge.fluids.FluidStack;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -22,9 +24,9 @@ import java.util.stream.Collectors;
 /**
  * Holds all mutable edit state for {@link GroupEditorScreen}.
  *
- * <p>The Forge editor remains item-only, but now mirrors the NeoForge rules workflow:
- * a flat contents draft powers quick item editing while a rule-tree draft powers the
- * Rules tab and persistence.
+ * <p>The Forge editor supports item and fluid quick-editing. Generic/custom
+ * filters remain readable through the Rules tab but lock quick-editing so the
+ * unsupported nodes are not accidentally dropped.
  */
 final class GroupEditorState {
 	private static final GroupFilter EMPTY_PREVIEW_FILTER = Filters.itemTag("minecraft:__cg_preview_empty__");
@@ -36,6 +38,8 @@ final class GroupEditorState {
 	final GroupFilterEditorDraft draft;
 	final List<String> editTags;
 	final Set<String> explicitSet;
+	final List<String> editFluidIds;
+	final List<String> editFluidTags;
 
 	final GroupFilterRuleDraft ruleDraft;
 	private GroupFilterRuleDraft.Node selectedRuleNode;
@@ -63,6 +67,8 @@ final class GroupEditorState {
 
 		this.editTags = draft.itemTags();
 		this.explicitSet = draft.explicitItemSelectors();
+		this.editFluidIds = draft.fluidIds();
+		this.editFluidTags = draft.fluidTags();
 
 		refreshContentsDraftFromRules();
 		buildCurrentFilter()
@@ -183,6 +189,33 @@ final class GroupEditorState {
 
 	void syncEditItems() {
 		// No-op: the contents collections are live views backed by the draft.
+	}
+
+	boolean isFluidSelected(FluidStack fluid) {
+		String id = BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
+		return editFluidIds.contains(id);
+	}
+
+	void toggleFluidSelection(FluidStack fluid) {
+		String id = BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
+		if (!editFluidIds.remove(id)) {
+			editFluidIds.add(id);
+		}
+		syncRulesFromContentsDraft();
+	}
+
+	void addFluidId(String id) {
+		if (!editFluidIds.contains(id)) {
+			editFluidIds.add(id);
+			syncRulesFromContentsDraft();
+		}
+	}
+
+	void removeFluidSelection(FluidStack fluid) {
+		String id = BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
+		if (editFluidIds.remove(id)) {
+			syncRulesFromContentsDraft();
+		}
 	}
 
 	Optional<GroupDefinition> trySave() {
@@ -329,7 +362,7 @@ final class GroupEditorState {
 		}
 
 		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(filter.get());
-		contentsQuickEditAvailable = decoded.structurallyEditable();
+		contentsQuickEditAvailable = decoded.structurallyEditable() && !containsGenericDraftNodes(decoded.draft());
 		if (contentsQuickEditAvailable) {
 			copyContentsDraft(decoded.draft());
 		}
@@ -338,10 +371,18 @@ final class GroupEditorState {
 	private void clearContentsDraft() {
 		explicitSet.clear();
 		editTags.clear();
+		editFluidIds.clear();
+		editFluidTags.clear();
 	}
 
 	private void copyContentsDraft(GroupFilterEditorDraft source) {
 		explicitSet.addAll(source.explicitItemSelectors());
 		editTags.addAll(source.itemTags());
+		editFluidIds.addAll(source.fluidIds());
+		editFluidTags.addAll(source.fluidTags());
+	}
+
+	private static boolean containsGenericDraftNodes(GroupFilterEditorDraft draft) {
+		return !draft.genericIds().isEmpty() || !draft.genericTags().isEmpty();
 	}
 }

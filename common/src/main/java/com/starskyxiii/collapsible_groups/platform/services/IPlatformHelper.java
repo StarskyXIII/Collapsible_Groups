@@ -70,7 +70,7 @@ public interface IPlatformHelper {
 
     /**
      * Returns the platform-specific JEI fluid ingredient type, or {@code null} if unsupported.
-     * <p>NeoForge returns {@code NeoForgeTypes.FLUID_STACK}; Fabric/Forge return {@code null}.
+     * <p>NeoForge returns {@code NeoForgeTypes.FLUID_STACK}; Forge returns {@code ForgeTypes.FLUID_STACK}.
      */
     default IIngredientType<?> getJeiFluidType() {
         return null;
