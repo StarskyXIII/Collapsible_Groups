@@ -21,7 +21,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** Item-only group manager for the Fabric loader. */
+/** Fabric group manager for item and fluid groups. */
 public class GroupManagerScreen extends Screen {
 	private static final int CARD_WIDTH    = 162;
 	private static final int CARD_HEIGHT   = 108;
@@ -35,7 +35,7 @@ public class GroupManagerScreen extends Screen {
 	private static final int BTN_Y_OFF     = CARD_HEIGHT - 22;
 	private static final int BTN_H         = 18;
 
-	private record ItemCard(GroupDefinition group, List<ItemStack> items, List<GroupPreviewEntry> previewEntries) {
+	private record ItemCard(GroupDefinition group, List<ItemStack> items, List<Object> fluids, List<GroupPreviewEntry> previewEntries) {
 		String id()          { return group.id(); }
 		String displayName() {
 			String resolved = group.name();
@@ -47,6 +47,8 @@ public class GroupManagerScreen extends Screen {
 			return name;
 		}
 		boolean isEditable() { return !group.id().startsWith("__kjs_") && !GroupRegistry.isBuiltin(group.id()); }
+		int itemCount()      { return items.size(); }
+		int fluidCount()     { return fluids.size(); }
 	}
 
 	private final Screen previousScreen;
@@ -93,7 +95,8 @@ public class GroupManagerScreen extends Screen {
 		allCards = new ArrayList<>();
 		for (GroupDefinition group : GroupRegistry.getAllIncludingKubeJs()) {
 			List<ItemStack> items = GroupRegistry.getFullMatchItems(group);
-			allCards.add(new ItemCard(group, items, GroupPreviewEntry.fromItems(items)));
+			List<Object> fluids = GroupRegistry.getFullMatchFluids(group);
+			allCards.add(new ItemCard(group, items, fluids, GroupPreviewEntry.combine(items, fluids)));
 		}
 		previewScrollOffsets.keySet().retainAll(
 			allCards.stream().map(ItemCard::id).collect(Collectors.toSet()));
@@ -120,7 +123,7 @@ public class GroupManagerScreen extends Screen {
 			ItemCard ic = allCards.get(i);
 			if (ic.id().equals(id)) {
 				GroupDefinition updated = ic.group().withEnabled(enabled);
-				allCards.set(i, new ItemCard(updated, ic.items(), ic.previewEntries()));
+				allCards.set(i, new ItemCard(updated, ic.items(), ic.fluids(), ic.previewEntries()));
 				rebuildFilteredCards();
 				return;
 			}
@@ -223,8 +226,7 @@ public class GroupManagerScreen extends Screen {
 
 		boolean cardHovered = isMouseOver(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
 		renderScrollingText(g, card.displayName(), x + 4, y + 4, CARD_WIDTH - 8, 0xFFFFFFFF, cardHovered);
-		Component countLabel = Component.translatable(ModTranslationKeys.COUNT_ITEMS, card.items().size());
-		g.text(font, countLabel, x + 4, y + 14, 0x7799AABB, false);
+		g.text(font, countLabel(card), x + 4, y + 14, 0x7799AABB, false);
 
 		boolean inVp    = isInsideCardViewport(mouseX, mouseY);
 		int buttonY     = y + BTN_Y_OFF;
@@ -274,6 +276,19 @@ public class GroupManagerScreen extends Screen {
 			g.text(font, more, lastX + (ITEM_SIZE - font.width(more)) / 2, lastY + (ITEM_SIZE - 8) / 2, 0xFFFFFFFF, false);
 			g.pose().popMatrix();
 		}
+	}
+
+	private Component countLabel(ItemCard card) {
+		net.minecraft.network.chat.MutableComponent result = null;
+		if (card.itemCount() > 0) {
+			result = Component.translatable(ModTranslationKeys.COUNT_ITEMS, card.itemCount());
+		}
+		if (card.fluidCount() > 0) {
+			net.minecraft.network.chat.MutableComponent part =
+				Component.translatable(ModTranslationKeys.COUNT_FLUIDS, card.fluidCount());
+			result = result == null ? part : result.append(", ").append(part);
+		}
+		return result != null ? result : Component.empty();
 	}
 
 	private void renderCardButton(GuiGraphicsExtractor g, int x, int y, int w, int h, String label, boolean hovered) {
