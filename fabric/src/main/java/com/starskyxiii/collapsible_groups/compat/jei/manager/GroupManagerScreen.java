@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
 import com.starskyxiii.collapsible_groups.compat.jei.GroupUiState;
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.editor.GroupEditorScreen;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
@@ -21,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** Fabric group manager for item and fluid groups. */
+/** Fabric group manager for item, fluid, and generic ingredient groups. */
 public class GroupManagerScreen extends Screen {
 	private static final int CARD_WIDTH    = 162;
 	private static final int CARD_HEIGHT   = 108;
@@ -35,7 +36,13 @@ public class GroupManagerScreen extends Screen {
 	private static final int BTN_Y_OFF     = CARD_HEIGHT - 22;
 	private static final int BTN_H         = 18;
 
-	private record ItemCard(GroupDefinition group, List<ItemStack> items, List<Object> fluids, List<GroupPreviewEntry> previewEntries) {
+	private record ItemCard(
+		GroupDefinition group,
+		List<ItemStack> items,
+		List<Object> fluids,
+		List<GenericIngredientRef> genericEntries,
+		List<GroupPreviewEntry> previewEntries
+	) {
 		String id()          { return group.id(); }
 		String displayName() {
 			String resolved = group.name();
@@ -49,6 +56,7 @@ public class GroupManagerScreen extends Screen {
 		boolean isEditable() { return !group.id().startsWith("__kjs_") && !GroupRegistry.isBuiltin(group.id()); }
 		int itemCount()      { return items.size(); }
 		int fluidCount()     { return fluids.size(); }
+		int genericCount()   { return genericEntries.size(); }
 	}
 
 	private final Screen previousScreen;
@@ -96,7 +104,8 @@ public class GroupManagerScreen extends Screen {
 		for (GroupDefinition group : GroupRegistry.getAllIncludingKubeJs()) {
 			List<ItemStack> items = GroupRegistry.getFullMatchItems(group);
 			List<Object> fluids = GroupRegistry.getFullMatchFluids(group);
-			allCards.add(new ItemCard(group, items, fluids, GroupPreviewEntry.combine(items, fluids)));
+			List<GenericIngredientRef> generic = GroupRegistry.getFullMatchGenericIngredients(group);
+			allCards.add(new ItemCard(group, items, fluids, generic, GroupPreviewEntry.combine(items, fluids, generic)));
 		}
 		previewScrollOffsets.keySet().retainAll(
 			allCards.stream().map(ItemCard::id).collect(Collectors.toSet()));
@@ -123,7 +132,7 @@ public class GroupManagerScreen extends Screen {
 			ItemCard ic = allCards.get(i);
 			if (ic.id().equals(id)) {
 				GroupDefinition updated = ic.group().withEnabled(enabled);
-				allCards.set(i, new ItemCard(updated, ic.items(), ic.fluids(), ic.previewEntries()));
+				allCards.set(i, new ItemCard(updated, ic.items(), ic.fluids(), ic.genericEntries(), ic.previewEntries()));
 				rebuildFilteredCards();
 				return;
 			}
@@ -286,6 +295,11 @@ public class GroupManagerScreen extends Screen {
 		if (card.fluidCount() > 0) {
 			net.minecraft.network.chat.MutableComponent part =
 				Component.translatable(ModTranslationKeys.COUNT_FLUIDS, card.fluidCount());
+			result = result == null ? part : result.append(", ").append(part);
+		}
+		if (card.genericCount() > 0) {
+			net.minecraft.network.chat.MutableComponent part =
+				Component.translatable(ModTranslationKeys.COUNT_ENTRIES, card.genericCount());
 			result = result == null ? part : result.append(", ").append(part);
 		}
 		return result != null ? result : Component.empty();
