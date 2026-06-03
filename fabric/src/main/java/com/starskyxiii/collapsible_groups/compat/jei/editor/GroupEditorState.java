@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
@@ -18,8 +19,8 @@ import java.util.Set;
  *
  * <p>The Fabric editor supports item and fluid contents editing, and mirrors the richer rules workflow:
  * a flat contents draft powers quick item editing while a rule-tree draft powers the
- * Rules tab and persistence. Groups containing generic/custom draft nodes keep contents
- * quick-edit readonly until the Fabric editor gains those source tabs.
+ * Rules tab and persistence. Generic/custom entries use the same contents draft
+ * contract as item and fluid entries.
  */
 final class GroupEditorState implements EditorRulesState {
 	String editId;
@@ -31,7 +32,10 @@ final class GroupEditorState implements EditorRulesState {
 	final Set<String> explicitSet;
 	final List<String> editFluidIds;
 	final List<String> editFluidTags;
+	final List<GroupFilterEditorDraft.GenericValue> editGenericIds;
+	final List<GroupFilterEditorDraft.GenericValue> editGenericTags;
 	final EditorItemSelectionHelper itemSelection;
+	final EditorGenericSelectionHelper genericSelection;
 
 	private final EditorStateCore core;
 
@@ -53,7 +57,11 @@ final class GroupEditorState implements EditorRulesState {
 		this.explicitSet = draft.explicitItemSelectors();
 		this.editFluidIds = draft.fluidIds();
 		this.editFluidTags = draft.fluidTags();
+		this.editGenericIds = draft.genericIds();
+		this.editGenericTags = draft.genericTags();
 		this.itemSelection = new EditorItemSelectionHelper(explicitSet, this::syncRulesFromContentsDraft);
+		this.genericSelection = new EditorGenericSelectionHelper(editGenericIds, editGenericTags,
+			this::syncRulesFromContentsDraft);
 
 		refreshContentsDraftFromRules();
 	}
@@ -129,6 +137,26 @@ final class GroupEditorState implements EditorRulesState {
 		if (editFluidIds.remove(fluidId(fluid))) {
 			syncRulesFromContentsDraft();
 		}
+	}
+
+	boolean isGenericSelected(GenericIngredientView entry) {
+		return genericSelection.isSelected(entry);
+	}
+
+	boolean isGenericTagMatched(GenericIngredientView entry) {
+		return genericSelection.isTagMatched(entry);
+	}
+
+	void toggleGenericSelection(GenericIngredientView entry) {
+		genericSelection.toggleSelection(entry);
+	}
+
+	void addGenericId(String typeId, String id) {
+		genericSelection.addId(typeId, id);
+	}
+
+	void removeGenericSelection(GenericIngredientView entry) {
+		genericSelection.removeSelection(entry);
 	}
 
 	Optional<GroupDefinition> trySave() {
@@ -225,7 +253,7 @@ final class GroupEditorState implements EditorRulesState {
 		}
 
 		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(filter.get());
-		core.setContentsQuickEditAvailable(decoded.structurallyEditable() && !containsGenericDraftNodes(decoded.draft()));
+		core.setContentsQuickEditAvailable(decoded.structurallyEditable());
 		if (core.canEditContents()) {
 			copyContentsDraft(decoded.draft());
 		}
@@ -236,6 +264,8 @@ final class GroupEditorState implements EditorRulesState {
 		editTags.clear();
 		editFluidIds.clear();
 		editFluidTags.clear();
+		editGenericIds.clear();
+		editGenericTags.clear();
 	}
 
 	private void copyContentsDraft(GroupFilterEditorDraft source) {
@@ -243,11 +273,8 @@ final class GroupEditorState implements EditorRulesState {
 		editTags.addAll(source.itemTags());
 		editFluidIds.addAll(source.fluidIds());
 		editFluidTags.addAll(source.fluidTags());
-	}
-
-	private static boolean containsGenericDraftNodes(GroupFilterEditorDraft draft) {
-		return !draft.genericIds().isEmpty()
-			|| !draft.genericTags().isEmpty();
+		editGenericIds.addAll(source.genericIds());
+		editGenericTags.addAll(source.genericTags());
 	}
 
 	private static String fluidId(IJeiFluidIngredient fluid) {

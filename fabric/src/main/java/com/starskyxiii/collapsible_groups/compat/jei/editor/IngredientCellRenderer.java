@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import mezz.jei.api.fabric.constants.FabricTypes;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
@@ -28,5 +29,9 @@ final class IngredientCellRenderer {
 		if (bucketItem != Items.AIR) {
 			g.renderItem(new ItemStack(bucketItem), x, y);
 		}
+	}
+
+	static void renderGeneric(GuiGraphics g, GenericIngredientView entry, int x, int y) {
+		EditorGenericIngredientHelper.render(g, entry, x, y);
 	}
 }

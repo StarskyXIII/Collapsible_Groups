@@ -1,5 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
@@ -24,23 +26,28 @@ import java.util.Set;
 final class EditorLeftPanel {
 	private enum SourceTab {
 		ITEMS,
-		FLUIDS
+		FLUIDS,
+		GENERIC
 	}
 
 	private List<ItemStack> allItems = List.of();
 	private List<ItemStack> filteredItems = List.of();
 	private List<FluidStack> allFluids = List.of();
 	private List<FluidStack> filteredFluids = List.of();
+	private List<GenericIngredientView> allGenericIngredients = List.of();
+	private List<GenericIngredientView> filteredGenericIngredients = List.of();
 
 	private List<String> allItemsSearchKeys = List.of();
 	private final Map<ItemStack, List<String>> otherItemGroupsCache = new IdentityHashMap<>();
 	private final Map<FluidStack, List<String>> otherFluidGroupsCache = new IdentityHashMap<>();
+	private final Map<GenericIngredientView, List<String>> otherGenericGroupsCache = new IdentityHashMap<>();
 
 	private SourceTab activeTab = SourceTab.ITEMS;
 
 	int scrollRow = 0;
 	int hoveredItem = -1;
 	int hoveredFluid = -1;
+	int hoveredGeneric = -1;
 
 	private boolean isDraggingSb = false;
 	private double sbDragStartMouseY;
@@ -56,7 +63,9 @@ final class EditorLeftPanel {
 		ITEM_ADD,
 		ITEM_REMOVE,
 		FLUID_ADD,
-		FLUID_REMOVE
+		FLUID_REMOVE,
+		GENERIC_ADD,
+		GENERIC_REMOVE
 	}
 
 	private final GroupEditorState state;
@@ -67,9 +76,12 @@ final class EditorLeftPanel {
 		this.onChange = onChange;
 	}
 
-	void init(List<ItemStack> allItems, List<FluidStack> allFluids) {
+	void init(List<ItemStack> allItems, List<FluidStack> allFluids,
+	          List<GenericIngredientRef> allGenericRefs) {
 		this.allItems = allItems;
 		this.allFluids = allFluids;
+		this.allGenericIngredients = EditorGenericIngredientHelper.buildViews(allGenericRefs,
+			"ForgeEditorLeftPanel.buildGenericViews");
 		buildSearchKeys();
 		buildOtherGroupCaches();
 	}
@@ -77,6 +89,7 @@ final class EditorLeftPanel {
 	void buildOtherGroupCaches() {
 		otherItemGroupsCache.clear();
 		otherFluidGroupsCache.clear();
+		otherGenericGroupsCache.clear();
 
 		List<GroupDefinition> allGroups = GroupRegistry.getAllIncludingKubeJs();
 		Map<String, String> groupNames = EditorGroupOwnershipHelper.enabledGroupDisplayNames(allGroups, state.editId);
@@ -108,6 +121,9 @@ final class EditorLeftPanel {
 				}
 			}
 		}
+
+		otherGenericGroupsCache.putAll(EditorGenericIngredientHelper.buildOwnership(
+			allGenericIngredients, others));
 	}
 
 	void setHideUsed(boolean hide) {
@@ -119,6 +135,8 @@ final class EditorLeftPanel {
 		scrollRow = 0;
 		if (isShowingFluids()) {
 			rebuildFluidFilter(q);
+		} else if (isShowingGeneric()) {
+			rebuildGenericFilter(q);
 		} else {
 			rebuildItemFilter(q);
 		}
@@ -139,19 +157,34 @@ final class EditorLeftPanel {
 		}).toList();
 	}
 
+	private void rebuildGenericFilter(String q) {
+		filteredGenericIngredients = EditorGenericIngredientHelper.filterViews(allGenericIngredients,
+			otherGenericGroupsCache, hideUsed, q);
+	}
+
 	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
 		hoveredItem = -1;
 		hoveredFluid = -1;
-		List<?> list = currentList();
-		int start = scrollRow * layout.leftCols();
-		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
-			int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			int y = layout.gridTop() + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			renderCell(g, list.get(start + i), x, y);
-			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
-				setHover(start + i);
-				g.fill(x, y, x + 16, y + 16, 0x22FFFFFF);
+		hoveredGeneric = -1;
+		boolean scissor = isShowingGeneric();
+		if (scissor) {
+			g.enableScissor(layout.leftGridX(), layout.gridTop(),
+				layout.leftGridX() + layout.leftGridWidth(), layout.gridTop() + layout.gridHeight());
+		}
+		try {
+			List<?> list = currentList();
+			int start = scrollRow * layout.leftCols();
+			for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
+				int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
+				int y = layout.gridTop() + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
+				renderCell(g, list.get(start + i), x, y);
+				if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
+					setHover(start + i);
+					g.fill(x, y, x + 16, y + 16, 0x22FFFFFF);
+				}
 			}
+		} finally {
+			if (scissor) g.disableScissor();
 		}
 	}
 
@@ -164,6 +197,16 @@ final class EditorLeftPanel {
 				g.fill(x, y, x + 16, y + 16, 0x33CC8844);
 			}
 			IngredientCellRenderer.renderFluid(g, fluid, x, y);
+			return;
+		}
+		if (isShowingGeneric()) {
+			GenericIngredientView generic = (GenericIngredientView) entry;
+			if (state.isGenericSelected(generic)) {
+				g.fill(x, y, x + 16, y + 16, 0x4455BB77);
+			} else if (!otherGenericGroupsCache.getOrDefault(generic, List.of()).isEmpty()) {
+				g.fill(x, y, x + 16, y + 16, 0x33CC8844);
+			}
+			IngredientCellRenderer.renderGeneric(g, generic, x, y);
 			return;
 		}
 
@@ -180,6 +223,7 @@ final class EditorLeftPanel {
 
 	private void setHover(int idx) {
 		if (isShowingFluids()) hoveredFluid = idx;
+		else if (isShowingGeneric()) hoveredGeneric = idx;
 		else hoveredItem = idx;
 	}
 
@@ -230,6 +274,14 @@ final class EditorLeftPanel {
 			state.toggleFluidSelection(fluid);
 			onChange.run();
 			startDrag(was ? DragGesture.FLUID_REMOVE : DragGesture.FLUID_ADD, dragFluidKey(fluid));
+			return;
+		}
+		if (isShowingGeneric()) {
+			GenericIngredientView generic = (GenericIngredientView) entry;
+			boolean was = state.isGenericSelected(generic);
+			state.toggleGenericSelection(generic);
+			onChange.run();
+			startDrag(was ? DragGesture.GENERIC_REMOVE : DragGesture.GENERIC_ADD, dragGenericKey(generic));
 			return;
 		}
 
@@ -326,6 +378,22 @@ final class EditorLeftPanel {
 					onChange.run();
 				}
 			}
+			case GENERIC_ADD -> {
+				GenericIngredientView generic = (GenericIngredientView) entry;
+				String key = dragGenericKey(generic);
+				if (dragVisited.add(key) && !state.isGenericSelected(generic)) {
+					state.addGenericId(generic.typeId(), generic.resourceId());
+					onChange.run();
+				}
+			}
+			case GENERIC_REMOVE -> {
+				GenericIngredientView generic = (GenericIngredientView) entry;
+				String key = dragGenericKey(generic);
+				if (dragVisited.add(key) && state.isGenericSelected(generic)) {
+					state.removeGenericSelection(generic);
+					onChange.run();
+				}
+			}
 			default -> {}
 		}
 	}
@@ -349,21 +417,28 @@ final class EditorLeftPanel {
 	}
 
 	void showGeneric(String searchQuery) {
-		showItems(searchQuery);
+		activeTab = SourceTab.GENERIC;
+		scrollRow = 0;
+		rebuildFilter(searchQuery);
 	}
 
 	boolean isHideUsed() { return hideUsed; }
 
 	String currentSourceLabel() {
-		return Component.translatable(isShowingFluids()
-			? ModTranslationKeys.EDITOR_TAB_FLUIDS
-			: ModTranslationKeys.EDITOR_TAB_ITEMS).getString();
+		return switch (activeTab) {
+			case FLUIDS -> Component.translatable(ModTranslationKeys.EDITOR_TAB_FLUIDS).getString();
+			case GENERIC -> Component.translatable(ModTranslationKeys.EDITOR_TAB_GENERIC).getString();
+			case ITEMS -> Component.translatable(ModTranslationKeys.EDITOR_TAB_ITEMS).getString();
+		};
 	}
 
 	String currentPanelHeader() {
-		return Component.translatable(isShowingFluids()
-			? ModTranslationKeys.EDITOR_PANEL_FLUIDS_HEADER
-			: ModTranslationKeys.EDITOR_PANEL_ITEMS_HEADER, entryCount()).getString();
+		String key = switch (activeTab) {
+			case FLUIDS -> ModTranslationKeys.EDITOR_PANEL_FLUIDS_HEADER;
+			case GENERIC -> ModTranslationKeys.EDITOR_PANEL_GENERIC_HEADER;
+			case ITEMS -> ModTranslationKeys.EDITOR_PANEL_ITEMS_HEADER;
+		};
+		return Component.translatable(key, entryCount()).getString();
 	}
 
 	int entryCount() {
@@ -382,15 +457,23 @@ final class EditorLeftPanel {
 		return otherFluidGroupsCache.getOrDefault(fluid, List.of());
 	}
 
+	List<String> otherGroupsForGeneric(GenericIngredientView generic) {
+		return otherGenericGroupsCache.getOrDefault(generic, List.of());
+	}
+
 	List<ItemStack> filteredItems() { return filteredItems; }
 	List<FluidStack> filteredFluids() { return filteredFluids; }
+	List<GenericIngredientView> filteredGeneric() { return filteredGenericIngredients; }
 	List<ItemStack> allItems() { return allItems; }
 
 	boolean isShowingFluids() { return activeTab == SourceTab.FLUIDS; }
+	boolean isShowingGeneric() { return activeTab == SourceTab.GENERIC; }
 	boolean isShowingItems() { return activeTab == SourceTab.ITEMS; }
 
 	private List<?> currentList() {
-		return isShowingFluids() ? filteredFluids : filteredItems;
+		if (isShowingFluids()) return filteredFluids;
+		if (isShowingGeneric()) return filteredGenericIngredients;
+		return filteredItems;
 	}
 
 	private void buildSearchKeys() {
@@ -411,5 +494,9 @@ final class EditorLeftPanel {
 
 	private String dragFluidKey(FluidStack fluid) {
 		return fluidId(fluid);
+	}
+
+	private String dragGenericKey(GenericIngredientView generic) {
+		return EditorGenericIngredientHelper.dragKey(generic);
 	}
 }

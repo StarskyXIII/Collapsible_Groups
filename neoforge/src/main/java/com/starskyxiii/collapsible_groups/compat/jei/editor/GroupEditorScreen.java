@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.compat.jei.GroupUiState;
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.manager.GroupManagerScreen;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
@@ -70,6 +71,7 @@ public class GroupEditorScreen extends Screen {
 
     private BrowserTab activeBrowserTab = BrowserTab.ITEMS;
     private GroupTab   activeGroupTab   = GroupTab.CONTENTS;
+    private boolean hasGenericIngredients = false;
 
     // ── Shared header widgets (always registered) ─────────────────────────
     private EditBox nameField;
@@ -145,6 +147,8 @@ public class GroupEditorScreen extends Screen {
         GroupRegistry.populateJeiCachesIfEmpty();
         @SuppressWarnings("unchecked")
         List<FluidStack> allFluids = (List<FluidStack>) (List<?>) GroupRegistry.getJeiAllFluids();
+        List<GenericIngredientRef> allGenericRefs = GroupRegistry.getJeiAllGenericIngredients();
+        hasGenericIngredients = !allGenericRefs.isEmpty();
         leftPanel.init(
             GroupRegistry.getJeiAllItems().isEmpty()
                 ? net.minecraft.core.registries.BuiltInRegistries.ITEM.stream()
@@ -153,7 +157,7 @@ public class GroupEditorScreen extends Screen {
                     .toList()
                 : GroupRegistry.getJeiAllItems(),
             allFluids,
-            GroupRegistry.getJeiAllGenericIngredients()
+            allGenericRefs
         );
         leftPanel.setHideUsed(GroupUiState.hideUsed());
         rightPanel.rebuild();
@@ -560,6 +564,10 @@ public class GroupEditorScreen extends Screen {
     // ─────────────────────────────────────────────────────────────────────
 
     private void applyBrowserTab(BrowserTab tab) {
+        if (!isBrowserTabEnabled(tab)) {
+            tab = BrowserTab.ITEMS;
+        }
+        activeBrowserTab = tab;
         String q = searchQuery();
         switch (tab) {
             case ITEMS   -> leftPanel.showItems(q);
@@ -569,7 +577,9 @@ public class GroupEditorScreen extends Screen {
         leftPanel.clampScroll(layout);
     }
 
-    private boolean isBrowserTabEnabled(BrowserTab tab) { return true; }
+    private boolean isBrowserTabEnabled(BrowserTab tab) {
+        return tab == BrowserTab.ITEMS || tab == BrowserTab.FLUIDS || (tab == BrowserTab.GENERIC && hasGenericIngredients);
+    }
 
     // ─────────────────────────────────────────────────────────────────────
     // State change

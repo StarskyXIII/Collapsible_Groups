@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
@@ -50,6 +51,22 @@ final class GroupEditorTooltipHelper {
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 			return;
 		}
+		if (left.hoveredGeneric >= 0 && left.hoveredGeneric < left.filteredGeneric().size()) {
+			GenericIngredientView entry = left.filteredGeneric().get(left.hoveredGeneric);
+			List<Component> lines = EditorGenericIngredientHelper.tooltipLines(entry);
+			appendOtherGroups(lines, left.otherGroupsForGeneric(entry));
+			if (!state.canEditContents()) {
+				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			} else if (state.isGenericSelected(entry)) {
+				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
+				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE_ENTRIES));
+			} else {
+				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_ADD_TO_GROUP));
+				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_ADD_ENTRIES));
+			}
+			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			return;
+		}
 
 		// --- Right panel ---
 		if (right.hoveredItem >= 0 && right.hoveredItem < right.groupItems().size()) {
@@ -75,6 +92,15 @@ final class GroupEditorTooltipHelper {
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 			else if (state.isFluidSelected(fluid)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
+			g.renderComponentTooltip(font, lines, mouseX, mouseY);
+			return;
+		}
+		if (right.hoveredGeneric >= 0 && right.hoveredGeneric < right.groupGeneric().size()) {
+			GenericIngredientView entry = right.groupGeneric().get(right.hoveredGeneric);
+			List<Component> lines = EditorGenericIngredientHelper.tooltipLines(entry);
+			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			else if (state.isGenericSelected(entry)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
+			else if (state.isGenericTagMatched(entry)) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 		}
 	}

@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
@@ -16,9 +17,8 @@ import java.util.Set;
 /**
  * Holds all mutable edit state for {@link GroupEditorScreen}.
  *
- * <p>The Forge editor supports item and fluid quick-editing. Generic/custom
- * filters remain readable through the Rules tab but lock quick-editing so the
- * unsupported nodes are not accidentally dropped.
+ * <p>The Forge editor supports item, fluid, and generic/custom quick-editing
+ * through the shared contents draft while preserving the richer Rules workflow.
  */
 final class GroupEditorState implements EditorRulesState {
 	String editId;
@@ -30,7 +30,10 @@ final class GroupEditorState implements EditorRulesState {
 	final Set<String> explicitSet;
 	final List<String> editFluidIds;
 	final List<String> editFluidTags;
+	final List<GroupFilterEditorDraft.GenericValue> editGenericIds;
+	final List<GroupFilterEditorDraft.GenericValue> editGenericTags;
 	final EditorItemSelectionHelper itemSelection;
+	final EditorGenericSelectionHelper genericSelection;
 
 	private final EditorStateCore core;
 
@@ -52,7 +55,11 @@ final class GroupEditorState implements EditorRulesState {
 		this.explicitSet = draft.explicitItemSelectors();
 		this.editFluidIds = draft.fluidIds();
 		this.editFluidTags = draft.fluidTags();
+		this.editGenericIds = draft.genericIds();
+		this.editGenericTags = draft.genericTags();
 		this.itemSelection = new EditorItemSelectionHelper(explicitSet, this::syncRulesFromContentsDraft);
+		this.genericSelection = new EditorGenericSelectionHelper(editGenericIds, editGenericTags,
+			this::syncRulesFromContentsDraft);
 
 		refreshContentsDraftFromRules();
 	}
@@ -130,6 +137,26 @@ final class GroupEditorState implements EditorRulesState {
 		if (editFluidIds.remove(id)) {
 			syncRulesFromContentsDraft();
 		}
+	}
+
+	boolean isGenericSelected(GenericIngredientView entry) {
+		return genericSelection.isSelected(entry);
+	}
+
+	boolean isGenericTagMatched(GenericIngredientView entry) {
+		return genericSelection.isTagMatched(entry);
+	}
+
+	void toggleGenericSelection(GenericIngredientView entry) {
+		genericSelection.toggleSelection(entry);
+	}
+
+	void addGenericId(String typeId, String id) {
+		genericSelection.addId(typeId, id);
+	}
+
+	void removeGenericSelection(GenericIngredientView entry) {
+		genericSelection.removeSelection(entry);
 	}
 
 	Optional<GroupDefinition> trySave() {
@@ -226,7 +253,7 @@ final class GroupEditorState implements EditorRulesState {
 		}
 
 		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(filter.get());
-		core.setContentsQuickEditAvailable(decoded.structurallyEditable() && !containsGenericDraftNodes(decoded.draft()));
+		core.setContentsQuickEditAvailable(decoded.structurallyEditable());
 		if (core.canEditContents()) {
 			copyContentsDraft(decoded.draft());
 		}
@@ -237,6 +264,8 @@ final class GroupEditorState implements EditorRulesState {
 		editTags.clear();
 		editFluidIds.clear();
 		editFluidTags.clear();
+		editGenericIds.clear();
+		editGenericTags.clear();
 	}
 
 	private void copyContentsDraft(GroupFilterEditorDraft source) {
@@ -244,9 +273,7 @@ final class GroupEditorState implements EditorRulesState {
 		editTags.addAll(source.itemTags());
 		editFluidIds.addAll(source.fluidIds());
 		editFluidTags.addAll(source.fluidTags());
-	}
-
-	private static boolean containsGenericDraftNodes(GroupFilterEditorDraft draft) {
-		return !draft.genericIds().isEmpty() || !draft.genericTags().isEmpty();
+		editGenericIds.addAll(source.genericIds());
+		editGenericTags.addAll(source.genericTags());
 	}
 }

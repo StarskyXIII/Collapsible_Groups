@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.compat.jei.GroupUiState;
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.manager.GroupManagerScreen;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorChrome;
@@ -69,6 +70,7 @@ public class GroupEditorScreen extends Screen {
 
     private BrowserTab activeBrowserTab = BrowserTab.ITEMS;
     private GroupTab   activeGroupTab   = GroupTab.CONTENTS;
+    private boolean hasGenericIngredients = false;
 
     // ── Shared header widgets (always registered) ─────────────────────────
     private EditBox nameField;
@@ -144,6 +146,8 @@ public class GroupEditorScreen extends Screen {
         GroupRegistry.populateJeiCachesIfEmpty();
         @SuppressWarnings("unchecked")
         List<FluidStack> allFluids = (List<FluidStack>) (List<?>) GroupRegistry.getJeiAllFluids();
+        List<GenericIngredientRef> allGenericRefs = GroupRegistry.getJeiAllGenericIngredients();
+        hasGenericIngredients = !allGenericRefs.isEmpty();
         leftPanel.init(
             GroupRegistry.getJeiAllItems().isEmpty()
                 ? net.minecraft.core.registries.BuiltInRegistries.ITEM.stream()
@@ -151,7 +155,8 @@ public class GroupEditorScreen extends Screen {
                     .map(net.minecraft.world.item.ItemStack::new)
                     .toList()
                 : GroupRegistry.getJeiAllItems(),
-            allFluids
+            allFluids,
+            allGenericRefs
         );
         leftPanel.setHideUsed(GroupUiState.hideUsed());
         rightPanel.rebuild();
@@ -574,7 +579,9 @@ public class GroupEditorScreen extends Screen {
         leftPanel.clampScroll(layout);
     }
 
-    private boolean isBrowserTabEnabled(BrowserTab tab) { return tab == BrowserTab.ITEMS || tab == BrowserTab.FLUIDS; }
+    private boolean isBrowserTabEnabled(BrowserTab tab) {
+        return tab == BrowserTab.ITEMS || tab == BrowserTab.FLUIDS || (tab == BrowserTab.GENERIC && hasGenericIngredients);
+    }
 
     // ─────────────────────────────────────────────────────────────────────
     // State change
@@ -614,11 +621,13 @@ public class GroupEditorScreen extends Screen {
     private void clearRightHover() {
         rightPanel.hoveredItem = -1;
         rightPanel.hoveredFluid = -1;
+        rightPanel.hoveredGeneric = -1;
     }
 
     private void clearLeftHover() {
         leftPanel.hoveredItem = -1;
         leftPanel.hoveredFluid = -1;
+        leftPanel.hoveredGeneric = -1;
     }
 
     private static boolean isMouseOverWidget(Button btn, double mx, double my) {

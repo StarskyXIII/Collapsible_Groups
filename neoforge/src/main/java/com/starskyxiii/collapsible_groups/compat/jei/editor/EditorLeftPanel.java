@@ -4,16 +4,11 @@ import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
-import mezz.jei.api.ingredients.IIngredientHelper;
-import mezz.jei.api.ingredients.IIngredientRenderer;
-import mezz.jei.api.ingredients.IIngredientType;
-import mezz.jei.api.ingredients.subtypes.UidContext;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
@@ -23,12 +18,10 @@ import net.neoforged.neoforge.fluids.FluidStack;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Manages the left pane of {@link GroupEditorScreen}: ingredient browsing,
@@ -117,7 +110,8 @@ final class EditorLeftPanel {
 	          List<GenericIngredientRef> allGenericRefs) {
 		this.allItems  = allItems;
 		this.allFluids = allFluids;
-		this.allGenericIngredients = buildViews(allGenericRefs);
+		this.allGenericIngredients = EditorGenericIngredientHelper.buildViews(allGenericRefs,
+			"EditorLeftPanel.buildGenericViews");
 		buildSearchKeys();
 		buildOtherGroupCaches();
 	}
@@ -160,12 +154,8 @@ final class EditorLeftPanel {
 			}
 		}
 
-		// Generics: still uses live scan (small count, no reverse index)
-		for (GenericIngredientView entry : allGenericIngredients) {
-			List<String> names = matchingGroupNames(others, entry,
-				(g, e) -> GroupMatcher.matchesGeneric(g, e.typeId(), e.ingredient(), e.helper()));
-			if (!names.isEmpty()) otherGenericGroupsCache.put(entry, names);
-		}
+		otherGenericGroupsCache.putAll(EditorGenericIngredientHelper.buildOwnership(
+			allGenericIngredients, others));
 	}
 
 	// -----------------------------------------------------------------------
@@ -204,10 +194,8 @@ final class EditorLeftPanel {
 	}
 
 	private void rebuildGenericFilter(String q) {
-		filteredGenericIngredients = allGenericIngredients.stream().filter(e -> {
-			if (hideUsed && !otherGenericGroupsCache.getOrDefault(e, List.of()).isEmpty()) return false;
-			return q.isBlank() || e.searchKey().contains(q);
-		}).toList();
+		filteredGenericIngredients = EditorGenericIngredientHelper.filterViews(allGenericIngredients,
+			otherGenericGroupsCache, hideUsed, q);
 	}
 
 	// -----------------------------------------------------------------------
@@ -538,49 +526,11 @@ final class EditorLeftPanel {
 		allItemsSearchKeys = EditorItemSearchHelper.buildSearchKeys(allItems);
 	}
 
-	private List<GenericIngredientView> buildViews(List<GenericIngredientRef> refs) {
-		var runtime = JeiRuntimeHolder.get();
-		if (runtime == null || refs.isEmpty()) return List.of();
-		var mgr = runtime.getIngredientManager();
-		List<GenericIngredientView> result = new ArrayList<>(refs.size());
-		for (GenericIngredientRef ref : refs) {
-			IIngredientType<Object> type     = ref.type();
-			IIngredientHelper<Object> helper   = mgr.getIngredientHelper(type);
-			IIngredientRenderer<Object> renderer = mgr.getIngredientRenderer(type);
-			var rl = helper.getResourceLocation(ref.ingredient());
-			String resourceId = rl != null
-				? rl.toString()
-				: helper.getUid(ref.ingredient(), UidContext.Ingredient).toString();
-			List<Component> tooltipLines = renderer.getTooltip(ref.ingredient(), net.minecraft.world.item.TooltipFlag.Default.NORMAL);
-			Component displayName = tooltipLines.isEmpty() ? Component.literal(resourceId) : tooltipLines.get(0);
-			Set<String> tagIds = helper.getTagStream(ref.ingredient())
-				.map(Object::toString)
-				.collect(Collectors.toCollection(LinkedHashSet::new));
-			String searchKey = (displayName.getString() + "|" + resourceId + "|" + ref.typeId()).toLowerCase(Locale.ROOT);
-			result.add(new GenericIngredientView(ref.typeId(), type, ref.ingredient(), helper, renderer,
-				displayName, resourceId, Set.copyOf(tagIds), searchKey));
-		}
-		return List.copyOf(result);
-	}
-
-	private static String displayName(String id, String name) {
-		return EditorGroupOwnershipHelper.displayName(id, name);
-	}
-
-	private <U> List<String> matchingGroupNames(List<GroupDefinition> groups, U ingredient,
-	                                             java.util.function.BiPredicate<GroupDefinition, U> matcher) {
-		Set<String> names = new LinkedHashSet<>();
-		for (GroupDefinition g : groups) {
-			if (matcher.test(g, ingredient)) names.add(displayName(g.id(), g.name()));
-		}
-		return List.copyOf(names);
-	}
-
 	// Drag gesture key generators - used to deduplicate entries in dragVisited
 	private String dragAddKey(ItemStack s)    { return GroupItemSelector.exactSelector(s); }
 	private String dragRemoveKey(ItemStack s) {
 		return GroupItemSelector.wholeItemSelector(s) + "|" + state.cachedExactSelector(s).orElse("?");
 	}
 	private String dragFluidKey(FluidStack f)       { return BuiltInRegistries.FLUID.getKey(f.getFluid()).toString(); }
-	private String dragGenericKey(GenericIngredientView e) { return e.typeId() + "|" + e.resourceId(); }
+	private String dragGenericKey(GenericIngredientView e) { return EditorGenericIngredientHelper.dragKey(e); }
 }

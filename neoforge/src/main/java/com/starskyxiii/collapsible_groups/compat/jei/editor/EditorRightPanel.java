@@ -1,10 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.Constants;
-import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
@@ -77,8 +75,9 @@ final class EditorRightPanel {
 			// captures the full filter tree.
 			groupItems = GroupRegistry.resolveItems(temp);
 		}
-		groupFluids             = GroupRegistry.resolveFluids(temp);
-		groupGenericIngredients = buildGenericViews(GroupRegistry.resolveGenericIngredients(temp));
+		groupFluids = GroupRegistry.resolveFluids(temp);
+		groupGenericIngredients = EditorGenericIngredientHelper.buildViews(
+			GroupRegistry.resolveGenericIngredients(temp), "EditorRightPanel.buildGenericViews");
 		PerformanceTrace.logIfSlow("EditorRightPanel.rebuild", traceStart, 10,
 			"group=" + temp.id()
 				+ " items=" + groupItems.size()
@@ -98,34 +97,6 @@ final class EditorRightPanel {
 				}
 			}
 		}
-	}
-
-	private List<GenericIngredientView> buildGenericViews(List<GenericIngredientRef> refs) {
-		long traceStart = PerformanceTrace.begin();
-		var runtime = JeiRuntimeHolder.get();
-		if (runtime == null || refs.isEmpty()) return List.of();
-		var mgr = runtime.getIngredientManager();
-		java.util.List<GenericIngredientView> result = new java.util.ArrayList<>(refs.size());
-		for (GenericIngredientRef ref : refs) {
-			var type     = ref.type();
-			var helper   = mgr.getIngredientHelper(type);
-			var renderer = mgr.getIngredientRenderer(type);
-			var rl     = helper.getResourceLocation(ref.ingredient());
-			String rid = rl != null ? rl.toString()
-				: helper.getUid(ref.ingredient(), mezz.jei.api.ingredients.subtypes.UidContext.Ingredient).toString();
-			java.util.List<net.minecraft.network.chat.Component> tooltipLines = renderer.getTooltip(ref.ingredient(), net.minecraft.world.item.TooltipFlag.Default.NORMAL);
-			net.minecraft.network.chat.Component dn = tooltipLines.isEmpty() ? net.minecraft.network.chat.Component.literal(rid) : tooltipLines.get(0);
-			java.util.Set<String> tags = helper.getTagStream(ref.ingredient())
-				.map(Object::toString)
-				.collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
-			String sk = (dn.getString() + "|" + rid + "|" + ref.typeId()).toLowerCase(java.util.Locale.ROOT);
-			result.add(new GenericIngredientView(ref.typeId(), type, ref.ingredient(), helper, renderer,
-				dn, rid, java.util.Set.copyOf(tags), sk));
-		}
-		List<GenericIngredientView> copy = List.copyOf(result);
-		PerformanceTrace.logIfSlow("EditorRightPanel.buildGenericViews", traceStart, 5,
-			"refs=" + refs.size() + " views=" + copy.size());
-		return copy;
 	}
 
 	// -----------------------------------------------------------------------
