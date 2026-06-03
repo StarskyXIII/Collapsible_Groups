@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Fabric group manager. P4A3 supports item and fluid previews; editor fluid editing lands later. */
-public class GroupManagerScreen extends Screen {
+public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int CARD_WIDTH    = 162;
 	private static final int CARD_HEIGHT   = 108;
 	private static final int CARD_PADDING  = 6;
@@ -474,6 +474,8 @@ public class GroupManagerScreen extends Screen {
 	@Override public boolean isPauseScreen() { return false; }
 
 	public void onGroupSaved() { rebuildCards(); scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels()); }
+
+	@Override public Screen asScreen() { return this; }
 
 	private int contentHeight()    { return this.height - HEADER_HEIGHT - FOOTER_HEIGHT - CARD_PADDING; }
 	private int totalCardRows()    { return filteredCards.isEmpty() ? 0 : (filteredCards.size() + cols - 1) / cols; }

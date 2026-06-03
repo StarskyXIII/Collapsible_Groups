@@ -19,6 +19,9 @@ public interface IConfigProvider {
 	/** Whether to show the group manager button in the JEI ingredient list overlay. */
 	boolean showManagerButton();
 
+	/** Temporary redesign switch: true opens the Ore UI manager prototype, false opens the legacy manager. */
+	boolean useOreUiManager();
+
 	/** Whether group slots should draw their semi-transparent background tint. */
 	boolean showGroupBackgrounds();
 

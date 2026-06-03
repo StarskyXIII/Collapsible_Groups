@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.compat.jei.GroupUiState;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
-import com.starskyxiii.collapsible_groups.compat.jei.manager.GroupManagerScreen;
+import com.starskyxiii.collapsible_groups.compat.jei.manager.GroupManagerParent;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorChrome;
@@ -61,7 +61,7 @@ public class GroupEditorScreen extends Screen {
     }
 
     // ── Screen state ──────────────────────────────────────────────────────
-    private final GroupManagerScreen parent;
+    private final GroupManagerParent parent;
     private final GroupEditorState   state;
 
     private EditorLeftPanel  leftPanel;
@@ -130,7 +130,7 @@ public class GroupEditorScreen extends Screen {
     // Constructor / Screen lifecycle
     // ─────────────────────────────────────────────────────────────────────
 
-    public GroupEditorScreen(GroupManagerScreen parent, GroupDefinition existing) {
+    public GroupEditorScreen(GroupManagerParent parent, GroupDefinition existing) {
         super(Component.translatable(existing == null
             ? ModTranslationKeys.SCREEN_NEW_GROUP : ModTranslationKeys.SCREEN_EDIT_GROUP));
         this.parent = parent;
@@ -203,7 +203,7 @@ public class GroupEditorScreen extends Screen {
 
     @Override
     public void onClose() {
-        Minecraft.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent.asScreen());
     }
 
     @Override
@@ -612,7 +612,7 @@ public class GroupEditorScreen extends Screen {
         GroupRegistry.populateFullMatchCacheFromSaved(saved);
         parent.onGroupSaved();
         GroupRegistry.notifyJei();
-        Minecraft.getInstance().setScreen(parent);
+        Minecraft.getInstance().setScreen(parent.asScreen());
     }
 
     // ─────────────────────────────────────────────────────────────────────

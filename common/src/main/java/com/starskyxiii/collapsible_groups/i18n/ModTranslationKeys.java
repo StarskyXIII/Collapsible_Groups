@@ -40,6 +40,8 @@ public final class ModTranslationKeys {
 
 	public static final String CONFIG_OPT_SHOW_MANAGER_BUTTON = "collapsible_groups.config.opt.show_manager_button";
 
+	public static final String CONFIG_OPT_USE_ORE_UI_MANAGER = "collapsible_groups.config.opt.use_ore_ui_manager";
+
 	public static final String CONFIG_OPT_SHOW_GROUP_BACKGROUNDS = "collapsible_groups.config.opt.show_group_backgrounds";
 
 	public static final String CONFIG_OPT_COLLAPSED_GROUP_BACKGROUND_COLOR = "collapsible_groups.config.opt.collapsed_group_background_color";
@@ -319,6 +321,8 @@ public final class ModTranslationKeys {
 
 	public static final String MANAGER_BTN_DELETE = "collapsible_groups.manager.btn_delete";
 
+	public static final String MANAGER_BTN_COPY = "collapsible_groups.manager.btn_copy";
+
 	public static final String MANAGER_BTN_DISABLED = "collapsible_groups.manager.btn_disabled";
 
 	public static final String MANAGER_BTN_EDIT = "collapsible_groups.manager.btn_edit";
@@ -344,6 +348,12 @@ public final class ModTranslationKeys {
 
 	/** Args: group name (%s) */
 	public static final String MANAGER_PREFIX_KUBEJS = "collapsible_groups.manager.prefix_kubejs";
+
+	public static final String MANAGER_TOOLTIP_COPY_DEFERRED = "collapsible_groups.manager.tooltip.copy_deferred";
+
+	public static final String MANAGER_TOOLTIP_DELETE_READONLY = "collapsible_groups.manager.tooltip.delete_readonly";
+
+	public static final String MANAGER_TOOLTIP_SWITCH_OVERRIDE_REQUIRED = "collapsible_groups.manager.tooltip.switch_override_required";
 
 	public static final String SCREEN_EDIT_GROUP = "collapsible_groups.screen.edit_group";
 

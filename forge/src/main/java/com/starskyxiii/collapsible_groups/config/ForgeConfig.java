@@ -43,6 +43,7 @@ public final class ForgeConfig implements IConfigProvider {
 			&& isAnyMacawsSeriesLoaded();
 	}
 	@Override public boolean showManagerButton()                   { return SHOW_MANAGER_BUTTON.get(); }
+	@Override public boolean useOreUiManager()                    { return USE_ORE_UI_MANAGER.get(); }
 	@Override public boolean showGroupBackgrounds()                { return SHOW_GROUP_BACKGROUNDS.get(); }
 	@Override public int collapsedGroupBackgroundColor() {
 		return ColorConfigParser.parseArgb(COLLAPSED_GROUP_BACKGROUND_COLOR.get(), COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
@@ -92,6 +93,9 @@ public final class ForgeConfig implements IConfigProvider {
 
 	/** Whether to show the group manager button in the JEI overlay. */
 	public static final ForgeConfigSpec.BooleanValue SHOW_MANAGER_BUTTON;
+
+	/** Temporary redesign switch for the manager screen prototype. */
+	public static final ForgeConfigSpec.BooleanValue USE_ORE_UI_MANAGER;
 
 	/** Whether grouped slots draw a semi-transparent background tint. */
 	public static final ForgeConfigSpec.BooleanValue SHOW_GROUP_BACKGROUNDS;
@@ -169,6 +173,12 @@ public final class ForgeConfig implements IConfigProvider {
 		SHOW_MANAGER_BUTTON = builder
 			.comment("Whether to show the group manager button in the JEI ingredient list overlay.")
 			.define("showManagerButton", true);
+		USE_ORE_UI_MANAGER = builder
+			.comment(
+				"Temporary redesign switch. True opens the Ore UI manager prototype; false opens the legacy manager.",
+				"This option will be removed before release once the redesign is complete."
+			)
+			.define("useOreUiManager", true);
 		SHOW_GROUP_BACKGROUNDS = builder
 			.comment(
 				"Whether grouped JEI slots draw a semi-transparent background tint.",

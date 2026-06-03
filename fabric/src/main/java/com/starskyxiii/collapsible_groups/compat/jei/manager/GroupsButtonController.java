@@ -6,6 +6,7 @@ import mezz.jei.api.gui.buttons.IIconButtonController;
 import mezz.jei.api.gui.builder.ITooltipBuilder;
 import mezz.jei.api.gui.inputs.IJeiUserInput;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -30,7 +31,9 @@ public class GroupsButtonController implements IIconButtonController {
 	public boolean onPress(IJeiUserInput input) {
 		if (!input.isSimulate()) {
 			Minecraft mc = Minecraft.getInstance();
-			mc.setScreen(new GroupManagerScreen(mc.screen));
+			mc.setScreen(Services.CONFIG.useOreUiManager()
+				? new OreGroupManagerScreen(mc.screen)
+				: new GroupManagerScreen(mc.screen));
 		}
 		return true;
 	}
