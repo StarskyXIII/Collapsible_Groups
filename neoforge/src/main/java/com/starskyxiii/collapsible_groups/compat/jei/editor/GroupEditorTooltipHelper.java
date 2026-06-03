@@ -54,7 +54,7 @@ final class GroupEditorTooltipHelper {
 		}
 		if (left.hoveredGeneric >= 0 && left.hoveredGeneric < left.filteredGeneric().size()) {
 			GenericIngredientView entry = left.filteredGeneric().get(left.hoveredGeneric);
-			List<Component> lines = buildGenericLines(entry);
+			List<Component> lines = EditorGenericIngredientHelper.tooltipLines(entry);
 			appendOtherGroups(lines, left.otherGroupsForGeneric(entry));
 			if (!state.canEditContents()) {
 				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
@@ -98,7 +98,7 @@ final class GroupEditorTooltipHelper {
 		}
 		if (right.hoveredGeneric >= 0 && right.hoveredGeneric < right.groupGeneric().size()) {
 			GenericIngredientView entry = right.groupGeneric().get(right.hoveredGeneric);
-			List<Component> lines = buildGenericLines(entry);
+			List<Component> lines = EditorGenericIngredientHelper.tooltipLines(entry);
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 			else if (state.isGenericSelected(entry))   lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else if (state.isGenericTagMatched(entry)) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
@@ -152,14 +152,6 @@ final class GroupEditorTooltipHelper {
 		lines.add(fluid.getHoverName());
 		lines.add(Component.literal(BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString())
 			.withStyle(ChatFormatting.DARK_GRAY));
-		return lines;
-	}
-
-	private static List<Component> buildGenericLines(GenericIngredientView entry) {
-		List<Component> lines = new ArrayList<>();
-		lines.add(entry.displayName());
-		lines.add(Component.literal(entry.resourceId()).withStyle(ChatFormatting.DARK_GRAY));
-		lines.add(Component.literal(entry.typeId()).withStyle(ChatFormatting.GRAY));
 		return lines;
 	}
 

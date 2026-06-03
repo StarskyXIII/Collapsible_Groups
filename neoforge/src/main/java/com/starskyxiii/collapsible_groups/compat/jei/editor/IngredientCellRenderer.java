@@ -34,9 +34,6 @@ final class IngredientCellRenderer {
 	}
 
 	static void renderGeneric(GuiGraphicsExtractor g, GenericIngredientView entry, int x, int y) {
-		g.pose().pushMatrix();
-		g.pose().translate(x, y);
-		entry.renderer().render(g, entry.ingredient());
-		g.pose().popMatrix();
+		EditorGenericIngredientHelper.render(g, entry, x, y);
 	}
 }

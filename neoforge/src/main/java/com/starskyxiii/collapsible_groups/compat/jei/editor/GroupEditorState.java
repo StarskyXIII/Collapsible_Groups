@@ -1,6 +1,5 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
-import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
@@ -39,6 +38,7 @@ final class GroupEditorState implements EditorRulesState {
 	final List<GroupFilterEditorDraft.GenericValue> editGenericIds;
 	final List<GroupFilterEditorDraft.GenericValue> editGenericTags;
 	final EditorItemSelectionHelper itemSelection;
+	final EditorGenericSelectionHelper genericSelection;
 
 	private final EditorStateCore core;
 
@@ -63,6 +63,8 @@ final class GroupEditorState implements EditorRulesState {
 		this.editGenericIds = draft.genericIds();
 		this.editGenericTags = draft.genericTags();
 		this.itemSelection = new EditorItemSelectionHelper(explicitSet, this::syncRulesFromContentsDraft);
+		this.genericSelection = new EditorGenericSelectionHelper(editGenericIds, editGenericTags,
+			this::syncRulesFromContentsDraft);
 
 		refreshContentsDraftFromRules();
 	}
@@ -143,47 +145,23 @@ final class GroupEditorState implements EditorRulesState {
 	}
 
 	boolean isGenericSelected(GenericIngredientView entry) {
-		String canonicalTypeId = canonicalTypeId(entry.typeId());
-		return editGenericIds.stream().anyMatch(e ->
-			e.ingredientType().equals(canonicalTypeId) && e.value().equals(entry.resourceId()));
+		return genericSelection.isSelected(entry);
 	}
 
 	boolean isGenericTagMatched(GenericIngredientView entry) {
-		if (isGenericSelected(entry)) return false;
-		String canonicalTypeId = canonicalTypeId(entry.typeId());
-		return editGenericTags.stream().anyMatch(e ->
-			e.ingredientType().equals(canonicalTypeId) && entry.tagIds().contains(e.value()));
+		return genericSelection.isTagMatched(entry);
 	}
 
 	void toggleGenericSelection(GenericIngredientView entry) {
-		GroupFilterEditorDraft.GenericValue value = newGenericIdValue(entry.typeId(), entry.resourceId());
-		if (!editGenericIds.remove(value)) {
-			editGenericIds.add(value);
-		}
-		syncRulesFromContentsDraft();
+		genericSelection.toggleSelection(entry);
 	}
 
 	void addGenericId(String typeId, String id) {
-		GroupFilterEditorDraft.GenericValue value = newGenericIdValue(typeId, id);
-		if (!editGenericIds.contains(value)) {
-			editGenericIds.add(value);
-			syncRulesFromContentsDraft();
-		}
+		genericSelection.addId(typeId, id);
 	}
 
 	void removeGenericSelection(GenericIngredientView entry) {
-		if (editGenericIds.remove(newGenericIdValue(entry.typeId(), entry.resourceId()))) {
-			syncRulesFromContentsDraft();
-		}
-	}
-
-	private static GroupFilterEditorDraft.GenericValue newGenericIdValue(String typeId, String value) {
-		return new GroupFilterEditorDraft.GenericValue(canonicalTypeId(typeId), value);
-	}
-
-	private static String canonicalTypeId(String typeId) {
-		String canonical = IngredientTypeRegistry.getCanonicalId(typeId);
-		return canonical != null ? canonical : typeId;
+		genericSelection.removeSelection(entry);
 	}
 
 	Optional<GroupDefinition> trySave() {
