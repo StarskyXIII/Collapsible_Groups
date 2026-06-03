@@ -6,7 +6,6 @@ import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -35,6 +34,7 @@ final class GroupEditorState implements EditorRulesState {
 	final List<GroupFilterEditorDraft.GenericValue> editGenericIds;
 	final List<GroupFilterEditorDraft.GenericValue> editGenericTags;
 	final EditorItemSelectionHelper itemSelection;
+	final EditorFluidSelectionHelper fluidSelection;
 	final EditorGenericSelectionHelper genericSelection;
 
 	private final EditorStateCore core;
@@ -60,6 +60,7 @@ final class GroupEditorState implements EditorRulesState {
 		this.editGenericIds = draft.genericIds();
 		this.editGenericTags = draft.genericTags();
 		this.itemSelection = new EditorItemSelectionHelper(explicitSet, this::syncRulesFromContentsDraft);
+		this.fluidSelection = new EditorFluidSelectionHelper(editFluidIds, this::syncRulesFromContentsDraft);
 		this.genericSelection = new EditorGenericSelectionHelper(editGenericIds, editGenericTags,
 			this::syncRulesFromContentsDraft);
 
@@ -115,28 +116,19 @@ final class GroupEditorState implements EditorRulesState {
 	}
 
 	boolean isFluidSelected(IJeiFluidIngredient fluid) {
-		return editFluidIds.contains(fluidId(fluid));
+		return fluidSelection.isSelected(fluid);
 	}
 
 	void toggleFluidSelection(IJeiFluidIngredient fluid) {
-		String id = fluidId(fluid);
-		if (!editFluidIds.remove(id)) {
-			editFluidIds.add(id);
-		}
-		syncRulesFromContentsDraft();
+		fluidSelection.toggleSelection(fluid);
 	}
 
 	void addFluidId(String id) {
-		if (!editFluidIds.contains(id)) {
-			editFluidIds.add(id);
-			syncRulesFromContentsDraft();
-		}
+		fluidSelection.addId(id);
 	}
 
 	void removeFluidSelection(IJeiFluidIngredient fluid) {
-		if (editFluidIds.remove(fluidId(fluid))) {
-			syncRulesFromContentsDraft();
-		}
+		fluidSelection.removeSelection(fluid);
 	}
 
 	boolean isGenericSelected(GenericIngredientView entry) {
@@ -277,7 +269,4 @@ final class GroupEditorState implements EditorRulesState {
 		editGenericTags.addAll(source.genericTags());
 	}
 
-	private static String fluidId(IJeiFluidIngredient fluid) {
-		return BuiltInRegistries.FLUID.getKey(fluid.getFluidVariant().getFluid()).toString();
-	}
 }
