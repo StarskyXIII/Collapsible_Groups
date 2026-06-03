@@ -16,7 +16,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Self-contained delegate for the Rules tab of {@link GroupEditorScreen}.
+ * Self-contained delegate for the Rules tab of the group editor screen.
  *
  * <p>Owns its own widget list, layout, rendering, and input routing.
  * The Screen never adds these widgets to its own renderable list — all
@@ -79,7 +79,7 @@ final class EditorRulesPanel {
     ) {}
 
     // ── Dependencies ──────────────────────────────────────────────────────
-    private final GroupEditorState state;
+    private final EditorRulesState state;
     private final Font             font;
     private final Runnable         onChanged;
 
@@ -121,7 +121,7 @@ final class EditorRulesPanel {
     // Constructor
     // ─────────────────────────────────────────────────────────────────────
 
-    EditorRulesPanel(GroupEditorState state, Font font, Runnable onChanged) {
+    EditorRulesPanel(EditorRulesState state, Font font, Runnable onChanged) {
         this.state     = state;
         this.font      = font;
         this.onChanged = onChanged;

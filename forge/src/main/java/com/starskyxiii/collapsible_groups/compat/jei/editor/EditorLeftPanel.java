@@ -14,7 +14,6 @@ import net.minecraft.world.item.ItemStack;
 import net.minecraftforge.fluids.FluidStack;
 
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -79,38 +78,13 @@ final class EditorLeftPanel {
 		otherItemGroupsCache.clear();
 		otherFluidGroupsCache.clear();
 
-		Map<String, String> groupNames = new HashMap<>();
-		for (GroupDefinition group : GroupRegistry.getAllIncludingKubeJs()) {
-			if (!group.id().equals(state.editId) && group.enabled()) {
-				groupNames.put(group.id(), displayName(group.id(), group.name()));
-			}
-		}
+		List<GroupDefinition> allGroups = GroupRegistry.getAllIncludingKubeJs();
+		Map<String, String> groupNames = EditorGroupOwnershipHelper.enabledGroupDisplayNames(allGroups, state.editId);
+		List<GroupDefinition> others = EditorGroupOwnershipHelper.enabledOtherGroups(allGroups, state.editId);
 
 		Map<String, Set<String>> itemReverseIndex = GroupRegistry.getItemIdToGroupIds();
-		if (itemReverseIndex != null) {
-			for (ItemStack stack : allItems) {
-				String registryId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-				Set<String> groupIds = itemReverseIndex.getOrDefault(registryId, Set.of());
-				List<String> names = new ArrayList<>();
-				for (String groupId : groupIds) {
-					String name = groupNames.get(groupId);
-					if (name != null) names.add(name);
-				}
-				if (!names.isEmpty()) otherItemGroupsCache.put(stack, names);
-			}
-		} else {
-			List<GroupDefinition> others = GroupRegistry.getAllIncludingKubeJs().stream()
-				.filter(group -> !group.id().equals(state.editId) && group.enabled())
-				.toList();
-			for (GroupDefinition other : others) {
-				String name = displayName(other.id(), other.name());
-				for (ItemStack stack : allItems) {
-					if (other.matchesIgnoringEnabled(stack)) {
-						otherItemGroupsCache.computeIfAbsent(stack, k -> new ArrayList<>()).add(name);
-					}
-				}
-			}
-		}
+		otherItemGroupsCache.putAll(EditorGroupOwnershipHelper.buildItemOwnership(
+			allItems, groupNames, others, itemReverseIndex));
 
 		Map<String, Set<String>> fluidReverseIndex = GroupRegistry.getFluidIdToGroupIds();
 		if (fluidReverseIndex != null) {
@@ -125,11 +99,8 @@ final class EditorLeftPanel {
 				if (!names.isEmpty()) otherFluidGroupsCache.put(fluid, names);
 			}
 		} else {
-			List<GroupDefinition> others = GroupRegistry.getAllIncludingKubeJs().stream()
-				.filter(group -> !group.id().equals(state.editId) && group.enabled())
-				.toList();
 			for (GroupDefinition other : others) {
-				String name = displayName(other.id(), other.name());
+				String name = EditorGroupOwnershipHelper.displayName(other);
 				for (FluidStack fluid : allFluids) {
 					if (GroupMatcher.matchesFluid(other, fluid)) {
 						otherFluidGroupsCache.computeIfAbsent(fluid, k -> new ArrayList<>()).add(name);
@@ -144,7 +115,7 @@ final class EditorLeftPanel {
 	}
 
 	void rebuildFilter(String rawQuery) {
-		String q = rawQuery == null ? "" : rawQuery.toLowerCase(Locale.ROOT);
+		String q = EditorItemSearchHelper.normalizeQuery(rawQuery);
 		scrollRow = 0;
 		if (isShowingFluids()) {
 			rebuildFluidFilter(q);
@@ -154,13 +125,8 @@ final class EditorLeftPanel {
 	}
 
 	private void rebuildItemFilter(String q) {
-		List<ItemStack> result = new ArrayList<>();
-		for (int i = 0; i < allItems.size(); i++) {
-			ItemStack stack = allItems.get(i);
-			if (hideUsed && !otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty()) continue;
-			if (q.isBlank() || allItemsSearchKeys.get(i).contains(q)) result.add(stack);
-		}
-		filteredItems = result;
+		filteredItems = EditorItemSearchHelper.filterItems(allItems, allItemsSearchKeys,
+			otherItemGroupsCache, hideUsed, q);
 	}
 
 	private void rebuildFluidFilter(String q) {
@@ -428,16 +394,7 @@ final class EditorLeftPanel {
 	}
 
 	private void buildSearchKeys() {
-		allItemsSearchKeys = new ArrayList<>(allItems.size());
-		for (ItemStack stack : allItems) {
-			String name = stack.getHoverName().getString().toLowerCase(Locale.ROOT);
-			String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString().toLowerCase(Locale.ROOT);
-			allItemsSearchKeys.add(name + "|" + id);
-		}
-	}
-
-	private static String displayName(String id, String name) {
-		return (name != null && !name.isBlank()) ? name : id;
+		allItemsSearchKeys = EditorItemSearchHelper.buildSearchKeys(allItems);
 	}
 
 	private static String fluidId(FluidStack fluid) {

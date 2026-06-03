@@ -8,18 +8,15 @@ import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
 import com.starskyxiii.collapsible_groups.core.GroupFilterSummaryFormatter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterValidator;
 import com.starskyxiii.collapsible_groups.core.Filters;
-import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * Holds all mutable edit state for {@link GroupEditorScreen}.
@@ -29,7 +26,7 @@ import java.util.stream.Collectors;
  * Rules tab and persistence. Groups containing generic/custom draft nodes keep contents
  * quick-edit readonly until the Fabric editor gains those source tabs.
  */
-final class GroupEditorState {
+final class GroupEditorState implements EditorRulesState {
 	private static final GroupFilter EMPTY_PREVIEW_FILTER = Filters.itemTag("minecraft:__cg_preview_empty__");
 
 	String editId;
@@ -41,12 +38,12 @@ final class GroupEditorState {
 	final Set<String> explicitSet;
 	final List<String> editFluidIds;
 	final List<String> editFluidTags;
+	final EditorItemSelectionHelper itemSelection;
 
 	final GroupFilterRuleDraft ruleDraft;
 	private GroupFilterRuleDraft.Node selectedRuleNode;
 	private boolean contentsQuickEditAvailable;
 
-	private final IdentityHashMap<ItemStack, Optional<String>> exactSelectorCache = new IdentityHashMap<>();
 	private final GroupDefinition existingDefinition;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
 
@@ -70,6 +67,7 @@ final class GroupEditorState {
 		this.explicitSet = draft.explicitItemSelectors();
 		this.editFluidIds = draft.fluidIds();
 		this.editFluidTags = draft.fluidTags();
+		this.itemSelection = new EditorItemSelectionHelper(explicitSet, this::syncRulesFromContentsDraft);
 
 		refreshContentsDraftFromRules();
 		buildCurrentFilter()
@@ -78,7 +76,7 @@ final class GroupEditorState {
 	}
 
 	Optional<String> cachedExactSelector(ItemStack stack) {
-		return exactSelectorCache.computeIfAbsent(stack, GroupItemSelector::tryExactSelector);
+		return itemSelection.cachedExactSelector(stack);
 	}
 
 	Optional<GroupFilter> buildCurrentFilter() {
@@ -117,75 +115,27 @@ final class GroupEditorState {
 	}
 
 	boolean isWholeItemSelected(ItemStack stack) {
-		return explicitSet.contains(GroupItemSelector.wholeItemSelector(stack));
+		return itemSelection.isWholeItemSelected(stack);
 	}
 
 	boolean isExactSelected(ItemStack stack) {
-		return cachedExactSelector(stack).map(explicitSet::contains).orElse(false);
+		return itemSelection.isExactSelected(stack);
 	}
 
 	void toggleSingleSelection(ItemStack stack) {
-		String exactSelector = GroupItemSelector.exactSelector(stack);
-		if (explicitSet.remove(exactSelector)) {
-			syncRulesFromContentsDraft();
-			return;
-		}
-		explicitSet.remove(GroupItemSelector.wholeItemSelector(stack));
-		explicitSet.add(exactSelector);
-		syncRulesFromContentsDraft();
+		itemSelection.toggleSingleSelection(stack);
 	}
 
 	void toggleWholeItemSelection(ItemStack stack) {
-		String wholeItemSelector = GroupItemSelector.wholeItemSelector(stack);
-		if (explicitSet.remove(wholeItemSelector)) {
-			syncRulesFromContentsDraft();
-			return;
-		}
-		removeExactSelectionsForItem(stack);
-		explicitSet.add(wholeItemSelector);
-		syncRulesFromContentsDraft();
+		itemSelection.toggleWholeItemSelection(stack);
 	}
 
 	void removeSingleSelection(ItemStack stack, List<ItemStack> allItems) {
-		String exactSelector = GroupItemSelector.exactSelector(stack);
-		if (explicitSet.remove(exactSelector)) {
-			syncRulesFromContentsDraft();
-			return;
-		}
-		String wholeItemSelector = GroupItemSelector.wholeItemSelector(stack);
-		if (explicitSet.remove(wholeItemSelector)) {
-			addAllSiblingVariantsExcept(stack, allItems);
-			syncRulesFromContentsDraft();
-		}
+		itemSelection.removeSingleSelection(stack, allItems);
 	}
 
 	void removeAllSelectionsForItem(ItemStack stack) {
-		Set<String> selectors = explicitSet.stream()
-			.filter(selector -> GroupItemSelector.isSelectorForSameItem(selector, stack))
-			.collect(Collectors.toSet());
-		explicitSet.removeAll(selectors);
-		syncRulesFromContentsDraft();
-	}
-
-	private void removeExactSelectionsForItem(ItemStack stack) {
-		Set<String> selectors = explicitSet.stream()
-			.filter(GroupItemSelector::isExactSelector)
-			.filter(selector -> GroupItemSelector.isSelectorForSameItem(selector, stack))
-			.collect(Collectors.toSet());
-		explicitSet.removeAll(selectors);
-	}
-
-	private void addAllSiblingVariantsExcept(ItemStack excludedStack, List<ItemStack> allItems) {
-		String excludedSelector = GroupItemSelector.exactSelector(excludedStack);
-		for (ItemStack candidate : allItems) {
-			if (GroupItemSelector.sameItem(candidate, excludedStack)) {
-				cachedExactSelector(candidate).ifPresent(selector -> {
-					if (!selector.equals(excludedSelector)) {
-						explicitSet.add(selector);
-					}
-				});
-			}
-		}
+		itemSelection.removeAllSelectionsForItem(stack);
 	}
 
 	void syncEditItems() {
@@ -259,7 +209,8 @@ final class GroupEditorState {
 		return List.of();
 	}
 
-	String filterSummary() {
+	@Override
+	public String filterSummary() {
 		GroupFilter filter = buildCurrentFilter().orElse(null);
 		if (filter == null) return Component.translatable(ModTranslationKeys.EDITOR_RULES_NO_FILTER).getString();
 		return GroupFilterSummaryFormatter.format(filter);
@@ -269,37 +220,45 @@ final class GroupEditorState {
 		return Component.translatable(ModTranslationKeys.EDITOR_PREVIEW_NOTE).getString();
 	}
 
-	List<GroupFilterRuleDraft.FlatNode> flattenedRuleNodes() {
+	@Override
+	public List<GroupFilterRuleDraft.FlatNode> flattenedRuleNodes() {
 		return ruleDraft.flatten();
 	}
 
-	GroupFilterRuleDraft.Node selectedRuleNode() {
+	@Override
+	public GroupFilterRuleDraft.Node selectedRuleNode() {
 		return selectedRuleNode;
 	}
 
-	void selectRuleNode(GroupFilterRuleDraft.Node node) {
+	@Override
+	public void selectRuleNode(GroupFilterRuleDraft.Node node) {
 		selectedRuleNode = node;
 	}
 
-	void ensureRuleSelection() {
+	@Override
+	public void ensureRuleSelection() {
 		if (selectedRuleNode == null) {
 			selectedRuleNode = ruleDraft.root();
 		}
 	}
 
-	boolean canInsertRuleRelative() {
+	@Override
+	public boolean canInsertRuleRelative() {
 		return ruleDraft.canInsertRelativeTo(selectedRuleNode);
 	}
 
-	boolean canWrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
+	@Override
+	public boolean canWrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
 		return ruleDraft.canWrap(selectedRuleNode, kind);
 	}
 
-	boolean canDeleteSelectedRule() {
+	@Override
+	public boolean canDeleteSelectedRule() {
 		return selectedRuleNode != null;
 	}
 
-	GroupFilterRuleDraft.Node insertRuleRelative(GroupFilterRuleDraft.NodeKind kind) {
+	@Override
+	public GroupFilterRuleDraft.Node insertRuleRelative(GroupFilterRuleDraft.NodeKind kind) {
 		GroupFilterRuleDraft.Node node = ruleDraft.insertRelativeTo(selectedRuleNode, kind);
 		if (node != null) {
 			selectedRuleNode = node;
@@ -308,7 +267,8 @@ final class GroupEditorState {
 		return node;
 	}
 
-	GroupFilterRuleDraft.Node wrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
+	@Override
+	public GroupFilterRuleDraft.Node wrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
 		if (selectedRuleNode == null) {
 			return null;
 		}
@@ -320,7 +280,8 @@ final class GroupEditorState {
 		return node;
 	}
 
-	void deleteSelectedRule() {
+	@Override
+	public void deleteSelectedRule() {
 		if (selectedRuleNode == null) {
 			return;
 		}
@@ -331,11 +292,13 @@ final class GroupEditorState {
 		refreshContentsDraftFromRules();
 	}
 
-	void markRulesChanged() {
+	@Override
+	public void markRulesChanged() {
 		refreshContentsDraftFromRules();
 	}
 
-	List<Component> currentValidationErrors() {
+	@Override
+	public List<Component> currentValidationErrors() {
 		return buildCurrentFilter()
 			.map(GroupFilterValidator::validateComponents)
 			.orElse(List.of());
