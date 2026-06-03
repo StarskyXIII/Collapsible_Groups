@@ -2,6 +2,8 @@ package com.starskyxiii.collapsible_groups.platform.services;
 
 import com.starskyxiii.collapsible_groups.core.IngredientView;
 import mezz.jei.api.ingredients.IIngredientType;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
 
 import java.nio.file.Path;
 
@@ -39,6 +41,20 @@ public interface IPlatformHelper {
      */
     default String getFluidId(Object fluidStack) {
         throw new UnsupportedOperationException("getFluidId not implemented for " + getPlatformName());
+    }
+
+    /**
+     * Returns the display name used for a loader-specific fluid ingredient in editor search and tooltips.
+     */
+    default Component getFluidDisplayName(Object fluidStack) {
+        return Component.literal(getFluidId(fluidStack));
+    }
+
+    /**
+     * Returns a bucket item fallback for rendering when JEI runtime rendering is unavailable.
+     */
+    default ItemStack getFluidFallbackBucket(Object fluidStack) {
+        return ItemStack.EMPTY;
     }
 
     /**

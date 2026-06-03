@@ -5,7 +5,6 @@ import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -36,12 +35,12 @@ final class GroupEditorTooltipHelper {
 			return;
 		}
 		if (left.hoveredFluid >= 0 && left.hoveredFluid < left.filteredFluids().size()) {
-			FluidStack fluid = left.filteredFluids().get(left.hoveredFluid);
-			List<Component> lines = buildFluidLines(fluid);
+			EditorFluidIngredientView fluid = left.filteredFluids().get(left.hoveredFluid);
+			List<Component> lines = EditorFluidIngredientHelper.tooltipLines(fluid);
 			appendOtherGroups(lines, left.otherGroupsForFluid(fluid));
 			if (!state.canEditContents()) {
 				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
-			} else if (state.isFluidSelected(fluid)) {
+			} else if (state.isFluidSelected(fluidIngredient(fluid))) {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE_FLUIDS));
 			} else {
@@ -87,10 +86,10 @@ final class GroupEditorTooltipHelper {
 			return;
 		}
 		if (right.hoveredFluid >= 0 && right.hoveredFluid < right.groupFluids().size()) {
-			FluidStack fluid = (FluidStack) right.groupFluids().get(right.hoveredFluid);
-			List<Component> lines = buildFluidLines(fluid);
+			EditorFluidIngredientView fluid = right.groupFluids().get(right.hoveredFluid);
+			List<Component> lines = EditorFluidIngredientHelper.tooltipLines(fluid);
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
-			else if (state.isFluidSelected(fluid)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
+			else if (state.isFluidSelected(fluidIngredient(fluid))) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 			return;
@@ -138,15 +137,11 @@ final class GroupEditorTooltipHelper {
 			lines.add(Component.translatable(ModTranslationKeys.EDITOR_MORE_GROUPS, groups.size() - limit).withStyle(ChatFormatting.DARK_GRAY));
 	}
 
-	private static List<Component> buildFluidLines(FluidStack fluid) {
-		List<Component> lines = new ArrayList<>();
-		lines.add(fluid.getDisplayName());
-		lines.add(Component.literal(BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString())
-			.withStyle(ChatFormatting.DARK_GRAY));
-		return lines;
-	}
-
 	private static Component hint(String key)  { return Component.translatable(key).withStyle(ChatFormatting.GRAY,      ChatFormatting.ITALIC); }
 	private static Component hint2(String key) { return Component.translatable(key).withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC); }
 	private static Component dim(String key)   { return Component.translatable(key).withStyle(ChatFormatting.DARK_GRAY); }
+
+	private static FluidStack fluidIngredient(EditorFluidIngredientView fluid) {
+		return (FluidStack) fluid.ingredient();
+	}
 }

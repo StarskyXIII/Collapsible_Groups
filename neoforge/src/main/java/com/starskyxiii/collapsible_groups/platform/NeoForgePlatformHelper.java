@@ -6,8 +6,11 @@ import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.neoforge.NeoForgeTypes;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.neoforged.fml.ModList;
 import net.neoforged.fml.loading.FMLLoader;
 import net.neoforged.fml.loading.FMLPaths;
@@ -43,6 +46,17 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
     @Override
     public String getFluidId(Object fluidStack) {
         return BuiltInRegistries.FLUID.getKey(((FluidStack) fluidStack).getFluid()).toString();
+    }
+
+    @Override
+    public Component getFluidDisplayName(Object fluidStack) {
+        return ((FluidStack) fluidStack).getHoverName();
+    }
+
+    @Override
+    public ItemStack getFluidFallbackBucket(Object fluidStack) {
+        var bucketItem = ((FluidStack) fluidStack).getFluid().getBucket();
+        return bucketItem == Items.AIR ? ItemStack.EMPTY : new ItemStack(bucketItem);
     }
 
     @Override

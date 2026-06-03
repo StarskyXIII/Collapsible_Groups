@@ -2,7 +2,6 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
@@ -10,16 +9,13 @@ import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -38,8 +34,8 @@ final class EditorLeftPanel {
 
 	private List<ItemStack> allItems             = List.of();
 	private List<ItemStack> filteredItems        = List.of();
-	private List<FluidStack> allFluids           = List.of();
-	private List<FluidStack> filteredFluids      = List.of();
+	private List<EditorFluidIngredientView> allFluids      = List.of();
+	private List<EditorFluidIngredientView> filteredFluids = List.of();
 	private List<GenericIngredientView> allGenericIngredients      = List.of();
 	private List<GenericIngredientView> filteredGenericIngredients = List.of();
 
@@ -49,7 +45,7 @@ final class EditorLeftPanel {
 
 	private List<String> allItemsSearchKeys = List.of();
 	private final Map<ItemStack, List<String>>             otherItemGroupsCache    = new IdentityHashMap<>();
-	private final Map<FluidStack, List<String>>            otherFluidGroupsCache   = new IdentityHashMap<>();
+	private final Map<EditorFluidIngredientView, List<String>> otherFluidGroupsCache = new IdentityHashMap<>();
 	private final Map<GenericIngredientView, List<String>> otherGenericGroupsCache = new IdentityHashMap<>();
 
 	// -----------------------------------------------------------------------
@@ -109,7 +105,7 @@ final class EditorLeftPanel {
 	          List<FluidStack> allFluids,
 	          List<GenericIngredientRef> allGenericRefs) {
 		this.allItems  = allItems;
-		this.allFluids = allFluids;
+		this.allFluids = EditorFluidIngredientHelper.buildViews(allFluids, "EditorLeftPanel.buildFluidViews");
 		this.allGenericIngredients = EditorGenericIngredientHelper.buildViews(allGenericRefs,
 			"EditorLeftPanel.buildGenericViews");
 		buildSearchKeys();
@@ -134,25 +130,8 @@ final class EditorLeftPanel {
 
 		// Fluids: reverse index O(fluids)
 		Map<String, Set<String>> fluidReverseIndex = GroupRegistry.getFluidIdToGroupIds();
-		if (fluidReverseIndex != null) {
-			for (FluidStack fluid : allFluids) {
-				String registryId = BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
-				Set<String> groupIds = fluidReverseIndex.getOrDefault(registryId, Set.of());
-				List<String> names = new ArrayList<>();
-				for (String gid : groupIds) {
-					String name = groupNames.get(gid);
-					if (name != null) names.add(name);
-				}
-				if (!names.isEmpty()) otherFluidGroupsCache.put(fluid, names);
-			}
-		} else {
-			for (GroupDefinition other : others) {
-				String name = EditorGroupOwnershipHelper.displayName(other);
-				for (FluidStack fluid : allFluids)
-					if (GroupMatcher.matchesFluid(other, fluid))
-						otherFluidGroupsCache.computeIfAbsent(fluid, k -> new ArrayList<>()).add(name);
-			}
-		}
+		otherFluidGroupsCache.putAll(EditorFluidIngredientHelper.buildOwnership(
+			allFluids, groupNames, others, fluidReverseIndex));
 
 		otherGenericGroupsCache.putAll(EditorGenericIngredientHelper.buildOwnership(
 			allGenericIngredients, others));
@@ -184,13 +163,7 @@ final class EditorLeftPanel {
 	}
 
 	private void rebuildFluidFilter(String q) {
-		filteredFluids = allFluids.stream().filter(fs -> {
-			if (hideUsed && !otherFluidGroupsCache.getOrDefault(fs, List.of()).isEmpty()) return false;
-			if (q.isBlank()) return true;
-			String name = fs.getHoverName().getString().toLowerCase(Locale.ROOT);
-			String id   = BuiltInRegistries.FLUID.getKey(fs.getFluid()).toString().toLowerCase(Locale.ROOT);
-			return name.contains(q) || id.contains(q);
-		}).toList();
+		filteredFluids = EditorFluidIngredientHelper.filterViews(allFluids, otherFluidGroupsCache, hideUsed, q);
 	}
 
 	private void rebuildGenericFilter(String q) {
@@ -232,8 +205,8 @@ final class EditorLeftPanel {
 
 	private void renderCell(GuiGraphics g, Object entry, int x, int y, int idx) {
 		if (isShowingFluids()) {
-			FluidStack fluid = (FluidStack) entry;
-			if (state.isFluidSelected(fluid))                  g.fill(x, y, x+16, y+16, 0x4455BB77);
+			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
+			if (state.isFluidSelected(fluidIngredient(fluid))) g.fill(x, y, x+16, y+16, 0x4455BB77);
 			else if (!otherFluidGroupsCache.getOrDefault(fluid, List.of()).isEmpty()) g.fill(x, y, x+16, y+16, 0x33CC8844);
 			IngredientCellRenderer.renderFluid(g, fluid, x, y);
 		} else if (isShowingGeneric()) {
@@ -308,9 +281,9 @@ final class EditorLeftPanel {
 			return;
 		}
 		if (isShowingFluids()) {
-			FluidStack fluid = (FluidStack) entry;
-			boolean was = state.isFluidSelected(fluid);
-			state.toggleFluidSelection(fluid);
+			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
+			boolean was = state.isFluidSelected(fluidIngredient(fluid));
+			state.toggleFluidSelection(fluidIngredient(fluid));
 			onChange.run();
 			startDrag(was ? DragGesture.FLUID_REMOVE : DragGesture.FLUID_ADD, dragFluidKey(fluid));
 		} else if (isShowingGeneric()) {
@@ -403,18 +376,18 @@ final class EditorLeftPanel {
 				}
 			}
 			case FLUID_ADD -> {
-				FluidStack fluid = (FluidStack) entry;
+				EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
 				String key = dragFluidKey(fluid);
-				if (dragVisited.add(key) && !state.isFluidSelected(fluid)) {
+				if (dragVisited.add(key) && !state.isFluidSelected(fluidIngredient(fluid))) {
 					state.addFluidId(key);
 					onChange.run();
 				}
 			}
 			case FLUID_REMOVE -> {
-				FluidStack fluid = (FluidStack) entry;
+				EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
 				String key = dragFluidKey(fluid);
-				if (dragVisited.add(key) && state.isFluidSelected(fluid)) {
-					state.removeFluidSelection(fluid);
+				if (dragVisited.add(key) && state.isFluidSelected(fluidIngredient(fluid))) {
+					state.removeFluidSelection(fluidIngredient(fluid));
 					onChange.run();
 				}
 			}
@@ -500,11 +473,11 @@ final class EditorLeftPanel {
 	// -----------------------------------------------------------------------
 
 	List<String> otherGroupsForItem(ItemStack s)         { return otherItemGroupsCache.getOrDefault(s, List.of()); }
-	List<String> otherGroupsForFluid(FluidStack f)       { return otherFluidGroupsCache.getOrDefault(f, List.of()); }
+	List<String> otherGroupsForFluid(EditorFluidIngredientView f) { return otherFluidGroupsCache.getOrDefault(f, List.of()); }
 	List<String> otherGroupsForGeneric(GenericIngredientView e) { return otherGenericGroupsCache.getOrDefault(e, List.of()); }
 
 	List<ItemStack> filteredItems()              { return filteredItems; }
-	List<FluidStack> filteredFluids()            { return filteredFluids; }
+	List<EditorFluidIngredientView> filteredFluids() { return filteredFluids; }
 	List<GenericIngredientView> filteredGeneric(){ return filteredGenericIngredients; }
 	List<ItemStack> allItems()                   { return allItems; }
 
@@ -531,6 +504,10 @@ final class EditorLeftPanel {
 	private String dragRemoveKey(ItemStack s) {
 		return GroupItemSelector.wholeItemSelector(s) + "|" + state.cachedExactSelector(s).orElse("?");
 	}
-	private String dragFluidKey(FluidStack f)       { return BuiltInRegistries.FLUID.getKey(f.getFluid()).toString(); }
+	private String dragFluidKey(EditorFluidIngredientView f) { return EditorFluidIngredientHelper.dragKey(f); }
 	private String dragGenericKey(GenericIngredientView e) { return EditorGenericIngredientHelper.dragKey(e); }
+
+	private static FluidStack fluidIngredient(EditorFluidIngredientView fluid) {
+		return (FluidStack) fluid.ingredient();
+	}
 }

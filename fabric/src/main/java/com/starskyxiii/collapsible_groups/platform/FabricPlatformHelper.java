@@ -6,11 +6,15 @@ import mezz.jei.api.fabric.constants.FabricTypes;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import mezz.jei.api.ingredients.IIngredientType;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
+import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import net.minecraft.world.level.material.Fluid;
 
 import java.nio.file.Path;
@@ -41,6 +45,19 @@ public class FabricPlatformHelper implements IPlatformHelper {
     public String getFluidId(Object fluidStack) {
         IJeiFluidIngredient ingredient = (IJeiFluidIngredient) fluidStack;
         return BuiltInRegistries.FLUID.getKey(ingredient.getFluidVariant().getFluid()).toString();
+    }
+
+    @Override
+    public Component getFluidDisplayName(Object fluidStack) {
+        IJeiFluidIngredient ingredient = (IJeiFluidIngredient) fluidStack;
+        return FluidVariantAttributes.getName(ingredient.getFluidVariant());
+    }
+
+    @Override
+    public ItemStack getFluidFallbackBucket(Object fluidStack) {
+        IJeiFluidIngredient ingredient = (IJeiFluidIngredient) fluidStack;
+        var bucketItem = ingredient.getFluidVariant().getFluid().getBucket();
+        return bucketItem == Items.AIR ? ItemStack.EMPTY : new ItemStack(bucketItem);
     }
 
     @Override

@@ -27,7 +27,7 @@ final class EditorRightPanel {
 	// -----------------------------------------------------------------------
 
 	private List<ItemStack>            groupItems             = List.of();
-	private List<Object>               groupFluids            = List.of();
+	private List<EditorFluidIngredientView> groupFluids       = List.of();
 	private List<GenericIngredientView> groupGenericIngredients = List.of();
 
 	// -----------------------------------------------------------------------
@@ -75,7 +75,8 @@ final class EditorRightPanel {
 			// captures the full filter tree.
 			groupItems = GroupRegistry.resolveItems(temp);
 		}
-		groupFluids = GroupRegistry.resolveFluids(temp);
+		groupFluids = EditorFluidIngredientHelper.buildViews(
+			GroupRegistry.resolveFluids(temp), "EditorRightPanel.buildFluidViews");
 		groupGenericIngredients = EditorGenericIngredientHelper.buildViews(
 			GroupRegistry.resolveGenericIngredients(temp), "EditorRightPanel.buildGenericViews");
 		PerformanceTrace.logIfSlow("EditorRightPanel.rebuild", traceStart, 10,
@@ -104,13 +105,7 @@ final class EditorRightPanel {
 	// -----------------------------------------------------------------------
 
 	int totalRows(EditorLayout layout) {
-		int itemRows    = EditorLayout.totalRows(groupItems.size(),              layout.rightCols());
-		int fluidRows   = EditorLayout.totalRows(groupFluids.size(),             layout.rightCols());
-		int genericRows = EditorLayout.totalRows(groupGenericIngredients.size(), layout.rightCols());
-		int total = itemRows + fluidRows + genericRows;
-		if (itemRows > 0 && (fluidRows > 0 || genericRows > 0)) total++;
-		if (fluidRows > 0 && genericRows > 0) total++;
-		return total;
+		return sections(layout).totalRows();
 	}
 
 	private int maxScrollRow(EditorLayout layout) {
@@ -121,24 +116,21 @@ final class EditorRightPanel {
 		scrollRow = ScrollbarHelper.clamp(scrollRow, 0, maxScrollRow(layout));
 	}
 
+	private EditorPanelSections sections(EditorLayout layout) {
+		return EditorPanelSections.compute(
+			groupItems.size(),
+			groupFluids.size(),
+			groupGenericIngredients.size(),
+			layout.rightCols());
+	}
+
 	// -----------------------------------------------------------------------
 	// Render
 	// -----------------------------------------------------------------------
 
 	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
 		hoveredItem = hoveredFluid = hoveredGeneric = -1;
-
-		int itemRows    = EditorLayout.totalRows(groupItems.size(),              layout.rightCols());
-		int fluidRows   = EditorLayout.totalRows(groupFluids.size(),             layout.rightCols());
-		int genericRows = EditorLayout.totalRows(groupGenericIngredients.size(), layout.rightCols());
-
-		int fluidStartVRow = itemRows;
-		boolean hasSep1 = itemRows > 0 && (fluidRows > 0 || genericRows > 0);
-		if (hasSep1) fluidStartVRow++;
-
-		int genericStartVRow = fluidStartVRow + fluidRows;
-		boolean hasSep2 = fluidRows > 0 && genericRows > 0;
-		if (hasSep2) genericStartVRow++;
+		EditorPanelSections sections = sections(layout);
 
 		g.enableScissor(layout.rightGridX(), layout.gridTop(),
 			layout.rightGridX() + layout.rightGridWidth(), layout.gridTop() + layout.gridHeight());
@@ -147,20 +139,20 @@ final class EditorRightPanel {
 				int vRow = scrollRow + visRow;
 				int y    = layout.gridTop() + visRow * EditorLayout.ITEM_SIZE;
 
-				if (vRow < itemRows) {
+				if (sections.isItemRow(vRow)) {
 					renderItemRow(g, mouseX, mouseY, layout, vRow, y);
-				} else if (hasSep1 && vRow == itemRows) {
+				} else if (sections.isItemSeparatorRow(vRow)) {
 					g.fill(layout.rightGridX(), y + EditorLayout.ITEM_SIZE / 2,
 						layout.rightGridX() + layout.rightCols() * EditorLayout.ITEM_SIZE,
 						y + EditorLayout.ITEM_SIZE / 2 + 1, 0x33667799);
-				} else if (fluidRows > 0 && vRow >= fluidStartVRow && vRow < fluidStartVRow + fluidRows) {
-					renderFluidRow(g, mouseX, mouseY, layout, vRow - fluidStartVRow, y);
-				} else if (hasSep2 && vRow == fluidStartVRow + fluidRows) {
+				} else if (sections.isFluidRow(vRow)) {
+					renderFluidRow(g, mouseX, mouseY, layout, sections.fluidRow(vRow), y);
+				} else if (sections.isFluidSeparatorRow(vRow)) {
 					g.fill(layout.rightGridX(), y + EditorLayout.ITEM_SIZE / 2,
 						layout.rightGridX() + layout.rightCols() * EditorLayout.ITEM_SIZE,
 						y + EditorLayout.ITEM_SIZE / 2 + 1, 0x33667799);
-				} else if (genericRows > 0 && vRow >= genericStartVRow && vRow < genericStartVRow + genericRows) {
-					renderGenericRow(g, mouseX, mouseY, layout, vRow - genericStartVRow, y);
+				} else if (sections.isGenericRow(vRow)) {
+					renderGenericRow(g, mouseX, mouseY, layout, sections.genericRow(vRow), y);
 				}
 			}
 		} finally {
@@ -169,54 +161,45 @@ final class EditorRightPanel {
 	}
 
 	private void renderItemRow(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
-		int rowStart = row * layout.rightCols();
-		for (int col = 0; col < layout.rightCols() && rowStart + col < groupItems.size(); col++) {
-			ItemStack stack = groupItems.get(rowStart + col);
-			int idx = rowStart + col;
-			int x   = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
+		EditorGridTraversal.forRowCells(groupItems.size(), row, layout.rightCols(), layout.rightGridX(), y, (idx, x, cellY) -> {
+			ItemStack stack = groupItems.get(idx);
 			boolean isExact = state.isExactSelected(stack);
 			boolean isWhole = state.isWholeItemSelected(stack);
 			boolean explicit = isExact || isWhole;
-			if (!explicit) g.fill(x, y, x+16, y+16, 0x332266BB);
-			else if (isWhole) g.fill(x, y, x+16, y+16, 0x2855BB77);
-			g.renderItem(stack, x, y);
-			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
+			if (!explicit) g.fill(x, cellY, x+16, cellY+16, 0x332266BB);
+			else if (isWhole) g.fill(x, cellY, x+16, cellY+16, 0x2855BB77);
+			g.renderItem(stack, x, cellY);
+			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredItem = idx;
-				g.fill(x, y, x+16, y+16, explicit ? 0x28FF5555 : 0x1CFFFFFF);
+				g.fill(x, cellY, x+16, cellY+16, explicit ? 0x28FF5555 : 0x1CFFFFFF);
 			}
-		}
+		});
 	}
 
 	private void renderFluidRow(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
-		int rowStart = row * layout.rightCols();
-		for (int col = 0; col < layout.rightCols() && rowStart + col < groupFluids.size(); col++) {
-			FluidStack fluid = (FluidStack) groupFluids.get(rowStart + col);
-			int idx = rowStart + col;
-			int x   = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
-			boolean selected = state.isFluidSelected(fluid);
-			g.fill(x, y, x+16, y+16, selected ? 0x2855BB77 : 0x332266BB);
-			IngredientCellRenderer.renderFluid(g, fluid, x, y);
-			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
+		EditorGridTraversal.forRowCells(groupFluids.size(), row, layout.rightCols(), layout.rightGridX(), y, (idx, x, cellY) -> {
+			EditorFluidIngredientView fluid = groupFluids.get(idx);
+			boolean selected = state.isFluidSelected(fluidIngredient(fluid));
+			g.fill(x, cellY, x+16, cellY+16, selected ? 0x2855BB77 : 0x332266BB);
+			IngredientCellRenderer.renderFluid(g, fluid, x, cellY);
+			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredFluid = idx;
-				g.fill(x, y, x+16, y+16, selected ? 0x28FF5555 : 0x1CFFFFFF);
+				g.fill(x, cellY, x+16, cellY+16, selected ? 0x28FF5555 : 0x1CFFFFFF);
 			}
-		}
+		});
 	}
 
 	private void renderGenericRow(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
-		int rowStart = row * layout.rightCols();
-		for (int col = 0; col < layout.rightCols() && rowStart + col < groupGenericIngredients.size(); col++) {
-			GenericIngredientView entry = groupGenericIngredients.get(rowStart + col);
-			int idx = rowStart + col;
-			int x   = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
+		EditorGridTraversal.forRowCells(groupGenericIngredients.size(), row, layout.rightCols(), layout.rightGridX(), y, (idx, x, cellY) -> {
+			GenericIngredientView entry = groupGenericIngredients.get(idx);
 			boolean selected = state.isGenericSelected(entry);
-			g.fill(x, y, x+16, y+16, selected ? 0x2855BB77 : 0x332266BB);
-			IngredientCellRenderer.renderGeneric(g, entry, x, y);
-			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
+			g.fill(x, cellY, x+16, cellY+16, selected ? 0x2855BB77 : 0x332266BB);
+			IngredientCellRenderer.renderGeneric(g, entry, x, cellY);
+			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredGeneric = idx;
-				g.fill(x, y, x+16, y+16, selected ? 0x28FF5555 : 0x1CFFFFFF);
+				g.fill(x, cellY, x+16, cellY+16, selected ? 0x28FF5555 : 0x1CFFFFFF);
 			}
-		}
+		});
 	}
 
 	// -----------------------------------------------------------------------
@@ -237,51 +220,38 @@ final class EditorRightPanel {
 		}
 		if (!layout.isInsideRight(mouseX, mouseY)) return false;
 
-		int itemRows    = EditorLayout.totalRows(groupItems.size(),              layout.rightCols());
-		int fluidRows   = EditorLayout.totalRows(groupFluids.size(),             layout.rightCols());
-		int genericRows = EditorLayout.totalRows(groupGenericIngredients.size(), layout.rightCols());
-
-		int fluidStartVRow = itemRows;
-		if (itemRows > 0 && (fluidRows > 0 || genericRows > 0)) fluidStartVRow++;
-		int genericStartVRow = fluidStartVRow + fluidRows;
-		if (fluidRows > 0 && genericRows > 0) genericStartVRow++;
+		EditorPanelSections sections = sections(layout);
 
 		for (int visRow = 0; visRow < layout.rightRows(); visRow++) {
 			int vRow = scrollRow + visRow;
 			int y    = layout.gridTop() + visRow * EditorLayout.ITEM_SIZE;
-			if (vRow < itemRows) {
-				int rowStart = vRow * layout.rightCols();
-				for (int col = 0; col < layout.rightCols() && rowStart + col < groupItems.size(); col++) {
-					int x = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
-					if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
-					if (!state.canEditContents()) return true;
-					ItemStack stack = groupItems.get(rowStart + col);
-					if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.removeAllSelectionsForItem(stack);
-					else state.removeSingleSelection(stack, allItems);
-					state.syncEditItems();
-					onChange.run();
-					return true;
-				}
-			} else if (fluidRows > 0 && vRow >= fluidStartVRow && vRow < fluidStartVRow + fluidRows) {
-				int rowStart = (vRow - fluidStartVRow) * layout.rightCols();
-				for (int col = 0; col < layout.rightCols() && rowStart + col < groupFluids.size(); col++) {
-					int x = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
-					if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
-					if (!state.canEditContents()) return true;
-					FluidStack fluid = (FluidStack) groupFluids.get(rowStart + col);
-					if (state.isFluidSelected(fluid)) { state.removeFluidSelection(fluid); onChange.run(); }
-					return true;
-				}
-			} else if (genericRows > 0 && vRow >= genericStartVRow && vRow < genericStartVRow + genericRows) {
-				int rowStart = (vRow - genericStartVRow) * layout.rightCols();
-				for (int col = 0; col < layout.rightCols() && rowStart + col < groupGenericIngredients.size(); col++) {
-					int x = layout.rightGridX() + col * EditorLayout.ITEM_SIZE;
-					if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
-					if (!state.canEditContents()) return true;
-					GenericIngredientView entry = groupGenericIngredients.get(rowStart + col);
-					if (state.isGenericSelected(entry)) { state.removeGenericSelection(entry); onChange.run(); }
-					return true;
-				}
+			if (sections.isItemRow(vRow)) {
+				int idx = EditorGridTraversal.findRowCellIndex(
+					groupItems.size(), vRow, layout.rightCols(), layout.rightGridX(), y, mouseX, mouseY);
+				if (idx < 0) continue;
+				if (!state.canEditContents()) return true;
+				ItemStack stack = groupItems.get(idx);
+				if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.removeAllSelectionsForItem(stack);
+				else state.removeSingleSelection(stack, allItems);
+				state.syncEditItems();
+				onChange.run();
+				return true;
+			} else if (sections.isFluidRow(vRow)) {
+				int idx = EditorGridTraversal.findRowCellIndex(
+					groupFluids.size(), sections.fluidRow(vRow), layout.rightCols(), layout.rightGridX(), y, mouseX, mouseY);
+				if (idx < 0) continue;
+				if (!state.canEditContents()) return true;
+				EditorFluidIngredientView fluid = groupFluids.get(idx);
+				if (state.isFluidSelected(fluidIngredient(fluid))) { state.removeFluidSelection(fluidIngredient(fluid)); onChange.run(); }
+				return true;
+			} else if (sections.isGenericRow(vRow)) {
+				int idx = EditorGridTraversal.findRowCellIndex(
+					groupGenericIngredients.size(), sections.genericRow(vRow), layout.rightCols(), layout.rightGridX(), y, mouseX, mouseY);
+				if (idx < 0) continue;
+				if (!state.canEditContents()) return true;
+				GenericIngredientView entry = groupGenericIngredients.get(idx);
+				if (state.isGenericSelected(entry)) { state.removeGenericSelection(entry); onChange.run(); }
+				return true;
 			}
 		}
 		return false;
@@ -311,12 +281,16 @@ final class EditorRightPanel {
 	// -----------------------------------------------------------------------
 
 	List<ItemStack>            groupItems()   { return groupItems; }
-	List<Object>               groupFluids()  { return groupFluids; }
+	List<EditorFluidIngredientView> groupFluids() { return groupFluids; }
 	List<GenericIngredientView> groupGeneric() { return groupGenericIngredients; }
 
 	String groupSummary() {
 		return Component.translatable(ModTranslationKeys.EDITOR_SUMMARY_ITEMS, groupItems.size()).getString()
 			+ ", " + Component.translatable(ModTranslationKeys.EDITOR_SUMMARY_FLUIDS, groupFluids.size()).getString()
 			+ ", " + Component.translatable(ModTranslationKeys.EDITOR_SUMMARY_GENERIC, groupGenericIngredients.size()).getString();
+	}
+
+	private static FluidStack fluidIngredient(EditorFluidIngredientView fluid) {
+		return (FluidStack) fluid.ingredient();
 	}
 }
