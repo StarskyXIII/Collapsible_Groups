@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.GroupUiState;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.editor.GroupEditorScreen;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewGridLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
@@ -282,21 +283,13 @@ public class GroupManagerScreen extends Screen {
 	}
 
 	private void renderPreviewEntries(GuiGraphics g, List<GroupPreviewEntry> entries, int previewX, int previewY, int rowOffset) {
-		int remaining  = entries.size() - (rowOffset + PREVIEW_ROWS) * PREVIEW_COLS;
-		int maxVisible = remaining > 0 ? PREVIEW_ROWS * PREVIEW_COLS - 1 : PREVIEW_ROWS * PREVIEW_COLS;
-		int idx = rowOffset * PREVIEW_COLS;
-		int rendered = 0;
-		for (int row = 0; row < PREVIEW_ROWS && idx < entries.size() && rendered < maxVisible; row++) {
-			for (int col = 0; col < PREVIEW_COLS && idx < entries.size() && rendered < maxVisible; col++) {
-				entries.get(idx).render(g, previewX + col * ITEM_SIZE, previewY + row * ITEM_SIZE);
-				idx++;
-				rendered++;
-			}
-		}
-		if (remaining > 0) {
-			int lastX = previewX + (PREVIEW_COLS - 1) * ITEM_SIZE;
-			int lastY = previewY + (PREVIEW_ROWS - 1) * ITEM_SIZE;
-			String more = "+" + (remaining + 1);
+		PreviewGridLayout layout = PreviewGridLayout.fixedColumns(entries.size(), PREVIEW_COLS, PREVIEW_ROWS, rowOffset);
+		layout.forEachCell((entryIndex, column, row) ->
+			entries.get(entryIndex).render(g, previewX + column * ITEM_SIZE, previewY + row * ITEM_SIZE));
+		if (layout.hasOverflow()) {
+			int lastX = previewX + layout.overflowColumn() * ITEM_SIZE;
+			int lastY = previewY + layout.overflowRow() * ITEM_SIZE;
+			String more = "+" + layout.overflowCount();
 			g.pose().pushPose(); g.pose().translate(0, 0, 200);
 			g.fill(lastX, lastY, lastX + ITEM_SIZE, lastY + ITEM_SIZE, 0x88000000);
 			g.drawString(font, more, lastX + (ITEM_SIZE - font.width(more)) / 2, lastY + (ITEM_SIZE - 8) / 2, 0xFFFFFF, false);
@@ -485,7 +478,9 @@ public class GroupManagerScreen extends Screen {
 	private int contentHeight()    { return this.height - HEADER_HEIGHT - FOOTER_HEIGHT - CARD_PADDING; }
 	private int totalCardRows()    { return filteredCards.isEmpty() ? 0 : (filteredCards.size() + cols - 1) / cols; }
 	private int maxScrollPixels()  { return Math.max(0, totalCardRows() * (CARD_HEIGHT + CARD_PADDING) - contentHeight()); }
-	private int totalRowsForCard(ItemCard card) { int c = card.previewEntries().size(); return c == 0 ? 0 : Math.max(1, (c + PREVIEW_COLS - 1) / PREVIEW_COLS); }
+	private int totalRowsForCard(ItemCard card) {
+		return PreviewGridLayout.totalRows(card.previewEntries().size(), PREVIEW_COLS);
+	}
 
 	private int[] cardPos(int index) {
 		int usedWidth = cols * CARD_WIDTH + Math.max(0, cols - 1) * CARD_PADDING;

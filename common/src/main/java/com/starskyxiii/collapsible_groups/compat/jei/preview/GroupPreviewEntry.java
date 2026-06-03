@@ -1,15 +1,10 @@
 package com.starskyxiii.collapsible_groups.compat.jei.preview;
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
-import mezz.jei.api.forge.ForgeTypes;
-import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
-import net.minecraftforge.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,11 +15,11 @@ import java.util.List;
  */
 public final class GroupPreviewEntry {
 	private final ItemStack item;
-	private final FluidStack fluid;
+	private final Object fluid;
 	private final IIngredientType<Object> genericType;
 	private final Object genericIngredient;
 
-	private GroupPreviewEntry(ItemStack item, FluidStack fluid, IIngredientType<Object> genericType, Object genericIngredient) {
+	private GroupPreviewEntry(ItemStack item, Object fluid, IIngredientType<Object> genericType, Object genericIngredient) {
 		this.item = item;
 		this.fluid = fluid;
 		this.genericType = genericType;
@@ -35,7 +30,7 @@ public final class GroupPreviewEntry {
 		return new GroupPreviewEntry(stack, null, null, null);
 	}
 
-	public static GroupPreviewEntry ofFluid(FluidStack stack) {
+	public static GroupPreviewEntry ofFluid(Object stack) {
 		return new GroupPreviewEntry(null, stack, null, null);
 	}
 
@@ -50,11 +45,11 @@ public final class GroupPreviewEntry {
 			return;
 		}
 		if (fluid != null) {
-			renderFluid(guiGraphics, fluid, x, y);
+			PreviewIngredientRenderer.renderFluid(guiGraphics, fluid, x, y);
 			return;
 		}
 		if (genericType != null && genericIngredient != null) {
-			renderGeneric(guiGraphics, genericType, genericIngredient, x, y);
+			PreviewIngredientRenderer.renderGeneric(guiGraphics, genericType, genericIngredient, x, y);
 		}
 	}
 
@@ -66,9 +61,7 @@ public final class GroupPreviewEntry {
 
 	public static List<GroupPreviewEntry> fromFluids(List<Object> fluids) {
 		List<GroupPreviewEntry> result = new ArrayList<>(fluids.size());
-		for (Object fluid : fluids) {
-			result.add(ofFluid((FluidStack) fluid));
-		}
+		for (Object fluid : fluids) result.add(ofFluid(fluid));
 		return List.copyOf(result);
 	}
 
@@ -84,12 +77,14 @@ public final class GroupPreviewEntry {
 	public static List<GroupPreviewEntry> fromTypedIngredients(List<ITypedIngredient<?>> typedIngredients) {
 		List<GroupPreviewEntry> result = new ArrayList<>(typedIngredients.size());
 		for (ITypedIngredient<?> typed : typedIngredients) {
-			if (typed.getItemStack().isPresent()) {
-				result.add(ofItem(typed.getItemStack().orElseThrow()));
+			var itemStack = typed.getItemStack();
+			if (itemStack.isPresent()) {
+				result.add(ofItem(itemStack.orElseThrow()));
 				continue;
 			}
-			if (typed.getIngredient(ForgeTypes.FLUID_STACK).isPresent()) {
-				result.add(ofFluid(typed.getIngredient(ForgeTypes.FLUID_STACK).orElseThrow()));
+			Object fluid = PreviewIngredientRenderer.getFluidIngredient(typed);
+			if (fluid != null) {
+				result.add(ofFluid(fluid));
 				continue;
 			}
 			result.add(ofGeneric((IIngredientType<Object>) typed.getType(), typed.getIngredient()));
@@ -107,32 +102,5 @@ public final class GroupPreviewEntry {
 		result.addAll(fromFluids(fluids));
 		result.addAll(fromGenericRefs(genericRefs));
 		return List.copyOf(result);
-	}
-
-	private static void renderFluid(GuiGraphics guiGraphics, FluidStack fluid, int x, int y) {
-		var runtime = JeiRuntimeHolder.get();
-		if (runtime != null) {
-			var renderer = runtime.getIngredientManager().getIngredientRenderer(ForgeTypes.FLUID_STACK);
-			guiGraphics.pose().pushPose();
-			guiGraphics.pose().translate(x, y, 0);
-			renderer.render(guiGraphics, fluid);
-			guiGraphics.pose().popPose();
-			return;
-		}
-
-		var bucket = fluid.getFluid().getBucket();
-		if (bucket != Items.AIR) {
-			guiGraphics.renderItem(new ItemStack(bucket), x, y);
-		}
-	}
-
-	private static void renderGeneric(GuiGraphics guiGraphics, IIngredientType<Object> type, Object ingredient, int x, int y) {
-		var runtime = JeiRuntimeHolder.get();
-		if (runtime == null) return;
-		IIngredientRenderer<Object> renderer = runtime.getIngredientManager().getIngredientRenderer(type);
-		guiGraphics.pose().pushPose();
-		guiGraphics.pose().translate(x, y, 0);
-		renderer.render(guiGraphics, ingredient);
-		guiGraphics.pose().popPose();
 	}
 }

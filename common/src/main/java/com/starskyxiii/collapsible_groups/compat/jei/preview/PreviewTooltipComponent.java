@@ -24,30 +24,24 @@ public record PreviewTooltipComponent(List<GroupPreviewEntry> entries) implement
 	private static final int INGREDIENT_PADDING = 1;
 	private static final int MAX_PER_LINE = 10;
 	private static final int MAX_LINES = 3;
-	private static final int MAX_INGREDIENTS = MAX_PER_LINE * MAX_LINES;
 
 	@Override
 	public int getHeight() {
-		return getLineCount() * INGREDIENT_SIZE + (2 * INGREDIENT_PADDING);
+		return layout().height(INGREDIENT_SIZE, INGREDIENT_PADDING);
 	}
 
 	@Override
 	public int getWidth(Font font) {
-		return getMaxPerLine() * INGREDIENT_SIZE + (2 * INGREDIENT_PADDING);
+		return layout().width(INGREDIENT_SIZE, INGREDIENT_PADDING);
 	}
 
 	@Override
 	public void renderImage(Font font, int x, int y, GuiGraphics guiGraphics) {
-		if (entries.size() <= MAX_INGREDIENTS) {
-			drawEntries(guiGraphics, x, y, entries.size());
-			return;
-		}
+		PreviewTooltipLayout layout = layout();
+		drawEntries(guiGraphics, x, y, layout);
+		if (!layout.hasOverflow()) return;
 
-		int drawCount = MAX_INGREDIENTS - 1;
-		drawEntries(guiGraphics, x, y, drawCount);
-
-		int remainingCount = Math.min(entries.size() - drawCount, 99);
-		String countString = "+" + remainingCount;
+		String countString = "+" + layout.overflowDisplayCount();
 		int textHeight = font.lineHeight - 1;
 		int textWidth = font.width(countString);
 		int textCenterX = x + (MAX_PER_LINE - 1) * INGREDIENT_SIZE + ((INGREDIENT_SIZE - textWidth) / 2);
@@ -55,28 +49,15 @@ public record PreviewTooltipComponent(List<GroupPreviewEntry> entries) implement
 		guiGraphics.drawString(font, countString, textCenterX, textCenterY, 0xAAAAAA, false);
 	}
 
-	private void drawEntries(GuiGraphics guiGraphics, int x, int y, int maxEntries) {
-		int maxPerLine = divideCeil(maxEntries, getLineCount());
-		for (int i = 0; i < entries.size() && i < maxEntries; i++) {
-			int column = i % maxPerLine;
-			int row = i / maxPerLine;
-			entries.get(i).render(
-				guiGraphics,
-				x + column * INGREDIENT_SIZE + INGREDIENT_PADDING,
-				y + row * INGREDIENT_SIZE + INGREDIENT_PADDING
-			);
+	private void drawEntries(GuiGraphics guiGraphics, int x, int y, PreviewTooltipLayout layout) {
+		for (int i = 0; i < entries.size() && i < layout.drawCount(); i++) {
+			entries.get(i).render(guiGraphics,
+				x + layout.column(i) * INGREDIENT_SIZE + INGREDIENT_PADDING,
+				y + layout.row(i) * INGREDIENT_SIZE + INGREDIENT_PADDING);
 		}
 	}
 
-	private int getLineCount() {
-		return Math.min(divideCeil(entries.size(), MAX_PER_LINE), MAX_LINES);
-	}
-
-	private int getMaxPerLine() {
-		return Math.min(divideCeil(entries.size(), getLineCount()), MAX_PER_LINE);
-	}
-
-	private static int divideCeil(int value, int divisor) {
-		return divisor <= 0 ? 0 : (value + divisor - 1) / divisor;
+	private PreviewTooltipLayout layout() {
+		return PreviewTooltipLayout.compute(entries.size(), MAX_PER_LINE, MAX_LINES);
 	}
 }

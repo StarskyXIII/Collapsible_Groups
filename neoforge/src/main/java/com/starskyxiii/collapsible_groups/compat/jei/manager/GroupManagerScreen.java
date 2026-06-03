@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.GroupUiState;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.editor.GroupEditorScreen;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewGridLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
@@ -426,26 +427,18 @@ public class GroupManagerScreen extends Screen {
 
 	private void renderPreviewEntries(GuiGraphics guiGraphics, List<GroupPreviewEntry> entries,
 	                                  int previewX, int previewY, int rowOffset) {
-		int remaining  = entries.size() - (rowOffset + PREVIEW_ROWS) * PREVIEW_COLS;
-		int maxVisible = remaining > 0 ? PREVIEW_ROWS * PREVIEW_COLS - 1 : PREVIEW_ROWS * PREVIEW_COLS;
-		int idx = rowOffset * PREVIEW_COLS;
-		int rendered = 0;
-		for (int row = 0; row < PREVIEW_ROWS && idx < entries.size() && rendered < maxVisible; row++) {
-			for (int col = 0; col < PREVIEW_COLS && idx < entries.size() && rendered < maxVisible; col++) {
-				entries.get(idx).render(guiGraphics, previewX + col * ITEM_SIZE, previewY + row * ITEM_SIZE);
-				idx++;
-				rendered++;
-			}
-		}
-		renderOverflowBadge(guiGraphics, remaining, previewX, previewY);
+		PreviewGridLayout layout = PreviewGridLayout.fixedColumns(entries.size(), PREVIEW_COLS, PREVIEW_ROWS, rowOffset);
+		layout.forEachCell((entryIndex, column, row) ->
+			entries.get(entryIndex).render(guiGraphics, previewX + column * ITEM_SIZE, previewY + row * ITEM_SIZE));
+		renderOverflowBadge(guiGraphics, layout, previewX, previewY);
 	}
 
 	/** Renders a "+N" badge in the last preview slot when there are more entries than visible. */
-	private void renderOverflowBadge(GuiGraphics guiGraphics, int remaining, int previewX, int previewY) {
-		if (remaining <= 0) return;
-		int lastX  = previewX + (PREVIEW_COLS - 1) * ITEM_SIZE;
-		int lastY  = previewY + (PREVIEW_ROWS - 1) * ITEM_SIZE;
-		String more = "+" + (remaining + 1);
+	private void renderOverflowBadge(GuiGraphics guiGraphics, PreviewGridLayout layout, int previewX, int previewY) {
+		if (!layout.hasOverflow()) return;
+		int lastX  = previewX + layout.overflowColumn() * ITEM_SIZE;
+		int lastY  = previewY + layout.overflowRow() * ITEM_SIZE;
+		String more = "+" + layout.overflowCount();
 		guiGraphics.pose().pushPose();
 		guiGraphics.pose().translate(0, 0, 200);
 		guiGraphics.fill(lastX, lastY, lastX + ITEM_SIZE, lastY + ITEM_SIZE, 0x88000000);
@@ -740,9 +733,7 @@ public class GroupManagerScreen extends Screen {
 	}
 
 	private int totalRowsForCard(AnyCard card) {
-		int count = card.previewEntries().size();
-		if (count == 0) return 0;
-		return Math.max(1, (count + PREVIEW_COLS - 1) / PREVIEW_COLS);
+		return PreviewGridLayout.totalRows(card.previewEntries().size(), PREVIEW_COLS);
 	}
 
 	@SuppressWarnings("unchecked")
