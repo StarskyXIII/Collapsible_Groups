@@ -38,6 +38,7 @@ final class GroupEditorState implements EditorRulesState {
 	final List<GroupFilterEditorDraft.GenericValue> editGenericIds;
 	final List<GroupFilterEditorDraft.GenericValue> editGenericTags;
 	final EditorItemSelectionHelper itemSelection;
+	final EditorFluidSelectionHelper fluidSelection;
 	final EditorGenericSelectionHelper genericSelection;
 
 	private final EditorStateCore core;
@@ -63,6 +64,7 @@ final class GroupEditorState implements EditorRulesState {
 		this.editGenericIds = draft.genericIds();
 		this.editGenericTags = draft.genericTags();
 		this.itemSelection = new EditorItemSelectionHelper(explicitSet, this::syncRulesFromContentsDraft);
+		this.fluidSelection = new EditorFluidSelectionHelper(editFluidIds, this::syncRulesFromContentsDraft);
 		this.genericSelection = new EditorGenericSelectionHelper(editGenericIds, editGenericTags,
 			this::syncRulesFromContentsDraft);
 
@@ -118,30 +120,19 @@ final class GroupEditorState implements EditorRulesState {
 	}
 
 	boolean isFluidSelected(FluidStack fluid) {
-		String id = net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
-		return editFluidIds.contains(id);
+		return fluidSelection.isSelected(fluid);
 	}
 
 	void toggleFluidSelection(FluidStack fluid) {
-		String id = net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
-		if (!editFluidIds.remove(id)) {
-			editFluidIds.add(id);
-		}
-		syncRulesFromContentsDraft();
+		fluidSelection.toggleSelection(fluid);
 	}
 
 	void addFluidId(String id) {
-		if (!editFluidIds.contains(id)) {
-			editFluidIds.add(id);
-			syncRulesFromContentsDraft();
-		}
+		fluidSelection.addId(id);
 	}
 
 	void removeFluidSelection(FluidStack fluid) {
-		String id = net.minecraft.core.registries.BuiltInRegistries.FLUID.getKey(fluid.getFluid()).toString();
-		if (editFluidIds.remove(id)) {
-			syncRulesFromContentsDraft();
-		}
+		fluidSelection.removeSelection(fluid);
 	}
 
 	boolean isGenericSelected(GenericIngredientView entry) {
