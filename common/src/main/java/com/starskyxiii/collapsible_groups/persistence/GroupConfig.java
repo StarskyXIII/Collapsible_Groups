@@ -81,7 +81,7 @@ public final class GroupConfig {
 
 	public static UiState loadUiState() {
 		Path file = getUiStateFile();
-		if (!Files.exists(file)) return new UiState(true, true, false);
+		if (!Files.exists(file)) return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT);
 		return readUiStateFile(file, "UI state");
 	}
 
@@ -92,14 +92,20 @@ public final class GroupConfig {
 			boolean showBuiltin = !obj.has("show_builtin") || obj.get("show_builtin").getAsBoolean();
 			boolean showKubeJs = !obj.has("show_kubejs") || obj.get("show_kubejs").getAsBoolean();
 			boolean hideUsed = obj.has("hide_used") && obj.get("hide_used").getAsBoolean();
-			return new UiState(showBuiltin, showKubeJs, hideUsed);
+			String managerSourceFilter = UiState.SOURCE_FILTER_DEFAULT;
+			if (obj.has("manager_source_filter")
+				&& obj.get("manager_source_filter").isJsonPrimitive()
+				&& obj.get("manager_source_filter").getAsJsonPrimitive().isString()) {
+				managerSourceFilter = obj.get("manager_source_filter").getAsString();
+			}
+			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter);
 		} catch (Exception e) {
 			Constants.LOG.warn("Failed to load {}, using defaults: {}", label, e.getMessage());
-			return new UiState(true, true, false);
+			return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT);
 		}
 	}
 
-	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed) {
+	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String managerSourceFilter) {
 		Path file = getUiStateFile();
 		try {
 			Files.createDirectories(file.getParent());
@@ -107,6 +113,7 @@ public final class GroupConfig {
 			obj.addProperty("show_builtin", showBuiltin);
 			obj.addProperty("show_kubejs", showKubeJs);
 			obj.addProperty("hide_used", hideUsed);
+			obj.addProperty("manager_source_filter", managerSourceFilter);
 			writeAtomically(file, GSON.toJson(obj));
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save UI state", e);
@@ -548,5 +555,7 @@ public final class GroupConfig {
 		GroupTheme theme
 	) {}
 
-	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed) {}
+	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String managerSourceFilter) {
+		public static final String SOURCE_FILTER_DEFAULT = "all";
+	}
 }

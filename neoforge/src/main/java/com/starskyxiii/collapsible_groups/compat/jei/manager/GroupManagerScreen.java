@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
  * All group types (item, fluid, generic) are represented uniformly as {@link AnyCard.ItemCard}.
  * User-editable groups show Toggle / Edit / Delete buttons; KubeJS and built-in groups show a read-only badge.
  */
-public class GroupManagerScreen extends Screen {
+public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int CARD_WIDTH    = 162;
 	private static final int CARD_HEIGHT   = 108;
 	private static final int CARD_PADDING  = 6;
@@ -775,5 +775,10 @@ public class GroupManagerScreen extends Screen {
 	public void onGroupSaved() {
 		rebuildCards();
 		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
+	}
+
+	@Override
+	public Screen asScreen() {
+		return this;
 	}
 }
