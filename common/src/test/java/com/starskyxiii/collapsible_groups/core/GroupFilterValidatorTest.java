@@ -43,4 +43,22 @@ class GroupFilterValidatorTest {
 		assertEquals("collapsible_groups.editor.rules.error.missing_value", contents.getKey());
 		assertEquals("item_path_contains", contents.getArgs()[0]);
 	}
+
+	@Test
+	void exactStackValidationAcceptsJsonPayloadWithoutDecodingRegistries() {
+		List<Component> errors = GroupFilterValidator.validateComponents(
+			new GroupFilter.ExactStack("{\"id\":\"minecraft:oak_boat\"}")
+		);
+
+		assertEquals(List.of(), errors);
+	}
+
+	@Test
+	void exactStackValidationRejectsNonJsonPayload() {
+		List<Component> errors = GroupFilterValidator.validateComponents(new GroupFilter.ExactStack("minecraft:oak_boat"));
+
+		assertEquals(1, errors.size());
+		TranslatableContents contents = assertInstanceOf(TranslatableContents.class, errors.getFirst().getContents());
+		assertEquals("collapsible_groups.editor.rules.error.exact_stack_invalid", contents.getKey());
+	}
 }

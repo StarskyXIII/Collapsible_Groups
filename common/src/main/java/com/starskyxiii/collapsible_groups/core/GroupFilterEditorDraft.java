@@ -179,7 +179,7 @@ public final class GroupFilterEditorDraft {
 		List<GroupFilter> nodes = new ArrayList<>();
 
 		for (String selector : explicitItemSelectors) {
-			if (GroupItemSelector.isExactSelector(selector)) {
+			if (selector.startsWith(STACK_PREFIX)) {
 				nodes.add(Filters.exactStack(selector.substring(STACK_PREFIX.length())));
 			} else {
 				nodes.add(Filters.itemId(selector));
