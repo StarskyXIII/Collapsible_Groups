@@ -98,6 +98,7 @@ public final class FabricConfig implements IConfigProvider {
 			&& isAnyMacawsSeriesLoaded();
 	}
 	@Override public boolean showManagerButton()                    { return data.ui.showManagerButton; }
+	@Override public boolean useOreUiManager()                     { return data.ui.useOreUiManager; }
 	@Override public boolean showGroupBackgrounds()                 { return data.ui.showGroupBackgrounds; }
 	@Override public int collapsedGroupBackgroundColor() {
 		return ColorConfigParser.parseArgb(data.ui.collapsedGroupBackgroundColor, UiData.COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
@@ -145,6 +146,7 @@ public final class FabricConfig implements IConfigProvider {
 		public static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
 
 		public boolean showManagerButton    = true;
+		public boolean useOreUiManager      = false;
 		public boolean showGroupBackgrounds = true;
 		public String collapsedGroupBackgroundColor = "#24FFFFFF";
 		public String expandedGroupBackgroundColor  = "#24FFFFFF";
