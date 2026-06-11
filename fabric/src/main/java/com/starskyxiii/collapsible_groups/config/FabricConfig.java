@@ -146,7 +146,7 @@ public final class FabricConfig implements IConfigProvider {
 		public static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
 
 		public boolean showManagerButton    = true;
-		public boolean useOreUiManager      = true;
+		public boolean useOreUiManager      = false;
 		public boolean showGroupBackgrounds = true;
 		public String collapsedGroupBackgroundColor = "#24FFFFFF";
 		public String expandedGroupBackgroundColor  = "#24FFFFFF";

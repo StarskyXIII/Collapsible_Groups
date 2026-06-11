@@ -277,7 +277,7 @@ public final class NeoForgeConfig implements IConfigProvider {
 				"This option will be removed before release once the redesign is complete."
 			)
 			.translation("collapsible_groups.configuration.ui.useOreUiManager")
-			.define("useOreUiManager", true);
+			.define("useOreUiManager", false);
 		SHOW_GROUP_BACKGROUNDS = builder
 			.comment(
 				"Whether grouped JEI slots draw a semi-transparent background tint.",

@@ -341,6 +341,10 @@ public final class ModTranslationKeys {
 	/** Args: filtered count (%s), total count (%s) */
 	public static final String MANAGER_COUNT_FILTERED = "collapsible_groups.manager.count_filtered";
 
+	public static final String MANAGER_FILTER_ALL = "collapsible_groups.manager.filter_all";
+
+	public static final String MANAGER_FILTER_USER = "collapsible_groups.manager.filter_user";
+
 	public static final String MANAGER_FOOTER_HINT = "collapsible_groups.manager.footer_hint";
 
 	/** Args: group name (%s) */
@@ -353,7 +357,7 @@ public final class ModTranslationKeys {
 
 	public static final String MANAGER_TOOLTIP_DELETE_READONLY = "collapsible_groups.manager.tooltip.delete_readonly";
 
-	public static final String MANAGER_TOOLTIP_SWITCH_OVERRIDE_REQUIRED = "collapsible_groups.manager.tooltip.switch_override_required";
+	public static final String MANAGER_TOOLTIP_SWITCH_READONLY = "collapsible_groups.manager.tooltip.switch_readonly";
 
 	public static final String SCREEN_EDIT_GROUP = "collapsible_groups.screen.edit_group";
 

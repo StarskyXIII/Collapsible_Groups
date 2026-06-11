@@ -13,9 +13,35 @@ import java.util.concurrent.TimeUnit;
  * change so the screens reopen with the same toggles after restarting the game.
  */
 public final class GroupUiState {
+	/** Exclusive source view filter used by the Ore manager's segmented control. */
+	public enum ManagerSourceFilter {
+		ALL("all"),
+		USER("user"),
+		BUILTIN("builtin"),
+		KUBEJS("kubejs");
+
+		private final String id;
+
+		ManagerSourceFilter(String id) {
+			this.id = id;
+		}
+
+		public String id() {
+			return id;
+		}
+
+		public static ManagerSourceFilter fromId(String id) {
+			for (ManagerSourceFilter filter : values()) {
+				if (filter.id.equals(id)) return filter;
+			}
+			return ALL;
+		}
+	}
+
 	private static boolean showBuiltin = true;
 	private static boolean showKubeJs = true;
 	private static boolean hideUsed = false;
+	private static ManagerSourceFilter managerSourceFilter = ManagerSourceFilter.ALL;
 	private static boolean loaded = false;
 
 	private static final ExecutorService PERSIST_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
@@ -66,6 +92,17 @@ public final class GroupUiState {
 		persist();
 	}
 
+	public static ManagerSourceFilter managerSourceFilter() {
+		ensureLoaded();
+		return managerSourceFilter;
+	}
+
+	public static void setManagerSourceFilter(ManagerSourceFilter value) {
+		ensureLoaded();
+		managerSourceFilter = value == null ? ManagerSourceFilter.ALL : value;
+		persist();
+	}
+
 	private static synchronized void ensureLoaded() {
 		if (loaded) {
 			return;
@@ -74,6 +111,7 @@ public final class GroupUiState {
 		showBuiltin = state.showBuiltin();
 		showKubeJs = state.showKubeJs();
 		hideUsed = state.hideUsed();
+		managerSourceFilter = ManagerSourceFilter.fromId(state.managerSourceFilter());
 		loaded = true;
 	}
 
@@ -81,7 +119,9 @@ public final class GroupUiState {
 		boolean builtinSnapshot = showBuiltin;
 		boolean kubeJsSnapshot = showKubeJs;
 		boolean hideUsedSnapshot = hideUsed;
-		PERSIST_EXECUTOR.submit(() -> GroupConfig.saveUiState(builtinSnapshot, kubeJsSnapshot, hideUsedSnapshot));
+		String sourceFilterSnapshot = managerSourceFilter.id();
+		PERSIST_EXECUTOR.submit(() ->
+			GroupConfig.saveUiState(builtinSnapshot, kubeJsSnapshot, hideUsedSnapshot, sourceFilterSnapshot));
 	}
 
 	private static void shutdownPersistExecutor() {

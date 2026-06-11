@@ -9,6 +9,8 @@ import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewGridLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
@@ -17,6 +19,7 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -27,30 +30,44 @@ import java.util.stream.Collectors;
 
 public class OreGroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int CARD_WIDTH = 196;
-	private static final int CARD_HEIGHT = 112;
+	private static final int CARD_HEIGHT = 116;
 	private static final int CARD_PADDING = 6;
-	private static final int ACTION_RAIL_WIDTH = 42;
-	private static final int ACTION_RAIL_GAP = 4;
-	private static final int ACTION_BUTTON_HEIGHT = 24;
+	private static final int CARD_TITLE_Y = 6;
+	private static final int CARD_PREVIEW_Y = 32;
+	private static final int CARD_FOOTER_Y = 88;
+	private static final int CARD_CONTROL_Z = 250;
+	private static final int ACTION_BUTTON_WIDTH = 24;
+	private static final int ACTION_BUTTON_HEIGHT = 20;
+	private static final int ACTION_BUTTON_GAP = 4;
+	private static final int SWITCH_WIDTH = 24;
+	private static final int SWITCH_HEIGHT = 24;
 	private static final int HEADER_PREVIEW_SIZE = 22;
-	private static final int PREVIEW_COLS = 6;
+	private static final int PREVIEW_COLS = 10;
 	private static final int PREVIEW_ROWS = 3;
-	private static final int ITEM_SIZE = 18;
-	private static final int HEADER_HEIGHT = 32;
+	private static final int PREVIEW_CELL_PITCH = 17;
+	private static final int PREVIEW_ICON_INSET = 1;
+	private static final int PREVIEW_GRID_WIDTH = PREVIEW_COLS * PREVIEW_CELL_PITCH + 1;
+	private static final int PREVIEW_GRID_HEIGHT = PREVIEW_ROWS * PREVIEW_CELL_PITCH + 1;
+	private static final int HEADER_HEIGHT = 56;
 	private static final int FOOTER_HEIGHT = 28;
 	private static final int SCROLLBAR_WIDTH = 6;
 	private static final int CACHE_FALLBACK_SAMPLE_LIMIT = 8;
 
 	private static final int BACK_BTN_X = 6;
-	private static final int BACK_BTN_Y = 6;
+	private static final int BACK_BTN_Y = 5;
 	private static final int BACK_BTN_W = 50;
 	private static final int BACK_BTN_H = 20;
-	private static final int BUILTIN_BTN_X = 62;
-	private static final int BUILTIN_BTN_W = 72;
-	private static final int KUBEJS_BTN_X = 140;
-	private static final int KUBEJS_BTN_W = 65;
+	private static final int HEADER_TITLE_X = 62;
 	private static final int NEW_BTN_W = 110;
 	private static final int NEW_BTN_H = 20;
+	private static final int SEGMENT_X = 6;
+	private static final int SEGMENT_Y = 31;
+	private static final int SEGMENT_HEIGHT = 18;
+	private static final int SEGMENT_MIN_WIDTH = 40;
+	private static final int SEGMENT_TEXT_PADDING = 16;
+	private static final int SEGMENT_OVERLAP = 1;
+	private static final int MINI_SCROLLBAR_GAP = 4;
+	private static final int MINI_SCROLLBAR_WIDTH = 5;
 
 	private final Screen previousScreen;
 	private final boolean kubeJsLoaded;
@@ -60,13 +77,13 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	private int cols = 1;
 	private int scrollPixelOffset = 0;
 
-	private boolean showBuiltin = GroupUiState.showBuiltin();
-	private boolean showKubeJs = GroupUiState.showKubeJs();
+	private GroupUiState.ManagerSourceFilter sourceFilter = GroupUiState.managerSourceFilter();
 	private boolean backButtonHeld = false;
-	private boolean builtinFilterHeld = false;
-	private boolean kubejsFilterHeld = false;
+	private int heldSegmentIndex = -1;
 	private boolean newGroupButtonHeld = false;
 	private boolean isDraggingScrollbar = false;
+	private String heldSwitchGroupId = null;
+	private String suppressedSwitchHoverGroupId = null;
 	private double sbDragStartMouseY;
 	private int sbDragStartPixelOffset;
 	private Component pendingTooltip;
@@ -79,12 +96,16 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	@Override
 	protected void init() {
+		if (!kubeJsLoaded && sourceFilter == GroupUiState.ManagerSourceFilter.KUBEJS) {
+			sourceFilter = GroupUiState.ManagerSourceFilter.ALL;
+		}
 		rebuildCards();
 		calcLayout();
 		clearWidgets();
 	}
 
 	private void rebuildCards() {
+		suppressedSwitchHoverGroupId = null;
 		long traceStart = PerformanceTrace.begin();
 		CacheTraceStats cacheStats = new CacheTraceStats();
 		int totalItems = 0;
@@ -129,12 +150,17 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	private void rebuildFilteredCards() {
-		filteredCards = allCards.stream().filter(card -> {
-			if (card.source() == GroupSource.BUILTIN && !showBuiltin) return false;
-			if (card.source() == GroupSource.KUBEJS && !showKubeJs) return false;
-			return true;
-		}).toList();
+		filteredCards = allCards.stream().filter(this::matchesSourceFilter).toList();
 		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
+	}
+
+	private boolean matchesSourceFilter(GroupManagerCard card) {
+		return switch (sourceFilter) {
+			case ALL -> true;
+			case USER -> card.source() == GroupSource.USER;
+			case BUILTIN -> card.source() == GroupSource.BUILTIN;
+			case KUBEJS -> card.source() == GroupSource.KUBEJS;
+		};
 	}
 
 	private void calcLayout() {
@@ -157,11 +183,17 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	private void removeCard(String id) {
 		allCards.removeIf(card -> card.id().equals(id));
 		previewScrollOffsets.remove(id);
+		if (id.equals(suppressedSwitchHoverGroupId)) suppressedSwitchHoverGroupId = null;
 		rebuildFilteredCards();
 	}
 
 	private void openEditor(GroupDefinition group) {
 		Minecraft.getInstance().setScreen(new GroupEditorScreen(this, group));
+	}
+
+	@Override
+	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+		g.fill(0, 0, this.width, this.height, OreUiPalette.SCREEN_SCRIM);
 	}
 
 	@Override
@@ -171,10 +203,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 		int vpTop = HEADER_HEIGHT;
 		int vpBottom = this.height - FOOTER_HEIGHT;
-		g.fill(0, 0, this.width, vpTop, 0xCC0E0E1A);
-		g.fill(0, vpTop, this.width, vpTop + 1, 0x33667799);
-		g.fill(0, vpBottom, this.width, this.height, 0xAA0E0E1A);
-		g.fill(0, vpBottom, this.width, vpBottom + 1, 0x33667799);
+		OreUiRenderer.drawScreenBars(g, this.width, this.height, HEADER_HEIGHT, FOOTER_HEIGHT);
 
 		g.enableScissor(0, vpTop, this.width, vpBottom);
 		for (int i = 0; i < filteredCards.size(); i++) {
@@ -185,13 +214,13 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		renderScrollbar(g);
 		renderHeaderButtons(g, mouseX, mouseY);
 
-		g.drawCenteredString(font, this.title, this.width / 2, 8, 0xFFFFFF);
+		g.drawString(font, this.title, HEADER_TITLE_X, 7, OreUiPalette.TEXT_PRIMARY, false);
 		Component countText = filteredCards.size() == allCards.size()
 			? Component.translatable(ModTranslationKeys.MANAGER_COUNT_ALL, allCards.size())
 			: Component.translatable(ModTranslationKeys.MANAGER_COUNT_FILTERED, filteredCards.size(), allCards.size());
-		g.drawCenteredString(font, countText, this.width / 2, 20, 0x8899AABB);
+		g.drawString(font, countText, HEADER_TITLE_X, 18, OreUiPalette.TEXT_MUTED, false);
 		g.drawString(font, Component.translatable(ModTranslationKeys.MANAGER_FOOTER_HINT),
-			6, vpBottom + (FOOTER_HEIGHT - font.lineHeight) / 2 + 1, 0x8899AABB, false);
+			6, vpBottom + OreUiRenderer.centeredTextY(font, 0, FOOTER_HEIGHT), OreUiPalette.TEXT_HINT, false);
 
 		for (var child : this.children()) {
 			if (child instanceof Renderable renderable) {
@@ -206,24 +235,90 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	private void renderHeaderButtons(GuiGraphics g, int mouseX, int mouseY) {
 		boolean backHover = isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H);
 		renderButton(g, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H,
-			Component.translatable(ModTranslationKeys.MANAGER_BTN_BACK).getString(), true, backHover || backButtonHeld);
+			Component.translatable(ModTranslationKeys.MANAGER_BTN_BACK).getString(), true, backHover, backButtonHeld && backHover);
 
-		boolean builtinHover = isMouseOver(mouseX, mouseY, BUILTIN_BTN_X, BACK_BTN_Y, BUILTIN_BTN_W, BACK_BTN_H);
-		renderFilterButton(g, BUILTIN_BTN_X, BACK_BTN_Y, BUILTIN_BTN_W, BACK_BTN_H,
-			Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_BUILTIN).getString(),
-			showBuiltin, builtinHover || builtinFilterHeld, 0xAA665533);
-
-		if (kubeJsLoaded) {
-			boolean kubejsHover = isMouseOver(mouseX, mouseY, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H);
-			renderFilterButton(g, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H,
-				Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_KUBEJS).getString(),
-				showKubeJs, kubejsHover || kubejsFilterHeld, 0xAA664488);
-		}
+		renderSegmentedFilter(g, mouseX, mouseY);
 
 		int newBtnX = this.width - NEW_BTN_W - 6;
 		boolean newHover = isMouseOver(mouseX, mouseY, newBtnX, BACK_BTN_Y, NEW_BTN_W, NEW_BTN_H);
 		renderButton(g, newBtnX, BACK_BTN_Y, NEW_BTN_W, NEW_BTN_H,
-			Component.translatable(ModTranslationKeys.MANAGER_BTN_NEW_GROUP).getString(), true, newHover || newGroupButtonHeld);
+			Component.translatable(ModTranslationKeys.MANAGER_BTN_NEW_GROUP).getString(), true, newHover, newGroupButtonHeld && newHover);
+	}
+
+	private void renderSegmentedFilter(GuiGraphics g, int mouseX, int mouseY) {
+		GroupUiState.ManagerSourceFilter[] filters = segmentFilters();
+		int hoveredIndex = hoveredSegmentIndex(filters, mouseX, mouseY);
+		int selectedIndex = -1;
+		for (int i = 0; i < filters.length; i++) {
+			if (sourceFilter == filters[i]) {
+				selectedIndex = i;
+				continue;
+			}
+			if (i == hoveredIndex) continue;
+			renderSegment(g, filters, i, false, false);
+		}
+		if (selectedIndex >= 0 && selectedIndex != hoveredIndex) {
+			renderSegment(g, filters, selectedIndex, true, false);
+		}
+		if (hoveredIndex >= 0) {
+			renderSegment(g, filters, hoveredIndex, hoveredIndex == selectedIndex, true);
+		}
+	}
+
+	private int hoveredSegmentIndex(GroupUiState.ManagerSourceFilter[] filters, double mouseX, double mouseY) {
+		for (int i = 0; i < filters.length; i++) {
+			if (isMouseOver(mouseX, mouseY, segmentX(filters, i), SEGMENT_Y, segmentWidth(filters), SEGMENT_HEIGHT)) {
+				return i;
+			}
+		}
+		return -1;
+	}
+
+	private void renderSegment(GuiGraphics g, GroupUiState.ManagerSourceFilter[] filters, int index,
+	                           boolean selected, boolean hovered) {
+		int x = segmentX(filters, index);
+		int w = segmentWidth(filters);
+		boolean pressed = hovered && heldSegmentIndex == index;
+		OreUiRenderer.ButtonState state = selected
+			? pressed ? OreUiRenderer.ButtonState.SELECTED_PRESSED
+			: hovered ? OreUiRenderer.ButtonState.SELECTED_HOVERED : OreUiRenderer.ButtonState.SELECTED
+			: pressed ? OreUiRenderer.ButtonState.PRESSED
+			: hovered ? OreUiRenderer.ButtonState.HOVERED : OreUiRenderer.ButtonState.NORMAL;
+		OreUiRenderer.drawSegment(g, font, x, SEGMENT_Y, w, SEGMENT_HEIGHT, segmentLabel(filters[index]), state);
+	}
+
+	private GroupUiState.ManagerSourceFilter[] segmentFilters() {
+		return kubeJsLoaded
+			? new GroupUiState.ManagerSourceFilter[] {
+				GroupUiState.ManagerSourceFilter.ALL,
+				GroupUiState.ManagerSourceFilter.USER,
+				GroupUiState.ManagerSourceFilter.BUILTIN,
+				GroupUiState.ManagerSourceFilter.KUBEJS }
+			: new GroupUiState.ManagerSourceFilter[] {
+				GroupUiState.ManagerSourceFilter.ALL,
+				GroupUiState.ManagerSourceFilter.USER,
+				GroupUiState.ManagerSourceFilter.BUILTIN };
+	}
+
+	private String segmentLabel(GroupUiState.ManagerSourceFilter filter) {
+		return switch (filter) {
+			case ALL -> Component.translatable(ModTranslationKeys.MANAGER_FILTER_ALL).getString();
+			case USER -> Component.translatable(ModTranslationKeys.MANAGER_FILTER_USER).getString();
+			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_BUILTIN).getString();
+			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_KUBEJS).getString();
+		};
+	}
+
+	private int segmentWidth(GroupUiState.ManagerSourceFilter[] filters) {
+		int width = SEGMENT_MIN_WIDTH;
+		for (GroupUiState.ManagerSourceFilter filter : filters) {
+			width = Math.max(width, font.width(segmentLabel(filter)) + SEGMENT_TEXT_PADDING);
+		}
+		return width;
+	}
+
+	private int segmentX(GroupUiState.ManagerSourceFilter[] filters, int index) {
+		return SEGMENT_X + index * (segmentWidth(filters) - SEGMENT_OVERLAP);
 	}
 
 	private void renderCard(GuiGraphics g, int index, int mouseX, int mouseY) {
@@ -233,36 +328,37 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		int y = pos[1];
 		if (y + CARD_HEIGHT < HEADER_HEIGHT || y > this.height - FOOTER_HEIGHT) return;
 
-		int actionX = actionRailX(x);
-		int bodyRight = actionX - ACTION_RAIL_GAP;
-		int borderColor = borderColor(card);
-		g.fill(x + 1, y + 1, x + CARD_WIDTH - 1, y + CARD_HEIGHT - 1, 0x55101020);
-		drawOutline(g, x, y, CARD_WIDTH, CARD_HEIGHT, borderColor);
+		boolean cardHover = isMouseOver(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
+		int outlineColor = cardHover ? OreUiPalette.OUTLINE_HOVER : OreUiPalette.OUTLINE_DARK;
+		OreUiRenderer.drawCard(g, x, y, CARD_WIDTH, CARD_HEIGHT, cardHover, outlineColor);
 
-		boolean bodyHover = isMouseOver(mouseX, mouseY, x, y, bodyRight - x, CARD_HEIGHT);
-		if (bodyHover) {
-			g.fill(x + 1, y + 1, bodyRight, y + CARD_HEIGHT - 1, 0x14667799);
+		renderHeaderPreview(g, card, x + 6, y + CARD_TITLE_Y, switchControlX(x) - 4, cardHover);
+		renderCardPreview(g, card, x + 6, y + CARD_PREVIEW_Y, previewScrollOffsets.getOrDefault(card.id(), 0));
+		renderSourceTab(g, card, x, y);
+		if (!card.group().enabled()) {
+			renderDisabledOverlay(g, x, y);
 		}
-
-		renderHeaderPreview(g, card, x + 6, y + 6, bodyRight, bodyHover);
-		renderCardPreview(g, card, x + 6, y + 38, previewScrollOffsets.getOrDefault(card.id(), 0));
-		renderActionRail(g, card, x, y, mouseX, mouseY);
+		renderCardControls(g, card, x, y, mouseX, mouseY);
 	}
 
-	private void renderHeaderPreview(GuiGraphics g, GroupManagerCard card, int x, int y, int bodyRight, boolean hovered) {
-		int iconX = x;
-		int iconY = y;
-		int headerColor = GroupThemeResolver.collapsedHeaderBackgroundColor(card.id());
-		int borderColor = borderColor(card);
-		g.fill(iconX, iconY, iconX + HEADER_PREVIEW_SIZE, iconY + HEADER_PREVIEW_SIZE, headerColor);
-		drawOutline(g, iconX, iconY, HEADER_PREVIEW_SIZE, HEADER_PREVIEW_SIZE, borderColor);
-		renderStackedPreviewIcons(g, card.previewEntries(), iconX, iconY);
+	private void renderDisabledOverlay(GuiGraphics g, int x, int y) {
+		g.pose().pushPose();
+		g.pose().translate(0, 0, 200);
+		g.fill(x + 1, y + 1, x + CARD_WIDTH - 1, y + CARD_HEIGHT - 1, OreUiPalette.DISABLED_OVERLAY);
+		g.pose().popPose();
+	}
 
-		int textX = iconX + HEADER_PREVIEW_SIZE + 6;
-		int maxTextWidth = Math.max(0, bodyRight - textX - 2);
-		renderScrollingText(g, localizedDisplayName(card).getString(), textX, y + 2,
-			maxTextWidth, GroupThemeResolver.groupNameColor(card.id()), hovered);
-		g.drawString(font, countLabel(card), textX, y + 14, 0x7799AABB, false);
+	private void renderHeaderPreview(GuiGraphics g, GroupManagerCard card, int x, int y, int textRight, boolean hovered) {
+		int headerColor = GroupThemeResolver.collapsedHeaderBackgroundColor(card.id());
+		g.fill(x, y, x + HEADER_PREVIEW_SIZE, y + HEADER_PREVIEW_SIZE, headerColor);
+		drawOutline(g, x, y, HEADER_PREVIEW_SIZE, HEADER_PREVIEW_SIZE, OreUiPalette.OUTLINE_DARK);
+		renderStackedPreviewIcons(g, card.previewEntries(), x, y);
+
+		int textX = x + HEADER_PREVIEW_SIZE + 6;
+		int maxTextWidth = Math.max(0, textRight - textX);
+		renderScrollingText(g, localizedDisplayName(card).getString(), textX, y + 1,
+			maxTextWidth, OreUiPalette.TEXT_PRIMARY, hovered);
+		g.drawString(font, countLabel(card), textX, y + 12, OreUiPalette.TEXT_MUTED, false);
 	}
 
 	private void renderStackedPreviewIcons(GuiGraphics g, List<GroupPreviewEntry> entries, int x, int y) {
@@ -280,74 +376,92 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	private void renderCardPreview(GuiGraphics g, GroupManagerCard card, int previewX, int previewY, int rowOffset) {
+		OreUiRenderer.drawSlotGrid(g, previewX, previewY, PREVIEW_COLS, PREVIEW_ROWS, PREVIEW_CELL_PITCH);
 		renderPreviewEntries(g, card.previewEntries(), previewX, previewY, rowOffset);
 		int previewTotalRows = totalRowsForCard(card);
 		if (previewTotalRows <= PREVIEW_ROWS) return;
 
-		int sbX = previewX + PREVIEW_COLS * ITEM_SIZE + 2;
-		int sbH = PREVIEW_ROWS * ITEM_SIZE;
-		int maxRow = previewTotalRows - PREVIEW_ROWS;
-		int thumbH = Math.max(6, sbH * PREVIEW_ROWS / previewTotalRows);
-		int thumbY = previewY + (maxRow > 0 ? (sbH - thumbH) * rowOffset / maxRow : 0);
-		g.fill(sbX, previewY, sbX + 3, previewY + sbH, 0x18667799);
-		g.fill(sbX, thumbY, sbX + 3, thumbY + thumbH, 0x6699AABB);
+		int sbX = previewX + PREVIEW_GRID_WIDTH + MINI_SCROLLBAR_GAP;
+		int sbH = PREVIEW_GRID_HEIGHT;
+		OreUiRenderer.drawMiniScrollbar(g, sbX, previewY, sbH, PREVIEW_ROWS, previewTotalRows, rowOffset);
 	}
 
 	private void renderPreviewEntries(GuiGraphics g, List<GroupPreviewEntry> entries, int previewX, int previewY, int rowOffset) {
 		PreviewGridLayout layout = PreviewGridLayout.fixedColumns(entries.size(), PREVIEW_COLS, PREVIEW_ROWS, rowOffset);
 		layout.forEachCell((entryIndex, column, row) ->
-			entries.get(entryIndex).render(g, previewX + column * ITEM_SIZE, previewY + row * ITEM_SIZE));
+			entries.get(entryIndex).render(g,
+				previewX + column * PREVIEW_CELL_PITCH + PREVIEW_ICON_INSET,
+				previewY + row * PREVIEW_CELL_PITCH + PREVIEW_ICON_INSET));
 		if (!layout.hasOverflow()) return;
 
-		int lastX = previewX + layout.overflowColumn() * ITEM_SIZE;
-		int lastY = previewY + layout.overflowRow() * ITEM_SIZE;
+		int cellInner = PREVIEW_CELL_PITCH - 1;
+		int lastX = previewX + layout.overflowColumn() * PREVIEW_CELL_PITCH + PREVIEW_ICON_INSET;
+		int lastY = previewY + layout.overflowRow() * PREVIEW_CELL_PITCH + PREVIEW_ICON_INSET;
 		String more = "+" + layout.overflowCount();
 		g.pose().pushPose();
 		g.pose().translate(0, 0, 200);
-		g.fill(lastX, lastY, lastX + ITEM_SIZE, lastY + ITEM_SIZE, 0x88000000);
-		g.drawString(font, more, lastX + (ITEM_SIZE - font.width(more)) / 2,
-			lastY + (ITEM_SIZE - 8) / 2, 0xFFFFFF, false);
+		g.fill(lastX, lastY, lastX + cellInner, lastY + cellInner, OreUiPalette.DISABLED_OVERLAY);
+		g.drawString(font, more, lastX + (cellInner - font.width(more)) / 2,
+			lastY + (cellInner - 8) / 2, OreUiPalette.TEXT_PRIMARY, false);
 		g.pose().popPose();
 	}
 
-	private void renderActionRail(GuiGraphics g, GroupManagerCard card, int cardX, int cardY, int mouseX, int mouseY) {
-		int x = actionRailX(cardX);
-		int w = ACTION_RAIL_WIDTH;
-		int switchY = cardY + 8;
-		int editY = cardY + 43;
-		int deleteY = cardY + 78;
+	private void renderCardControls(GuiGraphics g, GroupManagerCard card, int cardX, int cardY, int mouseX, int mouseY) {
+		int switchX = switchControlX(cardX);
+		int switchY = switchControlY(cardY);
+		int editX = editButtonX(cardX);
+		int deleteX = deleteButtonX(cardX);
+		int actionY = cardY + CARD_FOOTER_Y;
 		boolean editable = card.editable();
 
-		boolean switchHover = isMouseOver(mouseX, mouseY, x, switchY, w, ACTION_BUTTON_HEIGHT);
-		boolean editHover = isMouseOver(mouseX, mouseY, x, editY, w, ACTION_BUTTON_HEIGHT);
-		boolean deleteHover = isMouseOver(mouseX, mouseY, x, deleteY, w, ACTION_BUTTON_HEIGHT);
-		String switchLabel = Component.translatable(card.group().enabled()
-			? ModTranslationKeys.CONFIG_VAL_ON
-			: ModTranslationKeys.CONFIG_VAL_OFF).getString();
-		String middleLabel = Component.translatable(editable
-			? ModTranslationKeys.MANAGER_BTN_EDIT
-			: ModTranslationKeys.MANAGER_BTN_COPY).getString();
+		boolean rawSwitchHover = isMouseOver(mouseX, mouseY, switchX, switchY, SWITCH_WIDTH, SWITCH_HEIGHT);
+		boolean switchHover = effectiveSwitchHover(card.id(), rawSwitchHover);
+		boolean editHover = isMouseOver(mouseX, mouseY, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
+		boolean deleteHover = isMouseOver(mouseX, mouseY, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
+		boolean switchPressed = editable && switchHover && card.id().equals(heldSwitchGroupId);
 
-		renderButton(g, x, switchY, w, ACTION_BUTTON_HEIGHT, switchLabel, editable, switchHover);
-		renderButton(g, x, editY, w, ACTION_BUTTON_HEIGHT, middleLabel, editable, editHover);
-		renderButton(g, x, deleteY, w, ACTION_BUTTON_HEIGHT,
-			Component.translatable(ModTranslationKeys.MANAGER_BTN_DELETE).getString(), editable, deleteHover);
+		g.pose().pushPose();
+		g.pose().translate(0, 0, CARD_CONTROL_Z);
+		OreUiRenderer.drawSwitch(g, switchX, switchY, SWITCH_WIDTH, SWITCH_HEIGHT,
+			card.group().enabled(), editable, switchHover, switchPressed);
+		renderIconButton(g, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
+			OreUiRenderer.ICON_EDIT, editable, editHover, false);
+		renderIconButton(g, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
+			OreUiRenderer.ICON_DELETE, editable, deleteHover, false);
+		g.pose().popPose();
 
-		if (!editable) {
-			if (switchHover) pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_SWITCH_OVERRIDE_REQUIRED);
-			if (editHover) pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_COPY_DEFERRED);
-			if (deleteHover) pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_DELETE_READONLY);
-		}
+		if (switchHover && !editable) pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_SWITCH_READONLY);
+		if (editHover) pendingTooltip = editable
+			? Component.translatable(ModTranslationKeys.MANAGER_BTN_EDIT)
+			: Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_COPY_DEFERRED);
+		if (deleteHover) pendingTooltip = editable
+			? Component.translatable(ModTranslationKeys.MANAGER_BTN_DELETE)
+			: Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_DELETE_READONLY);
+	}
+
+	private void renderSourceTab(GuiGraphics g, GroupManagerCard card, int cardX, int cardY) {
+		String label = switch (card.source()) {
+			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_BUILTIN).getString();
+			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_KUBEJS).getString();
+			case USER -> null;
+		};
+		if (label == null) return;
+		int tabWidth = font.width(label) + 10;
+		int tabHeight = 14;
+		int left = cardX + 1;
+		int bottom = cardY + CARD_HEIGHT - 1;
+		int top = bottom - tabHeight;
+		g.fill(left, top, left + tabWidth, bottom, OreUiPalette.SURFACE_DARK);
+		g.fill(left, top, left + tabWidth, top + 1, OreUiPalette.OUTLINE_DARK);
+		g.fill(left + tabWidth - 1, top, left + tabWidth, bottom, OreUiPalette.OUTLINE_DARK);
+		g.drawString(font, label, left + 5,
+			OreUiRenderer.centeredTextY(font, top, tabHeight), OreUiPalette.TEXT_MUTED, false);
 	}
 
 	private Component localizedDisplayName(GroupManagerCard card) {
 		String resolved = card.group().name();
 		String name = resolved.isEmpty() ? card.displayName() : resolved;
-		return switch (card.source()) {
-			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_PREFIX_BUILTIN, name);
-			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_PREFIX_KUBEJS, name);
-			case USER -> Component.literal(name);
-		};
+		return Component.literal(name);
 	}
 
 	private Component countLabel(GroupManagerCard card) {
@@ -368,33 +482,25 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return result != null ? result : Component.empty();
 	}
 
-	private void renderButton(GuiGraphics g, int x, int y, int w, int h, String label, boolean active, boolean hovered) {
-		int bg = !active ? 0x550E0E1A : (hovered ? 0xCC1A1A2E : 0x880E0E1A);
-		int border = !active ? 0x33445566 : (hovered ? 0x8899AABB : 0x44667799);
-		int text = !active ? 0x66778899 : (hovered ? 0xFFFFFFFF : 0xCC99AABB);
-		g.fill(x, y, x + w, y + h, bg);
-		drawOutline(g, x, y, w, h, border);
-		String clipped = font.plainSubstrByWidth(label, Math.max(0, w - 6));
-		g.drawString(font, clipped, x + (w - font.width(clipped)) / 2, y + (h - 8) / 2, text, false);
+	private void renderButton(GuiGraphics g, int x, int y, int w, int h, String label, boolean active, boolean hovered, boolean pressed) {
+		OreUiRenderer.ButtonState state = !active
+			? OreUiRenderer.ButtonState.DISABLED
+			: pressed ? OreUiRenderer.ButtonState.PRESSED
+			: hovered ? OreUiRenderer.ButtonState.HOVERED : OreUiRenderer.ButtonState.NORMAL;
+		OreUiRenderer.drawButton(g, font, x, y, w, h, label, state);
 	}
 
-	private void renderFilterButton(GuiGraphics g, int x, int y, int w, int h,
-									String label, boolean active, boolean hovered, int accentBorder) {
-		int bg = hovered ? 0xCC1A1A2E : 0x880E0E1A;
-		int border = hovered ? 0x8899AABB : (active ? accentBorder : 0x44334444);
-		int text = hovered ? 0xFFFFFFFF : (active ? 0xCC99AABB : 0x55667788);
-		g.fill(x, y, x + w, y + h, bg);
-		drawOutline(g, x, y, w, h, border);
-		g.drawString(font, label, x + (w - font.width(label)) / 2, y + (h - 8) / 2, text, false);
+	private void renderIconButton(GuiGraphics g, int x, int y, int w, int h,
+	                              ResourceLocation icon, boolean active, boolean hovered, boolean pressed) {
+		OreUiRenderer.ButtonState state = !active
+			? OreUiRenderer.ButtonState.DISABLED
+			: pressed ? OreUiRenderer.ButtonState.PRESSED
+			: hovered ? OreUiRenderer.ButtonState.HOVERED : OreUiRenderer.ButtonState.NORMAL;
+		OreUiRenderer.drawToolbarIconButton(g, x, y, w, h, icon, state);
 	}
 
 	private void drawOutline(GuiGraphics g, int x, int y, int width, int height, int color) {
-		int right = x + width;
-		int bottom = y + height;
-		g.fill(x, y, right, y + 1, color);
-		g.fill(x, bottom - 1, right, bottom, color);
-		g.fill(x, y + 1, x + 1, bottom - 1, color);
-		g.fill(right - 1, y + 1, right, bottom - 1, color);
+		OreUiRenderer.drawOutline(g, x, y, width, height, color);
 	}
 
 	private void renderScrollingText(GuiGraphics g, String text, int x, int y, int maxWidth, int color, boolean hovered) {
@@ -422,17 +528,19 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		if (button == 0) {
+			heldSwitchGroupId = null;
+		}
 		if (button == 0 && isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) {
 			backButtonHeld = true;
 			return true;
 		}
-		if (button == 0 && isMouseOver(mouseX, mouseY, BUILTIN_BTN_X, BACK_BTN_Y, BUILTIN_BTN_W, BACK_BTN_H)) {
-			builtinFilterHeld = true;
-			return true;
-		}
-		if (kubeJsLoaded && button == 0 && isMouseOver(mouseX, mouseY, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H)) {
-			kubejsFilterHeld = true;
-			return true;
+		if (button == 0) {
+			int segmentIndex = hoveredSegmentIndex(segmentFilters(), mouseX, mouseY);
+			if (segmentIndex >= 0) {
+				heldSegmentIndex = segmentIndex;
+				return true;
+			}
 		}
 		int newBtnX = this.width - NEW_BTN_W - 6;
 		if (button == 0 && isMouseOver(mouseX, mouseY, newBtnX, BACK_BTN_Y, NEW_BTN_W, NEW_BTN_H)) {
@@ -451,19 +559,19 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			int x = pos[0];
 			int y = pos[1];
 			if (y + CARD_HEIGHT < HEADER_HEIGHT || y > this.height - FOOTER_HEIGHT) continue;
-			int actionX = actionRailX(x);
-			if (mouseX < actionX || mouseX >= actionX + ACTION_RAIL_WIDTH) continue;
 
-			boolean switchClick = isMouseOver(mouseX, mouseY, actionX, y + 8, ACTION_RAIL_WIDTH, ACTION_BUTTON_HEIGHT);
-			boolean editClick = isMouseOver(mouseX, mouseY, actionX, y + 43, ACTION_RAIL_WIDTH, ACTION_BUTTON_HEIGHT);
-			boolean deleteClick = isMouseOver(mouseX, mouseY, actionX, y + 78, ACTION_RAIL_WIDTH, ACTION_BUTTON_HEIGHT);
+			boolean switchClick = isMouseOver(mouseX, mouseY, switchControlX(x), switchControlY(y), SWITCH_WIDTH, SWITCH_HEIGHT);
+			boolean editClick = isMouseOver(mouseX, mouseY, editButtonX(x), y + CARD_FOOTER_Y, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
+			boolean deleteClick = isMouseOver(mouseX, mouseY, deleteButtonX(x), y + CARD_FOOTER_Y, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
 			if (!switchClick && !editClick && !deleteClick) continue;
 			if (!card.editable()) return true;
 
 			if (switchClick) {
+				heldSwitchGroupId = card.id();
 				boolean newEnabled = !card.group().enabled();
 				GroupRegistry.saveQuietly(card.group().withEnabled(newEnabled));
 				updateCardEnabled(card.id(), newEnabled);
+				suppressedSwitchHoverGroupId = card.id();
 				GroupRegistry.notifyJeiStructureOnly();
 				return true;
 			}
@@ -505,6 +613,9 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+		if (button == 0 && heldSwitchGroupId != null && !isHeldSwitchHovered(mouseX, mouseY)) {
+			heldSwitchGroupId = null;
+		}
 		if (button == 0 && isDraggingScrollbar) {
 			int maxPx = maxScrollPixels();
 			if (maxPx > 0) {
@@ -522,6 +633,9 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		if (button == 0) {
+			heldSwitchGroupId = null;
+		}
 		if (button == 0 && backButtonHeld) {
 			backButtonHeld = false;
 			if (isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) {
@@ -529,20 +643,16 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			}
 			return true;
 		}
-		if (button == 0 && builtinFilterHeld) {
-			builtinFilterHeld = false;
-			if (isMouseOver(mouseX, mouseY, BUILTIN_BTN_X, BACK_BTN_Y, BUILTIN_BTN_W, BACK_BTN_H)) {
-				showBuiltin = !showBuiltin;
-				GroupUiState.setShowBuiltin(showBuiltin);
-				rebuildFilteredCards();
-			}
-			return true;
-		}
-		if (button == 0 && kubejsFilterHeld) {
-			kubejsFilterHeld = false;
-			if (kubeJsLoaded && isMouseOver(mouseX, mouseY, KUBEJS_BTN_X, BACK_BTN_Y, KUBEJS_BTN_W, BACK_BTN_H)) {
-				showKubeJs = !showKubeJs;
-				GroupUiState.setShowKubeJs(showKubeJs);
+		if (button == 0 && heldSegmentIndex >= 0) {
+			int index = heldSegmentIndex;
+			heldSegmentIndex = -1;
+			GroupUiState.ManagerSourceFilter[] filters = segmentFilters();
+			if (index < filters.length
+				&& isMouseOver(mouseX, mouseY, segmentX(filters, index), SEGMENT_Y, segmentWidth(filters), SEGMENT_HEIGHT)
+				&& sourceFilter != filters[index]) {
+				sourceFilter = filters[index];
+				GroupUiState.setManagerSourceFilter(sourceFilter);
+				suppressedSwitchHoverGroupId = null;
 				rebuildFilteredCards();
 			}
 			return true;
@@ -561,6 +671,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+		suppressedSwitchHoverGroupId = null;
 		if (scrollHoveredPreview(mouseX, mouseY, deltaY)) return true;
 		if (isInsideCardViewport(mouseX, mouseY)) {
 			scrollPixelOffset = clamp(scrollPixelOffset + (int)(deltaY * -20), 0, maxScrollPixels());
@@ -574,21 +685,30 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			GroupManagerCard card = filteredCards.get(i);
 			int[] pos = cardPos(i);
 			int previewX = pos[0] + 6;
-			int previewY = pos[1] + 38;
-			if (mouseX >= previewX && mouseX < previewX + PREVIEW_COLS * ITEM_SIZE
-					&& mouseY >= previewY && mouseY < previewY + PREVIEW_ROWS * ITEM_SIZE) {
-				int maxRow = Math.max(0, totalRowsForCard(card) - PREVIEW_ROWS);
-				int current = previewScrollOffsets.getOrDefault(card.id(), 0);
-				int next = clamp(current - (int)Math.signum(deltaY), 0, maxRow);
-				if (next != current) previewScrollOffsets.put(card.id(), next);
-				return true;
+			int previewY = pos[1] + CARD_PREVIEW_Y;
+			int maxRow = Math.max(0, totalRowsForCard(card) - PREVIEW_ROWS);
+			if (maxRow <= 0) continue;
+			int previewHeight = PREVIEW_GRID_HEIGHT;
+			int scrollbarX = previewX + PREVIEW_GRID_WIDTH + MINI_SCROLLBAR_GAP;
+			boolean previewHover = isMouseOver(mouseX, mouseY, previewX, previewY,
+				PREVIEW_GRID_WIDTH, previewHeight);
+			boolean scrollbarHover = isMouseOver(mouseX, mouseY, scrollbarX, previewY, MINI_SCROLLBAR_WIDTH, previewHeight);
+			if (!previewHover && !scrollbarHover) continue;
+
+			int current = previewScrollOffsets.getOrDefault(card.id(), 0);
+			int next = clamp(current - (int)Math.signum(deltaY), 0, maxRow);
+			if (next != current) {
+				previewScrollOffsets.put(card.id(), next);
 			}
+			return true;
 		}
 		return false;
 	}
 
 	@Override
 	public void onClose() {
+		heldSwitchGroupId = null;
+		suppressedSwitchHoverGroupId = null;
 		Minecraft.getInstance().setScreen(previousScreen);
 	}
 
@@ -633,16 +753,28 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		};
 	}
 
-	private int actionRailX(int cardX) {
-		return cardX + CARD_WIDTH - ACTION_RAIL_WIDTH - 4;
+	private int switchControlX(int cardX) {
+		return cardX + CARD_WIDTH - SWITCH_WIDTH - 6;
 	}
 
-	private int borderColor(GroupManagerCard card) {
-		return switch (card.source()) {
-			case USER -> card.group().enabled() ? 0x55339966 : 0x55993333;
-			case BUILTIN -> 0x55665533;
-			case KUBEJS -> 0x55664488;
-		};
+	private int switchControlY(int cardY) {
+		return cardY + CARD_TITLE_Y - 1;
+	}
+
+	private int editButtonX(int cardX) {
+		return deleteButtonX(cardX) - ACTION_BUTTON_WIDTH - ACTION_BUTTON_GAP;
+	}
+
+	private int deleteButtonX(int cardX) {
+		return cardX + CARD_WIDTH - ACTION_BUTTON_WIDTH - 6;
+	}
+
+	private boolean effectiveSwitchHover(String groupId, boolean rawHover) {
+		if (!rawHover) {
+			if (groupId.equals(suppressedSwitchHoverGroupId)) suppressedSwitchHoverGroupId = null;
+			return false;
+		}
+		return !groupId.equals(suppressedSwitchHoverGroupId);
 	}
 
 	private boolean isInsideCardViewport(double mouseX, double mouseY) {
@@ -652,19 +784,23 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			&& mouseY < this.height - FOOTER_HEIGHT;
 	}
 
+	private boolean isHeldSwitchHovered(double mouseX, double mouseY) {
+		if (heldSwitchGroupId == null) return false;
+		for (int i = 0; i < filteredCards.size(); i++) {
+			GroupManagerCard card = filteredCards.get(i);
+			if (!card.id().equals(heldSwitchGroupId)) continue;
+			int[] pos = cardPos(i);
+			return isMouseOver(mouseX, mouseY, switchControlX(pos[0]), switchControlY(pos[1]), SWITCH_WIDTH, SWITCH_HEIGHT);
+		}
+		return false;
+	}
+
 	private void renderScrollbar(GuiGraphics g) {
 		int x = this.width - CARD_PADDING - SCROLLBAR_WIDTH;
 		int y = HEADER_HEIGHT + CARD_PADDING;
 		int height = contentHeight();
-		g.fill(x, y, x + SCROLLBAR_WIDTH, y + height, 0x18667799);
 		int maxPx = maxScrollPixels();
-		if (maxPx <= 0) {
-			g.fill(x, y, x + SCROLLBAR_WIDTH, y + height, 0x22334455);
-			return;
-		}
-		int thumbHeight = Math.max(14, height * height / (maxPx + height));
-		int thumbY = y + (height - thumbHeight) * scrollPixelOffset / maxPx;
-		g.fill(x, thumbY, x + SCROLLBAR_WIDTH, thumbY + thumbHeight, 0x6699AABB);
+		OreUiRenderer.drawScrollbarPixels(g, x, y, height, height, maxPx + height, scrollPixelOffset);
 	}
 
 	private static boolean isMouseOver(double mx, double my, int x, int y, int w, int h) {

@@ -178,7 +178,7 @@ public final class ForgeConfig implements IConfigProvider {
 				"Temporary redesign switch. True opens the Ore UI manager prototype; false opens the legacy manager.",
 				"This option will be removed before release once the redesign is complete."
 			)
-			.define("useOreUiManager", true);
+			.define("useOreUiManager", false);
 		SHOW_GROUP_BACKGROUNDS = builder
 			.comment(
 				"Whether grouped JEI slots draw a semi-transparent background tint.",
