@@ -26,7 +26,7 @@ final class GroupEditorState implements EditorRulesState {
 
 	final GroupFilterEditorDraft draft;
 	final List<String> editTags;
-	final Set<String> explicitSet;
+	private final Set<String> explicitSet;
 	final List<String> editFluidIds;
 	final List<String> editFluidTags;
 	final List<GroupFilterEditorDraft.GenericValue> editGenericIds;
@@ -95,6 +95,10 @@ final class GroupEditorState implements EditorRulesState {
 
 	void toggleSingleSelection(ItemStack stack) {
 		itemSelection.toggleSingleSelection(stack);
+	}
+
+	boolean addSingleSelectionIfAbsent(ItemStack stack) {
+		return itemSelection.addSingleSelectionIfAbsent(stack);
 	}
 
 	void toggleWholeItemSelection(ItemStack stack) {

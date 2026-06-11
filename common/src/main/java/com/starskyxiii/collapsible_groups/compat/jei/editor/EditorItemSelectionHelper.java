@@ -42,6 +42,19 @@ final class EditorItemSelectionHelper {
 		onContentsDraftChanged.run();
 	}
 
+	boolean addSingleSelectionIfAbsent(ItemStack stack) {
+		String exactSelector = GroupItemSelector.exactSelector(stack);
+		if (explicitSet.contains(exactSelector)) {
+			return false;
+		}
+		boolean changed = explicitSet.remove(GroupItemSelector.wholeItemSelector(stack));
+		changed |= explicitSet.add(exactSelector);
+		if (changed) {
+			onContentsDraftChanged.run();
+		}
+		return changed;
+	}
+
 	void toggleWholeItemSelection(ItemStack stack) {
 		String wholeItemSelector = GroupItemSelector.wholeItemSelector(stack);
 		if (explicitSet.remove(wholeItemSelector)) {

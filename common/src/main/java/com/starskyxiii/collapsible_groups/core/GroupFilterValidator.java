@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.core;
 
+import com.google.gson.JsonParser;
 import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.resources.ResourceLocation;
@@ -12,7 +13,6 @@ import java.util.regex.Pattern;
 public final class GroupFilterValidator {
 	private static final String ITEM_TYPE = "item";
 	private static final String FLUID_TYPE = "fluid";
-	private static final String STACK_PREFIX = "stack:";
 
 	/**
 	 * Restricted path grammar:
@@ -82,7 +82,7 @@ public final class GroupFilterValidator {
 			case GroupFilter.ExactStack exactStack -> {
 				if (exactStack.encodedStack().isBlank()) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_EXACT_STACK_BLANK);
-				} else if (GroupItemSelector.decodeExactSelector(STACK_PREFIX + exactStack.encodedStack()).isEmpty()) {
+				} else if (!isExactStackPayloadJsonObject(exactStack.encodedStack())) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_EXACT_STACK_INVALID);
 				}
 			}
@@ -144,6 +144,14 @@ public final class GroupFilterValidator {
 	private static void validatePartialPath(String value, List<ValidationError> errors, String nodeName) {
 		if (value == null || value.isBlank()) {
 			addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_MISSING_VALUE, nodeName);
+		}
+	}
+
+	private static boolean isExactStackPayloadJsonObject(String encodedStack) {
+		try {
+			return JsonParser.parseString(encodedStack).isJsonObject();
+		} catch (RuntimeException e) {
+			return false;
 		}
 	}
 

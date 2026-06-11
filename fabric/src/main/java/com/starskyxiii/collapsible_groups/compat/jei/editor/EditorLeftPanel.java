@@ -319,9 +319,10 @@ final class EditorLeftPanel {
 				ItemStack stack = (ItemStack) entry;
 				String key = dragAddKey(stack);
 				if (dragVisited.add(key) && !state.isWholeItemSelected(stack) && !state.isExactSelected(stack)) {
-					state.explicitSet.add(GroupItemSelector.exactSelector(stack));
-					state.syncEditItems();
-					onChange.run();
+					if (state.addSingleSelectionIfAbsent(stack)) {
+						state.syncEditItems();
+						onChange.run();
+					}
 				}
 			}
 			case ITEM_REMOVE -> {
