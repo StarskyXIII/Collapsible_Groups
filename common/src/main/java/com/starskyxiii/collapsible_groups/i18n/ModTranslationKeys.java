@@ -44,6 +44,10 @@ public final class ModTranslationKeys {
 
 	public static final String CONFIG_OPT_SHOW_GROUP_BACKGROUNDS = "collapsible_groups.config.opt.show_group_backgrounds";
 
+	public static final String CONFIG_OPT_SEARCH_UNGROUP_SMALL_GROUPS = "collapsible_groups.config.opt.search_ungroup_small_groups";
+
+	public static final String CONFIG_OPT_SEARCH_UNGROUP_THRESHOLD = "collapsible_groups.config.opt.search_ungroup_threshold";
+
 	public static final String CONFIG_OPT_COLLAPSED_GROUP_BACKGROUND_COLOR = "collapsible_groups.config.opt.collapsed_group_background_color";
 
 	public static final String CONFIG_OPT_EXPANDED_GROUP_BACKGROUND_COLOR = "collapsible_groups.config.opt.expanded_group_background_color";
