@@ -12,6 +12,8 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.IngredientFilterHelper;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.SearchUngroupPolicy;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import mezz.jei.api.ingredients.IIngredientHelper;
@@ -118,6 +120,9 @@ public abstract class MixinIngredientFilter {
 	/** Pending async Level-1 index rebuild. */
 	@Unique @Nullable private CompletableFuture<Map<ITypedIngredient<?>, GroupDefinition>> cg$pendingIndex = null;
 
+	/** Whether the current structure cache was built from a non-empty JEI search string. */
+	@Unique private boolean cg$searchActiveForCache = false;
+
 	@Unique private static final ExecutorService REBUILD_EXECUTOR =
 		Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "CG-IndexRebuild"); t.setDaemon(true); return t; });
 
@@ -142,7 +147,9 @@ public abstract class MixinIngredientFilter {
 	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true)
 	private void cg$onGetElements(CallbackInfoReturnable<List<IElement<?>>> cir) {
 		if (this.ingredientListCached == null) {
-			String filterText = this.filterTextSource.getFilterText().toLowerCase(Locale.ROOT);
+			String rawFilterText = this.filterTextSource.getFilterText();
+			String filterText = rawFilterText.toLowerCase(Locale.ROOT);
+			this.cg$searchActiveForCache = !rawFilterText.isBlank();
 			List<ITypedIngredient<?>> ingredients = this.cg$getIngredientListUncached(filterText).toList();
 			this.cg$buildStructureCache(ingredients);
 			this.ingredientListCached = this.cg$buildDisplayFromCache();
@@ -187,6 +194,7 @@ public abstract class MixinIngredientFilter {
 		this.cg$baseListGroupIds = null;
 		this.cg$childrenByGroupId = null;
 		this.cg$enabledGroupIds = null;
+		this.cg$searchActiveForCache = false;
 	}
 
 	/**
@@ -421,6 +429,8 @@ public abstract class MixinIngredientFilter {
 		List<String>      baseListGroupIds       = new ArrayList<>();
 		Map<String, List<IElement<?>>> childrenByGroupId = new HashMap<>();
 		Set<String> emittedGroupHeaders          = new HashSet<>();
+		boolean searchUngroupEnabled = Services.CONFIG.searchUngroupSmallGroups();
+		int searchUngroupThreshold = Services.CONFIG.searchUngroupThreshold();
 
 		for (ITypedIngredient<?> ingredient : ingredients) {
 			GroupDefinition group = this.cg$ingredientGroupIndex.get(ingredient);
@@ -432,6 +442,13 @@ public abstract class MixinIngredientFilter {
 				int totalChildren = itemChildren.size() + fluidChildren.size() + genericChildren.size();
 
 				if (totalChildren >= 2) {
+					boolean ungroupForSearch = SearchUngroupPolicy.shouldUngroup(
+						searchUngroupEnabled, this.cg$searchActiveForCache, totalChildren, searchUngroupThreshold);
+					if (ungroupForSearch) {
+						baseList.add(new IngredientElement<>(ingredient));
+						baseListGroupIds.add(null);
+						continue;
+					}
 					if (emittedGroupHeaders.add(group.id())) {
 						IElement<?> header = cg$createGroupHeader(
 							group, itemChildren, fluidChildren, genericChildren,

@@ -48,6 +48,8 @@ public final class NeoForgeConfig implements IConfigProvider {
 	@Override public boolean showManagerButton()       { return SHOW_MANAGER_BUTTON.get(); }
 	@Override public boolean useOreUiManager()        { return USE_ORE_UI_MANAGER.get(); }
 	@Override public boolean showGroupBackgrounds()    { return SHOW_GROUP_BACKGROUNDS.get(); }
+	@Override public boolean searchUngroupSmallGroups() { return SEARCH_UNGROUP_SMALL_GROUPS.get(); }
+	@Override public int searchUngroupThreshold()       { return SEARCH_UNGROUP_THRESHOLD.get(); }
 	@Override public int collapsedGroupBackgroundColor() {
 		return ColorConfigParser.parseArgb(COLLAPSED_GROUP_BACKGROUND_COLOR.get(), COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
 	}
@@ -145,6 +147,12 @@ public final class NeoForgeConfig implements IConfigProvider {
 
 	/** Whether grouped slots draw a semi-transparent background tint. */
 	public static final ModConfigSpec.BooleanValue SHOW_GROUP_BACKGROUNDS;
+
+	/** Whether small matching groups are shown as regular entries while filtering JEI search results. */
+	public static final ModConfigSpec.BooleanValue SEARCH_UNGROUP_SMALL_GROUPS;
+
+	/** Filtered group child count must be lower than this value before search leaves it ungrouped. */
+	public static final ModConfigSpec.IntValue SEARCH_UNGROUP_THRESHOLD;
 
 	/** ARGB background color for collapsed group headers. */
 	public static final ModConfigSpec.ConfigValue<String> COLLAPSED_GROUP_BACKGROUND_COLOR;
@@ -285,6 +293,20 @@ public final class NeoForgeConfig implements IConfigProvider {
 			)
 			.translation("collapsible_groups.configuration.ui.showGroupBackgrounds")
 			.define("showGroupBackgrounds", true);
+		SEARCH_UNGROUP_SMALL_GROUPS = builder
+			.comment(
+				"Whether small matching groups should be shown as regular entries while filtering JEI search results.",
+				"This avoids showing a group header when only a few children match the search."
+			)
+			.translation("collapsible_groups.configuration.ui.searchUngroupSmallGroups")
+			.define("searchUngroupSmallGroups", true);
+		SEARCH_UNGROUP_THRESHOLD = builder
+			.comment(
+				"Filtered group child count must be lower than this value before search leaves it ungrouped.",
+				"For example, 5 leaves groups with 2-4 matching entries ungrouped; 0 disables this behavior."
+			)
+			.translation("collapsible_groups.configuration.ui.searchUngroupThreshold")
+			.defineInRange("searchUngroupThreshold", 5, 0, Integer.MAX_VALUE);
 		COLLAPSED_GROUP_BACKGROUND_COLOR = builder
 			.comment(
 				"ARGB background color for collapsed group headers.",

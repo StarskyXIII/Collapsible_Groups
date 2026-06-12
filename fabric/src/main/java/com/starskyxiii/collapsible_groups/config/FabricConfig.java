@@ -100,6 +100,8 @@ public final class FabricConfig implements IConfigProvider {
 	@Override public boolean showManagerButton()                    { return data.ui.showManagerButton; }
 	@Override public boolean useOreUiManager()                     { return data.ui.useOreUiManager; }
 	@Override public boolean showGroupBackgrounds()                 { return data.ui.showGroupBackgrounds; }
+	@Override public boolean searchUngroupSmallGroups()             { return data.ui.searchUngroupSmallGroups; }
+	@Override public int searchUngroupThreshold()                   { return Math.max(0, data.ui.searchUngroupThreshold); }
 	@Override public int collapsedGroupBackgroundColor() {
 		return ColorConfigParser.parseArgb(data.ui.collapsedGroupBackgroundColor, UiData.COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
 	}
@@ -148,6 +150,8 @@ public final class FabricConfig implements IConfigProvider {
 		public boolean showManagerButton    = true;
 		public boolean useOreUiManager      = false;
 		public boolean showGroupBackgrounds = true;
+		public boolean searchUngroupSmallGroups = true;
+		public int searchUngroupThreshold = 5;
 		public String collapsedGroupBackgroundColor = "#24FFFFFF";
 		public String expandedGroupBackgroundColor  = "#24FFFFFF";
 		public String groupNameColor               = "#FFAA00";

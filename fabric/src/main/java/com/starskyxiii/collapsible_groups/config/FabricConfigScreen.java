@@ -7,6 +7,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
+import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
@@ -30,6 +31,7 @@ public class FabricConfigScreen extends Screen {
 	private static final int ROW_GAP       = 2;
 	private static final int SEC_GAP       = 8;
 	private static final int SEC_H         = 11;
+	private static final int INT_FIELD_W   = 64;
 	private static final int ACTION_BTN_W  = 100;
 	private static final int ACTION_BTN_H  = 20;
 	private static final int HEADER_H      = 24;
@@ -51,6 +53,8 @@ public class FabricConfigScreen extends Screen {
 	private boolean showManagerButton;
 	private boolean useOreUiManager;
 	private boolean showGroupBackgrounds;
+	private boolean searchUngroupSmallGroups;
+	private int searchUngroupThreshold;
 	private boolean timingLogs;
 	private boolean verifyStartupIndex;
 	private boolean verifyEditorIndex;
@@ -67,6 +71,10 @@ public class FabricConfigScreen extends Screen {
 	private final List<Button>  toggleButtons  = new ArrayList<>();
 	private final List<Integer> toggleContentY = new ArrayList<>();
 
+	private final List<EditBox>   integerFields   = new ArrayList<>();
+	private final List<Integer>   integerContentY = new ArrayList<>();
+	private final List<Component> integerLabels   = new ArrayList<>();
+
 	// Footer buttons (Save / Cancel) — rendered outside the scissor region
 	private Button saveButton;
 	private Button cancelButton;
@@ -82,6 +90,9 @@ public class FabricConfigScreen extends Screen {
 		sectionLabel.clear();
 		toggleButtons.clear();
 		toggleContentY.clear();
+		integerFields.clear();
+		integerContentY.clear();
+		integerLabels.clear();
 
 		// Snapshot current config into edit fields only on first open;
 		// subsequent init() calls (e.g. window resize) preserve in-progress edits.
@@ -98,6 +109,8 @@ public class FabricConfigScreen extends Screen {
 			showManagerButton    = d.ui.showManagerButton;
 			useOreUiManager      = d.ui.useOreUiManager;
 			showGroupBackgrounds = d.ui.showGroupBackgrounds;
+			searchUngroupSmallGroups = d.ui.searchUngroupSmallGroups;
+			searchUngroupThreshold = Math.max(0, d.ui.searchUngroupThreshold);
 			timingLogs           = d.debug.enableTimingLogs;
 			verifyStartupIndex   = d.debug.verifyStartupIndex;
 			verifyEditorIndex    = d.debug.verifyEditorPreviewIndex;
@@ -147,6 +160,10 @@ public class FabricConfigScreen extends Screen {
 			() -> useOreUiManager, v -> useOreUiManager = v);          y += ROW_H + ROW_GAP;
 		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_SHOW_GROUP_BACKGROUNDS,
 			() -> showGroupBackgrounds, v -> showGroupBackgrounds = v); y += ROW_H + ROW_GAP;
+		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_SEARCH_UNGROUP_SMALL_GROUPS,
+			() -> searchUngroupSmallGroups, v -> searchUngroupSmallGroups = v); y += ROW_H + ROW_GAP;
+		addIntegerField(cx, y, ModTranslationKeys.CONFIG_OPT_SEARCH_UNGROUP_THRESHOLD,
+			searchUngroupThreshold, v -> searchUngroupThreshold = v); y += ROW_H + ROW_GAP;
 
 		// ── Debug ──
 		y += SEC_GAP;
@@ -207,6 +224,17 @@ public class FabricConfigScreen extends Screen {
 		toggleContentY.add(contentY);
 	}
 
+	private void addIntegerField(int cx, int contentY, String labelKey, int value, Consumer<Integer> setter) {
+		EditBox field = new EditBox(this.font, 0, 0, INT_FIELD_W, ROW_H, Component.translatable(labelKey));
+		field.setValue(Integer.toString(Math.max(0, value)));
+		field.setFilter(text -> text.chars().allMatch(Character::isDigit));
+		field.setResponder(text -> setter.accept(readNonNegativeInt(text, 0)));
+		this.addRenderableWidget(field);
+		integerFields.add(field);
+		integerContentY.add(contentY);
+		integerLabels.add(Component.translatable(labelKey));
+	}
+
 	/** Repositions toggle buttons based on current scroll offset and toggles visibility. */
 	private void updateTogglePositions() {
 		int vpTop = viewportTop();
@@ -218,6 +246,15 @@ public class FabricConfigScreen extends Screen {
 			btn.visible = (screenY + ROW_H > vpTop) && (screenY < vpBot);
 			btn.active  = btn.visible;
 		}
+		int fieldX = this.width / 2 + BTN_W / 2 - INT_FIELD_W;
+		for (int i = 0; i < integerFields.size(); i++) {
+			EditBox field = integerFields.get(i);
+			int screenY = vpTop + integerContentY.get(i) - scrollOffset;
+			field.setX(fieldX);
+			field.setY(screenY);
+			field.visible = (screenY + ROW_H > vpTop) && (screenY < vpBot);
+			field.active = field.visible;
+		}
 	}
 
 	private static Component toggleLabel(String labelKey, boolean value) {
@@ -226,6 +263,17 @@ public class FabricConfigScreen extends Screen {
 				value ? ModTranslationKeys.CONFIG_VAL_ON : ModTranslationKeys.CONFIG_VAL_OFF)
 			.withStyle(value ? ChatFormatting.GREEN : ChatFormatting.RED);
 		return label.append(Component.literal(": ")).append(val);
+	}
+
+	private static int readNonNegativeInt(String text, int fallback) {
+		if (text == null || text.isBlank()) return 0;
+		try {
+			long parsed = Long.parseLong(text);
+			if (parsed < 0) return 0;
+			return parsed > Integer.MAX_VALUE ? Integer.MAX_VALUE : (int) parsed;
+		} catch (NumberFormatException e) {
+			return Math.max(0, fallback);
+		}
 	}
 
 	// ── Save ─────────────────────────────────────────────────────────────────
@@ -245,6 +293,10 @@ public class FabricConfigScreen extends Screen {
 		newData.ui.showManagerButton                               = showManagerButton;
 		newData.ui.useOreUiManager                                 = useOreUiManager;
 		newData.ui.showGroupBackgrounds                            = showGroupBackgrounds;
+		newData.ui.searchUngroupSmallGroups                        = searchUngroupSmallGroups;
+		newData.ui.searchUngroupThreshold                          = readNonNegativeInt(
+			integerFields.isEmpty() ? "" : integerFields.getFirst().getValue(),
+			searchUngroupThreshold);
 		newData.ui.collapsedGroupBackgroundColor                   = existingData.ui.collapsedGroupBackgroundColor;
 		newData.ui.expandedGroupBackgroundColor                    = existingData.ui.expandedGroupBackgroundColor;
 		newData.ui.groupNameColor                                  = existingData.ui.groupNameColor;
@@ -301,6 +353,16 @@ public class FabricConfigScreen extends Screen {
 		// Toggle buttons only (visible ones will render inside scissor)
 		for (Button btn : toggleButtons) {
 			btn.render(g, mx, my, pt);
+		}
+		int fieldLabelX = cx - BTN_W / 2;
+		int fieldLabelWidth = BTN_W - INT_FIELD_W - 8;
+		for (int i = 0; i < integerFields.size(); i++) {
+			EditBox field = integerFields.get(i);
+			if (!field.visible) continue;
+			int labelY = field.getY() + (ROW_H - this.font.lineHeight) / 2;
+			String labelText = this.font.plainSubstrByWidth(integerLabels.get(i).getString(), fieldLabelWidth);
+			g.drawString(this.font, labelText, fieldLabelX, labelY, 0xFFFFFF);
+			field.render(g, mx, my, pt);
 		}
 
 		g.disableScissor();

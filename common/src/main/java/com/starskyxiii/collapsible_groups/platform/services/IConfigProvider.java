@@ -25,6 +25,12 @@ public interface IConfigProvider {
 	/** Whether group slots should draw their semi-transparent background tint. */
 	boolean showGroupBackgrounds();
 
+	/** Whether small matching groups should be shown as regular entries while filtering JEI search results. */
+	boolean searchUngroupSmallGroups();
+
+	/** Filtered child count must be lower than this value before search leaves a group ungrouped. */
+	int searchUngroupThreshold();
+
 	/** ARGB background color for collapsed group headers. */
 	int collapsedGroupBackgroundColor();
 
