@@ -194,7 +194,6 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	@Override
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
-		extractBackground(g, mouseX, mouseY, partialTicks);
 		g.fill(0, 0, this.width, this.height, OreUiPalette.SCREEN_SCRIM);
 		pendingTooltip = null;
 

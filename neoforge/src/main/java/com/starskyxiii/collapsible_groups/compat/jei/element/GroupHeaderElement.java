@@ -23,6 +23,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -68,18 +69,14 @@ public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderI
 	}
 
 	@Override
-	public IDrawable createRenderOverlay() {
-		return new GroupExpandOverlay(icon().groupId());
-	}
+	public @Nullable IDrawable createRenderOverlay() { return null; }
 
 	@Override
 	public void drawPreRender(GuiGraphicsExtractor guiGraphics, int xOffset, int yOffset) {
 		if (!Services.CONFIG.showGroupBackgrounds()) return;
 
 		boolean expanded = GroupRegistry.isExpandedById(icon().groupId());
-		int background = expanded
-			? Services.CONFIG.expandedGroupBackgroundColor()
-			: Services.CONFIG.collapsedGroupBackgroundColor();
+		int background = GroupThemeResolver.headerBackgroundColor(icon().groupId(), expanded);
 		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17, background);
 	}
 
