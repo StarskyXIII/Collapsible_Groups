@@ -5,6 +5,7 @@ import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.GroupSource;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider;
 import com.starskyxiii.collapsible_groups.persistence.GroupConfig;
 import com.starskyxiii.collapsible_groups.persistence.GroupExpandState;
@@ -105,6 +106,7 @@ public final class GroupRegistry {
 	 * @param providers built-in default group providers; pass an empty list for none
 	 */
 	public static void load(List<DefaultGroupProvider> providers) {
+		Map<String, Boolean> enabledOverrides = GroupConfig.loadEnabledOverrides();
 		// 1. Collect provider defaults (insertion order preserved)
 		Map<String, GroupDefinition> merged = new LinkedHashMap<>();
 		for (DefaultGroupProvider provider : providers) {
@@ -118,7 +120,7 @@ public final class GroupRegistry {
 			if (!g.id().startsWith("__default_")) merged.put(g.id(), g);
 		}
 
-		groups = List.copyOf(merged.values());
+		groups = applyEnabledOverridesToManagedSources(List.copyOf(merged.values()), enabledOverrides);
 		groupsById = buildGroupsById(groups);
 		GroupExpandState.load(GroupConfig.loadExpandState());
 
@@ -204,7 +206,7 @@ public final class GroupRegistry {
 		return Optional.empty();
 	}
 
-	// --- Enable-agnostic finders (for Level-1 index that includes disabled groups) ---
+	// --- Enable-agnostic finders (for full-match previews and editor diagnostics) ---
 
 	public static Optional<GroupDefinition> findGroupIgnoringEnabled(ItemStack stack) {
 		List<GroupDefinition> snapshot = groups;
@@ -280,7 +282,8 @@ public final class GroupRegistry {
 	/**
 	 * Returns the pre-resolved item list for a group ID from the fast cache, or
 	 * {@code null} if the cache is not yet populated.
-	 * The cache includes both enabled and disabled groups (enable-agnostic index).
+	 * The cache has keys for all groups, but only enabled groups receive
+	 * first-match members. Disabled groups still appear in full-match previews.
 	 * <p>Use this in the manager screen's {@code rebuildCards()} for O(1) access.
 	 * Never use this in the editor ??the editor needs live resolution so that
 	 * in-progress edits are reflected immediately.
@@ -511,7 +514,7 @@ public final class GroupRegistry {
 	// -----------------------------------------------------------------------
 
 	public static void setKubeJsGroups(List<GroupDefinition> incoming) {
-		KubeJsGroupStore.setGroups(incoming);
+		KubeJsGroupStore.setGroups(applyEnabledOverridesToManagedSources(incoming, GroupConfig.loadEnabledOverrides()));
 		clearManagerPreviewCaches();
 	}
 	public static boolean isKubeJsGroupsEmpty()                        { return KubeJsGroupStore.isGroupsEmpty(); }
@@ -565,6 +568,61 @@ public final class GroupRegistry {
 		GroupConfig.save(group);
 	}
 
+	public static Optional<GroupDefinition> copyAsCustomQuietly(String sourceId, String copiedDisplayName) {
+		Optional<GroupDefinition> copied = createCustomCopyDraft(sourceId, copiedDisplayName);
+		copied.ifPresent(GroupRegistry::saveQuietly);
+		return copied;
+	}
+
+	public static Optional<GroupDefinition> createCustomCopyDraft(String sourceId, String copiedDisplayName) {
+		if (sourceId == null || sourceId.isBlank()) return Optional.empty();
+		Optional<GroupDefinition> source = findById(sourceId);
+		if (source.isEmpty()) return Optional.empty();
+		return createCustomCopy(
+			source.get(),
+			copiedDisplayName,
+			getAllIncludingKubeJs().stream().map(GroupDefinition::id).toList()
+		);
+	}
+
+	/**
+	 * Updates enabled state without triggering JEI invalidation.
+	 *
+	 * <p>User groups are persisted through their normal group JSON. Built-in and
+	 * KubeJS groups are persisted through the enabled override store so provider
+	 * definitions and ephemeral KubeJS definitions are never written as group JSON.
+	 *
+	 * @return {@code false} only when the id is blank or no current group exists.
+	 */
+	public static boolean setEnabledQuietly(String id, boolean enabled) {
+		if (id == null || id.isBlank()) return false;
+
+		GroupDefinition existing = groupsById.get(id);
+		if (existing != null) {
+			if (existing.enabled() == enabled) return true;
+			if (isEnabledOverrideManagedSource(id)) {
+				replaceGroups(snapshot -> replaceEnabled(snapshot, id, enabled));
+				saveEnabledOverride(id, enabled);
+			} else {
+				saveQuietly(existing.withEnabled(enabled));
+			}
+			return true;
+		}
+
+		for (GroupDefinition group : KubeJsGroupStore.getGroups()) {
+			if (!id.equals(group.id())) continue;
+			if (group.enabled() == enabled) return true;
+			boolean updated = KubeJsGroupStore.updateGroup(id, current -> current.withEnabled(enabled));
+			if (updated) {
+				invalidateFirstMatchCache(id);
+				saveEnabledOverride(id, enabled);
+			}
+			return updated;
+		}
+
+		return false;
+	}
+
 	/** Removes a group by ID, deletes its file, and refreshes JEI. */
 	public static void delete(String id) {
 		deleteQuietly(id);
@@ -607,6 +665,42 @@ public final class GroupRegistry {
 		return baseId + "_" + System.currentTimeMillis();
 	}
 
+	/** Generates a unique group ID that avoids both persisted/provider groups and ephemeral KubeJS groups. */
+	public static String generateUniqueIdIncludingKubeJs(String base) {
+		String id = sanitizeGeneratedIdBase(base);
+		if (id.isEmpty()) {
+			id = fallbackGeneratedIdBase(base);
+		}
+		List<String> existingIds = getAllIncludingKubeJs().stream().map(GroupDefinition::id).toList();
+		final String baseId = id;
+		if (existingIds.stream().noneMatch(existingId -> existingId.equals(baseId))) return baseId;
+		for (int i = 2; i < 1000; i++) {
+			String candidate = baseId + "_" + i;
+			if (existingIds.stream().noneMatch(existingId -> existingId.equals(candidate))) return candidate;
+		}
+		return baseId + "_" + System.currentTimeMillis();
+	}
+
+	static Optional<GroupDefinition> createCustomCopy(
+		GroupDefinition source,
+		String copiedDisplayName,
+		List<String> existingGroupIds
+	) {
+		if (source == null || GroupSource.fromGroupId(source.id()) == GroupSource.USER) {
+			return Optional.empty();
+		}
+		String fallbackName = normalizedCopyName(copiedDisplayName, source);
+		String id = generateUniqueCustomCopyId(copyBaseId(source.id(), fallbackName), existingGroupIds);
+		return Optional.of(new GroupDefinition(
+			id,
+			fallbackName,
+			source.enabled(),
+			source.filter(),
+			source.iconIds(),
+			source.theme()
+		));
+	}
+
 	/**
 	 * Normalizes a user-facing group name into a filesystem-safe ASCII ID base.
 	 * Repeated separators are collapsed and leading/trailing underscores are trimmed.
@@ -623,6 +717,50 @@ public final class GroupRegistry {
 			.replaceAll("^_+|_+$", "");
 
 		return normalized;
+	}
+
+	private static String normalizedCopyName(String copiedDisplayName, GroupDefinition source) {
+		if (copiedDisplayName != null && !copiedDisplayName.isBlank()) {
+			return copiedDisplayName.trim();
+		}
+		String fallback = source.displayName().fallback();
+		return fallback == null || fallback.isBlank() ? source.id() : fallback;
+	}
+
+	private static String copyBaseId(String sourceId, String copiedDisplayName) {
+		String stripped = stripReservedSourcePrefix(sourceId);
+		if (!stripped.isBlank()) {
+			return stripped + "_copy";
+		}
+		return copiedDisplayName + "_copy";
+	}
+
+	private static String stripReservedSourcePrefix(String id) {
+		if (id == null) return "";
+		if (id.startsWith("__default_")) return id.substring("__default_".length());
+		if (id.startsWith("__kjs_")) return id.substring("__kjs_".length());
+		return id;
+	}
+
+	private static String generateUniqueCustomCopyId(String base, List<String> existingGroupIds) {
+		String id = sanitizeGeneratedIdBase(base);
+		if (id.isEmpty()) {
+			id = fallbackGeneratedIdBase(base);
+		}
+		if (id.startsWith("__default_") || id.startsWith("__kjs_")) {
+			id = sanitizeGeneratedIdBase(stripReservedSourcePrefix(id));
+			if (id.isEmpty()) {
+				id = "group";
+			}
+		}
+		List<String> existing = existingGroupIds == null ? List.of() : List.copyOf(existingGroupIds);
+		final String baseId = id;
+		if (existing.stream().noneMatch(existingId -> existingId.equals(baseId))) return baseId;
+		for (int i = 2; i < 1000; i++) {
+			String candidate = baseId + "_" + i;
+			if (existing.stream().noneMatch(existingId -> existingId.equals(candidate))) return candidate;
+		}
+		return baseId + "_" + System.currentTimeMillis();
 	}
 
 	private static String fallbackGeneratedIdBase(String base) {
@@ -736,6 +874,46 @@ public final class GroupRegistry {
 			groups = updated;
 			groupsById = buildGroupsById(updated);
 		}
+	}
+
+	static List<GroupDefinition> applyEnabledOverridesToManagedSources(
+		List<GroupDefinition> source,
+		Map<String, Boolean> overrides
+	) {
+		if (source == null || source.isEmpty() || overrides == null || overrides.isEmpty()) {
+			return source == null ? List.of() : List.copyOf(source);
+		}
+		List<GroupDefinition> updated = new ArrayList<>(source.size());
+		boolean changed = false;
+		for (GroupDefinition group : source) {
+			Boolean override = isEnabledOverrideManagedSource(group.id()) ? overrides.get(group.id()) : null;
+			if (override != null && group.enabled() != override) {
+				updated.add(group.withEnabled(override));
+				changed = true;
+			} else {
+				updated.add(group);
+			}
+		}
+		return changed ? List.copyOf(updated) : List.copyOf(source);
+	}
+
+	private static boolean isEnabledOverrideManagedSource(String id) {
+		return id != null && (id.startsWith("__default_") || id.startsWith("__kjs_"));
+	}
+
+	private static List<GroupDefinition> replaceEnabled(List<GroupDefinition> snapshot, String id, boolean enabled) {
+		List<GroupDefinition> copy = new ArrayList<>(snapshot.size());
+		for (GroupDefinition group : snapshot) {
+			copy.add(id.equals(group.id()) ? group.withEnabled(enabled) : group);
+		}
+		invalidateFirstMatchCache(id);
+		return List.copyOf(copy);
+	}
+
+	private static void saveEnabledOverride(String id, boolean enabled) {
+		Map<String, Boolean> overrides = new LinkedHashMap<>(GroupConfig.loadEnabledOverrides());
+		overrides.put(id, enabled);
+		GroupConfig.saveEnabledOverrides(overrides);
 	}
 
 	private static Map<String, GroupDefinition> buildGroupsById(List<GroupDefinition> source) {

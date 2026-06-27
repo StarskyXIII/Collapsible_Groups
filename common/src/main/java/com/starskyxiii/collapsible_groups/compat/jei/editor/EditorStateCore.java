@@ -22,13 +22,19 @@ final class EditorStateCore {
 	private final GroupDefinition existingDefinition;
 	private final GroupFilterRuleDraft ruleDraft;
 	private final Runnable onRulesDraftChanged;
+	private final boolean saveAsNew;
 
 	private GroupFilterRuleDraft.Node selectedRuleNode;
 	private boolean contentsQuickEditAvailable;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
 
 	EditorStateCore(GroupDefinition existingDefinition, Runnable onRulesDraftChanged) {
+		this(existingDefinition, false, onRulesDraftChanged);
+	}
+
+	EditorStateCore(GroupDefinition existingDefinition, boolean saveAsNew, Runnable onRulesDraftChanged) {
 		this.existingDefinition = existingDefinition;
+		this.saveAsNew = saveAsNew;
 		this.onRulesDraftChanged = Objects.requireNonNull(onRulesDraftChanged, "onRulesDraftChanged");
 		this.ruleDraft = existingDefinition != null
 			? GroupFilterRuleDraft.decode(existingDefinition.filter())
@@ -97,7 +103,7 @@ final class EditorStateCore {
 	Optional<GroupDefinition> trySave(String editId, String editName, boolean editEnabled) {
 		if (!canSave(editName)) return Optional.empty();
 		Optional<GroupFilter> filter = buildCurrentFilter();
-		String id = (editId != null && !editId.isEmpty()) ? editId : GroupRegistry.generateUniqueId(editName);
+		String id = idForSave(editId, editName);
 		try {
 			GroupDefinition saved = GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition);
 			GroupRegistry.saveQuietly(saved);
@@ -151,7 +157,7 @@ final class EditorStateCore {
 		if (id == null || id.isBlank()) {
 			return Component.translatable(ModTranslationKeys.EDITOR_PENDING_ID_GENERATING).getString();
 		}
-		if (existingDefinition != null) {
+		if (existingDefinition != null && !saveAsNew) {
 			return Component.translatable(ModTranslationKeys.EDITOR_PENDING_ID_EXISTING, id).getString();
 		}
 		String sanitized = GroupRegistry.sanitizeGeneratedIdBase(editName);
@@ -244,11 +250,23 @@ final class EditorStateCore {
 
 	private String currentOrGeneratedId(String editId, String editName) {
 		if (editId != null && !editId.isEmpty()) {
+			if (saveAsNew && GroupRegistry.findById(editId).isPresent()) {
+				return GroupRegistry.generateUniqueIdIncludingKubeJs(editName);
+			}
 			return editId;
 		}
 		if (editName == null || editName.isBlank()) {
 			return null;
 		}
 		return GroupRegistry.generateUniqueId(editName);
+	}
+
+	private String idForSave(String editId, String editName) {
+		if (editId != null && !editId.isEmpty()) {
+			if (!saveAsNew || GroupRegistry.findById(editId).isEmpty()) {
+				return editId;
+			}
+		}
+		return saveAsNew ? GroupRegistry.generateUniqueIdIncludingKubeJs(editName) : GroupRegistry.generateUniqueId(editName);
 	}
 }

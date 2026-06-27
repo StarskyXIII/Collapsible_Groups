@@ -99,7 +99,7 @@ public final class OreUiRenderer {
 
 	public static void drawSegment(GuiGraphics g, Font font, int x, int y, int width, int height,
 	                               String label, ButtonState state) {
-		int depth = buttonVisualDepth(state);
+		int depth = segmentVisualDepth(state);
 		ResourceLocation sprite = segmentSprite(state);
 		if (sprite != null) {
 			g.blitSprite(sprite, x + 1, y + 1, width - 2, height - 2);
@@ -108,7 +108,7 @@ public final class OreUiRenderer {
 		}
 		drawControlFrame(g, x, y, width, height, depth);
 		int text = buttonTextColor(state);
-		int yOffset = buttonTextOffset(state);
+		int yOffset = segmentTextOffset(state);
 		String clipped = font.plainSubstrByWidth(label, Math.max(0, width - 4));
 		g.drawString(font, clipped, x + Math.max(0, (width - font.width(clipped)) / 2),
 			centeredTextY(font, y, height) + yOffset, text, false);
@@ -125,6 +125,14 @@ public final class OreUiRenderer {
 	}
 
 	private static int buttonVisualDepth(ButtonState state) {
+		return switch (state) {
+			case HOVERED -> 1;
+			case PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 2;
+			case NORMAL, DISABLED -> 0;
+		};
+	}
+
+	private static int segmentVisualDepth(ButtonState state) {
 		return switch (state) {
 			case HOVERED -> 1;
 			case PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 2;
@@ -230,9 +238,17 @@ public final class OreUiRenderer {
 
 	private static int buttonTextOffset(ButtonState state) {
 		return switch (state) {
-			case NORMAL -> -1;
+			case NORMAL, DISABLED -> -1;
 			case HOVERED -> 0;
-			case PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED, DISABLED -> 1;
+			case PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 1;
+		};
+	}
+
+	private static int segmentTextOffset(ButtonState state) {
+		return switch (state) {
+			case NORMAL, DISABLED -> -1;
+			case HOVERED -> 0;
+			case PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 1;
 		};
 	}
 
@@ -310,5 +326,9 @@ public final class OreUiRenderer {
 
 	public static int centeredTextY(Font font, int top, int height) {
 		return top + Math.max(0, (height - font.lineHeight) / 2) + 1;
+	}
+
+	public static int textFieldTextY(Font font, int top, int height) {
+		return top + Math.max(0, (height - font.lineHeight) / 2);
 	}
 }

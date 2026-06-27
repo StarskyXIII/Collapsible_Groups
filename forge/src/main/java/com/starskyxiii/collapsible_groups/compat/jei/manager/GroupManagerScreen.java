@@ -385,7 +385,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				boolean newEnabled = !card.group().enabled();
 				GroupRegistry.saveQuietly(card.group().withEnabled(newEnabled));
 				updateCardEnabled(card.id(), newEnabled);
-				GroupRegistry.notifyJeiStructureOnly();
+				GroupRegistry.notifyJei();
 				return true;
 			}
 			if (isMouseOver(mouseX, mouseY, x + 80, buttonY, 38, BTN_H)) { Minecraft.getInstance().setScreen(new GroupEditorScreen(this, card.group())); return true; }

@@ -44,8 +44,12 @@ final class GroupEditorState implements EditorRulesState {
 	private final EditorStateCore core;
 
 	GroupEditorState(GroupDefinition existing) {
+		this(existing, false);
+	}
+
+	GroupEditorState(GroupDefinition existing, boolean saveAsNew) {
 		this.draft = GroupFilterEditorDraft.empty();
-		this.core = new EditorStateCore(existing, this::refreshContentsDraftFromRules);
+		this.core = new EditorStateCore(existing, saveAsNew, this::refreshContentsDraftFromRules);
 
 		if (existing != null) {
 			this.editId = existing.id();

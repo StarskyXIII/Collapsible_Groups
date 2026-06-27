@@ -327,6 +327,9 @@ public final class ModTranslationKeys {
 
 	public static final String MANAGER_BTN_COPY = "collapsible_groups.manager.btn_copy";
 
+	/** Args: source group name (%s) */
+	public static final String MANAGER_COPY_NAME_FORMAT = "collapsible_groups.manager.copy_name_format";
+
 	public static final String MANAGER_BTN_DISABLED = "collapsible_groups.manager.btn_disabled";
 
 	public static final String MANAGER_BTN_EDIT = "collapsible_groups.manager.btn_edit";
@@ -339,6 +342,36 @@ public final class ModTranslationKeys {
 
 	public static final String MANAGER_BTN_NEW_GROUP = "collapsible_groups.manager.btn_new_group";
 
+	public static final String MANAGER_BATCH_SELECT = "collapsible_groups.manager.batch.select";
+
+	public static final String MANAGER_BATCH_DONE = "collapsible_groups.manager.batch.done";
+
+	/** Args: selected count (%s) */
+	public static final String MANAGER_BATCH_SELECTED_COUNT = "collapsible_groups.manager.batch.selected_count";
+
+	public static final String MANAGER_BATCH_ENABLE = "collapsible_groups.manager.batch.enable";
+
+	public static final String MANAGER_BATCH_DISABLE = "collapsible_groups.manager.batch.disable";
+
+	public static final String MANAGER_BATCH_DELETE = "collapsible_groups.manager.batch.delete";
+
+	/** Args: deletable count (%s) */
+	public static final String MANAGER_BATCH_DELETE_DIALOG_TITLE = "collapsible_groups.manager.batch.delete_dialog.title";
+
+	/** Args: deletable count (%s) */
+	public static final String MANAGER_BATCH_DELETE_DIALOG_BODY = "collapsible_groups.manager.batch.delete_dialog.body";
+
+	/** Args: skipped count (%s) */
+	public static final String MANAGER_BATCH_DELETE_DIALOG_SKIPPED = "collapsible_groups.manager.batch.delete_dialog.skipped";
+
+	/** Args: deletable count (%s) */
+	public static final String MANAGER_BATCH_DELETE_DIALOG_CONFIRM = "collapsible_groups.manager.batch.delete_dialog.confirm";
+
+	public static final String MANAGER_DELETE_DIALOG_TITLE = "collapsible_groups.manager.delete_dialog.title";
+
+	/** Args: group name (%s) */
+	public static final String MANAGER_DELETE_DIALOG_BODY = "collapsible_groups.manager.delete_dialog.body";
+
 	/** Args: total count (%s) */
 	public static final String MANAGER_COUNT_ALL = "collapsible_groups.manager.count_all";
 
@@ -349,6 +382,12 @@ public final class ModTranslationKeys {
 
 	public static final String MANAGER_FILTER_USER = "collapsible_groups.manager.filter_user";
 
+	public static final String MANAGER_SEARCH_LABEL = "collapsible_groups.manager.search_label";
+
+	public static final String MANAGER_SEARCH_HINT = "collapsible_groups.manager.search_hint";
+
+	public static final String MANAGER_EMPTY_SEARCH = "collapsible_groups.manager.empty_search";
+
 	public static final String MANAGER_FOOTER_HINT = "collapsible_groups.manager.footer_hint";
 
 	/** Args: group name (%s) */
@@ -357,7 +396,11 @@ public final class ModTranslationKeys {
 	/** Args: group name (%s) */
 	public static final String MANAGER_PREFIX_KUBEJS = "collapsible_groups.manager.prefix_kubejs";
 
-	public static final String MANAGER_TOOLTIP_COPY_DEFERRED = "collapsible_groups.manager.tooltip.copy_deferred";
+	public static final String MANAGER_TOOLTIP_COPY_AS_CUSTOM = "collapsible_groups.manager.tooltip.copy_as_custom";
+
+	public static final String MANAGER_TOOLTIP_DELETE_CONFIRM = "collapsible_groups.manager.tooltip.delete_confirm";
+
+	public static final String MANAGER_TOOLTIP_SHIFT_DELETE = "collapsible_groups.manager.tooltip.shift_delete";
 
 	public static final String MANAGER_TOOLTIP_DELETE_READONLY = "collapsible_groups.manager.tooltip.delete_readonly";
 
@@ -366,6 +409,8 @@ public final class ModTranslationKeys {
 	public static final String SCREEN_EDIT_GROUP = "collapsible_groups.screen.edit_group";
 
 	public static final String SCREEN_NEW_GROUP = "collapsible_groups.screen.new_group";
+
+	public static final String SCREEN_COPY_GROUP = "collapsible_groups.screen.copy_group";
 
 	public static final String SCREEN_TITLE = "collapsible_groups.screen.title";
 

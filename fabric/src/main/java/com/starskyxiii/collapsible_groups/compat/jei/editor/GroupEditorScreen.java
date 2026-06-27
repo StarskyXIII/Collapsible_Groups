@@ -130,10 +130,18 @@ public class GroupEditorScreen extends Screen {
     // ─────────────────────────────────────────────────────────────────────
 
     public GroupEditorScreen(GroupManagerParent parent, GroupDefinition existing) {
-        super(Component.translatable(existing == null
-            ? ModTranslationKeys.SCREEN_NEW_GROUP : ModTranslationKeys.SCREEN_EDIT_GROUP));
+        this(parent, existing, false);
+    }
+
+    public GroupEditorScreen(GroupManagerParent parent, GroupDefinition existing, boolean copyDraft) {
+        super(Component.translatable(titleKey(existing, copyDraft)));
         this.parent = parent;
-        this.state  = new GroupEditorState(existing);
+        this.state  = new GroupEditorState(existing, copyDraft);
+    }
+
+    private static String titleKey(GroupDefinition existing, boolean copyDraft) {
+        if (copyDraft) return ModTranslationKeys.SCREEN_COPY_GROUP;
+        return existing == null ? ModTranslationKeys.SCREEN_NEW_GROUP : ModTranslationKeys.SCREEN_EDIT_GROUP;
     }
 
     @Override

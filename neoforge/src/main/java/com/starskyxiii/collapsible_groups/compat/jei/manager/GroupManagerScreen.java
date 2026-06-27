@@ -588,7 +588,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				boolean newEnabled = !ic.group().enabled();
 				GroupRegistry.saveQuietly(ic.group().withEnabled(newEnabled));
 				updateCardEnabled(ic.group().id(), newEnabled);
-				GroupRegistry.notifyJeiStructureOnly();
+				GroupRegistry.notifyJei();
 				return true;
 			}
 			if (isMouseOver(mouseX, mouseY, x + 80, buttonY, 38, BTN_H)) {

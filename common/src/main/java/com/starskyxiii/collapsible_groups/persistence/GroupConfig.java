@@ -24,8 +24,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -44,6 +46,10 @@ public final class GroupConfig {
 
 	private static Path getUiStateFile() {
 		return Services.PLATFORM.getConfigDir().resolve("collapsiblegroups/ui_state.json");
+	}
+
+	private static Path getEnabledOverridesFile() {
+		return Services.PLATFORM.getConfigDir().resolve("collapsiblegroups/enabled_overrides.json");
 	}
 
 	/** Loads the set of expanded group IDs from disk. Returns an empty set if missing. */
@@ -118,6 +124,63 @@ public final class GroupConfig {
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save UI state", e);
 		}
+	}
+
+	public static Map<String, Boolean> loadEnabledOverrides() {
+		Path file = getEnabledOverridesFile();
+		if (!Files.exists(file)) return Map.of();
+		try {
+			String json = Files.readString(file, StandardCharsets.UTF_8);
+			return parseEnabledOverrides(json);
+		} catch (Exception e) {
+			Constants.LOG.warn("Failed to load enabled overrides, using none: {}", e.getMessage());
+			return Map.of();
+		}
+	}
+
+	public static void saveEnabledOverrides(Map<String, Boolean> overrides) {
+		Path file = getEnabledOverridesFile();
+		try {
+			Files.createDirectories(file.getParent());
+			writeAtomically(file, serializeEnabledOverrides(overrides));
+		} catch (IOException e) {
+			Constants.LOG.error("Failed to save enabled overrides", e);
+		}
+	}
+
+	static Map<String, Boolean> parseEnabledOverrides(String json) {
+		try {
+			JsonElement root = JsonParser.parseString(json);
+			if (!root.isJsonObject()) return Map.of();
+			JsonElement overridesElement = root.getAsJsonObject().get("overrides");
+			if (overridesElement == null || !overridesElement.isJsonObject()) return Map.of();
+
+			Map<String, Boolean> overrides = new LinkedHashMap<>();
+			for (var entry : overridesElement.getAsJsonObject().entrySet()) {
+				String id = entry.getKey();
+				JsonElement value = entry.getValue();
+				if (id == null || id.isBlank() || value == null || !value.isJsonPrimitive()) continue;
+				var primitive = value.getAsJsonPrimitive();
+				if (!primitive.isBoolean()) continue;
+				overrides.put(id, primitive.getAsBoolean());
+			}
+			return Map.copyOf(overrides);
+		} catch (Exception e) {
+			return Map.of();
+		}
+	}
+
+	static String serializeEnabledOverrides(Map<String, Boolean> overrides) {
+		JsonObject root = new JsonObject();
+		JsonObject values = new JsonObject();
+		if (overrides != null) {
+			overrides.entrySet().stream()
+				.filter(entry -> entry.getKey() != null && !entry.getKey().isBlank() && entry.getValue() != null)
+				.sorted(Map.Entry.comparingByKey())
+				.forEach(entry -> values.addProperty(entry.getKey(), entry.getValue()));
+		}
+		root.add("overrides", values);
+		return GSON.toJson(root);
 	}
 
 	/** Loads all group definition JSON files from the config directory (both user-created and customised built-in groups). */
