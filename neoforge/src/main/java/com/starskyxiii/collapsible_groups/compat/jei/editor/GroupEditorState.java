@@ -7,9 +7,10 @@ import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 
@@ -28,6 +29,7 @@ final class GroupEditorState implements EditorRulesState {
 	String editId;
 	String editName;
 	boolean editEnabled;
+	private boolean nameTouched;
 
 	// --- Contents-tab quick-edit draft ---
 	final GroupFilterEditorDraft draft;
@@ -48,12 +50,16 @@ final class GroupEditorState implements EditorRulesState {
 	}
 
 	GroupEditorState(GroupDefinition existing, boolean saveAsNew) {
+		this(existing, saveAsNew, null);
+	}
+
+	GroupEditorState(GroupDefinition existing, boolean saveAsNew, @Nullable String sourceGroupId) {
 		this.draft = GroupFilterEditorDraft.empty();
-		this.core = new EditorStateCore(existing, saveAsNew, this::refreshContentsDraftFromRules);
+		this.core = new EditorStateCore(existing, saveAsNew, sourceGroupId, this::refreshContentsDraftFromRules);
 
 		if (existing != null) {
 			this.editId = existing.id();
-			this.editName = existing.displayName().fallback();
+			this.editName = GroupEditorNameHelper.initialEditName(existing);
 			this.editEnabled = existing.enabled();
 		} else {
 			this.editId = null;
@@ -77,6 +83,13 @@ final class GroupEditorState implements EditorRulesState {
 
 	Optional<String> cachedExactSelector(ItemStack stack) {
 		return itemSelection.cachedExactSelector(stack);
+	}
+
+	void setEditName(String editName) {
+		if (!Objects.equals(this.editName, editName)) {
+			this.editName = editName;
+			this.nameTouched = true;
+		}
 	}
 
 	Optional<GroupFilter> buildCurrentFilter() {
@@ -127,11 +140,11 @@ final class GroupEditorState implements EditorRulesState {
 		// No-op: the contents-tab collections are live. Kept for existing call sites.
 	}
 
-	boolean isFluidSelected(FluidStack fluid) {
+	boolean isFluidSelected(Object fluid) {
 		return fluidSelection.isSelected(fluid);
 	}
 
-	void toggleFluidSelection(FluidStack fluid) {
+	void toggleFluidSelection(Object fluid) {
 		fluidSelection.toggleSelection(fluid);
 	}
 
@@ -139,7 +152,7 @@ final class GroupEditorState implements EditorRulesState {
 		fluidSelection.addId(id);
 	}
 
-	void removeFluidSelection(FluidStack fluid) {
+	void removeFluidSelection(Object fluid) {
 		fluidSelection.removeSelection(fluid);
 	}
 
@@ -164,11 +177,20 @@ final class GroupEditorState implements EditorRulesState {
 	}
 
 	Optional<GroupDefinition> trySave() {
-		return core.trySave(editId, editName, editEnabled);
+		return core.trySave(editId, editName, editEnabled, nameTouched);
 	}
 
 	boolean canSave() {
 		return core.canSave(editName);
+	}
+
+	boolean isCopyDraft() {
+		return core.saveAsNew();
+	}
+
+	@Nullable
+	String sourceGroupId() {
+		return core.sourceGroupId();
 	}
 
 	List<Component> saveBlockedTooltip() {

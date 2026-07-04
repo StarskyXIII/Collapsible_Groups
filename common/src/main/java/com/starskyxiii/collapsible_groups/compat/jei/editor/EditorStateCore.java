@@ -23,18 +23,30 @@ final class EditorStateCore {
 	private final GroupFilterRuleDraft ruleDraft;
 	private final Runnable onRulesDraftChanged;
 	private final boolean saveAsNew;
+	@Nullable
+	private final String sourceGroupId;
 
 	private GroupFilterRuleDraft.Node selectedRuleNode;
 	private boolean contentsQuickEditAvailable;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
 
 	EditorStateCore(GroupDefinition existingDefinition, Runnable onRulesDraftChanged) {
-		this(existingDefinition, false, onRulesDraftChanged);
+		this(existingDefinition, false, null, onRulesDraftChanged);
 	}
 
 	EditorStateCore(GroupDefinition existingDefinition, boolean saveAsNew, Runnable onRulesDraftChanged) {
+		this(existingDefinition, saveAsNew, null, onRulesDraftChanged);
+	}
+
+	EditorStateCore(
+		GroupDefinition existingDefinition,
+		boolean saveAsNew,
+		@Nullable String sourceGroupId,
+		Runnable onRulesDraftChanged
+	) {
 		this.existingDefinition = existingDefinition;
 		this.saveAsNew = saveAsNew;
+		this.sourceGroupId = normalizeSourceGroupId(sourceGroupId);
 		this.onRulesDraftChanged = Objects.requireNonNull(onRulesDraftChanged, "onRulesDraftChanged");
 		this.ruleDraft = existingDefinition != null
 			? GroupFilterRuleDraft.decode(existingDefinition.filter())
@@ -44,6 +56,19 @@ final class EditorStateCore {
 		buildCurrentFilter()
 			.filter(filter -> GroupFilterValidator.validate(filter).isEmpty())
 			.ifPresent(filter -> lastValidPreviewFilter = filter);
+	}
+
+	private static @Nullable String normalizeSourceGroupId(@Nullable String sourceGroupId) {
+		return sourceGroupId == null || sourceGroupId.isBlank() ? null : sourceGroupId;
+	}
+
+	boolean saveAsNew() {
+		return saveAsNew;
+	}
+
+	@Nullable
+	String sourceGroupId() {
+		return sourceGroupId;
 	}
 
 	Optional<GroupFilter> buildCurrentFilter() {
@@ -100,17 +125,27 @@ final class EditorStateCore {
 		selectedRuleNode = ruleDraft.root();
 	}
 
-	Optional<GroupDefinition> trySave(String editId, String editName, boolean editEnabled) {
+	Optional<GroupDefinition> trySave(String editId, String editName, boolean editEnabled, boolean nameTouched) {
 		if (!canSave(editName)) return Optional.empty();
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		String id = idForSave(editId, editName);
 		try {
-			GroupDefinition saved = GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition);
+			GroupDefinition saved = shouldPreserveDisplayName(id, nameTouched)
+				? GroupEditorDefinitionFactory.createWithDisplayName(id, existingDefinition.displayName(), editEnabled,
+					filter.get(), existingDefinition)
+				: GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition);
 			GroupRegistry.saveQuietly(saved);
 			return Optional.of(saved);
 		} catch (IllegalArgumentException e) {
 			return Optional.empty();
 		}
+	}
+
+	private boolean shouldPreserveDisplayName(String id, boolean nameTouched) {
+		return !nameTouched
+			&& !saveAsNew
+			&& existingDefinition != null
+			&& existingDefinition.id().equals(id);
 	}
 
 	boolean canSave(String editName) {

@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
@@ -11,7 +12,6 @@ import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
-import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -19,59 +19,35 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-/**
- * Manages the left pane of {@link GroupEditorScreen}: ingredient browsing,
- * mode cycling, filtering, scrolling, click/drag-selection, and hover tracking.
- *
- * <p>The screen owns this panel and delegates all left-side rendering and input to it.
- * Layout coordinates are passed in via {@link EditorLayout}; the panel does not cache screen dimensions.
- */
 final class EditorLeftPanel {
-
-	// -----------------------------------------------------------------------
-	// Ingredient data
-	// -----------------------------------------------------------------------
-
-	private List<ItemStack> allItems             = List.of();
-	private List<ItemStack> filteredItems        = List.of();
-	private List<EditorFluidIngredientView> allFluids      = List.of();
-	private List<EditorFluidIngredientView> filteredFluids = List.of();
-	private List<GenericIngredientView> allGenericIngredients      = List.of();
-	private List<GenericIngredientView> filteredGenericIngredients = List.of();
-
-	// -----------------------------------------------------------------------
-	// Search-key and "other group" caches
-	// -----------------------------------------------------------------------
-
-	private List<String> allItemsSearchKeys = List.of();
-	private final Map<ItemStack, List<String>>             otherItemGroupsCache    = new IdentityHashMap<>();
-	private final Map<EditorFluidIngredientView, List<String>> otherFluidGroupsCache = new IdentityHashMap<>();
-	private final Map<GenericIngredientView, List<String>> otherGenericGroupsCache = new IdentityHashMap<>();
-
-	// -----------------------------------------------------------------------
-	// Mode
-	// -----------------------------------------------------------------------
-
 	private enum SourceTab {
 		ITEMS,
 		FLUIDS,
 		GENERIC
 	}
 
+	private List<ItemStack> allItems = List.of();
+	private List<ItemStack> filteredItems = List.of();
+	private List<EditorFluidIngredientView> allFluids = List.of();
+	private List<EditorFluidIngredientView> filteredFluids = List.of();
+	private List<GenericIngredientView> allGenericIngredients = List.of();
+	private List<GenericIngredientView> filteredGenericIngredients = List.of();
+
+	private List<String> allItemsSearchKeys = List.of();
+	private final Map<ItemStack, List<String>> otherItemGroupsCache = new IdentityHashMap<>();
+	private final Map<EditorFluidIngredientView, List<String>> otherFluidGroupsCache = new IdentityHashMap<>();
+	private final Map<GenericIngredientView, List<String>> otherGenericGroupsCache = new IdentityHashMap<>();
+
 	private SourceTab activeTab = SourceTab.ITEMS;
 
-	// -----------------------------------------------------------------------
-	// Scroll / hover / drag
-	// -----------------------------------------------------------------------
-
 	int scrollRow = 0;
-	int hoveredItem    = -1;
-	int hoveredFluid   = -1;
+	int hoveredItem = -1;
+	int hoveredFluid = -1;
 	int hoveredGeneric = -1;
 
-	private boolean isDraggingSb       = false;
-	private double  sbDragStartMouseY;
-	private int     sbDragStartRow;
+	private boolean isDraggingSb = false;
+	private double sbDragStartMouseY;
+	private int sbDragStartRow;
 
 	boolean hideUsed = false;
 
@@ -80,31 +56,25 @@ final class EditorLeftPanel {
 
 	private enum DragGesture {
 		NONE,
-		ITEM_ADD, ITEM_REMOVE,
-		FLUID_ADD, FLUID_REMOVE,
-		GENERIC_ADD, GENERIC_REMOVE
+		ITEM_ADD,
+		ITEM_REMOVE,
+		FLUID_ADD,
+		FLUID_REMOVE,
+		GENERIC_ADD,
+		GENERIC_REMOVE
 	}
 
-	// -----------------------------------------------------------------------
-	// Dependencies
-	// -----------------------------------------------------------------------
-
 	private final GroupEditorState state;
-	private final Runnable onChange;     // called when the group selection changes
+	private final Runnable onChange;
 
 	EditorLeftPanel(GroupEditorState state, Runnable onChange) {
-		this.state    = state;
+		this.state = state;
 		this.onChange = onChange;
 	}
 
-	// -----------------------------------------------------------------------
-	// Init / rebuild
-	// -----------------------------------------------------------------------
-
-	void init(List<ItemStack> allItems,
-	          List<FluidStack> allFluids,
+	void init(List<ItemStack> allItems, List<?> allFluids,
 	          List<GenericIngredientRef> allGenericRefs) {
-		this.allItems  = allItems;
+		this.allItems = allItems;
 		this.allFluids = EditorFluidIngredientHelper.buildViews(allFluids, "EditorLeftPanel.buildFluidViews");
 		this.allGenericIngredients = EditorGenericIngredientHelper.buildViews(allGenericRefs,
 			"EditorLeftPanel.buildGenericViews");
@@ -112,23 +82,19 @@ final class EditorLeftPanel {
 		buildOtherGroupCaches();
 	}
 
-	/** Re-computes the "other groups" caches after the group set may have changed. */
 	void buildOtherGroupCaches() {
 		otherItemGroupsCache.clear();
 		otherFluidGroupsCache.clear();
 		otherGenericGroupsCache.clear();
 
-		// Build groupId -> display name map (excluding the group being edited and disabled groups)
 		List<GroupDefinition> allGroups = GroupRegistry.getAllIncludingKubeJs();
 		Map<String, String> groupNames = EditorGroupOwnershipHelper.enabledGroupDisplayNames(allGroups, state.editId);
 		List<GroupDefinition> others = EditorGroupOwnershipHelper.enabledOtherGroups(allGroups, state.editId);
 
-		// Items: reverse index O(items)
 		Map<String, Set<String>> itemReverseIndex = GroupRegistry.getItemIdToGroupIds();
 		otherItemGroupsCache.putAll(EditorGroupOwnershipHelper.buildItemOwnership(
 			allItems, groupNames, others, itemReverseIndex));
 
-		// Fluids: reverse index O(fluids)
 		Map<String, Set<String>> fluidReverseIndex = GroupRegistry.getFluidIdToGroupIds();
 		otherFluidGroupsCache.putAll(EditorFluidIngredientHelper.buildOwnership(
 			allFluids, groupNames, others, fluidReverseIndex));
@@ -136,10 +102,6 @@ final class EditorLeftPanel {
 		otherGenericGroupsCache.putAll(EditorGenericIngredientHelper.buildOwnership(
 			allGenericIngredients, others));
 	}
-
-	// -----------------------------------------------------------------------
-	// Filter
-	// -----------------------------------------------------------------------
 
 	void setHideUsed(boolean hide) {
 		this.hideUsed = hide;
@@ -171,68 +133,74 @@ final class EditorLeftPanel {
 			otherGenericGroupsCache, hideUsed, q);
 	}
 
-	// -----------------------------------------------------------------------
-	// Render
-	// -----------------------------------------------------------------------
-
 	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
-		hoveredItem = hoveredFluid = hoveredGeneric = -1;
-		if (isShowingFluids()) {
-			renderGrid(g, mouseX, mouseY, layout);
-		} else if (isShowingGeneric()) {
+		hoveredItem = -1;
+		hoveredFluid = -1;
+		hoveredGeneric = -1;
+		OreUiRenderer.drawSlotGrid(g, layout.leftGridX(), layout.gridTop(),
+			layout.leftCols(), layout.leftRows(), EditorLayout.ITEM_SIZE);
+		boolean scissor = isShowingGeneric();
+		if (scissor) {
 			g.enableScissor(layout.leftGridX(), layout.gridTop(),
 				layout.leftGridX() + layout.leftGridWidth(), layout.gridTop() + layout.gridHeight());
-			renderGrid(g, mouseX, mouseY, layout);
-			g.disableScissor();
-		} else {
-			renderGrid(g, mouseX, mouseY, layout);
 		}
-	}
-
-	private void renderGrid(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
-		List<?> list = currentList();
-		int start = scrollRow * layout.leftCols();
-		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
-			int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			int y = layout.gridTop()   + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			renderCell(g, list.get(start + i), x, y, start + i);
-			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
-				setHover(start + i);
-				g.fill(x, y, x + 16, y + 16, 0x22FFFFFF);
+		try {
+			List<?> list = currentList();
+			int start = scrollRow * layout.leftCols();
+			for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
+				int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
+				int y = layout.gridTop() + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
+				renderCell(g, list.get(start + i), x, y);
+				if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
+					setHover(start + i);
+					g.fill(x + 1, y + 1, x + EditorLayout.ITEM_SIZE, y + EditorLayout.ITEM_SIZE, 0x22FFFFFF);
+				}
 			}
+		} finally {
+			if (scissor) g.disableScissor();
 		}
 	}
 
-	private void renderCell(GuiGraphics g, Object entry, int x, int y, int idx) {
+	private void renderCell(GuiGraphics g, Object entry, int x, int y) {
+		int iconX = x + 1;
+		int iconY = y + 1;
 		if (isShowingFluids()) {
 			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
-			if (state.isFluidSelected(fluidIngredient(fluid))) g.fill(x, y, x+16, y+16, 0x4455BB77);
-			else if (!otherFluidGroupsCache.getOrDefault(fluid, List.of()).isEmpty()) g.fill(x, y, x+16, y+16, 0x33CC8844);
-			IngredientCellRenderer.renderFluid(g, fluid, x, y);
-		} else if (isShowingGeneric()) {
-			GenericIngredientView entry2 = (GenericIngredientView) entry;
-			if (state.isGenericSelected(entry2))               g.fill(x, y, x+16, y+16, 0x4455BB77);
-			else if (!otherGenericGroupsCache.getOrDefault(entry2, List.of()).isEmpty()) g.fill(x, y, x+16, y+16, 0x33CC8844);
-			IngredientCellRenderer.renderGeneric(g, entry2, x, y);
-		} else {
-			ItemStack stack = (ItemStack) entry;
-			boolean inWhole = state.isWholeItemSelected(stack);
-			boolean inExact = state.isExactSelected(stack);
-			if (inWhole || inExact) g.fill(x, y, x+16, y+16, inWhole ? 0x4455BB77 : 0x4466DDAA);
-			else if (!otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty()) g.fill(x, y, x+16, y+16, 0x33CC8844);
-			g.renderItem(stack, x, y);
+			if (state.isFluidSelected(fluidIngredient(fluid))) {
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x4455BB77);
+			} else if (!otherFluidGroupsCache.getOrDefault(fluid, List.of()).isEmpty()) {
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x33CC8844);
+			}
+			IngredientCellRenderer.renderFluid(g, fluid, iconX, iconY);
+			return;
 		}
+		if (isShowingGeneric()) {
+			GenericIngredientView generic = (GenericIngredientView) entry;
+			if (state.isGenericSelected(generic)) {
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x4455BB77);
+			} else if (!otherGenericGroupsCache.getOrDefault(generic, List.of()).isEmpty()) {
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x33CC8844);
+			}
+			IngredientCellRenderer.renderGeneric(g, generic, iconX, iconY);
+			return;
+		}
+
+		ItemStack stack = (ItemStack) entry;
+		boolean inWhole = state.isWholeItemSelected(stack);
+		boolean inExact = state.isExactSelected(stack);
+		if (inWhole || inExact) {
+			g.fill(iconX, iconY, iconX + 16, iconY + 16, inWhole ? 0x4455BB77 : 0x4466DDAA);
+		} else if (!otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty()) {
+			g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x33CC8844);
+		}
+		g.renderItem(stack, iconX, iconY);
 	}
 
 	private void setHover(int idx) {
-		if (isShowingFluids())   hoveredFluid   = idx;
+		if (isShowingFluids()) hoveredFluid = idx;
 		else if (isShowingGeneric()) hoveredGeneric = idx;
-		else                         hoveredItem    = idx;
+		else hoveredItem = idx;
 	}
-
-	// -----------------------------------------------------------------------
-	// Scroll helpers
-	// -----------------------------------------------------------------------
 
 	int totalRows(EditorLayout layout) {
 		return EditorLayout.totalRows(currentList().size(), layout.leftCols());
@@ -246,13 +214,8 @@ final class EditorLeftPanel {
 		scrollRow = ScrollbarHelper.clamp(scrollRow, 0, maxScrollRow(layout));
 	}
 
-	// -----------------------------------------------------------------------
-	// Input
-	// -----------------------------------------------------------------------
-
 	boolean mouseClicked(double mouseX, double mouseY, int button, EditorLayout layout) {
 		if (button != 0) return false;
-		// Scrollbar
 		if (mouseY >= layout.gridTop() && mouseY < layout.gridTop() + layout.gridHeight()
 			&& mouseX >= layout.leftScrollbarX() && mouseX < layout.leftScrollbarX() + ScrollbarHelper.WIDTH) {
 			isDraggingSb = true;
@@ -268,15 +231,15 @@ final class EditorLeftPanel {
 		int start = scrollRow * layout.leftCols();
 		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
 			int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			int y = layout.gridTop()   + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
+			int y = layout.gridTop() + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
 			if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
-			handleCellClick(list.get(start + i), start + i);
+			handleCellClick(list.get(start + i));
 			return true;
 		}
 		return false;
 	}
 
-	private void handleCellClick(Object entry, int idx) {
+	private void handleCellClick(Object entry) {
 		if (!state.canEditContents()) {
 			return;
 		}
@@ -286,22 +249,25 @@ final class EditorLeftPanel {
 			state.toggleFluidSelection(fluidIngredient(fluid));
 			onChange.run();
 			startDrag(was ? DragGesture.FLUID_REMOVE : DragGesture.FLUID_ADD, dragFluidKey(fluid));
-		} else if (isShowingGeneric()) {
-			GenericIngredientView e = (GenericIngredientView) entry;
-			boolean was = state.isGenericSelected(e);
-			state.toggleGenericSelection(e);
-			onChange.run();
-			startDrag(was ? DragGesture.GENERIC_REMOVE : DragGesture.GENERIC_ADD, dragGenericKey(e));
-		} else {
-			ItemStack stack = (ItemStack) entry;
-			boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
-			if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
-			else                                                          state.toggleSingleSelection(stack);
-			state.syncEditItems();
-			onChange.run();
-			startDrag(was ? DragGesture.ITEM_REMOVE : DragGesture.ITEM_ADD,
-				was ? dragRemoveKey(stack) : dragAddKey(stack));
+			return;
 		}
+		if (isShowingGeneric()) {
+			GenericIngredientView generic = (GenericIngredientView) entry;
+			boolean was = state.isGenericSelected(generic);
+			state.toggleGenericSelection(generic);
+			onChange.run();
+			startDrag(was ? DragGesture.GENERIC_REMOVE : DragGesture.GENERIC_ADD, dragGenericKey(generic));
+			return;
+		}
+
+		ItemStack stack = (ItemStack) entry;
+		boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
+		if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
+		else state.toggleSingleSelection(stack);
+		state.syncEditItems();
+		onChange.run();
+		startDrag(was ? DragGesture.ITEM_REMOVE : DragGesture.ITEM_ADD,
+			was ? dragRemoveKey(stack) : dragAddKey(stack));
 	}
 
 	boolean mouseDragged(double mouseX, double mouseY, int button, EditorLayout layout) {
@@ -335,17 +301,13 @@ final class EditorLeftPanel {
 		return true;
 	}
 
-	// -----------------------------------------------------------------------
-	// Drag gesture
-	// -----------------------------------------------------------------------
-
 	private void handleDrag(double mouseX, double mouseY, EditorLayout layout) {
 		if (!layout.isInsideLeft(mouseX, mouseY)) return;
 		List<?> list = currentList();
 		int start = scrollRow * layout.leftCols();
 		for (int i = 0; i < layout.leftCols() * layout.leftRows() && start + i < list.size(); i++) {
 			int x = layout.leftGridX() + (i % layout.leftCols()) * EditorLayout.ITEM_SIZE;
-			int y = layout.gridTop()   + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
+			int y = layout.gridTop() + (i / layout.leftCols()) * EditorLayout.ITEM_SIZE;
 			if (!EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) continue;
 			applyDragToEntry(list.get(start + i));
 			return;
@@ -393,18 +355,18 @@ final class EditorLeftPanel {
 				}
 			}
 			case GENERIC_ADD -> {
-				GenericIngredientView e = (GenericIngredientView) entry;
-				String key = dragGenericKey(e);
-				if (dragVisited.add(key) && !state.isGenericSelected(e)) {
-					state.addGenericId(e.typeId(), e.resourceId());
+				GenericIngredientView generic = (GenericIngredientView) entry;
+				String key = dragGenericKey(generic);
+				if (dragVisited.add(key) && !state.isGenericSelected(generic)) {
+					state.addGenericId(generic.typeId(), generic.resourceId());
 					onChange.run();
 				}
 			}
 			case GENERIC_REMOVE -> {
-				GenericIngredientView e = (GenericIngredientView) entry;
-				String key = dragGenericKey(e);
-				if (dragVisited.add(key) && state.isGenericSelected(e)) {
-					state.removeGenericSelection(e);
+				GenericIngredientView generic = (GenericIngredientView) entry;
+				String key = dragGenericKey(generic);
+				if (dragVisited.add(key) && state.isGenericSelected(generic)) {
+					state.removeGenericSelection(generic);
 					onChange.run();
 				}
 			}
@@ -417,10 +379,6 @@ final class EditorLeftPanel {
 		dragVisited.clear();
 		dragVisited.add(visitKey);
 	}
-
-	// -----------------------------------------------------------------------
-	// Mode management
-	// -----------------------------------------------------------------------
 
 	void showItems(String searchQuery) {
 		activeTab = SourceTab.ITEMS;
@@ -440,15 +398,13 @@ final class EditorLeftPanel {
 		rebuildFilter(searchQuery);
 	}
 
-	boolean isHideUsed() {
-		return hideUsed;
-	}
+	boolean isHideUsed() { return hideUsed; }
 
 	String currentSourceLabel() {
 		return switch (activeTab) {
-			case FLUIDS -> net.minecraft.network.chat.Component.translatable(ModTranslationKeys.EDITOR_TAB_FLUIDS).getString();
-			case GENERIC -> net.minecraft.network.chat.Component.translatable(ModTranslationKeys.EDITOR_TAB_GENERIC).getString();
-			case ITEMS  -> net.minecraft.network.chat.Component.translatable(ModTranslationKeys.EDITOR_TAB_ITEMS).getString();
+			case FLUIDS -> Component.translatable(ModTranslationKeys.EDITOR_TAB_FLUIDS).getString();
+			case GENERIC -> Component.translatable(ModTranslationKeys.EDITOR_TAB_GENERIC).getString();
+			case ITEMS -> Component.translatable(ModTranslationKeys.EDITOR_TAB_ITEMS).getString();
 		};
 	}
 
@@ -456,43 +412,49 @@ final class EditorLeftPanel {
 		String key = switch (activeTab) {
 			case FLUIDS -> ModTranslationKeys.EDITOR_PANEL_FLUIDS_HEADER;
 			case GENERIC -> ModTranslationKeys.EDITOR_PANEL_GENERIC_HEADER;
-			case ITEMS  -> ModTranslationKeys.EDITOR_PANEL_ITEMS_HEADER;
+			case ITEMS -> ModTranslationKeys.EDITOR_PANEL_ITEMS_HEADER;
 		};
-		return net.minecraft.network.chat.Component.translatable(key, entryCount()).getString();
+		return Component.translatable(key, entryCount()).getString();
 	}
 
 	int entryCount() {
 		return currentList().size();
 	}
 
-	String countLabel() {
-		return net.minecraft.network.chat.Component.translatable(ModTranslationKeys.EDITOR_PANEL_COUNT_ENTRIES, entryCount()).getString();
+	int totalEntryCount() {
+		if (isShowingFluids()) return allFluids.size();
+		if (isShowingGeneric()) return allGenericIngredients.size();
+		return allItems.size();
 	}
 
-	// -----------------------------------------------------------------------
-	// Accessors for tooltip helper
-	// -----------------------------------------------------------------------
+	String countLabel() {
+		return Component.translatable(ModTranslationKeys.EDITOR_PANEL_COUNT_ENTRIES, entryCount()).getString();
+	}
 
-	List<String> otherGroupsForItem(ItemStack s)         { return otherItemGroupsCache.getOrDefault(s, List.of()); }
-	List<String> otherGroupsForFluid(EditorFluidIngredientView f) { return otherFluidGroupsCache.getOrDefault(f, List.of()); }
-	List<String> otherGroupsForGeneric(GenericIngredientView e) { return otherGenericGroupsCache.getOrDefault(e, List.of()); }
+	List<String> otherGroupsForItem(ItemStack stack) {
+		return otherItemGroupsCache.getOrDefault(stack, List.of());
+	}
 
-	List<ItemStack> filteredItems()              { return filteredItems; }
+	List<String> otherGroupsForFluid(EditorFluidIngredientView fluid) {
+		return otherFluidGroupsCache.getOrDefault(fluid, List.of());
+	}
+
+	List<String> otherGroupsForGeneric(GenericIngredientView generic) {
+		return otherGenericGroupsCache.getOrDefault(generic, List.of());
+	}
+
+	List<ItemStack> filteredItems() { return filteredItems; }
 	List<EditorFluidIngredientView> filteredFluids() { return filteredFluids; }
-	List<GenericIngredientView> filteredGeneric(){ return filteredGenericIngredients; }
-	List<ItemStack> allItems()                   { return allItems; }
+	List<GenericIngredientView> filteredGeneric() { return filteredGenericIngredients; }
+	List<ItemStack> allItems() { return allItems; }
 
-	boolean isShowingFluids()   { return activeTab == SourceTab.FLUIDS; }
-	boolean isShowingGeneric()  { return activeTab == SourceTab.GENERIC; }
-	boolean isShowingItems()    { return activeTab == SourceTab.ITEMS; }
-
-	// -----------------------------------------------------------------------
-	// Private helpers
-	// -----------------------------------------------------------------------
+	boolean isShowingFluids() { return activeTab == SourceTab.FLUIDS; }
+	boolean isShowingGeneric() { return activeTab == SourceTab.GENERIC; }
+	boolean isShowingItems() { return activeTab == SourceTab.ITEMS; }
 
 	private List<?> currentList() {
-		if (isShowingFluids())   return filteredFluids;
-		if (isShowingGeneric())  return filteredGenericIngredients;
+		if (isShowingFluids()) return filteredFluids;
+		if (isShowingGeneric()) return filteredGenericIngredients;
 		return filteredItems;
 	}
 
@@ -500,15 +462,23 @@ final class EditorLeftPanel {
 		allItemsSearchKeys = EditorItemSearchHelper.buildSearchKeys(allItems);
 	}
 
-	// Drag gesture key generators - used to deduplicate entries in dragVisited
-	private String dragAddKey(ItemStack s)    { return GroupItemSelector.exactSelector(s); }
-	private String dragRemoveKey(ItemStack s) {
-		return GroupItemSelector.wholeItemSelector(s) + "|" + state.cachedExactSelector(s).orElse("?");
+	private String dragAddKey(ItemStack stack) {
+		return GroupItemSelector.exactSelector(stack);
 	}
-	private String dragFluidKey(EditorFluidIngredientView f) { return EditorFluidIngredientHelper.dragKey(f); }
-	private String dragGenericKey(GenericIngredientView e) { return EditorGenericIngredientHelper.dragKey(e); }
 
-	private static FluidStack fluidIngredient(EditorFluidIngredientView fluid) {
-		return (FluidStack) fluid.ingredient();
+	private String dragRemoveKey(ItemStack stack) {
+		return GroupItemSelector.wholeItemSelector(stack) + "|" + state.cachedExactSelector(stack).orElse("?");
+	}
+
+	private String dragFluidKey(EditorFluidIngredientView fluid) {
+		return EditorFluidIngredientHelper.dragKey(fluid);
+	}
+
+	private String dragGenericKey(GenericIngredientView generic) {
+		return EditorGenericIngredientHelper.dragKey(generic);
+	}
+
+	private static Object fluidIngredient(EditorFluidIngredientView fluid) {
+		return fluid.ingredient();
 	}
 }

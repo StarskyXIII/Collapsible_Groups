@@ -37,6 +37,27 @@ public final class GroupEditorDefinitionFactory {
 		);
 	}
 
+	public static GroupDefinition createWithDisplayName(
+		String id,
+		GroupDisplayName displayName,
+		boolean enabled,
+		GroupFilter filter,
+		GroupDefinition existing
+	) {
+		Objects.requireNonNull(id, "id");
+		Objects.requireNonNull(displayName, "displayName");
+		Objects.requireNonNull(filter, "filter");
+
+		return new GroupDefinition(
+			id,
+			displayName,
+			enabled,
+			filter,
+			preservedIconIds(existing),
+			preservedTheme(existing)
+		);
+	}
+
 	private static GroupDisplayName displayName(String id, String fallbackName, GroupDefinition existing) {
 		String key = existing != null && existing.id().equals(id)
 			? existing.displayName().key()

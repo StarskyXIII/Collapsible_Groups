@@ -178,7 +178,7 @@ public class GroupEditorScreen extends Screen {
         nameField.setMaxLength(64);
         nameField.setValue(state.editName);
         nameField.setTextColor(DEFAULT_TEXT_COLOR);
-        nameField.setResponder(value -> { state.editName = value; updateSaveButtonState(); });
+        nameField.setResponder(value -> { state.setEditName(value); updateSaveButtonState(); });
         addRenderableWidget(nameField);
 
         EditorChrome.Rect searchRect = searchFieldRect();

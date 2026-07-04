@@ -21,7 +21,7 @@ public record EditorLayout(
 	int leftScrollbarX,
 	int rightScrollbarX
 ) {
-	public static final int ITEM_SIZE          = 18;
+	public static final int ITEM_SIZE          = 17;
 	public static final int HEADER_HEIGHT      = 36;
 	public static final int LABEL_ROW_HEIGHT   = 54;
 	public static final int FOOTER_HEIGHT      = 28;
@@ -57,7 +57,8 @@ public record EditorLayout(
 	}
 
 	public static boolean isMouseOverCell(double mouseX, double mouseY, int cellX, int cellY) {
-		return mouseX >= cellX && mouseX < cellX + 16 && mouseY >= cellY && mouseY < cellY + 16;
+		return mouseX >= cellX + 1 && mouseX < cellX + ITEM_SIZE
+			&& mouseY >= cellY + 1 && mouseY < cellY + ITEM_SIZE;
 	}
 
 	public static int totalRows(int count, int cols) {

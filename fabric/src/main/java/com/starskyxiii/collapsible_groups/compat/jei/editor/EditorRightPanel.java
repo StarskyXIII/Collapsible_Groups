@@ -1,12 +1,15 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.EditorItemIndex;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
-import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -57,16 +60,41 @@ final class EditorRightPanel {
 	// -----------------------------------------------------------------------
 
 	void rebuild() {
+		long traceStart = PerformanceTrace.begin();
 		GroupDefinition temp = state.buildPreviewDefinition();
 		if (state.canUseIndexedItemPreview()) {
-			groupItems = GroupRegistry.resolveEditorDraftItems(state.draft, state.editEnabled);
+			List<ItemStack> indexed = GroupRegistry.resolveEditorDraftItems(state.draft, state.editEnabled);
+			if (EditorItemIndex.isVerifyEnabled()) {
+				List<ItemStack> scanned = GroupRegistry.resolveItems(temp);
+				verifyIndexResult(indexed, scanned);
+			}
+			groupItems = indexed;
 		} else {
 			groupItems = GroupRegistry.resolveItems(temp);
 		}
 		groupFluids = EditorFluidIngredientHelper.buildViews(
-			GroupRegistry.resolveFluids(temp), "FabricEditorRightPanel.buildFluidViews");
+			GroupRegistry.resolveFluids(temp), "EditorRightPanel.buildFluidViews");
 		groupGenericIngredients = EditorGenericIngredientHelper.buildViews(
-			GroupRegistry.resolveGenericIngredients(temp), "FabricEditorRightPanel.buildGenericViews");
+			GroupRegistry.resolveGenericIngredients(temp), "EditorRightPanel.buildGenericViews");
+		PerformanceTrace.logIfSlow("EditorRightPanel.rebuild", traceStart, 10,
+			"group=" + temp.id()
+				+ " items=" + groupItems.size()
+				+ " fluids=" + groupFluids.size()
+				+ " generic=" + groupGenericIngredients.size());
+	}
+
+	private static void verifyIndexResult(List<ItemStack> indexed, List<ItemStack> scanned) {
+		if (indexed.size() != scanned.size()) {
+			Constants.LOG.warn("[EditorItemIndex] MISMATCH size: indexed={} scanned={}", indexed.size(), scanned.size());
+			return;
+		}
+		for (int i = 0; i < indexed.size(); i++) {
+			if (indexed.get(i) != scanned.get(i)) {
+				Constants.LOG.warn("[EditorItemIndex] MISMATCH at index {}: indexed={} scanned={}",
+					i, indexed.get(i).getDisplayName().getString(), scanned.get(i).getDisplayName().getString());
+				break;
+			}
+		}
 	}
 
 	// -----------------------------------------------------------------------
@@ -102,6 +130,8 @@ final class EditorRightPanel {
 		hoveredFluid = -1;
 		hoveredGeneric = -1;
 		EditorPanelSections sections = sections(layout);
+		OreUiRenderer.drawSlotGrid(g, layout.rightGridX(), layout.gridTop(),
+			layout.rightCols(), layout.rightRows(), EditorLayout.ITEM_SIZE);
 
 		g.enableScissor(layout.rightGridX(), layout.gridTop(),
 			layout.rightGridX() + layout.rightGridWidth(), layout.gridTop() + layout.gridHeight());
@@ -111,16 +141,8 @@ final class EditorRightPanel {
 				int y = layout.gridTop() + visRow * EditorLayout.ITEM_SIZE;
 				if (sections.isItemRow(vRow)) {
 					renderItemRow(g, mouseX, mouseY, layout, vRow, y);
-				} else if (sections.isItemSeparatorRow(vRow)) {
-					g.fill(layout.rightGridX(), y + EditorLayout.ITEM_SIZE / 2,
-						layout.rightGridX() + layout.rightCols() * EditorLayout.ITEM_SIZE,
-						y + EditorLayout.ITEM_SIZE / 2 + 1, 0x33667799);
 				} else if (sections.isFluidRow(vRow)) {
 					renderFluidRow(g, mouseX, mouseY, layout, sections.fluidRow(vRow), y);
-				} else if (sections.isFluidSeparatorRow(vRow)) {
-					g.fill(layout.rightGridX(), y + EditorLayout.ITEM_SIZE / 2,
-						layout.rightGridX() + layout.rightCols() * EditorLayout.ITEM_SIZE,
-						y + EditorLayout.ITEM_SIZE / 2 + 1, 0x33667799);
 				} else if (sections.isGenericRow(vRow)) {
 					renderGenericRow(g, mouseX, mouseY, layout, sections.genericRow(vRow), y);
 				}
@@ -136,12 +158,14 @@ final class EditorRightPanel {
 			boolean isExact = state.isExactSelected(stack);
 			boolean isWhole = state.isWholeItemSelected(stack);
 			boolean explicit = isExact || isWhole;
-			if (!explicit) g.fill(x, cellY, x + 16, cellY + 16, 0x332266BB);
-			else if (isWhole) g.fill(x, cellY, x + 16, cellY + 16, 0x2855BB77);
-			g.renderItem(stack, x, cellY);
+			int iconX = x + 1;
+			int iconY = cellY + 1;
+			if (!explicit) g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x332266BB);
+			else if (isWhole) g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x2855BB77);
+			g.renderItem(stack, iconX, iconY);
 			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredItem = idx;
-				g.fill(x, cellY, x + 16, cellY + 16, explicit ? 0x28FF5555 : 0x1CFFFFFF);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, explicit ? 0x28FF5555 : 0x1CFFFFFF);
 			}
 		});
 	}
@@ -150,11 +174,13 @@ final class EditorRightPanel {
 		EditorGridTraversal.forRowCells(groupGenericIngredients.size(), row, layout.rightCols(), layout.rightGridX(), y, (idx, x, cellY) -> {
 			GenericIngredientView entry = groupGenericIngredients.get(idx);
 			boolean selected = state.isGenericSelected(entry);
-			g.fill(x, cellY, x + 16, cellY + 16, selected ? 0x2855BB77 : 0x332266BB);
-			IngredientCellRenderer.renderGeneric(g, entry, x, cellY);
+			int iconX = x + 1;
+			int iconY = cellY + 1;
+			g.fill(iconX, iconY, iconX + 16, iconY + 16, selected ? 0x2855BB77 : 0x332266BB);
+			IngredientCellRenderer.renderGeneric(g, entry, iconX, iconY);
 			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredGeneric = idx;
-				g.fill(x, cellY, x + 16, cellY + 16, selected ? 0x28FF5555 : 0x1CFFFFFF);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, selected ? 0x28FF5555 : 0x1CFFFFFF);
 			}
 		});
 	}
@@ -163,11 +189,13 @@ final class EditorRightPanel {
 		EditorGridTraversal.forRowCells(groupFluids.size(), row, layout.rightCols(), layout.rightGridX(), y, (idx, x, cellY) -> {
 			EditorFluidIngredientView fluid = groupFluids.get(idx);
 			boolean selected = state.isFluidSelected(fluidIngredient(fluid));
-			g.fill(x, cellY, x + 16, cellY + 16, selected ? 0x2855BB77 : 0x332266BB);
-			IngredientCellRenderer.renderFluid(g, fluid, x, cellY);
+			int iconX = x + 1;
+			int iconY = cellY + 1;
+			g.fill(iconX, iconY, iconX + 16, iconY + 16, selected ? 0x2855BB77 : 0x332266BB);
+			IngredientCellRenderer.renderFluid(g, fluid, iconX, iconY);
 			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredFluid = idx;
-				g.fill(x, cellY, x + 16, cellY + 16, selected ? 0x28FF5555 : 0x1CFFFFFF);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, selected ? 0x28FF5555 : 0x1CFFFFFF);
 			}
 		});
 	}
@@ -265,7 +293,7 @@ final class EditorRightPanel {
 			+ ", " + Component.translatable(ModTranslationKeys.EDITOR_SUMMARY_GENERIC, groupGenericIngredients.size()).getString();
 	}
 
-	private static IJeiFluidIngredient fluidIngredient(EditorFluidIngredientView fluid) {
-		return (IJeiFluidIngredient) fluid.ingredient();
+	private static Object fluidIngredient(EditorFluidIngredientView fluid) {
+		return fluid.ingredient();
 	}
 }

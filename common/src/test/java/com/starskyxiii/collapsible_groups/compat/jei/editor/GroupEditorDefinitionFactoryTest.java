@@ -82,4 +82,30 @@ class GroupEditorDefinitionFactoryTest {
 		assertEquals(GroupTranslationHelper.keyForGroupId("copied_group"), copied.displayName().key());
 		assertEquals("Copied Group", copied.displayName().fallback());
 	}
+
+	@Test
+	void createWithDisplayNamePreservesUntouchedNameMetadata() {
+		GroupDisplayName displayName = new GroupDisplayName.Localized("custom.translation.key", "");
+		GroupDefinition existing = new GroupDefinition(
+			"test_group",
+			displayName,
+			true,
+			Filters.itemId("minecraft:stone"),
+			List.of("minecraft:diamond")
+		);
+		GroupFilter updatedFilter = Filters.itemTag("minecraft:logs");
+
+		GroupDefinition saved = GroupEditorDefinitionFactory.createWithDisplayName(
+			"test_group",
+			displayName,
+			false,
+			updatedFilter,
+			existing
+		);
+
+		assertSame(displayName, saved.displayName());
+		assertEquals(List.of("minecraft:diamond"), saved.iconIds());
+		assertFalse(saved.enabled());
+		assertEquals(updatedFilter, saved.filter());
+	}
 }

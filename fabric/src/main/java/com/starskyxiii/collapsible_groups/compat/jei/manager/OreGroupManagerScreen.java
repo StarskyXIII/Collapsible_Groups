@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
 import com.starskyxiii.collapsible_groups.compat.jei.GroupUiState;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
-import com.starskyxiii.collapsible_groups.compat.jei.editor.GroupEditorScreen;
+import com.starskyxiii.collapsible_groups.compat.jei.editor.OreGroupEditorScreen;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.BatchActionEligibility;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.BatchSelectionState;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.GroupAction;
@@ -13,11 +13,13 @@ import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewGridLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreConfirmDialog;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
+import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -90,11 +92,6 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	private static final int BATCH_SELECTED_STATUS_W = 112;
 	private static final int MINI_SCROLLBAR_GAP = 4;
 	private static final int MINI_SCROLLBAR_WIDTH = 5;
-	private static final int DELETE_DIALOG_WIDTH = 240;
-	private static final int DELETE_DIALOG_HEIGHT = 112;
-	private static final int DELETE_DIALOG_BUTTON_WIDTH = 96;
-	private static final int DELETE_DIALOG_BUTTON_HEIGHT = 20;
-	private static final int DELETE_DIALOG_BUTTON_GAP = 8;
 	private static final int BATCH_SELECTED_OVERLAY = 0x3340B96A;
 
 	private final Screen previousScreen;
@@ -303,7 +300,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	private void openEditor(GroupDefinition group) {
-		Minecraft.getInstance().setScreen(new GroupEditorScreen(this, group));
+		Minecraft.getInstance().setScreen(new OreGroupEditorScreen(this, group));
 	}
 
 	@Override
@@ -333,7 +330,8 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		renderScrollbar(g);
 		renderHeaderButtons(g, mouseX, mouseY);
 
-		g.drawString(font, this.title, HEADER_TITLE_X, 7, OreUiPalette.TEXT_PRIMARY, false);
+		g.drawString(font, this.title.copy().withStyle(ChatFormatting.BOLD), HEADER_TITLE_X, 7,
+			OreUiPalette.TEXT_PRIMARY, false);
 		Component countText = filteredCards.size() == allCards.size()
 			? Component.translatable(ModTranslationKeys.MANAGER_COUNT_ALL, allCards.size())
 			: Component.translatable(ModTranslationKeys.MANAGER_COUNT_FILTERED, filteredCards.size(), allCards.size());
@@ -806,47 +804,28 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	private void renderPendingDialog(GuiGraphics g, int mouseX, int mouseY) {
-		int x = deleteDialogX();
-		int y = deleteDialogY();
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 500);
-		g.fill(0, 0, this.width, this.height, 0xAA000000);
-		OreUiRenderer.drawPanel(g, x, y, DELETE_DIALOG_WIDTH, DELETE_DIALOG_HEIGHT);
-		drawOutline(g, x, y, DELETE_DIALOG_WIDTH, DELETE_DIALOG_HEIGHT, OreUiPalette.OUTLINE_DARK);
-
-		String title = pendingBatchDelete != null
+		Component title = pendingBatchDelete != null
 			? Component.translatable(ModTranslationKeys.MANAGER_BATCH_DELETE_DIALOG_TITLE,
-				pendingBatchDelete.deletableCount()).getString()
-			: Component.translatable(ModTranslationKeys.MANAGER_DELETE_DIALOG_TITLE).getString();
-		g.drawString(font, title, x + (DELETE_DIALOG_WIDTH - font.width(title)) / 2, y + 12,
-			OreUiPalette.TEXT_PRIMARY, false);
-
+				pendingBatchDelete.deletableCount())
+			: Component.translatable(ModTranslationKeys.MANAGER_DELETE_DIALOG_TITLE);
+		List<Component> bodyLines = List.of();
 		if (pendingBatchDelete != null) {
-			drawCenteredDialogLine(g, Component.translatable(ModTranslationKeys.MANAGER_BATCH_DELETE_DIALOG_BODY,
-				pendingBatchDelete.deletableCount()).getString(), y + 34, OreUiPalette.TEXT_MUTED);
+			Component body = Component.translatable(ModTranslationKeys.MANAGER_BATCH_DELETE_DIALOG_BODY,
+				pendingBatchDelete.deletableCount());
 			if (pendingBatchDelete.skippedCount() > 0) {
-				drawCenteredDialogLine(g, Component.translatable(ModTranslationKeys.MANAGER_BATCH_DELETE_DIALOG_SKIPPED,
-					pendingBatchDelete.skippedCount()).getString(), y + 46, OreUiPalette.TEXT_MUTED);
+				bodyLines = List.of(body, Component.translatable(ModTranslationKeys.MANAGER_BATCH_DELETE_DIALOG_SKIPPED,
+					pendingBatchDelete.skippedCount()));
+			} else {
+				bodyLines = List.of(body);
 			}
 		} else if (pendingDelete != null) {
-			drawCenteredDialogLine(g, Component.translatable(ModTranslationKeys.MANAGER_DELETE_DIALOG_BODY,
-				pendingDelete.displayName()).getString(), y + 38, OreUiPalette.TEXT_MUTED);
+			bodyLines = List.of(Component.translatable(ModTranslationKeys.MANAGER_DELETE_DIALOG_BODY,
+				pendingDelete.displayName()));
 		}
 
-		renderButton(g, deleteCancelButtonX(), deleteDialogButtonY(), DELETE_DIALOG_BUTTON_WIDTH,
-			DELETE_DIALOG_BUTTON_HEIGHT, Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString(),
-			true, isMouseOver(mouseX, mouseY, deleteCancelButtonX(), deleteDialogButtonY(),
-				DELETE_DIALOG_BUTTON_WIDTH, DELETE_DIALOG_BUTTON_HEIGHT), false);
-		renderButton(g, deleteConfirmButtonX(), deleteDialogButtonY(), DELETE_DIALOG_BUTTON_WIDTH,
-			DELETE_DIALOG_BUTTON_HEIGHT, deleteConfirmLabel(),
-			true, isMouseOver(mouseX, mouseY, deleteConfirmButtonX(), deleteDialogButtonY(),
-				DELETE_DIALOG_BUTTON_WIDTH, DELETE_DIALOG_BUTTON_HEIGHT), false);
-		g.pose().popPose();
-	}
-
-	private void drawCenteredDialogLine(GuiGraphics g, String text, int y, int color) {
-		String clipped = font.plainSubstrByWidth(text, DELETE_DIALOG_WIDTH - 24);
-		g.drawString(font, clipped, deleteDialogX() + (DELETE_DIALOG_WIDTH - font.width(clipped)) / 2, y, color, false);
+		OreConfirmDialog.render(g, font, this.width, this.height, title, bodyLines,
+			Component.literal(deleteConfirmLabel()), Component.translatable(ModTranslationKeys.BUTTON_CANCEL),
+			mouseX, mouseY);
 	}
 
 	private String deleteConfirmLabel() {
@@ -855,34 +834,6 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 				pendingBatchDelete.deletableCount()).getString();
 		}
 		return Component.translatable(ModTranslationKeys.MANAGER_BTN_DELETE).getString();
-	}
-
-	private int deleteDialogX() {
-		return (this.width - DELETE_DIALOG_WIDTH) / 2;
-	}
-
-	private int deleteDialogY() {
-		return (this.height - DELETE_DIALOG_HEIGHT) / 2;
-	}
-
-	private int deleteDialogButtonY() {
-		return deleteDialogY() + DELETE_DIALOG_HEIGHT - DELETE_DIALOG_BUTTON_HEIGHT - 12;
-	}
-
-	private int deleteDialogButtonGroupWidth() {
-		return DELETE_DIALOG_BUTTON_WIDTH * 2 + DELETE_DIALOG_BUTTON_GAP;
-	}
-
-	private int deleteDialogButtonGroupX() {
-		return deleteDialogX() + (DELETE_DIALOG_WIDTH - deleteDialogButtonGroupWidth()) / 2;
-	}
-
-	private int deleteCancelButtonX() {
-		return deleteConfirmButtonX() + DELETE_DIALOG_BUTTON_WIDTH + DELETE_DIALOG_BUTTON_GAP;
-	}
-
-	private int deleteConfirmButtonX() {
-		return deleteDialogButtonGroupX();
 	}
 
 	private void drawOutline(GuiGraphics g, int x, int y, int width, int height, int color) {
@@ -1023,20 +974,16 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	private boolean handlePendingDialogClick(double mouseX, double mouseY, int button) {
 		if (button != 0) return true;
-		if (isMouseOver(mouseX, mouseY, deleteCancelButtonX(), deleteDialogButtonY(),
-			DELETE_DIALOG_BUTTON_WIDTH, DELETE_DIALOG_BUTTON_HEIGHT)) {
+		OreConfirmDialog.Action action = OreConfirmDialog.hitTest(this.width, this.height, mouseX, mouseY);
+		if (action == OreConfirmDialog.Action.SECONDARY) {
 			cancelPendingDialog();
-			return true;
-		}
-		if (isMouseOver(mouseX, mouseY, deleteConfirmButtonX(), deleteDialogButtonY(),
-			DELETE_DIALOG_BUTTON_WIDTH, DELETE_DIALOG_BUTTON_HEIGHT)) {
+		} else if (action == OreConfirmDialog.Action.PRIMARY) {
 			if (pendingBatchDelete != null) {
 				executeBatchDelete();
 			} else {
 				PendingDelete pending = pendingDelete;
 				if (pending != null) executeSingleDelete(pending.groupId(), GroupAction.DELETE);
 			}
-			return true;
 		}
 		return true;
 	}
@@ -1173,7 +1120,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			return false;
 		}
 		clearTransientInputState();
-		Minecraft.getInstance().setScreen(new GroupEditorScreen(this, copied.get(), true));
+		Minecraft.getInstance().setScreen(new OreGroupEditorScreen(this, copied.get(), true, id));
 		return true;
 	}
 

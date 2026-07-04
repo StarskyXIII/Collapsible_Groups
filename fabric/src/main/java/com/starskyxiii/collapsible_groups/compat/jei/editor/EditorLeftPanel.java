@@ -4,11 +4,11 @@ import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
-import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -72,12 +72,12 @@ final class EditorLeftPanel {
 		this.onChange = onChange;
 	}
 
-	void init(List<ItemStack> allItems, List<IJeiFluidIngredient> allFluids,
+	void init(List<ItemStack> allItems, List<?> allFluids,
 	          List<GenericIngredientRef> allGenericRefs) {
 		this.allItems = allItems;
-		this.allFluids = EditorFluidIngredientHelper.buildViews(allFluids, "FabricEditorLeftPanel.buildFluidViews");
+		this.allFluids = EditorFluidIngredientHelper.buildViews(allFluids, "EditorLeftPanel.buildFluidViews");
 		this.allGenericIngredients = EditorGenericIngredientHelper.buildViews(allGenericRefs,
-			"FabricEditorLeftPanel.buildGenericViews");
+			"EditorLeftPanel.buildGenericViews");
 		buildSearchKeys();
 		buildOtherGroupCaches();
 	}
@@ -137,6 +137,8 @@ final class EditorLeftPanel {
 		hoveredItem = -1;
 		hoveredFluid = -1;
 		hoveredGeneric = -1;
+		OreUiRenderer.drawSlotGrid(g, layout.leftGridX(), layout.gridTop(),
+			layout.leftCols(), layout.leftRows(), EditorLayout.ITEM_SIZE);
 		boolean scissor = isShowingGeneric();
 		if (scissor) {
 			g.enableScissor(layout.leftGridX(), layout.gridTop(),
@@ -151,7 +153,7 @@ final class EditorLeftPanel {
 				renderCell(g, list.get(start + i), x, y);
 				if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, y)) {
 					setHover(start + i);
-					g.fill(x, y, x + 16, y + 16, 0x22FFFFFF);
+					g.fill(x + 1, y + 1, x + EditorLayout.ITEM_SIZE, y + EditorLayout.ITEM_SIZE, 0x22FFFFFF);
 				}
 			}
 		} finally {
@@ -160,24 +162,26 @@ final class EditorLeftPanel {
 	}
 
 	private void renderCell(GuiGraphics g, Object entry, int x, int y) {
+		int iconX = x + 1;
+		int iconY = y + 1;
 		if (isShowingFluids()) {
 			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
 			if (state.isFluidSelected(fluidIngredient(fluid))) {
-				g.fill(x, y, x + 16, y + 16, 0x4455BB77);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x4455BB77);
 			} else if (!otherFluidGroupsCache.getOrDefault(fluid, List.of()).isEmpty()) {
-				g.fill(x, y, x + 16, y + 16, 0x33CC8844);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x33CC8844);
 			}
-			IngredientCellRenderer.renderFluid(g, fluid, x, y);
+			IngredientCellRenderer.renderFluid(g, fluid, iconX, iconY);
 			return;
 		}
 		if (isShowingGeneric()) {
 			GenericIngredientView generic = (GenericIngredientView) entry;
 			if (state.isGenericSelected(generic)) {
-				g.fill(x, y, x + 16, y + 16, 0x4455BB77);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x4455BB77);
 			} else if (!otherGenericGroupsCache.getOrDefault(generic, List.of()).isEmpty()) {
-				g.fill(x, y, x + 16, y + 16, 0x33CC8844);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x33CC8844);
 			}
-			IngredientCellRenderer.renderGeneric(g, generic, x, y);
+			IngredientCellRenderer.renderGeneric(g, generic, iconX, iconY);
 			return;
 		}
 
@@ -185,11 +189,11 @@ final class EditorLeftPanel {
 		boolean inWhole = state.isWholeItemSelected(stack);
 		boolean inExact = state.isExactSelected(stack);
 		if (inWhole || inExact) {
-			g.fill(x, y, x + 16, y + 16, inWhole ? 0x4455BB77 : 0x4466DDAA);
+			g.fill(iconX, iconY, iconX + 16, iconY + 16, inWhole ? 0x4455BB77 : 0x4466DDAA);
 		} else if (!otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty()) {
-			g.fill(x, y, x + 16, y + 16, 0x33CC8844);
+			g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x33CC8844);
 		}
-		g.renderItem(stack, x, y);
+		g.renderItem(stack, iconX, iconY);
 	}
 
 	private void setHover(int idx) {
@@ -417,6 +421,12 @@ final class EditorLeftPanel {
 		return currentList().size();
 	}
 
+	int totalEntryCount() {
+		if (isShowingFluids()) return allFluids.size();
+		if (isShowingGeneric()) return allGenericIngredients.size();
+		return allItems.size();
+	}
+
 	String countLabel() {
 		return Component.translatable(ModTranslationKeys.EDITOR_PANEL_COUNT_ENTRIES, entryCount()).getString();
 	}
@@ -468,7 +478,7 @@ final class EditorLeftPanel {
 		return EditorGenericIngredientHelper.dragKey(generic);
 	}
 
-	private static IJeiFluidIngredient fluidIngredient(EditorFluidIngredientView fluid) {
-		return (IJeiFluidIngredient) fluid.ingredient();
+	private static Object fluidIngredient(EditorFluidIngredientView fluid) {
+		return fluid.ingredient();
 	}
 }

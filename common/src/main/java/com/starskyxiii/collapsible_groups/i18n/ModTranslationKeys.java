@@ -155,6 +155,8 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_PREVIEW_NOTE = "collapsible_groups.editor.preview_note";
 
+	public static final String EDITOR_COPY_DISABLE_SOURCE = "collapsible_groups.editor.copy.disable_source";
+
 	public static final String EDITOR_RULES_ADD = "collapsible_groups.editor.rules.add";
 
 	public static final String EDITOR_RULES_BASIC_HEADER = "collapsible_groups.editor.rules.basic_header";
@@ -268,6 +270,53 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_TAB_ITEMS = "collapsible_groups.editor.tab.items";
 
 	public static final String EDITOR_TAB_RULES = "collapsible_groups.editor.tab.rules";
+
+	public static final String ORE_EDITOR_MODE_LOOK = "collapsible_groups.ore_editor.mode.look";
+
+	public static final String ORE_EDITOR_HIDE_USED_SHORT = "collapsible_groups.ore_editor.hide_used.short";
+
+	public static final String ORE_EDITOR_PREVIEW_HEADER = "collapsible_groups.ore_editor.preview.header";
+
+	public static final String ORE_EDITOR_PREVIEW_EMPTY = "collapsible_groups.ore_editor.preview.empty";
+
+	/** Args: visible count (%s), total count (%s), selected count (%s) */
+	public static final String ORE_EDITOR_SOURCE_COUNT_SUMMARY = "collapsible_groups.ore_editor.source_count.summary";
+
+	/** Args: item count (%s) */
+	public static final String ORE_EDITOR_PREVIEW_SUMMARY_ITEMS_ONLY = "collapsible_groups.ore_editor.preview.summary.items_only";
+
+	/** Args: fluid count (%s) */
+	public static final String ORE_EDITOR_PREVIEW_SUMMARY_FLUIDS_ONLY = "collapsible_groups.ore_editor.preview.summary.fluids_only";
+
+	/** Args: generic count (%s) */
+	public static final String ORE_EDITOR_PREVIEW_SUMMARY_GENERIC_ONLY = "collapsible_groups.ore_editor.preview.summary.generic_only";
+
+	public static final String ORE_EDITOR_STATUS_CLEAN = "collapsible_groups.ore_editor.status.clean";
+
+	public static final String ORE_EDITOR_STATUS_DIRTY = "collapsible_groups.ore_editor.status.dirty";
+
+	public static final String ORE_EDITOR_STATUS_READY = "collapsible_groups.ore_editor.status.ready";
+
+	/** Args: reason (%s) */
+	public static final String ORE_EDITOR_STATUS_SAVE_BLOCKED = "collapsible_groups.ore_editor.status.save_blocked";
+
+	public static final String ORE_EDITOR_FOOTER_HINT = "collapsible_groups.ore_editor.footer_hint";
+
+	public static final String ORE_EDITOR_DISCARD_DIALOG_TITLE = "collapsible_groups.ore_editor.discard_dialog.title";
+
+	public static final String ORE_EDITOR_DISCARD_DIALOG_BODY = "collapsible_groups.ore_editor.discard_dialog.body";
+
+	public static final String ORE_EDITOR_DISCARD_DIALOG_CONFIRM = "collapsible_groups.ore_editor.discard_dialog.confirm";
+
+	public static final String ORE_EDITOR_DISCARD_DIALOG_CANCEL = "collapsible_groups.ore_editor.discard_dialog.cancel";
+
+	public static final String ORE_EDITOR_APPEARANCE_HEADER = "collapsible_groups.ore_editor.appearance.header";
+
+	public static final String ORE_EDITOR_APPEARANCE_ICONS = "collapsible_groups.ore_editor.appearance.icons";
+
+	public static final String ORE_EDITOR_APPEARANCE_COLORS = "collapsible_groups.ore_editor.appearance.colors";
+
+	public static final String ORE_EDITOR_APPEARANCE_PENDING = "collapsible_groups.ore_editor.appearance.pending";
 
 	public static final String EDITOR_TAG_MATCHED = "collapsible_groups.editor.tag_matched";
 
@@ -411,6 +460,9 @@ public final class ModTranslationKeys {
 	public static final String SCREEN_NEW_GROUP = "collapsible_groups.screen.new_group";
 
 	public static final String SCREEN_COPY_GROUP = "collapsible_groups.screen.copy_group";
+
+	/** Args: source group name (%s) */
+	public static final String SCREEN_COPY_GROUP_NAMED = "collapsible_groups.screen.copy_group_named";
 
 	public static final String SCREEN_TITLE = "collapsible_groups.screen.title";
 
