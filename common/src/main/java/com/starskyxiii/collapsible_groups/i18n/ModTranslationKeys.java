@@ -239,6 +239,104 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_RULES_WRAP_HEADER = "collapsible_groups.editor.rules.wrap_header";
 
+	public static final String EDITOR_RULES_ADD_CONDITION = "collapsible_groups.editor.rules.add_condition";
+
+	public static final String EDITOR_RULES_ADD_GROUP = "collapsible_groups.editor.rules.add_group";
+
+	public static final String EDITOR_RULES_NO_ROOT = "collapsible_groups.editor.rules.no_root";
+
+	/** Args: child count (%s) */
+	public static final String EDITOR_RULES_CHILD_COUNT = "collapsible_groups.editor.rules.child_count";
+
+	public static final String EDITOR_RULES_UNRESOLVED_ROW = "collapsible_groups.editor.rules.unresolved_row";
+
+	public static final String EDITOR_RULES_EMPTY_GROUP = "collapsible_groups.editor.rules.empty_group";
+
+	/** Args: root operator chip text (%1$s), leaf rule count (%2$s) */
+	public static final String EDITOR_RULES_TOOLBAR_INFO = "collapsible_groups.editor.rules.toolbar_info";
+
+	/** Args: unresolved rule count (%s) */
+	public static final String EDITOR_RULES_STATUS_UNRESOLVED = "collapsible_groups.editor.rules.status_unresolved";
+
+	public static final String EDITOR_RULES_EDIT_TITLE = "collapsible_groups.editor.rules.edit_title";
+
+	public static final String EDITOR_RULES_CHIP_ALL = "collapsible_groups.editor.rules.chip.all";
+
+	public static final String EDITOR_RULES_CHIP_ANY = "collapsible_groups.editor.rules.chip.any";
+
+	public static final String EDITOR_RULES_CHIP_NOT = "collapsible_groups.editor.rules.chip.not";
+
+	public static final String EDITOR_RULES_CHIP_ITEM_ID = "collapsible_groups.editor.rules.chip.item_id";
+
+	public static final String EDITOR_RULES_CHIP_FLUID_ID = "collapsible_groups.editor.rules.chip.fluid_id";
+
+	public static final String EDITOR_RULES_CHIP_ID = "collapsible_groups.editor.rules.chip.id";
+
+	public static final String EDITOR_RULES_CHIP_ITEM_TAG = "collapsible_groups.editor.rules.chip.item_tag";
+
+	public static final String EDITOR_RULES_CHIP_FLUID_TAG = "collapsible_groups.editor.rules.chip.fluid_tag";
+
+	public static final String EDITOR_RULES_CHIP_TAG = "collapsible_groups.editor.rules.chip.tag";
+
+	public static final String EDITOR_RULES_CHIP_BLOCK_TAG = "collapsible_groups.editor.rules.chip.block_tag";
+
+	public static final String EDITOR_RULES_CHIP_NAMESPACE = "collapsible_groups.editor.rules.chip.namespace";
+
+	public static final String EDITOR_RULES_CHIP_PATH_STARTS = "collapsible_groups.editor.rules.chip.path_starts";
+
+	public static final String EDITOR_RULES_CHIP_PATH_CONTAINS = "collapsible_groups.editor.rules.chip.path_contains";
+
+	public static final String EDITOR_RULES_CHIP_PATH_ENDS = "collapsible_groups.editor.rules.chip.path_ends";
+
+	public static final String EDITOR_RULES_CHIP_EXACT_STACK = "collapsible_groups.editor.rules.chip.exact_stack";
+
+	public static final String EDITOR_RULES_CHIP_HAS_COMPONENT = "collapsible_groups.editor.rules.chip.has_component";
+
+	public static final String EDITOR_RULES_CHIP_COMPONENT_PATH = "collapsible_groups.editor.rules.chip.component_path";
+
+	public static final String EDITOR_RULES_KIND_DESC_ALL = "collapsible_groups.editor.rules.kind_desc.all";
+
+	public static final String EDITOR_RULES_KIND_DESC_ANY = "collapsible_groups.editor.rules.kind_desc.any";
+
+	public static final String EDITOR_RULES_KIND_DESC_NOT = "collapsible_groups.editor.rules.kind_desc.not";
+
+	public static final String EDITOR_RULES_KIND_DESC_ID = "collapsible_groups.editor.rules.kind_desc.id";
+
+	public static final String EDITOR_RULES_KIND_DESC_TAG = "collapsible_groups.editor.rules.kind_desc.tag";
+
+	public static final String EDITOR_RULES_KIND_DESC_BLOCK_TAG = "collapsible_groups.editor.rules.kind_desc.block_tag";
+
+	public static final String EDITOR_RULES_KIND_DESC_PATH_STARTS = "collapsible_groups.editor.rules.kind_desc.path_starts";
+
+	public static final String EDITOR_RULES_KIND_DESC_PATH_CONTAINS = "collapsible_groups.editor.rules.kind_desc.path_contains";
+
+	public static final String EDITOR_RULES_KIND_DESC_PATH_ENDS = "collapsible_groups.editor.rules.kind_desc.path_ends";
+
+	public static final String EDITOR_RULES_KIND_DESC_NAMESPACE = "collapsible_groups.editor.rules.kind_desc.namespace";
+
+	public static final String EDITOR_RULES_KIND_DESC_EXACT_STACK = "collapsible_groups.editor.rules.kind_desc.exact_stack";
+
+	public static final String EDITOR_RULES_KIND_DESC_HAS_COMPONENT = "collapsible_groups.editor.rules.kind_desc.has_component";
+
+	public static final String EDITOR_RULES_KIND_DESC_COMPONENT_PATH = "collapsible_groups.editor.rules.kind_desc.component_path";
+
+	public static final String EDITOR_RULES_PICKER_TITLE_ITEM_TAG = "collapsible_groups.editor.rules.picker.title.item_tag";
+
+	public static final String EDITOR_RULES_PICKER_TITLE_FLUID_TAG = "collapsible_groups.editor.rules.picker.title.fluid_tag";
+
+	public static final String EDITOR_RULES_PICKER_TITLE_BLOCK_TAG = "collapsible_groups.editor.rules.picker.title.block_tag";
+
+	public static final String EDITOR_RULES_PICKER_TITLE_NAMESPACE = "collapsible_groups.editor.rules.picker.title.namespace";
+
+	public static final String EDITOR_RULES_PICKER_SEARCH = "collapsible_groups.editor.rules.picker.search";
+
+	/** Args: raw value (%s) */
+	public static final String EDITOR_RULES_PICKER_FALLBACK = "collapsible_groups.editor.rules.picker.fallback";
+
+	public static final String EDITOR_RULES_PICKER_EMPTY = "collapsible_groups.editor.rules.picker.empty";
+
+	public static final String EDITOR_RULES_PICKER_CONFIRM = "collapsible_groups.editor.rules.picker.confirm";
+
 	public static final String EDITOR_SAVE_BLOCKED_NO_FILTER = "collapsible_groups.editor.save_blocked.no_filter";
 
 	public static final String EDITOR_SAVE_BLOCKED_NO_NAME = "collapsible_groups.editor.save_blocked.no_name";
@@ -299,6 +397,9 @@ public final class ModTranslationKeys {
 
 	/** Args: reason (%s) */
 	public static final String ORE_EDITOR_STATUS_SAVE_BLOCKED = "collapsible_groups.ore_editor.status.save_blocked";
+
+	/** Args: unresolved rule count (%s) */
+	public static final String ORE_EDITOR_STATUS_UNRESOLVED = "collapsible_groups.ore_editor.status.unresolved";
 
 	public static final String ORE_EDITOR_FOOTER_HINT = "collapsible_groups.ore_editor.footer_hint";
 

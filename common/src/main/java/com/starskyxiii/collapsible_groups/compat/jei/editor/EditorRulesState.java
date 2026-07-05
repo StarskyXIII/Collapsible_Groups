@@ -25,6 +25,17 @@ public interface EditorRulesState {
 	@Nullable
 	GroupFilterRuleDraft.Node insertRuleRelative(GroupFilterRuleDraft.NodeKind kind);
 
+	@Nullable
+	GroupFilterRuleDraft.Node insertRuleRelativePending(GroupFilterRuleDraft.NodeKind kind);
+
+	boolean hasPendingRuleNode();
+
+	void commitPendingRuleNode();
+
+	void cancelPendingRuleNode();
+
+	int unresolvedRuleCount();
+
 	boolean canWrapSelectedRule(GroupFilterRuleDraft.NodeKind kind);
 
 	@Nullable
@@ -33,6 +44,4 @@ public interface EditorRulesState {
 	void markRulesChanged();
 
 	List<Component> currentValidationErrors();
-
-	String filterSummary();
 }

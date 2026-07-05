@@ -1,11 +1,11 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleTagResolution;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
-import com.starskyxiii.collapsible_groups.core.GroupFilterSummaryFormatter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterValidator;
 import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
@@ -27,6 +27,7 @@ final class EditorStateCore {
 	private final String sourceGroupId;
 
 	private GroupFilterRuleDraft.Node selectedRuleNode;
+	private GroupFilterRuleDraft.Node pendingRuleNode;
 	private boolean contentsQuickEditAvailable;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
 
@@ -177,12 +178,6 @@ final class EditorStateCore {
 		return List.of();
 	}
 
-	String filterSummary() {
-		GroupFilter filter = buildCurrentFilter().orElse(null);
-		if (filter == null) return Component.translatable(ModTranslationKeys.EDITOR_RULES_NO_FILTER).getString();
-		return GroupFilterSummaryFormatter.format(filter);
-	}
-
 	String previewOwnershipNote() {
 		return Component.translatable(ModTranslationKeys.EDITOR_PREVIEW_NOTE).getString();
 	}
@@ -247,6 +242,36 @@ final class EditorStateCore {
 			onRulesDraftChanged.run();
 		}
 		return node;
+	}
+
+	@Nullable
+	GroupFilterRuleDraft.Node insertRuleRelativePending(GroupFilterRuleDraft.NodeKind kind) {
+		GroupFilterRuleDraft.Node node = insertRuleRelative(kind);
+		if (node != null) {
+			pendingRuleNode = node;
+		}
+		return node;
+	}
+
+	boolean hasPendingRuleNode() {
+		return pendingRuleNode != null;
+	}
+
+	void commitPendingRuleNode() {
+		pendingRuleNode = null;
+	}
+
+	void cancelPendingRuleNode() {
+		if (pendingRuleNode == null) {
+			return;
+		}
+		selectedRuleNode = pendingRuleNode;
+		pendingRuleNode = null;
+		deleteSelectedRule();
+	}
+
+	int unresolvedRuleCount(RuleTagResolution.TagExistenceLookup lookup) {
+		return RuleTagResolution.countUnresolved(ruleDraft.flatten(), lookup);
 	}
 
 	@Nullable

@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleTagResolution;
 import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
@@ -193,11 +194,6 @@ final class GroupEditorState implements EditorRulesState {
 		return core.saveBlockedTooltip(editName);
 	}
 
-	@Override
-	public String filterSummary() {
-		return core.filterSummary();
-	}
-
 	String previewOwnershipNote() {
 		return core.previewOwnershipNote();
 	}
@@ -240,6 +236,31 @@ final class GroupEditorState implements EditorRulesState {
 	@Override
 	public GroupFilterRuleDraft.Node insertRuleRelative(GroupFilterRuleDraft.NodeKind kind) {
 		return core.insertRuleRelative(kind);
+	}
+
+	@Override
+	public GroupFilterRuleDraft.Node insertRuleRelativePending(GroupFilterRuleDraft.NodeKind kind) {
+		return core.insertRuleRelativePending(kind);
+	}
+
+	@Override
+	public boolean hasPendingRuleNode() {
+		return core.hasPendingRuleNode();
+	}
+
+	@Override
+	public void commitPendingRuleNode() {
+		core.commitPendingRuleNode();
+	}
+
+	@Override
+	public void cancelPendingRuleNode() {
+		core.cancelPendingRuleNode();
+	}
+
+	@Override
+	public int unresolvedRuleCount() {
+		return core.unresolvedRuleCount(RuleTagResolution.RegistryLookup.INSTANCE);
 	}
 
 	@Override

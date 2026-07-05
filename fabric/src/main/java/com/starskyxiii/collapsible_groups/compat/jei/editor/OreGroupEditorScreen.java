@@ -33,6 +33,7 @@ import java.util.List;
 public class OreGroupEditorScreen extends Screen {
 	private static final int ERROR_TEXT_COLOR = 0xFFFF6B5F;
 	private static final int READY_TEXT_COLOR = 0xFF7FB95A;
+	private static final int UNRESOLVED_TEXT_COLOR = 0xFFE88A82;
 	private static final int HEADER_PREVIEW_SIZE = 22;
 	private static final int PREVIEW_ICON_SIZE = 16;
 	private static final int SEGMENT_OVERLAP = 1;
@@ -243,6 +244,10 @@ public class OreGroupEditorScreen extends Screen {
 				List.of(Component.translatable(ModTranslationKeys.EDITOR_CHIP_HIDE_USED)), mouseX, mouseY);
 		} else if (!disableSourceTooltip && activeMode == OreEditorShellMode.CONTENTS) {
 			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font);
+		} else if (!disableSourceTooltip
+			&& (activeMode != OreEditorShellMode.RULES || !rulesPanel.isModalOpen())) {
+			leftPanel.clearHover();
+			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font);
 		}
 		if (shell.saveButton().contains(mouseX, mouseY) && !canSaveNow()) {
 			g.renderComponentTooltip(font, saveDisabledTooltip(), mouseX, mouseY);
@@ -439,8 +444,9 @@ public class OreGroupEditorScreen extends Screen {
 			x, y, OreUiPalette.TEXT_PRIMARY, false);
 		renderFullHeaderPreview(g, shell.previewHeader());
 
-		int panelMouseX = activeMode == OreEditorShellMode.CONTENTS ? mouseX : Integer.MIN_VALUE;
-		int panelMouseY = activeMode == OreEditorShellMode.CONTENTS ? mouseY : Integer.MIN_VALUE;
+		boolean blockPreviewHover = activeMode == OreEditorShellMode.RULES && rulesPanel.isModalOpen();
+		int panelMouseX = blockPreviewHover ? Integer.MIN_VALUE : mouseX;
+		int panelMouseY = blockPreviewHover ? Integer.MIN_VALUE : mouseY;
 		if (previewEntryCount() == 0) {
 			renderPreviewEmptyState(g);
 		} else {
@@ -543,7 +549,10 @@ public class OreGroupEditorScreen extends Screen {
 	private void renderFooter(GuiGraphics g) {
 		int y = shell.footerStatus().y() + OreUiRenderer.centeredTextY(font, 0, shell.footerStatus().height());
 		Component status = footerStatus();
-		int color = !state.canSave() ? ERROR_TEXT_COLOR : dirty ? READY_TEXT_COLOR : OreUiPalette.TEXT_HINT;
+		int unresolvedCount = state.unresolvedRuleCount();
+		int color = !state.canSave() ? ERROR_TEXT_COLOR
+			: unresolvedCount > 0 ? UNRESOLVED_TEXT_COLOR
+			: dirty ? READY_TEXT_COLOR : OreUiPalette.TEXT_HINT;
 		String clipped = font.plainSubstrByWidth(status.getString(), Math.max(0, shell.footerStatus().width()));
 		g.drawString(font, clipped, shell.footerStatus().x(), y, color, false);
 
@@ -556,6 +565,10 @@ public class OreGroupEditorScreen extends Screen {
 	private Component footerStatus() {
 		if (!state.canSave()) {
 			return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_SAVE_BLOCKED, saveDisabledReason().getString());
+		}
+		int unresolved = state.unresolvedRuleCount();
+		if (unresolved > 0) {
+			return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_UNRESOLVED, unresolved);
 		}
 		if (hasPendingSave()) return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_READY);
 		return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_CLEAN);

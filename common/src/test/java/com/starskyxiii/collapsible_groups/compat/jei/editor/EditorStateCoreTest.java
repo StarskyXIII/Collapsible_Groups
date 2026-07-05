@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
+import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -32,6 +33,74 @@ class EditorStateCoreTest {
 		assertEquals("source_group", copyCore.sourceGroupId());
 		assertTrue(legacyCopyCore.saveAsNew());
 		assertNull(legacyCopyCore.sourceGroupId());
+	}
+
+	@Test
+	void pendingRuleNodeIsDeletedOnCancelAndKeptOnCommit() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		GroupFilterRuleDraft.Node root = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.ALL);
+
+		GroupFilterRuleDraft.Node pending = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+		assertTrue(core.hasPendingRuleNode());
+		assertEquals(1, root.children().size());
+
+		core.cancelPendingRuleNode();
+		assertFalse(core.hasPendingRuleNode());
+		assertTrue(root.children().isEmpty());
+		assertEquals(root, core.selectedRuleNode());
+
+		GroupFilterRuleDraft.Node kept = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+		kept.setPrimaryValue("c:missing");
+		core.commitPendingRuleNode();
+		assertFalse(core.hasPendingRuleNode());
+		assertEquals(List.of(kept), root.children());
+
+		core.cancelPendingRuleNode();
+		assertEquals(List.of(kept), root.children());
+	}
+
+	@Test
+	void pendingRootCancelClearsTree() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+		assertTrue(core.hasRulesRoot());
+
+		core.cancelPendingRuleNode();
+
+		assertFalse(core.hasRulesRoot());
+		assertFalse(core.hasPendingRuleNode());
+	}
+
+	@Test
+	void unresolvedRuleCountUsesInjectedLookupAndSkipsSyntaxErrors() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		GroupFilterRuleDraft.Node root = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.ALL);
+		core.selectRuleNode(root);
+		core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.TAG).setPrimaryValue("c:exists");
+		core.selectRuleNode(root);
+		core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.TAG).setPrimaryValue("c:missing");
+		core.selectRuleNode(root);
+		core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.TAG).setPrimaryValue("NOT A LOCATION");
+
+		assertEquals(1, core.unresolvedRuleCount((registry, tagId) -> tagId.getPath().equals("exists")));
+	}
+
+	@Test
+	void nestedCompoundRulesKeepContentsQuickEditUnavailable() {
+		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(
+			Filters.any(Filters.not(Filters.itemTag("c:ingots"))));
+		assertFalse(decoded.structurallyEditable());
+
+		GroupDefinition nested = new GroupDefinition("nested", "Nested", true,
+			Filters.any(Filters.not(Filters.itemTag("c:ingots"))));
+		EditorStateCore core = new EditorStateCore(nested, () -> {});
+		assertFalse(core.canEditContents());
+
+		GroupFilterEditorDraft draft = GroupFilterEditorDraft.empty();
+		draft.explicitItemSelectors().add("stack:{\"id\":\"minecraft:stone\"}");
+		core.syncRulesFromContentsDraft(draft);
+		GroupFilter.Not kept = assertInstanceOf(GroupFilter.Not.class, core.buildCurrentFilter().orElseThrow());
+		assertEquals(new GroupFilter.Tag("item", "c:ingots"), kept.child());
 	}
 
 	@Test

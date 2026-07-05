@@ -45,6 +45,12 @@ final class EditorLeftPanel {
 	int hoveredFluid = -1;
 	int hoveredGeneric = -1;
 
+	void clearHover() {
+		hoveredItem = -1;
+		hoveredFluid = -1;
+		hoveredGeneric = -1;
+	}
+
 	private boolean isDraggingSb = false;
 	private double sbDragStartMouseY;
 	private int sbDragStartRow;

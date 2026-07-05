@@ -1,1163 +1,1471 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleNodePaths;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleNodePresentation;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleNodeUiContract;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleFieldRole;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleTagResolution;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorChrome;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.client.gui.components.AbstractWidget;
-import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.resources.ResourceLocation;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Stream;
 
 /**
- * Self-contained delegate for the Rules tab of the group editor screen.
+ * Rules tab of the group editor: a nested condition-builder with per-row chips,
+ * collapse-aware group blocks, and modal value pickers / field editors.
  *
- * <p>Owns its own widget list, layout, rendering, and input routing.
- * The Screen never adds these widgets to its own renderable list — all
- * communication back to the Screen flows through the {@code onChanged} callback.
- * When the user clicks Add, a modal overlays the body area.
+ * <p>Owns its widgets and input routing; talks back to the Screen only via the
+ * {@code onChanged} callback. All modals render at Z=300 (below the confirm
+ * dialog's Z=500) and are mutually exclusive; while any modal is open the
+ * Screen routes every event here via {@link #isModalOpen()}.
  */
 final class EditorRulesPanel {
 
-    // ── Layout constants ──────────────────────────────────────────────────
-    private static final int SIDEBAR_W  = 144;
-    private static final int STATUS_H   = 22;
-    private static final int GAP        = 6;
-    private static final int PAD        = 4;
-    private static final int BTN_H      = 18;
-    private static final int FIELD_H    = 20;
-    private static final int ROW_H      = 18;
-    private static final int INDENT_W   = 10;
-    private static final int FIELD_GAP  = 4;
-    private static final int CONFIG_SCROLLBAR_GAP = 2;
-
-    // ── Colors ────────────────────────────────────────────────────────────
-    private static final int COL_DEFAULT = 0xFFFFFF;
-    private static final int COL_LABEL   = 0x86AFC3;
-    private static final int COL_TEXT    = 0xD8E7EF;
-    private static final int COL_META    = 0xBBD7E6;
-    private static final int COL_HINT    = 0x7A7A7A;
-    private static final int COL_ERROR   = 0xFF4444;
-    private static final int COL_SEL_BG  = 0x334488AA;
-
-    // ── Rule kind arrays ──────────────────────────────────────────────────
-    private static final GroupFilterRuleDraft.NodeKind[] COMPOUND_KINDS = {
-        GroupFilterRuleDraft.NodeKind.ALL,
-        GroupFilterRuleDraft.NodeKind.ANY,
-        GroupFilterRuleDraft.NodeKind.NOT
-    };
-    private static final GroupFilterRuleDraft.NodeKind[] BASIC_KINDS = {
-        GroupFilterRuleDraft.NodeKind.ID,
-        GroupFilterRuleDraft.NodeKind.TAG,
-        GroupFilterRuleDraft.NodeKind.NAMESPACE,
-        GroupFilterRuleDraft.NodeKind.BLOCK_TAG,
-        GroupFilterRuleDraft.NodeKind.ITEM_PATH_STARTS_WITH,
-        GroupFilterRuleDraft.NodeKind.ITEM_PATH_CONTAINS,
-        GroupFilterRuleDraft.NodeKind.ITEM_PATH_ENDS_WITH,
-        GroupFilterRuleDraft.NodeKind.HAS_COMPONENT,
-        GroupFilterRuleDraft.NodeKind.COMPONENT_PATH,
-        GroupFilterRuleDraft.NodeKind.EXACT_STACK
-    };
-    private static final GroupFilterRuleDraft.NodeKind[] WRAP_KINDS = {
-        GroupFilterRuleDraft.NodeKind.ANY,
-        GroupFilterRuleDraft.NodeKind.ALL,
-        GroupFilterRuleDraft.NodeKind.NOT
-    };
-
-    // ── Row record ────────────────────────────────────────────────────────
-    private record RuleRow(
-        GroupFilterRuleDraft.Node node,
-        int depth,
-        List<FormattedCharSequence> lines,
-        boolean selected
-    ) {}
-
-    // ── Dependencies ──────────────────────────────────────────────────────
-    private final EditorRulesState state;
-    private final Font             font;
-    private final Runnable         onChanged;
-
-    // ── Body rect ─────────────────────────────────────────────────────────
-    private int bodyX, bodyY, bodyW, bodyH;
-
-    // ── Scroll ────────────────────────────────────────────────────────────
-    private int     scrollOffset   = 0;
-    private boolean draggingScroll = false;
-    private double  dragStartY;
-    private int     dragStartOffset;
-
-    private int     configureScrollOffset   = 0;
-    private boolean configureDraggingScroll = false;
-    private double  configureDragStartY;
-    private int     configureDragStartOffset;
-
-    // ── Modal ─────────────────────────────────────────────────────────────
-    private boolean modalOpen = false;
-    private int     modalScrollOffset   = 0;
-    private boolean modalDraggingScroll = false;
-    private double  modalDragStartY;
-    private int     modalDragStartOffset;
-
-    // ── Widgets (panel-owned, NOT in Screen's widget list) ────────────────
-    private Button  btnAdd;
-    private Button  btnDelete;
-    private final List<Button> insertButtons = new ArrayList<>();
-    private final List<Button> wrapButtons   = new ArrayList<>();
-    private EditBox fieldType;
-    private EditBox fieldPrimary;
-    private EditBox fieldSecondary;
-    private EditBox fieldTertiary;
-
-    private EditBox  focusedField   = null;
-    private boolean  updatingFields = false;
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Constructor
-    // ─────────────────────────────────────────────────────────────────────
-
-    EditorRulesPanel(EditorRulesState state, Font font, Runnable onChanged) {
-        this.state     = state;
-        this.font      = font;
-        this.onChanged = onChanged;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Lifecycle
-    // ─────────────────────────────────────────────────────────────────────
-
-    /** (Re-)creates all widgets for the given body area. Must be called before use or on resize. */
-    void init(int bodyX, int bodyY, int bodyW, int bodyH) {
-        this.bodyX = bodyX;
-        this.bodyY = bodyY;
-        this.bodyW = bodyW;
-        this.bodyH = bodyH;
-        insertButtons.clear();
-        wrapButtons.clear();
-        focusedField = null;
-        configureDraggingScroll = false;
-        modalDraggingScroll = false;
-        modalScrollOffset = 0;
-        createWidgets();
-        refreshWidgetStates();
-    }
-
-    /** Call when switching TO Rules tab. */
-    void onActivate() {
-        state.ensureRuleSelection();
-        modalOpen = false;
-        modalDraggingScroll = false;
-        modalScrollOffset = 0;
-        refreshWidgetStates();
-        clampScroll();
-        clampConfigureScroll();
-    }
-
-    /** Call when switching AWAY from Rules tab. */
-    void onDeactivate() {
-        clearFocus();
-        modalOpen = false;
-        configureDraggingScroll = false;
-        modalDraggingScroll = false;
-        modalScrollOffset = 0;
-    }
-
-    /** Drops panel-local field focus (call when a header widget takes focus). */
-    void clearFocus() {
-        if (focusedField != null) {
-            focusedField.setFocused(false);
-            focusedField = null;
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Widget creation
-    // ─────────────────────────────────────────────────────────────────────
-
-    private void createWidgets() {
-        EditorChrome.Rect actions = actionsRect();
-        int bx = actions.x() + PAD;
-        int bw = Math.max(72, actions.width() - PAD * 2);
-        int btnY0 = actions.y() + font.lineHeight + PAD + 6;
-
-        btnAdd = Button.builder(
-            Component.translatable(ModTranslationKeys.EDITOR_RULES_ADD),
-            btn -> {
-                modalOpen = true;
-                modalDraggingScroll = false;
-                modalScrollOffset = 0;
-                refreshWidgetStates();
-            }
-        ).bounds(bx, btnY0, bw, BTN_H).build();
-
-        btnDelete = Button.builder(
-            Component.translatable(ModTranslationKeys.EDITOR_RULES_DELETE),
-            btn -> { state.deleteSelectedRule(); onChanged.run(); }
-        ).bounds(bx, btnY0 + BTN_H + 6, bw, BTN_H).build();
-
-        // Modal buttons (positioned inside the modal rect)
-        EditorChrome.Rect modal = currentModalRect();
-        int colW   = Math.max(90, (modal.width() - GAP * 3) / 2);
-        int col0   = modal.x() + GAP;
-        int col1   = col0 + colW + GAP;
-        int firstY = modalInsertButtonsY(modal);
-
-        for (int i = 0; i < COMPOUND_KINDS.length; i++) {
-            final GroupFilterRuleDraft.NodeKind kind = COMPOUND_KINDS[i];
-            insertButtons.add(Button.builder(Component.literal(buttonLabel(kind)), btn -> {
-                if (state.insertRuleRelative(kind) != null) {
-                    modalOpen = false;
-                    modalDraggingScroll = false;
-                    onChanged.run();
-                }
-            }).bounds(col0, firstY + i * (BTN_H + 6), colW, BTN_H).build());
-        }
-        for (int i = 0; i < BASIC_KINDS.length; i++) {
-            final GroupFilterRuleDraft.NodeKind kind = BASIC_KINDS[i];
-            insertButtons.add(Button.builder(Component.literal(buttonLabel(kind)), btn -> {
-                if (state.insertRuleRelative(kind) != null) {
-                    modalOpen = false;
-                    modalDraggingScroll = false;
-                    onChanged.run();
-                }
-            }).bounds(col1, firstY + i * (BTN_H + 4), colW, BTN_H).build());
-        }
-
-        int wrapTop = modalWrapButtonsY(modal);
-        for (int i = 0; i < WRAP_KINDS.length; i++) {
-            final GroupFilterRuleDraft.NodeKind kind = WRAP_KINDS[i];
-            wrapButtons.add(Button.builder(Component.literal(buttonLabel(kind)), btn -> {
-                if (state.wrapSelectedRule(kind) != null) {
-                    modalOpen = false;
-                    modalDraggingScroll = false;
-                    onChanged.run();
-                }
-            }).bounds(col0, wrapTop + i * (BTN_H + 6), colW, BTN_H).build());
-        }
-
-        // Configure fields (inside configureRect)
-        EditorChrome.Rect cfg = configureRect();
-        int fx  = cfg.x() + PAD;
-        int fw  = Math.max(60, cfg.width() - PAD * 2);
-        int fy  = cfg.y() + font.lineHeight + PAD + 6;
-
-        fieldType      = buildField(fx, fy,      fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_TYPE));
-        fieldPrimary   = buildField(fx, fy + 24, fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE));
-        fieldSecondary = buildField(fx, fy + 48, fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE_2));
-        fieldTertiary  = buildField(fx, fy + 72, fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE_3));
-    }
-
-    private EditBox buildField(int x, int y, int w, Component hint) {
-        EditBox box = new EditBox(font, x, y, w, FIELD_H, Component.empty());
-        box.setMaxLength(512);
-        box.setHint(hint);
-        box.setResponder(ignored -> applyFieldEdits());
-        return box;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Render
-    // ─────────────────────────────────────────────────────────────────────
-
-    void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
-        List<RuleRow> rows = buildRows();
-        renderTree(g, mouseX, mouseY, rows);
-        renderScrollbar(g, rows);
-        renderStatus(g);
-        if (modalOpen) {
-            renderModal(g, mouseX, mouseY);
-        } else {
-            renderSidebar(g, mouseX, mouseY);
-        }
-    }
-
-    private void renderTree(GuiGraphics g, int mouseX, int mouseY, List<RuleRow> rows) {
-        EditorChrome.Rect r = treeRect();
-        g.fill(r.x(), r.y(), r.right(), r.bottom(), 0x22101828);
-        drawBorder(g, r, 0x22667799);
-
-        int y = r.y() + PAD - scrollOffset;
-        g.enableScissor(r.x(), r.y(), r.right(), r.bottom());
-        try {
-            for (RuleRow row : rows) {
-                int rh = rowH(row);
-                if (row.selected()) g.fill(r.x() + 1, y, r.right() - 1, y + rh, COL_SEL_BG);
-                int lx = r.x() + PAD + row.depth() * INDENT_W;
-                int ly = y + 1;
-                for (FormattedCharSequence line : row.lines()) {
-                    g.drawString(font, line, lx, ly, row.selected() ? COL_DEFAULT : COL_TEXT, false);
-                    ly += font.lineHeight;
-                }
-                y += rh;
-            }
-        } finally {
-            g.disableScissor();
-        }
-    }
-
-    private void renderScrollbar(GuiGraphics g, List<RuleRow> rows) {
-        EditorChrome.Rect tree = treeRect();
-        ScrollbarHelper.renderPixels(g, scrollbarX(), tree.y(), tree.height(),
-            tree.height(), contentHeight(rows), scrollOffset);
-    }
-
-    private void renderSidebar(GuiGraphics g, int mouseX, int mouseY) {
-        EditorChrome.Rect acts = actionsRect();
-        EditorChrome.Rect cfg  = configureRect();
-        // Actions panel
-        g.fill(acts.x(), acts.y(), acts.right(), acts.bottom(), 0x22101828);
-        drawBorder(g, acts, 0x22667799);
-        g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_PANEL_RULES_HEADER).getString(),
-            acts.x() + PAD, acts.y() + PAD, COL_LABEL, false);
-        if (btnAdd    != null) btnAdd.render(g, mouseX, mouseY, 0);
-        if (btnDelete != null) btnDelete.render(g, mouseX, mouseY, 0);
-
-        // Configure panel
-        g.fill(cfg.x(), cfg.y(), cfg.right(), cfg.bottom(), 0x1A122032);
-        drawBorder(g, cfg, 0x22667799);
-
-        GroupFilterRuleDraft.Node sel = state.selectedRuleNode();
-        renderConfigureHeader(g, cfg, sel);
-
-        EditorChrome.Rect content = configureContentRect();
-        layoutConfigureFields();
-        g.enableScissor(content.x(), content.y(), content.right(), content.bottom());
-        try {
-            renderField(g, mouseX, mouseY, fieldType);
-            renderField(g, mouseX, mouseY, fieldPrimary);
-            renderField(g, mouseX, mouseY, fieldSecondary);
-            renderField(g, mouseX, mouseY, fieldTertiary);
-        } finally {
-            g.disableScissor();
-        }
-
-        EditorChrome.Rect scrollbar = configureScrollbarRect();
-        ScrollbarHelper.renderPixels(g, scrollbar.x(), scrollbar.y(), scrollbar.height(),
-            content.height(), configureContentHeight(), configureScrollOffset);
-    }
-
-    private void renderConfigureHeader(GuiGraphics g, EditorChrome.Rect cfg, GroupFilterRuleDraft.Node sel) {
-        int x = cfg.x() + PAD;
-        int y = cfg.y() + PAD;
-
-        for (FormattedCharSequence line : configureTitleLines(sel)) {
-            g.drawString(font, line, x, y, COL_LABEL, false);
-            y += font.lineHeight;
-        }
-
-        List<FormattedCharSequence> contextLines = configureContextLines(sel);
-        if (!contextLines.isEmpty()) {
-            y += 2;
-            for (FormattedCharSequence line : contextLines) {
-                g.drawString(font, line, x, y, COL_META, false);
-                y += font.lineHeight;
-            }
-        }
-    }
-
-    private void renderField(GuiGraphics g, int mx, int my, EditBox field) {
-        if (field == null || !field.visible) return;
-        field.render(g, mx, my, 0);
-    }
-
-    private void renderStatus(GuiGraphics g) {
-        EditorChrome.Rect r = statusRect();
-        int ty = r.y() + (r.height() - font.lineHeight) / 2;
-        List<Component> errors = state.currentValidationErrors();
-        String text  = errors.isEmpty() ? state.filterSummary() : errors.getFirst().getString();
-        int    color = errors.isEmpty() ? COL_HINT : COL_ERROR;
-        g.drawString(font, text, r.x() + PAD, ty, color, false);
-    }
-
-    private void renderModal(GuiGraphics g, int mouseX, int mouseY) {
-        // Dim the body area
-        g.fill(bodyX, bodyY, bodyX + bodyW, bodyY + bodyH, 0x88060A12);
-
-        EditorChrome.Rect m = currentModalRect();
-        clampModalScroll(m);
-        layoutModalButtons(m);
-        g.fill(m.x(), m.y(), m.right(), m.bottom(), 0xEE141A24);
-        drawBorder(g, m, 0x55B8D7EA);
-
-        EditorChrome.Rect content = modalContentRect(m);
-        EditorChrome.Rect scrollbar = modalScrollbarRect(m);
-        int colW  = Math.max(90, (content.width() - GAP) / 2);
-        int col0  = content.x();
-        int col1  = col0 + colW + GAP;
-        int topY  = modalTitleY(m);
-        int lblY  = content.y() - modalScrollOffset;
-
-        g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_ADD).getString(),
-            m.x() + GAP, topY, 0x8CA6B7, false);
-
-        g.enableScissor(content.x(), content.y(), content.right(), content.bottom());
-        try {
-            g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_COMPOUND_HEADER).getString(),
-                col0, lblY, COL_LABEL, false);
-            g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_BASIC_HEADER).getString(),
-                col1, lblY, COL_LABEL, false);
-
-            for (Button b : insertButtons) {
-                if (b.visible) b.render(g, mouseX, mouseY, 0);
-            }
-
-            boolean showWrap = state.selectedRuleNode() != null;
-            if (showWrap) {
-                int wrapTop = modalWrapHeaderY(m) - modalScrollOffset;
-                g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_WRAP_HEADER).getString(),
-                    col0, wrapTop, COL_LABEL, false);
-            }
-            for (Button b : wrapButtons) {
-                if (b.visible) b.render(g, mouseX, mouseY, 0);
-            }
-        } finally {
-            g.disableScissor();
-        }
-
-        ScrollbarHelper.renderPixels(g, scrollbar.x(), scrollbar.y(), scrollbar.height(),
-            content.height(), modalScrollableContentHeight(), modalScrollOffset);
-    }
-
-    private void layoutConfigureFields() {
-        EditorChrome.Rect content = configureContentRect();
-        int x = content.x();
-        int y = content.y() - configureScrollOffset;
-        int width = content.width();
-        for (EditBox field : allConfigureFields()) {
-            if (field != null && field.visible) {
-                field.setPosition(x, y);
-                field.setWidth(width);
-                y += FIELD_H + FIELD_GAP;
-            }
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Input
-    // ─────────────────────────────────────────────────────────────────────
-
-    boolean mouseClicked(double mx, double my, int button) {
-        if (button != 0) return false;
-        if (modalOpen) {
-            EditorChrome.Rect m = currentModalRect();
-            clampModalScroll(m);
-            layoutModalButtons(m);
-            EditorChrome.Rect scrollbar = modalScrollbarRect(m);
-            if (my >= scrollbar.y() && my < scrollbar.bottom()
-                && mx >= scrollbar.x() && mx < scrollbar.right()) {
-                modalDraggingScroll = true;
-                modalDragStartY = my;
-                modalDragStartOffset = modalScrollOffset;
-                modalScrollOffset = ScrollbarHelper.trackClickToOffset(my, scrollbar.y(), scrollbar.height(),
-                    modalScrollableContentHeight(), modalContentRect(m).height(), modalScrollOffset);
-                layoutModalButtons(m);
-                return true;
-            }
-            if (m.contains(mx, my)) {
-                if (!modalContentRect(m).contains(mx, my)) return true;
-                for (Button b : insertButtons) {
-                    if (b.visible && isOver(b, mx, my) && b.mouseClicked(mx, my, button)) return true;
-                }
-                for (Button b : wrapButtons) {
-                    if (b.visible && isOver(b, mx, my) && b.mouseClicked(mx, my, button)) return true;
-                }
-                return true;
-            }
-            modalOpen = false;
-            modalDraggingScroll = false;
-            refreshWidgetStates();
-            return true;
-        }
-
-        EditorChrome.Rect scrollbar = configureScrollbarRect();
-        if (my >= scrollbar.y() && my < scrollbar.bottom()
-            && mx >= scrollbar.x() && mx < scrollbar.right()) {
-            List<EditBox> fields = visibleFields();
-            clampConfigureScroll(fields);
-            configureDraggingScroll = true;
-            configureDragStartY = my;
-            configureDragStartOffset = configureScrollOffset;
-            configureScrollOffset = ScrollbarHelper.trackClickToOffset(my, scrollbar.y(), scrollbar.height(),
-                configureContentHeight(fields), configureContentRect().height(), configureScrollOffset);
-            return true;
-        }
-
-        // ── Actions (Add / Delete) ─────────────────────────────────────────
-        if (isOver(btnAdd,    mx, my) && btnAdd.mouseClicked(mx, my, button))    return true;
-        if (isOver(btnDelete, mx, my) && btnDelete.mouseClicked(mx, my, button)) return true;
-
-        // ── Configure fields ──────────────────────────────────────────────
-        for (EditBox f : visibleFields()) {
-            if (isOver(f, mx, my)) {
-                setFocusedField(f);
-                f.mouseClicked(mx, my, button);
-                return true;
-            }
-        }
-        // Click outside any field: drop focus
-        clearFocus();
-
-        // ── Tree scrollbar ─────────────────────────────────────────────────
-        EditorChrome.Rect tree = treeRect();
-        if (my >= tree.y() && my < tree.bottom()
-            && mx >= scrollbarX() && mx < scrollbarX() + ScrollbarHelper.WIDTH) {
-            List<RuleRow> rows = buildRows();
-            clampScroll(rows);
-            draggingScroll  = true;
-            dragStartY      = my;
-            dragStartOffset = scrollOffset;
-            scrollOffset    = ScrollbarHelper.trackClickToOffset(my, tree.y(), tree.height(),
-                contentHeight(rows), tree.height(), scrollOffset);
-            return true;
-        }
-
-        // ── Tree row click ─────────────────────────────────────────────────
-        if (tree.contains(mx, my)) return handleTreeClick(mx, my);
-
-        return false;
-    }
-
-    boolean isModalOpen() { return modalOpen; }
-
-    boolean mouseDragged(double mx, double my, int button) {
-        if (modalOpen) {
-            if (!modalDraggingScroll) return true;
-            EditorChrome.Rect modal = currentModalRect();
-            EditorChrome.Rect content = modalContentRect(modal);
-            EditorChrome.Rect scrollbar = modalScrollbarRect(modal);
-            modalScrollOffset = ScrollbarHelper.dragToOffset(my, modalDragStartY, modalDragStartOffset,
-                modalScrollableContentHeight(), content.height(), scrollbar.height());
-            layoutModalButtons(modal);
-            return true;
-        }
-        if (configureDraggingScroll) {
-            List<EditBox> fields = visibleFields();
-            EditorChrome.Rect scrollbar = configureScrollbarRect();
-            configureScrollOffset = ScrollbarHelper.dragToOffset(my, configureDragStartY, configureDragStartOffset,
-                configureContentHeight(fields), configureContentRect().height(), scrollbar.height());
-            layoutConfigureFields();
-            return true;
-        }
-        if (button != 0 || !draggingScroll) return false;
-        EditorChrome.Rect tree = treeRect();
-        List<RuleRow> rows = buildRows();
-        scrollOffset = ScrollbarHelper.dragToOffset(my, dragStartY, dragStartOffset,
-            contentHeight(rows), tree.height(), tree.height());
-        return true;
-    }
-
-    boolean mouseReleased(double mx, double my, int button) {
-        draggingScroll = false;
-        configureDraggingScroll = false;
-        modalDraggingScroll = false;
-        return false;
-    }
-
-    boolean mouseScrolled(double mx, double my, double deltaY) {
-        if (modalOpen) {
-            EditorChrome.Rect modal = currentModalRect();
-            if (!modal.contains(mx, my)) return true;
-            EditorChrome.Rect content = modalContentRect(modal);
-            int maxScroll = Math.max(0, modalScrollableContentHeight() - content.height());
-            if (maxScroll <= 0) {
-                modalScrollOffset = 0;
-                return true;
-            }
-            modalScrollOffset = ScrollbarHelper.clamp(
-                modalScrollOffset - (int) Math.signum(deltaY) * (font.lineHeight + 4), 0, maxScroll);
-            layoutModalButtons(modal);
-            return true;
-        }
-        EditorChrome.Rect config = configureContentRect();
-        if (config.contains(mx, my)) {
-            List<EditBox> fields = visibleFields();
-            int maxScroll = Math.max(0, configureContentHeight(fields) - config.height());
-            if (maxScroll <= 0) {
-                configureScrollOffset = 0;
-                return true;
-            }
-            configureScrollOffset = ScrollbarHelper.clamp(
-                configureScrollOffset - (int) Math.signum(deltaY) * (font.lineHeight + 4), 0, maxScroll);
-            layoutConfigureFields();
-            return true;
-        }
-        EditorChrome.Rect tree = treeRect();
-        if (!tree.contains(mx, my)) return false;
-        List<RuleRow> rows = buildRows();
-        int maxScroll = Math.max(0, contentHeight(rows) - tree.height());
-        if (maxScroll <= 0) { scrollOffset = 0; return true; }
-        scrollOffset = ScrollbarHelper.clamp(
-            scrollOffset - (int) Math.signum(deltaY) * (font.lineHeight + 4), 0, maxScroll);
-        return true;
-    }
-
-    boolean keyPressed(int key, int scan, int mods) {
-        if (focusedField != null && focusedField.isFocused()
-            && focusedField.keyPressed(key, scan, mods)) return true;
-        if (modalOpen && key == 256 /* Escape */) {
-            modalOpen = false;
-            modalDraggingScroll = false;
-            refreshWidgetStates();
-            return true;
-        }
-        return false;
-    }
-
-    boolean charTyped(char c, int mods) {
-        if (focusedField != null && focusedField.isFocused()) return focusedField.charTyped(c, mods);
-        return false;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // State-change callback (called by Screen.onGroupChanged)
-    // ─────────────────────────────────────────────────────────────────────
-
-    void onGroupChanged() {
-        state.ensureRuleSelection();
-        refreshWidgetStates();
-        clampScroll();
-        clampConfigureScroll();
-        if (modalOpen) clampModalScroll();
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Layout helpers
-    // ─────────────────────────────────────────────────────────────────────
-
-    private int treeSectionW() {
-        return bodyW - SIDEBAR_W - GAP - ScrollbarHelper.WIDTH - ScrollbarHelper.GAP;
-    }
-
-    private int treeSectionH() {
-        return bodyH - STATUS_H - GAP;
-    }
-
-    /** Clip rect for the tree area (does not include the scrollbar column). */
-    EditorChrome.Rect treeRect() {
-        return new EditorChrome.Rect(bodyX, bodyY, treeSectionW(), treeSectionH());
-    }
-
-    private int scrollbarX() {
-        return treeRect().right() + ScrollbarHelper.GAP;
-    }
-
-    private EditorChrome.Rect sidebarRect() {
-        return new EditorChrome.Rect(bodyX + bodyW - SIDEBAR_W, bodyY, SIDEBAR_W, treeSectionH());
-    }
-
-    private EditorChrome.Rect actionsRect() {
-        EditorChrome.Rect sb = sidebarRect();
-        int h = font.lineHeight + PAD + BTN_H + 6 + BTN_H + PAD * 2;
-        return new EditorChrome.Rect(sb.x(), sb.y(), SIDEBAR_W, h);
-    }
-
-    private EditorChrome.Rect configureRect() {
-        EditorChrome.Rect act = actionsRect();
-        int y = act.bottom() + GAP;
-        return new EditorChrome.Rect(act.x(), y, SIDEBAR_W, Math.max(24, sidebarRect().bottom() - y));
-    }
-
-    private int configureHeaderBottom() {
-        EditorChrome.Rect cfg = configureRect();
-        int lineCount = configureTitleLines(state.selectedRuleNode()).size() + configureContextLines(state.selectedRuleNode()).size();
-        int gap = configureContextLines(state.selectedRuleNode()).isEmpty() ? 0 : 2;
-        return cfg.y() + PAD + lineCount * font.lineHeight + gap;
-    }
-
-    private EditorChrome.Rect configureContentRect() {
-        EditorChrome.Rect cfg = configureRect();
-        int top = configureHeaderBottom() + 8;
-        int right = cfg.right() - PAD - ScrollbarHelper.WIDTH - CONFIG_SCROLLBAR_GAP;
-        int width = Math.max(24, right - (cfg.x() + PAD));
-        int height = Math.max(24, cfg.bottom() - top - PAD);
-        return new EditorChrome.Rect(cfg.x() + PAD, top, width, height);
-    }
-
-    private EditorChrome.Rect configureScrollbarRect() {
-        EditorChrome.Rect content = configureContentRect();
-        return new EditorChrome.Rect(content.right() + CONFIG_SCROLLBAR_GAP, content.y(), ScrollbarHelper.WIDTH, content.height());
-    }
-
-    private EditorChrome.Rect statusRect() {
-        int y = bodyY + treeSectionH() + GAP;
-        return new EditorChrome.Rect(bodyX, y, bodyW - SIDEBAR_W - GAP, STATUS_H);
-    }
-
-    private EditorChrome.Rect modalRect() {
-        int minW = 360, maxW = 470, minH = 300;
-        int inset = GAP;
-        int innerH = modalContentHeight();
-
-        // Allow the modal to borrow the tab/header strip above the rules body.
-        // This keeps high GUI-scale layouts usable without forcing the wrap/basic
-        // sections to spill out of the frame.
-        int availTop = inset;
-        int availBottom = bodyY + bodyH - inset;
-
-        // Available space inside insets — the modal must never exceed this.
-        int availW = Math.max(0, bodyW - inset * 2);
-        int availH = Math.max(0, availBottom - availTop);
-
-        // Desired dimensions: prefer [minW..maxW] and content-driven height.
-        // Container always wins: clamp down to availW / availH last.
-        int desiredW = Math.min(maxW, Math.max(minW, bodyW * 2 / 3));
-        int desiredH = Math.max(minH, innerH);
-        int w = Math.min(availW, desiredW);
-        int h = Math.min(availH, desiredH);
-
-        // Center horizontally inside the rules body and vertically inside the
-        // expanded top-to-bottom viewport that includes the tab/header strip.
-        int x = bodyX + inset + (availW - w) / 2;
-        int y = availTop + (availH - h) / 2;
-        return new EditorChrome.Rect(x, y, w, h);
-    }
-
-    private int modalInsertColumnHeight() {
-        return Math.max(
-            COMPOUND_KINDS.length * (BTN_H + 6) - 6,
-            BASIC_KINDS.length    * (BTN_H + 4) - 4
-        );
-    }
-
-    private int modalTitleY(EditorChrome.Rect modal) {
-        return modal.y() + GAP;
-    }
-
-    private int modalSectionLabelY(EditorChrome.Rect modal) {
-        return modalTitleY(modal) + font.lineHeight + 4;
-    }
-
-    private int modalInsertButtonsY(EditorChrome.Rect modal) {
-        return modalSectionLabelY(modal) + font.lineHeight + 6;
-    }
-
-    private int modalCompoundColumnHeight() {
-        return COMPOUND_KINDS.length * (BTN_H + 6) - 6;
-    }
-
-    private int modalBasicColumnHeight() {
-        return BASIC_KINDS.length * (BTN_H + 4) - 4;
-    }
-
-    private int modalWrapHeaderY(EditorChrome.Rect modal) {
-        return modalInsertButtonsY(modal) + modalCompoundColumnHeight() + 10;
-    }
-
-    private int modalWrapButtonsY(EditorChrome.Rect modal) {
-        return modalWrapHeaderY(modal) + font.lineHeight + 4;
-    }
-
-    private int modalWrapButtonsHeight() {
-        return WRAP_KINDS.length * (BTN_H + 6) - 6;
-    }
-
-    private int modalContentHeight() {
-        return GAP + font.lineHeight + 4 + modalScrollableContentHeight() + GAP;
-    }
-
-    private EditorChrome.Rect currentModalRect() {
-        int minW = 360, maxW = 470, minH = 300;
-        int inset = GAP;
-        int innerH = modalContentHeight();
-        int availW = Math.max(0, bodyW - inset * 2);
-        int availH = Math.max(0, bodyH - inset * 2);
-        int desiredW = Math.min(maxW, Math.max(minW, bodyW * 2 / 3));
-        int desiredH = Math.max(minH, innerH);
-        int w = Math.min(availW, desiredW);
-        int h = Math.min(availH, desiredH);
-        int x = bodyX + inset + (availW - w) / 2;
-        int y = bodyY + inset + (availH - h) / 2;
-        return new EditorChrome.Rect(x, y, w, h);
-    }
-
-    private EditorChrome.Rect modalContentRect(EditorChrome.Rect modal) {
-        int x = modal.x() + GAP;
-        int top = modalTitleY(modal) + font.lineHeight + 4;
-        int right = modal.right() - GAP - ScrollbarHelper.WIDTH - ScrollbarHelper.GAP;
-        int width = Math.max(24, right - x);
-        int height = Math.max(24, modal.bottom() - top - GAP);
-        return new EditorChrome.Rect(x, top, width, height);
-    }
-
-    private EditorChrome.Rect modalScrollbarRect(EditorChrome.Rect modal) {
-        EditorChrome.Rect content = modalContentRect(modal);
-        return new EditorChrome.Rect(content.right() + ScrollbarHelper.GAP, content.y(),
-            ScrollbarHelper.WIDTH, content.height());
-    }
-
-    private int modalScrollableContentHeight() {
-        int leftColumnHeight = font.lineHeight + 6 + modalCompoundColumnHeight();
-        if (state.selectedRuleNode() != null) {
-            leftColumnHeight += 10 + font.lineHeight + 4 + modalWrapButtonsHeight();
-        }
-        int rightColumnHeight = font.lineHeight + 6 + modalBasicColumnHeight();
-        return Math.max(leftColumnHeight, rightColumnHeight);
-    }
-
-    private void clampModalScroll() {
-        clampModalScroll(currentModalRect());
-    }
-
-    private void clampModalScroll(EditorChrome.Rect modal) {
-        int max = Math.max(0, modalScrollableContentHeight() - modalContentRect(modal).height());
-        modalScrollOffset = ScrollbarHelper.clamp(modalScrollOffset, 0, max);
-    }
-
-    private void layoutModalButtons(EditorChrome.Rect modal) {
-        EditorChrome.Rect content = modalContentRect(modal);
-        int colW = Math.max(90, (content.width() - GAP) / 2);
-        int col0 = content.x();
-        int col1 = col0 + colW + GAP;
-        int sectionY = content.y() - modalScrollOffset;
-        int firstY = sectionY + font.lineHeight + 6;
-
-        for (int i = 0; i < COMPOUND_KINDS.length; i++) {
-            Button b = insertButtons.get(i);
-            b.setPosition(col0, firstY + i * (BTN_H + 6));
-            b.setWidth(colW);
-        }
-        for (int i = 0; i < BASIC_KINDS.length; i++) {
-            Button b = insertButtons.get(COMPOUND_KINDS.length + i);
-            b.setPosition(col1, firstY + i * (BTN_H + 4));
-            b.setWidth(colW);
-        }
-
-        int wrapTop = sectionY + font.lineHeight + 6 + modalCompoundColumnHeight() + 10 + font.lineHeight + 4;
-        for (int i = 0; i < WRAP_KINDS.length; i++) {
-            Button b = wrapButtons.get(i);
-            b.setPosition(col0, wrapTop + i * (BTN_H + 6));
-            b.setWidth(colW);
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Tree helpers
-    // ─────────────────────────────────────────────────────────────────────
-
-    private List<RuleRow> buildRows() {
-        int bodyWidth = Math.max(40, treeSectionW() - PAD * 2);
-        List<RuleRow> rows = new ArrayList<>();
-        for (GroupFilterRuleDraft.FlatNode fn : state.flattenedRuleNodes()) {
-            GroupFilterRuleDraft.Node n = fn.node();
-            int ww = Math.max(24, bodyWidth - fn.depth() * INDENT_W);
-            rows.add(new RuleRow(n, fn.depth(),
-                font.split(Component.literal(describeNode(n)), ww),
-                n == state.selectedRuleNode()));
-        }
-        return List.copyOf(rows);
-    }
-
-    private int rowH(RuleRow row) {
-        return Math.max(ROW_H, row.lines().size() * font.lineHeight + 2);
-    }
-
-    private int contentHeight(List<RuleRow> rows) {
-        int h = PAD;
-        for (RuleRow r : rows) h += rowH(r);
-        return h;
-    }
-
-    private void clampScroll() { clampScroll(buildRows()); }
-
-    private void clampScroll(List<RuleRow> rows) {
-        int max = Math.max(0, contentHeight(rows) - treeRect().height());
-        scrollOffset = ScrollbarHelper.clamp(scrollOffset, 0, max);
-    }
-
-    private int configureContentHeight() {
-        int count = 0;
-        for (EditBox field : allConfigureFields()) {
-            if (field != null && field.visible) {
-                count++;
-            }
-        }
-        if (count == 0) {
-            return font.lineHeight * 2 + PAD * 2;
-        }
-        return count * FIELD_H + Math.max(0, count - 1) * FIELD_GAP + PAD * 2;
-    }
-
-    private int configureContentHeight(List<EditBox> fields) {
-        int count = 0;
-        for (EditBox field : fields) {
-            if (field != null && field.visible) {
-                count++;
-            }
-        }
-        if (count == 0) {
-            return font.lineHeight * 2 + PAD * 2;
-        }
-        return count * FIELD_H + Math.max(0, count - 1) * FIELD_GAP + PAD * 2;
-    }
-
-    private void clampConfigureScroll() {
-        int max = Math.max(0, configureContentHeight() - configureContentRect().height());
-        configureScrollOffset = ScrollbarHelper.clamp(configureScrollOffset, 0, max);
-    }
-
-    private void clampConfigureScroll(List<EditBox> ignored) {
-        int max = Math.max(0, configureContentHeight(ignored) - configureContentRect().height());
-        configureScrollOffset = ScrollbarHelper.clamp(configureScrollOffset, 0, max);
-    }
-
-    private boolean handleTreeClick(double mx, double my) {
-        EditorChrome.Rect r = treeRect();
-        int y = r.y() + PAD - scrollOffset;
-        for (RuleRow row : buildRows()) {
-            int h = rowH(row);
-            if (my >= y && my < y + h) {
-                state.selectRuleNode(row.node());
-                refreshWidgetStates();
-                return true;
-            }
-            y += h;
-        }
-        return false;
-    }
-
-    private List<EditBox> allConfigureFields() {
-        List<EditBox> out = new ArrayList<>(4);
-        out.add(fieldType);
-        out.add(fieldPrimary);
-        out.add(fieldSecondary);
-        out.add(fieldTertiary);
-        return out;
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Widget state management
-    // ─────────────────────────────────────────────────────────────────────
-
-    private void refreshWidgetStates() {
-        if (btnAdd == null) return;
-        GroupFilterRuleDraft.Node sel = state.selectedRuleNode();
-
-        btnAdd.active    = !modalOpen && canOpenAddModal();
-        btnDelete.active = !modalOpen && state.canDeleteSelectedRule();
-
-        for (int i = 0; i < COMPOUND_KINDS.length; i++) {
-            Button b = insertButtons.get(i);
-            b.active  = state.canInsertRuleRelative();
-            b.visible = modalOpen;
-        }
-        for (int i = 0; i < BASIC_KINDS.length; i++) {
-            Button b = insertButtons.get(COMPOUND_KINDS.length + i);
-            b.active  = state.canInsertRuleRelative();
-            b.visible = modalOpen;
-        }
-        boolean showWrap = modalOpen && sel != null;
-        for (int i = 0; i < WRAP_KINDS.length; i++) {
-            Button b = wrapButtons.get(i);
-            b.active  = showWrap && state.canWrapSelectedRule(WRAP_KINDS[i]);
-            b.visible = showWrap;
-        }
-
-        if (modalOpen) {
-            clearFocus();
-            setConfigureFieldsVisible(false);
-        } else {
-            syncFieldsFromNode();
-            clampConfigureScroll();
-            layoutConfigureFields();
-        }
-    }
-
-    private boolean canOpenAddModal() {
-        if (state.canInsertRuleRelative()) return true;
-        for (GroupFilterRuleDraft.NodeKind kind : WRAP_KINDS) {
-            if (state.canWrapSelectedRule(kind)) return true;
-        }
-        return false;
-    }
-
-    private void syncFieldsFromNode() {
-        if (fieldPrimary == null) return;
-        GroupFilterRuleDraft.Node sel = state.selectedRuleNode();
-        updatingFields = true;
-        try {
-            boolean hasType = sel != null && needsTypeField(sel);
-            boolean hasPri  = sel != null && needsPrimaryField(sel);
-            boolean hasSec  = sel != null && needsSecondaryField(sel);
-            boolean hasTer  = sel != null && needsTertiaryField(sel);
-
-            configureField(fieldType,      hasType, typeHint(sel),      sel != null ? sel.ingredientType() : "");
-            configureField(fieldPrimary,   hasPri,  primaryHint(sel),   sel != null ? sel.primaryValue()   : "");
-            configureField(fieldSecondary, hasSec,  secondaryHint(sel), sel != null ? sel.secondaryValue() : "");
-            configureField(fieldTertiary,  hasTer,  tertiaryHint(),     sel != null ? sel.tertiaryValue()  : "");
-        } finally {
-            updatingFields = false;
-        }
-    }
-
-    private void configureField(EditBox field, boolean visible, Component hint, String value) {
-        field.visible = visible;
-        field.active  = visible;
-        if (!visible && focusedField == field) {
-            field.setFocused(false);
-            focusedField = null;
-        }
-        field.setHint(hint);
-        if (!field.getValue().equals(value)) field.setValue(value);
-    }
-
-    private void applyFieldEdits() {
-        if (updatingFields) return;
-        GroupFilterRuleDraft.Node sel = state.selectedRuleNode();
-        if (sel == null) return;
-        if (needsTypeField(sel)      && fieldType      != null) sel.setIngredientType(fieldType.getValue());
-        if (needsPrimaryField(sel)   && fieldPrimary   != null) sel.setPrimaryValue(fieldPrimary.getValue());
-        if (needsSecondaryField(sel) && fieldSecondary != null) sel.setSecondaryValue(fieldSecondary.getValue());
-        if (needsTertiaryField(sel)  && fieldTertiary  != null) sel.setTertiaryValue(fieldTertiary.getValue());
-        state.markRulesChanged();
-        onChanged.run();
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Focus helpers
-    // ─────────────────────────────────────────────────────────────────────
-
-    private void setFocusedField(EditBox field) {
-        if (focusedField != null && focusedField != field) focusedField.setFocused(false);
-        focusedField = field;
-        field.setFocused(true);
-    }
-
-    private List<EditBox> visibleFields() {
-        List<EditBox> out = new ArrayList<>(4);
-        if (fieldType      != null && fieldType.visible)      out.add(fieldType);
-        if (fieldPrimary   != null && fieldPrimary.visible)   out.add(fieldPrimary);
-        if (fieldSecondary != null && fieldSecondary.visible) out.add(fieldSecondary);
-        if (fieldTertiary  != null && fieldTertiary.visible)  out.add(fieldTertiary);
-        return out;
-    }
-
-    private List<FormattedCharSequence> configureTitleLines(GroupFilterRuleDraft.Node sel) {
-        String cfgBase = Component.translatable(ModTranslationKeys.EDITOR_RULES_CONFIGURE).getString();
-        String cfgTitle = sel == null ? cfgBase : cfgBase + ": " + sel.kind().name();
-        return font.split(Component.literal(cfgTitle), configureHeaderWidth());
-    }
-
-    private List<FormattedCharSequence> configureContextLines(GroupFilterRuleDraft.Node sel) {
-        if (sel == null) return List.of();
-        return font.split(Component.literal(describeContext(sel)), configureHeaderWidth());
-    }
-
-    private int configureHeaderWidth() {
-        return Math.max(24, configureRect().width() - PAD * 2);
-    }
-
-    private void setConfigureFieldsVisible(boolean visible) {
-        for (EditBox field : allConfigureFields()) {
-            if (field == null) continue;
-            field.visible = visible && field.active;
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Rule description
-    // ─────────────────────────────────────────────────────────────────────
-
-    private String describeNode(GroupFilterRuleDraft.Node n) {
-        return switch (n.kind()) {
-            case ANY -> "ANY";
-            case ALL -> "ALL";
-            case NOT -> "NOT";
-            case ID              -> n.ingredientType() + " id: "        + n.primaryValue();
-            case TAG             -> n.ingredientType() + " tag: "       + n.primaryValue();
-            case NAMESPACE       -> n.ingredientType() + " namespace: " + n.primaryValue();
-            case BLOCK_TAG       -> "block tag: "                       + n.primaryValue();
-            case ITEM_PATH_STARTS_WITH -> "path starts: "              + n.primaryValue();
-            case ITEM_PATH_CONTAINS    -> "path contains: "            + n.primaryValue();
-            case ITEM_PATH_ENDS_WITH   -> "path ends: "                + n.primaryValue();
-            case EXACT_STACK     -> "exact: "                          + n.primaryValue();
-            case HAS_COMPONENT   -> "has component: "  + n.primaryValue() + " = " + n.secondaryValue();
-            case COMPONENT_PATH  -> "comp path: "      + n.primaryValue() + "/" + n.secondaryValue() + "=" + n.tertiaryValue();
-        };
-    }
-
-    private String describeContext(GroupFilterRuleDraft.Node n) {
-        String loc = n.parent() == null ? "Root" : "in " + n.parent().kind().name();
-        String ch  = n.kind().compound()
-            ? n.children().size() + " child" + (n.children().size() == 1 ? "" : "ren")
-            : "Leaf";
-        return loc + " | " + ch;
-    }
-
-    private String buttonLabel(GroupFilterRuleDraft.NodeKind kind) {
-        return switch (kind) {
-            case ALL -> "All Of";
-            case ANY -> "Any Of";
-            case NOT -> "Not";
-            case ID  -> "Item ID";
-            case TAG -> "Item Tag";
-            case NAMESPACE             -> "Namespace";
-            case BLOCK_TAG             -> "Block Tag";
-            case ITEM_PATH_STARTS_WITH -> "Path Starts";
-            case ITEM_PATH_CONTAINS    -> "Path Contains";
-            case ITEM_PATH_ENDS_WITH   -> "Path Ends";
-            case HAS_COMPONENT         -> "Has Component";
-            case COMPONENT_PATH        -> "Component Path";
-            case EXACT_STACK           -> "Exact Stack";
-        };
-    }
-
-    private boolean needsTypeField(GroupFilterRuleDraft.Node n) {
-        return switch (n.kind()) { case ID, TAG, NAMESPACE -> true; default -> false; };
-    }
-    private boolean needsPrimaryField(GroupFilterRuleDraft.Node n) { return !n.kind().compound(); }
-    private boolean needsSecondaryField(GroupFilterRuleDraft.Node n) {
-        return switch (n.kind()) { case HAS_COMPONENT, COMPONENT_PATH -> true; default -> false; };
-    }
-    private boolean needsTertiaryField(GroupFilterRuleDraft.Node n) {
-        return n.kind() == GroupFilterRuleDraft.NodeKind.COMPONENT_PATH;
-    }
-
-    private Component typeHint(GroupFilterRuleDraft.Node n) {
-        return Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_TYPE);
-    }
-    private Component primaryHint(GroupFilterRuleDraft.Node n) {
-        if (n == null) return Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
-        return switch (n.kind()) {
-            case ID              -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_ID);
-            case TAG, BLOCK_TAG  -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_TAG);
-            case NAMESPACE       -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_NAMESPACE);
-            case ITEM_PATH_STARTS_WITH, ITEM_PATH_CONTAINS, ITEM_PATH_ENDS_WITH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PATH);
-            case EXACT_STACK     -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_STACK);
-            case HAS_COMPONENT, COMPONENT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_COMPONENT);
-            default              -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
-        };
-    }
-    private Component secondaryHint(GroupFilterRuleDraft.Node n) {
-        if (n == null) return Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE_2);
-        return switch (n.kind()) {
-            case HAS_COMPONENT  -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
-            case COMPONENT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PATH);
-            default             -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE_2);
-        };
-    }
-    private Component tertiaryHint() {
-        return Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────
-    // Drawing utilities
-    // ─────────────────────────────────────────────────────────────────────
-
-    private void drawBorder(GuiGraphics g, EditorChrome.Rect r, int color) {
-        g.fill(r.x(), r.y(),         r.right(), r.y() + 1,         color);
-        g.fill(r.x(), r.bottom() - 1, r.right(), r.bottom(),        color);
-        g.fill(r.x(), r.y() + 1,     r.x() + 1, r.bottom() - 1,    color);
-        g.fill(r.right() - 1, r.y() + 1, r.right(), r.bottom() - 1, color);
-    }
-
-    private static boolean isOver(AbstractWidget w, double mx, double my) {
-        return w.visible
-            && mx >= w.getX() && mx < w.getX() + w.getWidth()
-            && my >= w.getY() && my < w.getY() + w.getHeight();
-    }
+	// ── Layout constants ──────────────────────────────────────────────────
+	private static final int PAD = 4;
+	private static final int GAP = 6;
+	private static final int TOOLBAR_H = 20;
+	private static final int ROW_H = 20;
+	private static final int ROW_GAP = 2;
+	private static final int INDENT_W = 12;
+	private static final int BAR_W = 3;
+	private static final int CHIP_H = 12;
+	private static final int CHIP_PAD = 3;
+	private static final int CHEVRON_W = 7;
+	private static final int ICON_BTN_W = 20;
+	private static final int ICON_BTN_H = 20;
+	private static final int ICON_BTN_GAP = 2;
+	private static final int PICKER_ROW_H = 12;
+	private static final int FIELD_H = 20;
+	private static final int FIELD_GAP = 4;
+	// Sprite (ore_button) nine-slice art is 20px tall; using anything less crops the frame.
+	// Menu row spacing (BTN_H + 2) and modalRect height math both key off this constant.
+	private static final int BTN_H = 20;
+	private static final int MODAL_Z = 300;
+	private static final long DOUBLE_CLICK_MS = 350;
+	private static final long FILTER_DEBOUNCE_MS = 100;
+
+	// ── Colors ────────────────────────────────────────────────────────────
+	private static final int CHIP_POSITIVE = 0xFF3C8527;
+	private static final int CHIP_POSITIVE_HOVER = 0xFF4E9E33;
+	private static final int CHIP_NEUTRAL = 0xFF58585A;
+	private static final int COL_UNRESOLVED = 0xFFE88A82;
+	private static final int COL_ROW_SELECTED = 0x334488AA;
+	private static final int COL_ROW_HOVER = 0x18FFFFFF;
+	private static final int COL_PICKER_HOVER = 0x33FFFFFF;
+	private static final int COL_MODAL_DIM = 0x99060A12;
+
+	private enum ModalKind { NONE, MENU, PICKER, FORM }
+
+	private record MenuEntry(
+		GroupFilterRuleDraft.NodeKind kind,
+		@Nullable String presetType,
+		boolean wrap
+	) {}
+
+	private static final List<MenuEntry> CONDITION_ENTRIES = List.of(
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.ID, "item", false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.ID, "fluid", false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.TAG, "item", false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.TAG, "fluid", false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.BLOCK_TAG, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.NAMESPACE, "item", false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_STARTS_WITH, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_CONTAINS, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_ENDS_WITH, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.HAS_COMPONENT, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.COMPONENT_PATH, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.EXACT_STACK, null, false)
+	);
+	private static final List<MenuEntry> GROUP_INSERT_ENTRIES = List.of(
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.ALL, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.ANY, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.NOT, null, false)
+	);
+	private static final List<MenuEntry> GROUP_WRAP_ENTRIES = List.of(
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.ALL, null, true),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.ANY, null, true),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.NOT, null, true)
+	);
+
+	private record Row(GroupFilterRuleDraft.Node node, int depth, String path, boolean collapsed) {}
+
+	// ── Dependencies ──────────────────────────────────────────────────────
+	private final EditorRulesState state;
+	private final Font font;
+	private final Runnable onChanged;
+
+	// ── Body rect ─────────────────────────────────────────────────────────
+	private int bodyX, bodyY, bodyW, bodyH;
+
+	// ── List state ────────────────────────────────────────────────────────
+	private final Set<String> collapsedPaths = new HashSet<>();
+	private int scrollOffset;
+	private boolean draggingScroll;
+	private double dragStartY;
+	private int dragStartOffset;
+
+	// ── Modal state ───────────────────────────────────────────────────────
+	private ModalKind modal = ModalKind.NONE;
+	private boolean menuGroupMode;
+	private int modalScrollOffset;
+	private boolean modalDragging;
+	private double modalDragY;
+	private int modalDragStart;
+
+	// ── Edit lifecycle (deleteOnCancel / snapshot-restore) ────────────────
+	private GroupFilterRuleDraft.Node editingNode;
+	private boolean editingIsNew;
+	private String snapType = "";
+	private String snapPrimary = "";
+	private String snapSecondary = "";
+	private String snapTertiary = "";
+
+	// ── Picker state ──────────────────────────────────────────────────────
+	private RuleNodePresentation.PickerKind pickerKind = RuleNodePresentation.PickerKind.NONE;
+	private List<String> pickerSnapshot = List.of();
+	private List<String> pickerFiltered = List.of();
+	private boolean pickerHasFallback;
+	private String pickerFallbackValue = "";
+	private int pickerSelected = -1;
+	private EditBox pickerSearch;
+	private boolean pickerFilterDirty;
+	private long pickerFilterDeadline;
+	private long lastPickerClickMs;
+	private int lastPickerClickIndex = -1;
+	private final Map<RuleNodePresentation.PickerKind, String> pickerLastSearch =
+		new EnumMap<>(RuleNodePresentation.PickerKind.class);
+
+	// ── Field form state ──────────────────────────────────────────────────
+	private EditBox formType;
+	private EditBox formPrimary;
+	private EditBox formSecondary;
+	private EditBox formTertiary;
+	private int formVisibleFields;
+	private EditBox focusedField;
+	private boolean updatingFields;
+
+	EditorRulesPanel(EditorRulesState state, Font font, Runnable onChanged) {
+		this.state = state;
+		this.font = font;
+		this.onChanged = onChanged;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Lifecycle
+	// ─────────────────────────────────────────────────────────────────────
+
+	void init(int bodyX, int bodyY, int bodyW, int bodyH) {
+		this.bodyX = bodyX;
+		this.bodyY = bodyY;
+		this.bodyW = bodyW;
+		this.bodyH = bodyH;
+		abortModal();
+		clampScroll();
+	}
+
+	void onActivate() {
+		state.ensureRuleSelection();
+		abortModal();
+		clampScroll();
+	}
+
+	void onDeactivate() {
+		abortModal();
+	}
+
+	void clearFocus() {
+		if (focusedField != null) {
+			focusedField.setFocused(false);
+			focusedField = null;
+		}
+	}
+
+	boolean isModalOpen() {
+		return modal != ModalKind.NONE;
+	}
+
+	void onGroupChanged() {
+		state.ensureRuleSelection();
+		clampScroll();
+	}
+
+	/** Closes any modal, cancelling a pending new node / restoring snapshots first. */
+	private void abortModal() {
+		if (modal == ModalKind.PICKER || modal == ModalKind.FORM) {
+			cancelEditor();
+		}
+		modal = ModalKind.NONE;
+		modalScrollOffset = 0;
+		modalDragging = false;
+		pickerSearch = null;
+		formType = formPrimary = formSecondary = formTertiary = null;
+		focusedField = null;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Rows
+	// ─────────────────────────────────────────────────────────────────────
+
+	private List<Row> buildRows() {
+		List<Row> rows = new ArrayList<>();
+		int skipDeeperThan = Integer.MAX_VALUE;
+		for (GroupFilterRuleDraft.FlatNode flat : state.flattenedRuleNodes()) {
+			if (flat.depth() > skipDeeperThan) {
+				continue;
+			}
+			skipDeeperThan = Integer.MAX_VALUE;
+			String path = RuleNodePaths.pathOf(flat.node());
+			boolean compound = flat.node().kind().compound();
+			boolean collapsed = compound && collapsedPaths.contains(path);
+			rows.add(new Row(flat.node(), flat.depth(), path, collapsed));
+			if (collapsed) {
+				skipDeeperThan = flat.depth();
+			}
+		}
+		return rows;
+	}
+
+	private EditorChrome.Rect listRect() {
+		int top = bodyY + TOOLBAR_H + GAP;
+		int width = bodyW - ScrollbarHelper.WIDTH - ScrollbarHelper.GAP;
+		int height = bodyH - TOOLBAR_H - GAP;
+		return new EditorChrome.Rect(bodyX, top, Math.max(24, width), Math.max(24, height));
+	}
+
+	private int contentHeight(List<Row> rows) {
+		return PAD + rows.size() * (ROW_H + ROW_GAP);
+	}
+
+	private void clampScroll() {
+		int max = Math.max(0, contentHeight(buildRows()) - listRect().height());
+		scrollOffset = ScrollbarHelper.clamp(scrollOffset, 0, max);
+	}
+
+	private int rowIndent(Row row) {
+		return listRect().x() + PAD + row.depth() * INDENT_W;
+	}
+
+	// Shared row geometry — single source for render and hit-testing.
+
+	private int chipX(Row row) {
+		int x = rowIndent(row);
+		return row.node().kind().compound() ? x + 11 : x + BAR_W + 3;
+	}
+
+	private String chipLabel(GroupFilterRuleDraft.Node node) {
+		return Component.translatable(
+			RuleNodePresentation.chipLabelKey(node.kind(), node.ingredientType())).getString();
+	}
+
+	private int chipWidth(GroupFilterRuleDraft.Node node) {
+		int width = font.width(chipLabel(node)) + CHIP_PAD * 2;
+		return chipCyclable(node) ? width + CHEVRON_W : width;
+	}
+
+	private boolean chipCyclable(GroupFilterRuleDraft.Node node) {
+		return node.kind() == GroupFilterRuleDraft.NodeKind.ALL
+			|| node.kind() == GroupFilterRuleDraft.NodeKind.ANY;
+	}
+
+	private int deleteButtonX(EditorChrome.Rect list) {
+		return list.right() - PAD - ICON_BTN_W;
+	}
+
+	private int editButtonX(EditorChrome.Rect list) {
+		return deleteButtonX(list) - ICON_BTN_GAP - ICON_BTN_W;
+	}
+
+	private void cycleOperator(GroupFilterRuleDraft.Node node) {
+		if (!chipCyclable(node)) {
+			return;
+		}
+		node.setKind(node.kind() == GroupFilterRuleDraft.NodeKind.ALL
+			? GroupFilterRuleDraft.NodeKind.ANY
+			: GroupFilterRuleDraft.NodeKind.ALL);
+		state.selectRuleNode(node);
+		state.markRulesChanged();
+		onChanged.run();
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Render
+	// ─────────────────────────────────────────────────────────────────────
+
+	void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+		boolean modalUp = isModalOpen();
+		int listMouseX = modalUp ? Integer.MIN_VALUE : mouseX;
+		int listMouseY = modalUp ? Integer.MIN_VALUE : mouseY;
+		renderToolbar(g, listMouseX, listMouseY);
+		renderList(g, listMouseX, listMouseY);
+		if (modalUp) {
+			g.pose().pushPose();
+			g.pose().translate(0, 0, MODAL_Z);
+			g.fill(bodyX, bodyY, bodyX + bodyW, bodyY + bodyH, COL_MODAL_DIM);
+			switch (modal) {
+				case MENU -> renderMenu(g, mouseX, mouseY);
+				case PICKER -> renderPicker(g, mouseX, mouseY);
+				case FORM -> renderForm(g, mouseX, mouseY);
+				default -> {}
+			}
+			g.pose().popPose();
+		}
+	}
+
+	private void renderToolbar(GuiGraphics g, int mouseX, int mouseY) {
+		EditorChrome.Rect addCond = addConditionRect();
+		EditorChrome.Rect addGroup = addGroupRect();
+		OreUiRenderer.drawButton(g, font, addCond.x(), addCond.y(), addCond.width(), addCond.height(),
+			Component.translatable(ModTranslationKeys.EDITOR_RULES_ADD_CONDITION).getString(),
+			buttonState(state.canInsertRuleRelative(), addCond.contains(mouseX, mouseY)));
+		OreUiRenderer.drawButton(g, font, addGroup.x(), addGroup.y(), addGroup.width(), addGroup.height(),
+			Component.translatable(ModTranslationKeys.EDITOR_RULES_ADD_GROUP).getString(),
+			buttonState(canOpenGroupMenu(), addGroup.contains(mouseX, mouseY)));
+		renderToolbarInfo(g, addCond);
+	}
+
+	/** Read-only "<root operator> · N rules" label, anchored to the toolbar's left edge. */
+	private void renderToolbarInfo(GuiGraphics g, EditorChrome.Rect firstButton) {
+		List<GroupFilterRuleDraft.FlatNode> flat = state.flattenedRuleNodes();
+		if (flat.isEmpty()) {
+			return;
+		}
+		GroupFilterRuleDraft.Node root = flat.getFirst().node();
+		String rootChip = chipLabel(root);
+		int leafCount = RuleNodePresentation.countLeafRules(flat);
+		String text = Component.translatable(ModTranslationKeys.EDITOR_RULES_TOOLBAR_INFO, rootChip, leafCount)
+			.getString();
+		int maxWidth = Math.max(0, firstButton.x() - GAP - (bodyX + PAD));
+		int ty = bodyY + (TOOLBAR_H - font.lineHeight) / 2 + 1;
+		g.drawString(font, font.plainSubstrByWidth(text, maxWidth), bodyX + PAD, ty, OreUiPalette.TEXT_MUTED, false);
+	}
+
+	private boolean canOpenGroupMenu() {
+		if (state.canInsertRuleRelative()) {
+			return true;
+		}
+		for (MenuEntry entry : GROUP_WRAP_ENTRIES) {
+			if (state.canWrapSelectedRule(entry.kind())) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	private EditorChrome.Rect addGroupRect() {
+		String label = Component.translatable(ModTranslationKeys.EDITOR_RULES_ADD_GROUP).getString();
+		int width = font.width(label) + 16;
+		return new EditorChrome.Rect(bodyX + bodyW - width, bodyY, width, TOOLBAR_H);
+	}
+
+	private EditorChrome.Rect addConditionRect() {
+		String label = Component.translatable(ModTranslationKeys.EDITOR_RULES_ADD_CONDITION).getString();
+		int width = font.width(label) + 16;
+		return new EditorChrome.Rect(addGroupRect().x() - GAP - width, bodyY, width, TOOLBAR_H);
+	}
+
+	private void renderList(GuiGraphics g, int mouseX, int mouseY) {
+		EditorChrome.Rect list = listRect();
+		List<Row> rows = buildRows();
+
+		if (rows.isEmpty()) {
+			String empty = Component.translatable(ModTranslationKeys.EDITOR_RULES_NO_ROOT).getString();
+			g.drawString(font, font.plainSubstrByWidth(empty, list.width()),
+				list.x() + PAD, list.y() + PAD, OreUiPalette.TEXT_HINT, false);
+			return;
+		}
+
+		g.enableScissor(list.x(), list.y(), list.right(), list.bottom());
+		try {
+			int y = list.y() + PAD - scrollOffset;
+			for (Row row : rows) {
+				if (y + ROW_H >= list.y() && y <= list.bottom()) {
+					renderRow(g, list, row, y, mouseX, mouseY);
+				}
+				y += ROW_H + ROW_GAP;
+			}
+			renderAccentBars(g, list, rows);
+		} finally {
+			g.disableScissor();
+		}
+
+		ScrollbarHelper.renderPixels(g, list.right() + ScrollbarHelper.GAP, list.y(), list.height(),
+			list.height(), contentHeight(rows), scrollOffset);
+	}
+
+	private void renderAccentBars(GuiGraphics g, EditorChrome.Rect list, List<Row> rows) {
+		for (int i = 0; i < rows.size(); i++) {
+			Row row = rows.get(i);
+			if (!row.node().kind().compound() || row.collapsed()) {
+				continue;
+			}
+			int last = i;
+			for (int j = i + 1; j < rows.size() && rows.get(j).depth() > row.depth(); j++) {
+				last = j;
+			}
+			if (last == i) {
+				continue;
+			}
+			int barX = rowIndent(row);
+			int top = list.y() + PAD - scrollOffset + i * (ROW_H + ROW_GAP) + ROW_H;
+			int bottom = list.y() + PAD - scrollOffset + last * (ROW_H + ROW_GAP) + ROW_H;
+			int color = row.node().kind() == GroupFilterRuleDraft.NodeKind.NOT
+				? OreUiPalette.DANGER
+				: CHIP_POSITIVE;
+			g.fill(barX, top, barX + BAR_W, bottom, color);
+		}
+	}
+
+	private void renderRow(GuiGraphics g, EditorChrome.Rect list, Row row, int y, int mouseX, int mouseY) {
+		GroupFilterRuleDraft.Node node = row.node();
+		boolean selected = node == state.selectedRuleNode();
+		boolean rowHover = mouseY >= y && mouseY < y + ROW_H && mouseX >= list.x() && mouseX < list.right();
+		if (selected) {
+			g.fill(list.x() + 1, y, list.right() - 1, y + ROW_H, COL_ROW_SELECTED);
+		} else if (rowHover) {
+			g.fill(list.x() + 1, y, list.right() - 1, y + ROW_H, COL_ROW_HOVER);
+		}
+
+		boolean unresolved = !node.kind().compound()
+			&& RuleTagResolution.isUnresolved(node, RuleTagResolution.RegistryLookup.INSTANCE);
+
+		if (node.kind().compound()) {
+			renderCollapseGlyph(g, rowIndent(row), y, row.collapsed());
+		}
+
+		// Type chip; ALL/ANY chips cycle the operator on click and carry a chevron marker.
+		int x = chipX(row);
+		String chip = chipLabel(node);
+		int chipW = chipWidth(node);
+		int chipY = y + (ROW_H - CHIP_H) / 2;
+		boolean chipHover = chipCyclable(node) && hoverIn(mouseX, mouseY, x, chipY, chipW, CHIP_H);
+		int chipColor = switch (RuleNodePresentation.blockAccent(node.kind())) {
+			case POSITIVE -> chipHover ? CHIP_POSITIVE_HOVER : CHIP_POSITIVE;
+			case NEGATIVE -> OreUiPalette.DANGER;
+			case NONE -> CHIP_NEUTRAL;
+		};
+		g.fill(x, chipY, x + chipW, chipY + CHIP_H, chipColor);
+		g.drawString(font, chip, x + CHIP_PAD, chipY + (CHIP_H - font.lineHeight) / 2 + 1,
+			OreUiPalette.TEXT_SELECTED, false);
+		if (chipCyclable(node)) {
+			int ax = x + chipW - CHIP_PAD - 5;
+			int ay = chipY + (CHIP_H - 3) / 2;
+			g.fill(ax, ay, ax + 5, ay + 1, OreUiPalette.TEXT_SELECTED);
+			g.fill(ax + 1, ay + 1, ax + 4, ay + 2, OreUiPalette.TEXT_SELECTED);
+			g.fill(ax + 2, ay + 2, ax + 3, ay + 3, OreUiPalette.TEXT_SELECTED);
+		}
+		x += chipW + 6;
+
+		// Icons (right-aligned, Manager action-rail primitive)
+		int iconY = y + (ROW_H - ICON_BTN_H) / 2;
+		int deleteX = deleteButtonX(list);
+		OreUiRenderer.drawToolbarIconButton(g, deleteX, iconY, ICON_BTN_W, ICON_BTN_H, OreUiRenderer.ICON_DELETE,
+			buttonState(true, hoverIn(mouseX, mouseY, deleteX, iconY, ICON_BTN_W, ICON_BTN_H)));
+		int textRight;
+		if (node.kind().compound()) {
+			textRight = deleteX - 6;
+		} else {
+			int editX = editButtonX(list);
+			OreUiRenderer.drawToolbarIconButton(g, editX, iconY, ICON_BTN_W, ICON_BTN_H, OreUiRenderer.ICON_EDIT,
+				buttonState(true, hoverIn(mouseX, mouseY, editX, iconY, ICON_BTN_W, ICON_BTN_H)));
+			textRight = editX - 6;
+		}
+
+		int textY = y + (ROW_H - font.lineHeight) / 2 + 1;
+		if (node.kind().compound()) {
+			boolean empty = node.children().isEmpty();
+			String count = empty
+				? Component.translatable(ModTranslationKeys.EDITOR_RULES_EMPTY_GROUP).getString()
+				: Component.translatable(ModTranslationKeys.EDITOR_RULES_CHILD_COUNT, node.children().size()).getString();
+			g.drawString(font, font.plainSubstrByWidth(count, Math.max(0, textRight - x)),
+				x, textY, empty ? COL_UNRESOLVED : OreUiPalette.TEXT_MUTED, false);
+			if (empty) {
+				OreUiRenderer.drawOutline(g, list.x() + 1, y, list.width() - 2, ROW_H, OreUiPalette.DANGER);
+			}
+		} else {
+			String warn = unresolved
+				? Component.translatable(ModTranslationKeys.EDITOR_RULES_UNRESOLVED_ROW).getString()
+				: "";
+			int warnW = warn.isEmpty() ? 0 : font.width(warn) + 6;
+			String value = RuleNodePresentation.valueText(node);
+			g.drawString(font, font.plainSubstrByWidth(value, Math.max(0, textRight - x - warnW)),
+				x, textY, OreUiPalette.TEXT_PRIMARY, false);
+			if (!warn.isEmpty()) {
+				g.drawString(font, warn, textRight - font.width(warn), textY, COL_UNRESOLVED, false);
+				OreUiRenderer.drawOutline(g, list.x() + 1, y, list.width() - 2, ROW_H, OreUiPalette.DANGER);
+			}
+		}
+	}
+
+	private int renderCollapseGlyph(GuiGraphics g, int x, int y, boolean collapsed) {
+		int cy = y + ROW_H / 2;
+		int color = OreUiPalette.TEXT_MUTED;
+		if (collapsed) {
+			g.fill(x, cy - 3, x + 1, cy + 4, color);
+			g.fill(x + 1, cy - 2, x + 2, cy + 3, color);
+			g.fill(x + 2, cy - 1, x + 3, cy + 2, color);
+			g.fill(x + 3, cy, x + 4, cy + 1, color);
+		} else {
+			g.fill(x - 1, cy - 1, x + 6, cy, color);
+			g.fill(x, cy, x + 5, cy + 1, color);
+			g.fill(x + 1, cy + 1, x + 4, cy + 2, color);
+			g.fill(x + 2, cy + 2, x + 3, cy + 3, color);
+		}
+		return 7;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Modal geometry (shared)
+	// ─────────────────────────────────────────────────────────────────────
+
+	private EditorChrome.Rect modalRect(int desiredW, int desiredH) {
+		int w = Math.min(bodyW - GAP * 2, desiredW);
+		int h = Math.min(bodyH - GAP * 2, desiredH);
+		int x = bodyX + (bodyW - w) / 2;
+		int y = bodyY + (bodyH - h) / 2;
+		return new EditorChrome.Rect(x, y, Math.max(60, w), Math.max(60, h));
+	}
+
+	private void drawModalPanel(GuiGraphics g, EditorChrome.Rect m, String title) {
+		OreUiRenderer.drawPanel(g, m.x(), m.y(), m.width(), m.height());
+		g.drawString(font, font.plainSubstrByWidth(title, m.width() - GAP * 2),
+			m.x() + GAP, m.y() + GAP, OreUiPalette.TEXT_PRIMARY, false);
+	}
+
+	/**
+	 * Shared field chrome (picker search box, form fields): double-layer background
+	 * plus a three-state outline. Mirrors the Screen shell's {@code renderFieldChrome}
+	 * visual vocabulary so modal text fields match the header's name field.
+	 */
+	private void drawFieldChrome(GuiGraphics g, EditorChrome.Rect rect, boolean focused, boolean hovered) {
+		int outline = focused ? OreUiPalette.OUTLINE_SELECTED : hovered ? OreUiPalette.OUTLINE_HOVER : OreUiPalette.OUTLINE_DARK;
+		g.fill(rect.x(), rect.y(), rect.right(), rect.bottom(), OreUiPalette.SURFACE_DARK);
+		g.fill(rect.x() + 1, rect.y() + 1, rect.right() - 1, rect.bottom() - 1, OreUiPalette.SURFACE);
+		OreUiRenderer.drawOutline(g, rect.x(), rect.y(), rect.width(), rect.height(), outline);
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Add menu
+	// ─────────────────────────────────────────────────────────────────────
+
+	private List<MenuEntry> menuEntries() {
+		if (!menuGroupMode) {
+			return CONDITION_ENTRIES;
+		}
+		List<MenuEntry> entries = new ArrayList<>(GROUP_INSERT_ENTRIES);
+		if (state.selectedRuleNode() != null) {
+			entries.addAll(GROUP_WRAP_ENTRIES);
+		}
+		return entries;
+	}
+
+	private String menuEntryLabel(MenuEntry entry) {
+		String base = Component.translatable(
+			RuleNodePresentation.chipLabelKey(entry.kind(), entry.presetType() == null ? "item" : entry.presetType()))
+			.getString();
+		if (entry.wrap()) {
+			return Component.translatable(ModTranslationKeys.EDITOR_RULES_WRAP_HEADER).getString() + ": " + base;
+		}
+		return base;
+	}
+
+	private boolean menuEntryEnabled(MenuEntry entry) {
+		return entry.wrap() ? state.canWrapSelectedRule(entry.kind()) : state.canInsertRuleRelative();
+	}
+
+	private EditorChrome.Rect menuModalRect() {
+		int rows = menuEntries().size();
+		int desiredH = GAP + font.lineHeight + 4 + rows * (BTN_H + 2) + font.lineHeight + GAP * 2;
+		return modalRect(230, desiredH);
+	}
+
+	private EditorChrome.Rect menuListRect(EditorChrome.Rect m) {
+		int top = m.y() + GAP + font.lineHeight + 4;
+		int bottom = m.bottom() - GAP - font.lineHeight - 4;
+		return new EditorChrome.Rect(m.x() + GAP, top,
+			m.width() - GAP * 2 - ScrollbarHelper.WIDTH - ScrollbarHelper.GAP,
+			Math.max(BTN_H, bottom - top));
+	}
+
+	private int menuContentHeight() {
+		return menuEntries().size() * (BTN_H + 2);
+	}
+
+	private void renderMenu(GuiGraphics g, int mouseX, int mouseY) {
+		EditorChrome.Rect m = menuModalRect();
+		clampModalScroll(menuContentHeight(), menuListRect(m).height());
+		String title = Component.translatable(menuGroupMode
+			? ModTranslationKeys.EDITOR_RULES_COMPOUND_HEADER
+			: ModTranslationKeys.EDITOR_RULES_BASIC_HEADER).getString();
+		drawModalPanel(g, m, title);
+
+		EditorChrome.Rect list = menuListRect(m);
+		List<MenuEntry> entries = menuEntries();
+		String hoverDesc = "";
+		g.enableScissor(list.x(), list.y(), list.right(), list.bottom());
+		try {
+			int y = list.y() - modalScrollOffset;
+			for (MenuEntry entry : entries) {
+				boolean hovered = mouseX >= list.x() && mouseX < list.right() && mouseY >= y && mouseY < y + BTN_H
+					&& mouseY >= list.y() && mouseY < list.bottom();
+				OreUiRenderer.drawButton(g, font, list.x(), y, list.width(), BTN_H, menuEntryLabel(entry),
+					buttonState(menuEntryEnabled(entry), hovered));
+				if (hovered) {
+					hoverDesc = Component.translatable(RuleNodePresentation.descriptionKey(entry.kind())).getString();
+				}
+				y += BTN_H + 2;
+			}
+		} finally {
+			g.disableScissor();
+		}
+		ScrollbarHelper.renderPixels(g, list.right() + ScrollbarHelper.GAP, list.y(), list.height(),
+			list.height(), menuContentHeight(), modalScrollOffset);
+
+		g.drawString(font, font.plainSubstrByWidth(hoverDesc, m.width() - GAP * 2),
+			m.x() + GAP, m.bottom() - GAP - font.lineHeight, OreUiPalette.TEXT_HINT, false);
+	}
+
+	private boolean menuMouseClicked(double mx, double my) {
+		EditorChrome.Rect m = menuModalRect();
+		if (!m.contains(mx, my)) {
+			modal = ModalKind.NONE;
+			return true;
+		}
+		EditorChrome.Rect list = menuListRect(m);
+		if (handleModalScrollbarClick(mx, my, list, menuContentHeight())) {
+			return true;
+		}
+		if (!list.contains(mx, my)) {
+			return true;
+		}
+		// Row pitch must stay (BTN_H + 2), the same spacing renderMenu lays entries out with.
+		int index = (int) ((my - list.y() + modalScrollOffset) / (BTN_H + 2));
+		List<MenuEntry> entries = menuEntries();
+		if (index < 0 || index >= entries.size()) {
+			return true;
+		}
+		MenuEntry entry = entries.get(index);
+		if (!menuEntryEnabled(entry)) {
+			return true;
+		}
+		modal = ModalKind.NONE;
+		modalScrollOffset = 0;
+		if (entry.wrap()) {
+			if (state.wrapSelectedRule(entry.kind()) != null) {
+				onChanged.run();
+			}
+			return true;
+		}
+		if (entry.kind().compound()) {
+			if (state.insertRuleRelative(entry.kind()) != null) {
+				onChanged.run();
+			}
+			return true;
+		}
+		GroupFilterRuleDraft.Node node = state.insertRuleRelativePending(entry.kind());
+		if (node == null) {
+			return true;
+		}
+		if (entry.presetType() != null) {
+			node.setIngredientType(entry.presetType());
+		}
+		beginEditor(node, true);
+		onChanged.run();
+		return true;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Edit lifecycle
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void beginEditor(GroupFilterRuleDraft.Node node, boolean isNew) {
+		editingNode = node;
+		editingIsNew = isNew;
+		snapType = node.ingredientType();
+		snapPrimary = node.primaryValue();
+		snapSecondary = node.secondaryValue();
+		snapTertiary = node.tertiaryValue();
+		pickerKind = RuleNodePresentation.pickerKind(node.kind(), node.ingredientType());
+		if (pickerKind != RuleNodePresentation.PickerKind.NONE) {
+			openPicker();
+		} else {
+			openForm();
+		}
+	}
+
+	/** Confirm path: values are already on the node (form) or applied by caller (picker). */
+	private void confirmEditor() {
+		if (editingIsNew) {
+			state.commitPendingRuleNode();
+		}
+		editingNode = null;
+		modal = ModalKind.NONE;
+		pickerSearch = null;
+		formType = formPrimary = formSecondary = formTertiary = null;
+		focusedField = null;
+		state.markRulesChanged();
+		onChanged.run();
+	}
+
+	/** Cancel path: delete a pending new node, or restore the snapshot on an existing one. */
+	private void cancelEditor() {
+		if (editingNode == null) {
+			return;
+		}
+		if (editingIsNew) {
+			state.cancelPendingRuleNode();
+		} else {
+			editingNode.setIngredientType(snapType);
+			editingNode.setPrimaryValue(snapPrimary);
+			editingNode.setSecondaryValue(snapSecondary);
+			editingNode.setTertiaryValue(snapTertiary);
+			state.markRulesChanged();
+		}
+		editingNode = null;
+		modal = ModalKind.NONE;
+		pickerSearch = null;
+		formType = formPrimary = formSecondary = formTertiary = null;
+		focusedField = null;
+		onChanged.run();
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Picker modal
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void openPicker() {
+		modal = ModalKind.PICKER;
+		modalScrollOffset = 0;
+		pickerSnapshot = snapshotFor(pickerKind);
+		EditorChrome.Rect search = pickerSearchRect(pickerModalRect());
+		pickerSearch = new EditBox(font, search.x() + 4, search.y() + (search.height() - font.lineHeight) / 2,
+			search.width() - 8, font.lineHeight + 2, Component.empty());
+		pickerSearch.setBordered(false);
+		pickerSearch.setMaxLength(256);
+		pickerSearch.setHint(Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH));
+		pickerSearch.setValue(pickerLastSearch.getOrDefault(pickerKind, ""));
+		pickerSearch.setResponder(value -> {
+			pickerLastSearch.put(pickerKind, value);
+			pickerFilterDirty = true;
+			pickerFilterDeadline = System.currentTimeMillis() + FILTER_DEBOUNCE_MS;
+		});
+		pickerSearch.setFocused(true);
+		focusedField = pickerSearch;
+		refilterPicker();
+		scrollPickerToCurrent();
+	}
+
+	private static List<String> snapshotFor(RuleNodePresentation.PickerKind kind) {
+		return switch (kind) {
+			case ITEM_TAG -> BuiltInRegistries.ITEM.getTagNames()
+				.map(tag -> tag.location().toString()).sorted().toList();
+			case FLUID_TAG -> BuiltInRegistries.FLUID.getTagNames()
+				.map(tag -> tag.location().toString()).sorted().toList();
+			case BLOCK_TAG -> BuiltInRegistries.BLOCK.getTagNames()
+				.map(tag -> tag.location().toString()).sorted().toList();
+			case NAMESPACE -> Stream.concat(
+					BuiltInRegistries.ITEM.keySet().stream(),
+					BuiltInRegistries.FLUID.keySet().stream())
+				.map(ResourceLocation::getNamespace).distinct().sorted().toList();
+			case NONE -> List.of();
+		};
+	}
+
+	private void refilterPicker() {
+		pickerFilterDirty = false;
+		String query = pickerSearch == null ? "" : pickerSearch.getValue().trim();
+		String lower = query.toLowerCase(Locale.ROOT);
+		pickerFiltered = lower.isEmpty()
+			? pickerSnapshot
+			: pickerSnapshot.stream().filter(id -> id.contains(lower)).toList();
+		pickerHasFallback = !query.isEmpty()
+			&& !pickerSnapshot.contains(query)
+			&& fallbackValueValid(query);
+		pickerFallbackValue = pickerHasFallback ? query : "";
+		int total = pickerFiltered.size() + (pickerHasFallback ? 1 : 0);
+		pickerSelected = total > 0 ? Math.min(Math.max(pickerSelected, 0), total - 1) : -1;
+		clampModalScroll(pickerContentHeight(), pickerListRect(pickerModalRect()).height());
+	}
+
+	private boolean fallbackValueValid(String query) {
+		if (pickerKind == RuleNodePresentation.PickerKind.NAMESPACE) {
+			for (int i = 0; i < query.length(); i++) {
+				char c = query.charAt(i);
+				if (!(c == '_' || c == '-' || c == '.' || (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9'))) {
+					return false;
+				}
+			}
+			return !query.isEmpty();
+		}
+		return ResourceLocation.tryParse(query) != null;
+	}
+
+	private void scrollPickerToCurrent() {
+		if (editingNode == null) {
+			return;
+		}
+		int index = pickerFiltered.indexOf(editingNode.primaryValue());
+		if (index >= 0) {
+			int display = index + (pickerHasFallback ? 1 : 0);
+			pickerSelected = display;
+			EditorChrome.Rect list = pickerListRect(pickerModalRect());
+			modalScrollOffset = Math.max(0, display * PICKER_ROW_H - list.height() / 2);
+			clampModalScroll(pickerContentHeight(), list.height());
+		} else {
+			pickerSelected = pickerHasFallback ? 0 : -1;
+			modalScrollOffset = 0;
+		}
+	}
+
+	private String pickerTitle() {
+		String key = switch (pickerKind) {
+			case ITEM_TAG -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_ITEM_TAG;
+			case FLUID_TAG -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_FLUID_TAG;
+			case BLOCK_TAG -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_BLOCK_TAG;
+			case NAMESPACE -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_NAMESPACE;
+			case NONE -> ModTranslationKeys.EDITOR_RULES_EDIT_TITLE;
+		};
+		return Component.translatable(key).getString();
+	}
+
+	private EditorChrome.Rect pickerModalRect() {
+		return modalRect(260, 210);
+	}
+
+	private EditorChrome.Rect pickerSearchRect(EditorChrome.Rect m) {
+		return new EditorChrome.Rect(m.x() + GAP, m.y() + GAP + font.lineHeight + 4,
+			m.width() - GAP * 2, 14);
+	}
+
+	private EditorChrome.Rect pickerListRect(EditorChrome.Rect m) {
+		EditorChrome.Rect search = pickerSearchRect(m);
+		int top = search.bottom() + 4;
+		int bottom = m.bottom() - GAP - BTN_H - 4 - font.lineHeight - 2;
+		return new EditorChrome.Rect(m.x() + GAP, top,
+			m.width() - GAP * 2 - ScrollbarHelper.WIDTH - ScrollbarHelper.GAP,
+			Math.max(PICKER_ROW_H, bottom - top));
+	}
+
+	private int pickerContentHeight() {
+		return (pickerFiltered.size() + (pickerHasFallback ? 1 : 0)) * PICKER_ROW_H;
+	}
+
+	private EditorChrome.Rect pickerConfirmRect(EditorChrome.Rect m) {
+		String label = Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM).getString();
+		int width = Math.max(52, font.width(label) + 16);
+		return new EditorChrome.Rect(m.right() - GAP - width, m.bottom() - GAP - BTN_H, width, BTN_H);
+	}
+
+	private EditorChrome.Rect pickerCancelRect(EditorChrome.Rect m) {
+		String label = Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString();
+		int width = Math.max(52, font.width(label) + 16);
+		EditorChrome.Rect confirm = pickerConfirmRect(m);
+		return new EditorChrome.Rect(confirm.x() - GAP - width, confirm.y(), width, BTN_H);
+	}
+
+	private void renderPicker(GuiGraphics g, int mouseX, int mouseY) {
+		if (pickerFilterDirty && System.currentTimeMillis() >= pickerFilterDeadline) {
+			refilterPicker();
+		}
+		EditorChrome.Rect m = pickerModalRect();
+		drawModalPanel(g, m, pickerTitle());
+
+		EditorChrome.Rect search = pickerSearchRect(m);
+		boolean searchFocused = pickerSearch != null && pickerSearch.isFocused();
+		boolean searchHovered = search.contains(mouseX, mouseY);
+		drawFieldChrome(g, search, searchFocused, searchHovered);
+		if (pickerSearch != null) {
+			pickerSearch.render(g, mouseX, mouseY, 0);
+		}
+
+		EditorChrome.Rect list = pickerListRect(m);
+		g.fill(list.x(), list.y(), list.right(), list.bottom(), OreUiPalette.SURFACE_DARK);
+		g.enableScissor(list.x(), list.y(), list.right(), list.bottom());
+		try {
+			int y = list.y() - modalScrollOffset;
+			int display = 0;
+			if (pickerHasFallback) {
+				renderPickerRow(g, list, y, display,
+					Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_FALLBACK, pickerFallbackValue)
+						.getString(),
+					COL_UNRESOLVED, mouseX, mouseY);
+				y += PICKER_ROW_H;
+				display++;
+			}
+			for (String id : pickerFiltered) {
+				if (y + PICKER_ROW_H >= list.y() && y <= list.bottom()) {
+					renderPickerRow(g, list, y, display, id, OreUiPalette.TEXT_PRIMARY, mouseX, mouseY);
+				}
+				y += PICKER_ROW_H;
+				display++;
+			}
+			if (display == 0) {
+				g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_EMPTY).getString(),
+					list.x() + PAD, list.y() + PAD, OreUiPalette.TEXT_HINT, false);
+			}
+		} finally {
+			g.disableScissor();
+		}
+		ScrollbarHelper.renderPixels(g, list.right() + ScrollbarHelper.GAP, list.y(), list.height(),
+			list.height(), pickerContentHeight(), modalScrollOffset);
+
+		String countText = pickerFiltered.size() + " / " + pickerSnapshot.size();
+		g.drawString(font, countText, list.x(), list.bottom() + 3, OreUiPalette.TEXT_HINT, false);
+
+		EditorChrome.Rect confirm = pickerConfirmRect(m);
+		EditorChrome.Rect cancel = pickerCancelRect(m);
+		OreUiRenderer.drawButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
+			Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM).getString(),
+			buttonState(pickerSelected >= 0, confirm.contains(mouseX, mouseY)));
+		OreUiRenderer.drawButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
+			Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString(),
+			buttonState(true, cancel.contains(mouseX, mouseY)));
+	}
+
+	private void renderPickerRow(GuiGraphics g, EditorChrome.Rect list, int y, int display, String text,
+	                             int color, int mouseX, int mouseY) {
+		boolean selected = display == pickerSelected;
+		boolean hovered = list.contains(mouseX, mouseY) && mouseY >= y && mouseY < y + PICKER_ROW_H;
+		if (selected) {
+			g.fill(list.x(), y, list.right(), y + PICKER_ROW_H, COL_ROW_SELECTED);
+		} else if (hovered) {
+			g.fill(list.x(), y, list.right(), y + PICKER_ROW_H, COL_PICKER_HOVER);
+		}
+		g.drawString(font, font.plainSubstrByWidth(text, list.width() - PAD * 2),
+			list.x() + PAD, y + (PICKER_ROW_H - font.lineHeight) / 2 + 1, color, false);
+	}
+
+	private boolean pickerMouseClicked(double mx, double my) {
+		EditorChrome.Rect m = pickerModalRect();
+		if (!m.contains(mx, my)) {
+			cancelEditor();
+			return true;
+		}
+		EditorChrome.Rect search = pickerSearchRect(m);
+		if (search.contains(mx, my) && pickerSearch != null) {
+			pickerSearch.setFocused(true);
+			focusedField = pickerSearch;
+			pickerSearch.mouseClicked(mx, my, 0);
+			return true;
+		}
+		EditorChrome.Rect list = pickerListRect(m);
+		if (handleModalScrollbarClick(mx, my, list, pickerContentHeight())) {
+			return true;
+		}
+		if (list.contains(mx, my)) {
+			int display = (int) ((my - list.y() + modalScrollOffset) / PICKER_ROW_H);
+			int total = pickerFiltered.size() + (pickerHasFallback ? 1 : 0);
+			if (display >= 0 && display < total) {
+				long now = System.currentTimeMillis();
+				boolean doubleClick = display == lastPickerClickIndex
+					&& now - lastPickerClickMs <= DOUBLE_CLICK_MS;
+				lastPickerClickIndex = display;
+				lastPickerClickMs = now;
+				pickerSelected = display;
+				if (doubleClick) {
+					confirmPickerSelection();
+				}
+			}
+			return true;
+		}
+		if (pickerConfirmRect(m).contains(mx, my)) {
+			confirmPickerSelection();
+			return true;
+		}
+		if (pickerCancelRect(m).contains(mx, my)) {
+			cancelEditor();
+			return true;
+		}
+		return true;
+	}
+
+	private void confirmPickerSelection() {
+		if (editingNode == null || pickerSelected < 0) {
+			return;
+		}
+		String value;
+		if (pickerHasFallback && pickerSelected == 0) {
+			value = pickerFallbackValue;
+		} else {
+			int index = pickerSelected - (pickerHasFallback ? 1 : 0);
+			if (index < 0 || index >= pickerFiltered.size()) {
+				return;
+			}
+			value = pickerFiltered.get(index);
+		}
+		editingNode.setPrimaryValue(value);
+		confirmEditor();
+	}
+
+	/** Moves the picker row selection by ±1 with wraparound, scrolling to keep it visible. */
+	private void movePickerSelection(int delta) {
+		int total = pickerFiltered.size() + (pickerHasFallback ? 1 : 0);
+		if (total <= 0) {
+			return;
+		}
+		pickerSelected = Math.floorMod(pickerSelected + delta, total);
+		EditorChrome.Rect list = pickerListRect(pickerModalRect());
+		int rowTop = pickerSelected * PICKER_ROW_H;
+		int rowBottom = rowTop + PICKER_ROW_H;
+		if (rowTop < modalScrollOffset) {
+			modalScrollOffset = rowTop;
+		} else if (rowBottom > modalScrollOffset + list.height()) {
+			modalScrollOffset = rowBottom - list.height();
+		}
+		clampModalScroll(pickerContentHeight(), list.height());
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Field form modal
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void openForm() {
+		modal = ModalKind.FORM;
+		modalScrollOffset = 0;
+		RuleNodeUiContract contract = RuleNodeUiContract.forKind(editingNode.kind());
+		// Type field is hidden for the common item/fluid presets (the chip already says it)
+		// and shown read-only for exotic third-party ingredient types decoded from data.
+		boolean showType = contract.exposesField(RuleFieldRole.INGREDIENT_TYPE)
+			&& isExoticIngredientType(editingNode.ingredientType());
+		boolean showPrimary = contract.exposesField(RuleFieldRole.PRIMARY_VALUE);
+		boolean showSecondary = contract.exposesField(RuleFieldRole.SECONDARY_VALUE);
+		boolean showTertiary = contract.exposesField(RuleFieldRole.TERTIARY_VALUE);
+		formVisibleFields = (showType ? 1 : 0) + (showPrimary ? 1 : 0)
+			+ (showSecondary ? 1 : 0) + (showTertiary ? 1 : 0);
+
+		EditorChrome.Rect m = formModalRect();
+		int fx = m.x() + GAP;
+		int fw = m.width() - GAP * 2;
+		int fy = m.y() + GAP + font.lineHeight + 6;
+
+		formType = null;
+		if (showType) {
+			formType = buildFormField(fx, fy, fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_TYPE),
+				editingNode.ingredientType(), editingNode::setIngredientType);
+			formType.setEditable(false);
+			formType.setTextColorUneditable(OreUiPalette.TEXT_DISABLED);
+			fy += FIELD_H + FIELD_GAP;
+		}
+		formPrimary = showPrimary
+			? buildFormField(fx, fy, fw, primaryHint(editingNode), editingNode.primaryValue(),
+				editingNode::setPrimaryValue)
+			: null;
+		if (formPrimary != null) {
+			fy += FIELD_H + FIELD_GAP;
+		}
+		formSecondary = showSecondary
+			? buildFormField(fx, fy, fw, secondaryHint(editingNode), editingNode.secondaryValue(),
+				editingNode::setSecondaryValue)
+			: null;
+		if (formSecondary != null) {
+			fy += FIELD_H + FIELD_GAP;
+		}
+		formTertiary = showTertiary
+			? buildFormField(fx, fy, fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE),
+				editingNode.tertiaryValue(), editingNode::setTertiaryValue)
+			: null;
+
+		EditBox first = formPrimary != null ? formPrimary : formSecondary;
+		if (first != null) {
+			first.setFocused(true);
+			focusedField = first;
+		}
+	}
+
+	private static boolean isExoticIngredientType(String type) {
+		String normalized = type == null ? "" : type.trim().toLowerCase(Locale.ROOT);
+		return !(normalized.isEmpty() || normalized.equals("item") || normalized.equals("fluid"));
+	}
+
+	private interface FieldWriter {
+		void set(String value);
+	}
+
+	private EditBox buildFormField(int x, int y, int w, Component hint, String value, FieldWriter writer) {
+		EditBox box = new EditBox(font, x + 4, y + (FIELD_H - font.lineHeight) / 2, w - 8, font.lineHeight + 2,
+			Component.empty());
+		box.setBordered(false);
+		box.setMaxLength(512);
+		box.setHint(hint);
+		box.setValue(value);
+		box.setResponder(text -> {
+			if (updatingFields) {
+				return;
+			}
+			writer.set(text);
+			state.markRulesChanged();
+			onChanged.run();
+		});
+		return box;
+	}
+
+	private EditorChrome.Rect formModalRect() {
+		int fields = Math.max(1, formVisibleFields);
+		int desiredH = GAP + font.lineHeight + 6 + fields * (FIELD_H + FIELD_GAP) + BTN_H + GAP * 2;
+		return modalRect(250, desiredH);
+	}
+
+	private EditorChrome.Rect formConfirmRect(EditorChrome.Rect m) {
+		String label = Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM).getString();
+		int width = Math.max(52, font.width(label) + 16);
+		return new EditorChrome.Rect(m.right() - GAP - width, m.bottom() - GAP - BTN_H, width, BTN_H);
+	}
+
+	private EditorChrome.Rect formCancelRect(EditorChrome.Rect m) {
+		String label = Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString();
+		int width = Math.max(52, font.width(label) + 16);
+		EditorChrome.Rect confirm = formConfirmRect(m);
+		return new EditorChrome.Rect(confirm.x() - GAP - width, confirm.y(), width, BTN_H);
+	}
+
+	private void renderForm(GuiGraphics g, int mouseX, int mouseY) {
+		EditorChrome.Rect m = formModalRect();
+		String title = Component.translatable(ModTranslationKeys.EDITOR_RULES_EDIT_TITLE).getString();
+		if (editingNode != null) {
+			title = title + ": " + Component.translatable(
+				RuleNodePresentation.chipLabelKey(editingNode.kind(), editingNode.ingredientType())).getString();
+		}
+		drawModalPanel(g, m, title);
+
+		int fy = m.y() + GAP + font.lineHeight + 6;
+		for (EditBox field : new EditBox[] {formType, formPrimary, formSecondary, formTertiary}) {
+			if (field == null) {
+				continue;
+			}
+			EditorChrome.Rect fieldRect = new EditorChrome.Rect(m.x() + GAP, fy, m.width() - GAP * 2, FIELD_H);
+			drawFieldChrome(g, fieldRect, field.isFocused(), fieldRect.contains(mouseX, mouseY));
+			field.render(g, mouseX, mouseY, 0);
+			fy += FIELD_H + FIELD_GAP;
+		}
+
+		EditorChrome.Rect confirm = formConfirmRect(m);
+		EditorChrome.Rect cancel = formCancelRect(m);
+		OreUiRenderer.drawButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
+			Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM).getString(),
+			buttonState(true, confirm.contains(mouseX, mouseY)));
+		OreUiRenderer.drawButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
+			Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString(),
+			buttonState(true, cancel.contains(mouseX, mouseY)));
+	}
+
+	private boolean formMouseClicked(double mx, double my) {
+		EditorChrome.Rect m = formModalRect();
+		if (!m.contains(mx, my)) {
+			cancelEditor();
+			return true;
+		}
+		if (formConfirmRect(m).contains(mx, my)) {
+			confirmEditor();
+			return true;
+		}
+		if (formCancelRect(m).contains(mx, my)) {
+			cancelEditor();
+			return true;
+		}
+		int fy = m.y() + GAP + font.lineHeight + 6;
+		for (EditBox field : new EditBox[] {formType, formPrimary, formSecondary, formTertiary}) {
+			if (field == null) {
+				continue;
+			}
+			if (my >= fy && my < fy + FIELD_H && mx >= m.x() + GAP && mx < m.right() - GAP) {
+				setFocusedField(field);
+				field.mouseClicked(mx, my, 0);
+				return true;
+			}
+			fy += FIELD_H + FIELD_GAP;
+		}
+		return true;
+	}
+
+	private void setFocusedField(EditBox field) {
+		if (focusedField != null && focusedField != field) {
+			focusedField.setFocused(false);
+		}
+		focusedField = field;
+		field.setFocused(true);
+	}
+
+	private Component primaryHint(GroupFilterRuleDraft.Node node) {
+		return switch (node.kind()) {
+			case ID -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_ID);
+			case TAG, BLOCK_TAG -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_TAG);
+			case NAMESPACE -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_NAMESPACE);
+			case ITEM_PATH_STARTS_WITH, ITEM_PATH_CONTAINS, ITEM_PATH_ENDS_WITH ->
+				Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PATH);
+			case EXACT_STACK -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_STACK);
+			case HAS_COMPONENT, COMPONENT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_COMPONENT);
+			default -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
+		};
+	}
+
+	private Component secondaryHint(GroupFilterRuleDraft.Node node) {
+		return switch (node.kind()) {
+			case HAS_COMPONENT -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
+			case COMPONENT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PATH);
+			default -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE_2);
+		};
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Input
+	// ─────────────────────────────────────────────────────────────────────
+
+	boolean mouseClicked(double mx, double my, int button) {
+		if (button != 0) {
+			return false;
+		}
+		if (modal == ModalKind.MENU) {
+			return menuMouseClicked(mx, my);
+		}
+		if (modal == ModalKind.PICKER) {
+			return pickerMouseClicked(mx, my);
+		}
+		if (modal == ModalKind.FORM) {
+			return formMouseClicked(mx, my);
+		}
+
+		clearFocus();
+
+		EditorChrome.Rect addCond = addConditionRect();
+		if (addCond.contains(mx, my)) {
+			if (state.canInsertRuleRelative()) {
+				openMenu(false);
+			}
+			return true;
+		}
+		EditorChrome.Rect addGroup = addGroupRect();
+		if (addGroup.contains(mx, my)) {
+			if (canOpenGroupMenu()) {
+				openMenu(true);
+			}
+			return true;
+		}
+
+		EditorChrome.Rect list = listRect();
+		if (mx >= list.right() + ScrollbarHelper.GAP && mx < list.right() + ScrollbarHelper.GAP + ScrollbarHelper.WIDTH
+			&& my >= list.y() && my < list.bottom()) {
+			List<Row> rows = buildRows();
+			draggingScroll = true;
+			dragStartY = my;
+			dragStartOffset = scrollOffset;
+			scrollOffset = ScrollbarHelper.trackClickToOffset(my, list.y(), list.height(),
+				contentHeight(rows), list.height(), scrollOffset);
+			return true;
+		}
+		if (list.contains(mx, my)) {
+			return handleListClick(mx, my, list);
+		}
+		return false;
+	}
+
+	private void openMenu(boolean groupMode) {
+		menuGroupMode = groupMode;
+		modal = ModalKind.MENU;
+		modalScrollOffset = 0;
+	}
+
+	private boolean handleListClick(double mx, double my, EditorChrome.Rect list) {
+		List<Row> rows = buildRows();
+		int index = (int) ((my - list.y() - PAD + scrollOffset) / (ROW_H + ROW_GAP));
+		if (index < 0 || index >= rows.size()) {
+			return true;
+		}
+		Row row = rows.get(index);
+		int rowTop = list.y() + PAD - scrollOffset + index * (ROW_H + ROW_GAP);
+		if (my >= rowTop + ROW_H) {
+			return true;
+		}
+		GroupFilterRuleDraft.Node node = row.node();
+
+		int iconY = rowTop + (ROW_H - ICON_BTN_H) / 2;
+		int deleteX = deleteButtonX(list);
+		if (hoverIn(mx, my, deleteX, iconY, ICON_BTN_W, ICON_BTN_H)) {
+			state.selectRuleNode(node);
+			state.deleteSelectedRule();
+			onChanged.run();
+			return true;
+		}
+		if (!node.kind().compound()) {
+			int editX = editButtonX(list);
+			if (hoverIn(mx, my, editX, iconY, ICON_BTN_W, ICON_BTN_H)) {
+				state.selectRuleNode(node);
+				beginEditor(node, false);
+				return true;
+			}
+		}
+		if (node.kind().compound()) {
+			int glyphX = rowIndent(row);
+			if (mx >= glyphX - 2 && mx < glyphX + 9) {
+				if (row.collapsed()) {
+					collapsedPaths.remove(row.path());
+				} else {
+					collapsedPaths.add(row.path());
+				}
+				clampScroll();
+				return true;
+			}
+			int chipY = rowTop + (ROW_H - CHIP_H) / 2;
+			if (chipCyclable(node) && hoverIn(mx, my, chipX(row), chipY, chipWidth(node), CHIP_H)) {
+				cycleOperator(node);
+				return true;
+			}
+		}
+		state.selectRuleNode(node);
+		return true;
+	}
+
+	boolean mouseDragged(double mx, double my, int button) {
+		if (isModalOpen()) {
+			if (modalDragging) {
+				EditorChrome.Rect list = modal == ModalKind.MENU
+					? menuListRect(menuModalRect())
+					: pickerListRect(pickerModalRect());
+				int content = modal == ModalKind.MENU ? menuContentHeight() : pickerContentHeight();
+				modalScrollOffset = ScrollbarHelper.dragToOffset(my, modalDragY, modalDragStart,
+					content, list.height(), list.height());
+			}
+			return true;
+		}
+		if (button != 0 || !draggingScroll) {
+			return false;
+		}
+		EditorChrome.Rect list = listRect();
+		scrollOffset = ScrollbarHelper.dragToOffset(my, dragStartY, dragStartOffset,
+			contentHeight(buildRows()), list.height(), list.height());
+		return true;
+	}
+
+	boolean mouseReleased(double mx, double my, int button) {
+		draggingScroll = false;
+		modalDragging = false;
+		return false;
+	}
+
+	boolean mouseScrolled(double mx, double my, double deltaY) {
+		if (modal == ModalKind.MENU) {
+			EditorChrome.Rect list = menuListRect(menuModalRect());
+			scrollModal(deltaY, menuContentHeight(), list.height());
+			return true;
+		}
+		if (modal == ModalKind.PICKER) {
+			EditorChrome.Rect list = pickerListRect(pickerModalRect());
+			scrollModal(deltaY, pickerContentHeight(), list.height());
+			return true;
+		}
+		if (modal == ModalKind.FORM) {
+			return true;
+		}
+		EditorChrome.Rect list = listRect();
+		if (!list.contains(mx, my)) {
+			return false;
+		}
+		int max = Math.max(0, contentHeight(buildRows()) - list.height());
+		if (max <= 0) {
+			scrollOffset = 0;
+			return true;
+		}
+		scrollOffset = ScrollbarHelper.clamp(
+			scrollOffset - (int) Math.signum(deltaY) * (ROW_H + ROW_GAP), 0, max);
+		return true;
+	}
+
+	private void scrollModal(double deltaY, int contentHeight, int viewHeight) {
+		int max = Math.max(0, contentHeight - viewHeight);
+		if (max <= 0) {
+			modalScrollOffset = 0;
+			return;
+		}
+		modalScrollOffset = ScrollbarHelper.clamp(
+			modalScrollOffset - (int) Math.signum(deltaY) * (font.lineHeight + 4), 0, max);
+	}
+
+	private boolean handleModalScrollbarClick(double mx, double my, EditorChrome.Rect list, int contentHeight) {
+		int sbX = list.right() + ScrollbarHelper.GAP;
+		if (mx < sbX || mx >= sbX + ScrollbarHelper.WIDTH || my < list.y() || my >= list.bottom()) {
+			return false;
+		}
+		modalDragging = true;
+		modalDragY = my;
+		modalDragStart = modalScrollOffset;
+		modalScrollOffset = ScrollbarHelper.trackClickToOffset(my, list.y(), list.height(),
+			contentHeight, list.height(), modalScrollOffset);
+		return true;
+	}
+
+	private void clampModalScroll(int contentHeight, int viewHeight) {
+		int max = Math.max(0, contentHeight - viewHeight);
+		modalScrollOffset = ScrollbarHelper.clamp(modalScrollOffset, 0, max);
+	}
+
+	boolean keyPressed(int key, int scan, int mods) {
+		if (modal == ModalKind.PICKER && (key == 265 || key == 264)) { // Up / Down
+			movePickerSelection(key == 264 ? 1 : -1);
+			return true;
+		}
+		if (focusedField != null && focusedField.isFocused() && focusedField.keyPressed(key, scan, mods)) {
+			return true;
+		}
+		if (isModalOpen()) {
+			if (key == 256) { // Escape
+				if (modal == ModalKind.PICKER || modal == ModalKind.FORM) {
+					cancelEditor();
+				} else {
+					modal = ModalKind.NONE;
+				}
+				return true;
+			}
+			if (key == 257 || key == 335) { // Enter
+				if (modal == ModalKind.PICKER) {
+					confirmPickerSelection();
+					return true;
+				}
+				if (modal == ModalKind.FORM) {
+					confirmEditor();
+					return true;
+				}
+			}
+			return true;
+		}
+		return false;
+	}
+
+	boolean charTyped(char c, int mods) {
+		if (focusedField != null && focusedField.isFocused()) {
+			return focusedField.charTyped(c, mods);
+		}
+		return false;
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
+	// Helpers
+	// ─────────────────────────────────────────────────────────────────────
+
+	private OreUiRenderer.ButtonState buttonState(boolean enabled, boolean hovered) {
+		if (!enabled) {
+			return OreUiRenderer.ButtonState.DISABLED;
+		}
+		return hovered ? OreUiRenderer.ButtonState.HOVERED : OreUiRenderer.ButtonState.NORMAL;
+	}
+
+	private static boolean hoverIn(double mx, double my, int x, int y, int w, int h) {
+		return mx >= x && mx < x + w && my >= y && my < y + h;
+	}
 }
