@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
+import com.google.gson.JsonObject;
 import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupTheme;
@@ -26,6 +27,8 @@ class GroupRegistryCopyAsCustomTest {
 
 	@Test
 	void copiesBuiltinToUserEditableGroupWithoutReservedPrefix() {
+		JsonObject extra = new JsonObject();
+		extra.addProperty("foreign_key", "keep");
 		GroupTheme theme = new GroupTheme("#FFAA00", null, "#FF112233", null, "#66112233");
 		GroupDefinition source = new GroupDefinition(
 			"__default_stone_family",
@@ -33,7 +36,9 @@ class GroupRegistryCopyAsCustomTest {
 			false,
 			Filters.itemTag("minecraft:stone_tool_materials"),
 			List.of("minecraft:stone", "minecraft:cobblestone"),
-			theme
+			theme,
+			6,
+			extra
 		);
 
 		GroupDefinition copied = GroupRegistry.createCustomCopy(
@@ -51,6 +56,8 @@ class GroupRegistryCopyAsCustomTest {
 		assertEquals(source.filter(), copied.filter());
 		assertEquals(source.iconIds(), copied.iconIds());
 		assertEquals(source.theme(), copied.theme());
+		assertEquals(source.priority(), copied.priority());
+		assertEquals(source.extra(), copied.extra());
 	}
 
 	@Test
@@ -149,6 +156,10 @@ class GroupRegistryCopyAsCustomTest {
 		Field groupsField = GroupRegistry.class.getDeclaredField("groups");
 		groupsField.setAccessible(true);
 		groupsField.set(null, List.copyOf(groups));
+
+		Field orderedGroupsField = GroupRegistry.class.getDeclaredField("orderedGroups");
+		orderedGroupsField.setAccessible(true);
+		orderedGroupsField.set(null, GroupRegistry.orderByPriority(groups));
 
 		Map<String, GroupDefinition> byId = new LinkedHashMap<>();
 		for (GroupDefinition group : groups) {

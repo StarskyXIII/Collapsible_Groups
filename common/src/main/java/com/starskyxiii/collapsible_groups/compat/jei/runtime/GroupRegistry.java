@@ -19,7 +19,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -54,11 +54,12 @@ public final class GroupRegistry {
 	public record FullMatchLookup<T>(List<T> values, boolean cacheHit, String fallbackReason) {}
 
 	/**
-	 * Copy-on-write group list. Always an unmodifiable snapshot.
+	 * Copy-on-write group list in raw registration order. Always an unmodifiable snapshot.
 	 * Writers must replace the entire reference; never mutate in place.
 	 * Volatile guarantees visibility across threads.
 	 */
 	private static volatile List<GroupDefinition> groups = List.of();
+	private static volatile List<GroupDefinition> orderedGroups = List.of();
 	private static volatile Map<String, GroupDefinition> groupsById = Map.of();
 
 	/** Set by MixinIngredientFilter. Triggers a full JEI rebuild, including the ingredient-to-group ownership index. */
@@ -120,8 +121,7 @@ public final class GroupRegistry {
 			if (!g.id().startsWith("__default_")) merged.put(g.id(), g);
 		}
 
-		groups = applyEnabledOverridesToManagedSources(List.copyOf(merged.values()), enabledOverrides);
-		groupsById = buildGroupsById(groups);
+		publishGroups(applyEnabledOverridesToManagedSources(List.copyOf(merged.values()), enabledOverrides));
 		GroupExpandState.load(GroupConfig.loadExpandState());
 
 		long itemGroups  = groups.stream().filter(GroupDefinition::hasItemFilters).count();
@@ -140,7 +140,7 @@ public final class GroupRegistry {
 
 	/** Returns all JSON-persisted groups. */
 	public static List<GroupDefinition> getAll() {
-		return groups;
+		return orderedGroups;
 	}
 
 	/** Finds a group by ID, checking persisted/provider groups before ephemeral KubeJS groups. */
@@ -161,32 +161,33 @@ public final class GroupRegistry {
 	public static List<GroupDefinition> getAllIncludingKubeJs() {
 		List<GroupDefinition> kjs = KubeJsGroupStore.getGroups();
 		List<GroupDefinition> snapshot = groups;
-		if (kjs.isEmpty()) return snapshot;
-		List<GroupDefinition> combined = new ArrayList<>(snapshot);
+		if (kjs.isEmpty()) return orderedGroups;
+		List<GroupDefinition> combined = new ArrayList<>(snapshot.size() + kjs.size());
+		combined.addAll(snapshot);
 		combined.addAll(kjs);
-		return Collections.unmodifiableList(combined);
+		return orderByPriority(combined);
 	}
 
 	/**
 	 * Finds the first group (JSON-persisted or KubeJS ephemeral) that matches the given item.
-	 * JSON groups are checked before KubeJS groups.
+	 * Higher priority groups are checked first; ties preserve registration order.
 	 */
 	public static Optional<GroupDefinition> findGroup(ItemStack stack) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)                    if (group.matches(stack)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups()) if (group.matches(stack)) return Optional.of(group);
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
+			if (group.matches(stack)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
 	/**
 	 * Finds the first group (JSON-persisted or KubeJS ephemeral) that matches the given fluid.
 	 * The fluid is a loader-specific type (e.g. NeoForge {@code FluidStack}) passed as {@code Object}.
-	 * JSON groups are checked before KubeJS groups.
+	 * Higher priority groups are checked first; ties preserve registration order.
 	 */
 	public static Optional<GroupDefinition> findFluidGroup(Object stack) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)                    if (GroupMatcher.matchesFluid(group, stack)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups()) if (GroupMatcher.matchesFluid(group, stack)) return Optional.of(group);
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
+			if (GroupMatcher.matchesFluid(group, stack)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
@@ -198,38 +199,34 @@ public final class GroupRegistry {
 	public static <T> Optional<GroupDefinition> findGenericGroup(
 		String typeId, T ingredient, IIngredientHelper<T> helper
 	) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
 			if (GroupMatcher.matchesGeneric(group, typeId, ingredient, helper)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups())
-			if (GroupMatcher.matchesGeneric(group, typeId, ingredient, helper)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
 	// --- Enable-agnostic finders (for full-match previews and editor diagnostics) ---
 
 	public static Optional<GroupDefinition> findGroupIgnoringEnabled(ItemStack stack) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)                    if (group.matchesIgnoringEnabled(stack)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups()) if (group.matchesIgnoringEnabled(stack)) return Optional.of(group);
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
+			if (group.matchesIgnoringEnabled(stack)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
 	public static Optional<GroupDefinition> findFluidGroupIgnoringEnabled(Object stack) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)                    if (GroupMatcher.matchesFluidIgnoringEnabled(group, stack)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups()) if (GroupMatcher.matchesFluidIgnoringEnabled(group, stack)) return Optional.of(group);
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
+			if (GroupMatcher.matchesFluidIgnoringEnabled(group, stack)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
 	public static <T> Optional<GroupDefinition> findGenericGroupIgnoringEnabled(
 		String typeId, T ingredient, IIngredientHelper<T> helper
 	) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
 			if (GroupMatcher.matchesGenericIgnoringEnabled(group, typeId, ingredient, helper)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups())
-			if (GroupMatcher.matchesGenericIgnoringEnabled(group, typeId, ingredient, helper)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
@@ -697,7 +694,9 @@ public final class GroupRegistry {
 			source.enabled(),
 			source.filter(),
 			source.iconIds(),
-			source.theme()
+			source.theme(),
+			source.priority(),
+			source.extra()
 		));
 	}
 
@@ -871,9 +870,21 @@ public final class GroupRegistry {
 	private static void replaceGroups(UnaryOperator<List<GroupDefinition>> updater) {
 		synchronized (GroupRegistry.class) {
 			List<GroupDefinition> updated = updater.apply(groups);
-			groups = updated;
-			groupsById = buildGroupsById(updated);
+			publishGroups(updated);
 		}
+	}
+
+	private static void publishGroups(List<GroupDefinition> registrationOrder) {
+		groups = registrationOrder == null ? List.of() : List.copyOf(registrationOrder);
+		orderedGroups = orderByPriority(groups);
+		groupsById = buildGroupsById(groups);
+	}
+
+	static List<GroupDefinition> orderByPriority(List<GroupDefinition> source) {
+		if (source == null || source.isEmpty()) return List.of();
+		return source.stream()
+			.sorted(Comparator.comparingInt(GroupDefinition::priority).reversed())
+			.toList();
 	}
 
 	static List<GroupDefinition> applyEnabledOverridesToManagedSources(

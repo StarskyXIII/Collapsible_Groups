@@ -5,6 +5,9 @@ import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.resources.ResourceLocation;
 
+import java.util.HashSet;
+import java.util.Set;
+
 /** Texture-backed primitives for the Bedrock/Ore-inspired visual skin. */
 public final class OreUiRenderer {
 	private static final ResourceLocation PANEL = sprite("ore_panel");
@@ -38,11 +41,34 @@ public final class OreUiRenderer {
 	private static final int CONTROL_EDGE_DARK = 0xFF413F54;
 	private static final int TOOLBAR_ICON_WIDTH = 16;
 	private static final int TOOLBAR_BUTTON_WIDTH = 18;
+	/** Height of the toolbar icon-button sprite set (distinct from {@link #BUTTON_DESIGN_HEIGHT}). */
 	private static final int TOOLBAR_BUTTON_HEIGHT = 20;
 	private static final int SWITCH_VISUAL_WIDTH = 22;
 	private static final int SWITCH_VISUAL_HEIGHT = 12;
 
+	/**
+	 * Design height of the {@code ore_button}/{@code ore_icon_button} sprite sets.
+	 * Rendering at any other height stretches the sprite and degrades the frame,
+	 * which is the recurring root cause of the "missing button border" regressions.
+	 * Callers must size buttons to this height; mismatches emit a one-time warning.
+	 */
+	public static final int BUTTON_DESIGN_HEIGHT = 20;
+
+	/** De-duplicates non-standard button-size warnings; key = {@code ((long) width << 32) | (height & 0xffffffffL)}. */
+	private static final Set<Long> WARNED_BUTTON_SIZES = new HashSet<>();
+
 	private OreUiRenderer() {}
+
+	private static void warnNonDesignHeight(String primitive, int width, int height) {
+		if (height == BUTTON_DESIGN_HEIGHT) {
+			return;
+		}
+		long key = ((long) width << 32) | (height & 0xffffffffL);
+		if (WARNED_BUTTON_SIZES.add(key)) {
+			Constants.LOG.warn("{} rendered at {}x{} but design height is {}; sprite frame will degrade",
+				primitive, width, height, BUTTON_DESIGN_HEIGHT);
+		}
+	}
 
 	private static ResourceLocation sprite(String name) {
 		return ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, name);
@@ -82,6 +108,7 @@ public final class OreUiRenderer {
 
 	public static void drawButton(GuiGraphics g, Font font, int x, int y, int width, int height,
 	                              String label, ButtonState state) {
+		warnNonDesignHeight("drawButton", width, height);
 		int depth = buttonVisualDepth(state);
 		ResourceLocation sprite = buttonSprite(state);
 		if (sprite != null) {
@@ -154,6 +181,7 @@ public final class OreUiRenderer {
 
 	public static void drawIconButton(GuiGraphics g, int x, int y, int buttonSize,
 	                                  ResourceLocation icon, int iconSize, ButtonState state) {
+		warnNonDesignHeight("drawIconButton", buttonSize, buttonSize);
 		int depth = buttonVisualDepth(state);
 		ResourceLocation sprite = buttonSprite(state);
 		if (sprite != null) {
@@ -298,6 +326,80 @@ public final class OreUiRenderer {
 	public static void drawSlot(GuiGraphics g, int x, int y, int size) {
 		g.fill(x, y, x + size, y + size, OreUiPalette.SURFACE_DARK);
 		drawOutline(g, x, y, size, size, OreUiPalette.OUTLINE_DARK);
+	}
+
+	// ── Bedrock-style slider (P5-polish-8) ─────────────────────────────────
+	// Single authority for the slider visual language: thin track, accent left
+	// fill, and a knob that replicates the tactile button look (drawButton's
+	// nine-slice sprite is designed at height 20 and degrades below it, so the
+	// knob is drawn with plain fills instead).
+
+	public static final int SLIDER_TRACK_HEIGHT = 4;
+	public static final int SLIDER_KNOB_WIDTH = 14;
+	public static final int SLIDER_KNOB_HEIGHT = 14;
+	public static final int SLIDER_KNOB_HALF = SLIDER_KNOB_WIDTH / 2;
+	private static final int SLIDER_TRACK_UNFILLED = 0xFF2B2D31;
+
+	/**
+	 * Knob rect for a track spanning {@code [x, x+width)}; {@code y} is the top of
+	 * the knob band. The knob center follows {@code value/max} along the track and
+	 * may overhang each track end by {@link #SLIDER_KNOB_HALF}.
+	 */
+	public static EditorChrome.Rect sliderKnobRect(int x, int y, int width, int value, int max) {
+		int clamped = Math.max(0, Math.min(max, value));
+		int center = x + (int) ((long) width * clamped / Math.max(1, max));
+		int knobX = Math.min(Math.max(center - SLIDER_KNOB_HALF, x - SLIDER_KNOB_HALF),
+			x + width - SLIDER_KNOB_HALF);
+		return new EditorChrome.Rect(knobX, y, SLIDER_KNOB_WIDTH, SLIDER_KNOB_HEIGHT);
+	}
+
+	/** Hover/click band: the track x-range extended by the knob overhang on both sides. */
+	public static EditorChrome.Rect sliderHitBand(int x, int y, int width) {
+		return new EditorChrome.Rect(x - SLIDER_KNOB_HALF, y, width + SLIDER_KNOB_WIDTH, SLIDER_KNOB_HEIGHT);
+	}
+
+	/**
+	 * Draws the full slider (track + fill + knob) and returns the knob rect.
+	 * {@code y} is the top of the {@link #SLIDER_KNOB_HEIGHT}-tall knob band; the
+	 * track is vertically centered inside it.
+	 *
+	 * <p>Knob anatomy, outside-in (total 14px tall): 1px dark frame + a face with
+	 * a 1px light inner ring on all four sides (12×10 region) + a 2px dark bottom
+	 * bevel (12×2) + the frame's 1px bottom edge = 14.
+	 */
+	public static EditorChrome.Rect drawSlider(GuiGraphics g, int x, int y, int width, int value, int max,
+	                                           boolean active, boolean hot) {
+		int trackY = y + (SLIDER_KNOB_HEIGHT - SLIDER_TRACK_HEIGHT) / 2;
+		int clamped = Math.max(0, Math.min(max, value));
+		g.fill(x, trackY, x + width, trackY + SLIDER_TRACK_HEIGHT,
+			active ? SLIDER_TRACK_UNFILLED : OreUiPalette.SURFACE_DISABLED);
+		g.fill(x, trackY, x + Math.max(1, (int) ((long) width * clamped / Math.max(1, max))),
+			trackY + SLIDER_TRACK_HEIGHT,
+			active ? OreUiPalette.BUTTON_PRIMARY : OreUiPalette.OUTLINE_DISABLED);
+		drawOutline(g, x, trackY, width, SLIDER_TRACK_HEIGHT,
+			hot ? OreUiPalette.OUTLINE_HOVER : OreUiPalette.OUTLINE_DARK);
+
+		EditorChrome.Rect knob = sliderKnobRect(x, y, width, value, max);
+		if (active) {
+			int kx = knob.x();
+			int ky = knob.y();
+			int kRight = knob.right();
+			int kBottom = knob.bottom();
+			// Face (inset 1px from the frame, minus the 2px bottom bevel) …
+			g.fill(kx + 1, ky + 1, kRight - 1, kBottom - 3,
+				hot ? OreUiPalette.BUTTON_LIGHT_HOVER : OreUiPalette.BUTTON_LIGHT);
+			// … with its light inner ring on all four sides …
+			drawOutline(g, kx + 1, ky + 1, knob.width() - 2, knob.height() - 4, OreUiPalette.BUTTON_LIGHT_TOP);
+			// … the dark bottom bevel …
+			g.fill(kx + 1, kBottom - 3, kRight - 1, kBottom - 1, OreUiPalette.BUTTON_LIGHT_BOTTOM);
+			// … and the dark frame (disjoint from the inset regions above).
+			drawOutline(g, kx, ky, knob.width(), knob.height(), OreUiPalette.OUTLINE_DARK);
+			if (hot) {
+				// Bedrock-style focus ring just outside the frame.
+				drawOutline(g, kx - 1, ky - 1, knob.width() + 2, knob.height() + 2, OreUiPalette.OUTLINE_HOVER);
+			}
+		}
+		return knob;
 	}
 
 	/** Draws a slot grid with shared 1px lines; {@code cellPitch} = cell interior + 1, total size = cols/rows * pitch + 1. */

@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
@@ -23,10 +24,12 @@ import java.util.Set;
  * Rules tab and persistence. Generic/custom entries use the same contents draft
  * contract as item and fluid entries.
  */
-final class GroupEditorState implements EditorRulesState {
+final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	String editId;
 	String editName;
 	boolean editEnabled;
+	AppearanceDraft appearanceDraft;
+	int editPriority;
 	private boolean nameTouched;
 
 	final GroupFilterEditorDraft draft;
@@ -58,10 +61,14 @@ final class GroupEditorState implements EditorRulesState {
 			this.editId = existing.id();
 			this.editName = GroupEditorNameHelper.initialEditName(existing);
 			this.editEnabled = existing.enabled();
+			this.appearanceDraft = AppearanceDraft.from(existing);
+			this.editPriority = existing.priority();
 		} else {
 			this.editId = null;
 			this.editName = "";
 			this.editEnabled = true;
+			this.appearanceDraft = AppearanceDraft.fromIconIds(List.of(), com.starskyxiii.collapsible_groups.core.GroupTheme.EMPTY);
+			this.editPriority = 0;
 		}
 
 		this.editTags = draft.itemTags();
@@ -94,7 +101,48 @@ final class GroupEditorState implements EditorRulesState {
 	}
 
 	GroupDefinition buildPreviewDefinition() {
-		return core.buildPreviewDefinition(editId, editName, editEnabled);
+		return core.buildPreviewDefinition(editId, editName, editEnabled, appearanceDraft, editPriority);
+	}
+
+	@Override
+	public void setAppearanceDraft(AppearanceDraft appearanceDraft) {
+		this.appearanceDraft = Objects.requireNonNull(appearanceDraft, "appearanceDraft");
+	}
+
+	@Override
+	public void setEditPriority(int editPriority) {
+		this.editPriority = editPriority;
+	}
+
+	@Override
+	public AppearanceDraft appearanceDraft() {
+		return appearanceDraft;
+	}
+
+	@Override
+	public int editPriority() {
+		return editPriority;
+	}
+
+	@Override
+	public boolean editEnabled() {
+		return editEnabled;
+	}
+
+	@Override
+	public void setEditEnabled(boolean enabled) {
+		this.editEnabled = enabled;
+	}
+
+	@Override
+	public String editId() {
+		return editId;
+	}
+
+	@Override
+	public String pendingRawId() {
+		String raw = core.pendingRawId(editId, editName);
+		return raw == null ? "" : raw;
 	}
 
 	boolean canUseIndexedItemPreview() {
@@ -174,7 +222,7 @@ final class GroupEditorState implements EditorRulesState {
 	}
 
 	Optional<GroupDefinition> trySave() {
-		return core.trySave(editId, editName, editEnabled, nameTouched);
+		return core.trySave(editId, editName, editEnabled, nameTouched, appearanceDraft, editPriority);
 	}
 
 	boolean canSave() {

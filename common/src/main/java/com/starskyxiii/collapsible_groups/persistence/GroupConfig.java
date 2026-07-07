@@ -264,7 +264,9 @@ public final class GroupConfig {
 				parsed.enabled(),
 				parsed.filter(),
 				parsed.iconIds(),
-				parsed.theme()
+				parsed.theme(),
+				parsed.priority(),
+				parsed.extra()
 			);
 		} catch (IllegalArgumentException e) {
 			Constants.LOG.error("Group '{}': {}", id, e.getMessage());
@@ -301,7 +303,36 @@ public final class GroupConfig {
 
 		GroupFilter filter = parseFilter(obj.getAsJsonObject("filter"));
 		GroupTheme theme = parseTheme(id, obj.get("theme"));
-		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme);
+		int priority = parsePriority(id, obj.get("priority"));
+		JsonObject extra = parseExtra(id, obj.get("extra"));
+		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme, priority, extra);
+	}
+
+	private static int parsePriority(String groupId, JsonElement priorityElement) {
+		if (priorityElement == null || priorityElement.isJsonNull()) {
+			return 0;
+		}
+		if (!priorityElement.isJsonPrimitive() || !priorityElement.getAsJsonPrimitive().isNumber()) {
+			Constants.LOG.warn("Group '{}': Ignoring non-number 'priority' field.", groupId);
+			return 0;
+		}
+		try {
+			return priorityElement.getAsInt();
+		} catch (Exception e) {
+			Constants.LOG.warn("Group '{}': Ignoring unreadable 'priority' field.", groupId);
+			return 0;
+		}
+	}
+
+	private static JsonObject parseExtra(String groupId, JsonElement extraElement) {
+		if (extraElement == null || extraElement.isJsonNull()) {
+			return new JsonObject();
+		}
+		if (!extraElement.isJsonObject()) {
+			Constants.LOG.warn("Group '{}': Ignoring non-object 'extra' field.", groupId);
+			return new JsonObject();
+		}
+		return extraElement.getAsJsonObject().deepCopy();
 	}
 
 	private static GroupTheme parseTheme(String groupId, JsonElement themeElement) {
@@ -402,6 +433,10 @@ public final class GroupConfig {
 
 		obj.addProperty("enabled", group.enabled());
 
+		if (group.priority() != 0) {
+			obj.addProperty("priority", group.priority());
+		}
+
 		if (!group.iconIds().isEmpty()) {
 			if (group.iconIds().size() == 1) {
 				obj.addProperty("icon", group.iconIds().getFirst());
@@ -414,6 +449,10 @@ public final class GroupConfig {
 
 		if (!group.theme().isEmpty()) {
 			obj.add("theme", serializeTheme(group.theme()));
+		}
+
+		if (group.hasExtra()) {
+			obj.add("extra", group.extra());
 		}
 
 		obj.add("filter", serializeFilter(group.filter()));
@@ -615,7 +654,9 @@ public final class GroupConfig {
 		boolean enabled,
 		GroupFilter filter,
 		List<String> iconIds,
-		GroupTheme theme
+		GroupTheme theme,
+		int priority,
+		JsonObject extra
 	) {}
 
 	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String managerSourceFilter) {

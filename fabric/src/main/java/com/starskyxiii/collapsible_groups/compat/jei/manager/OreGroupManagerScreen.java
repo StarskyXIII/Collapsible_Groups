@@ -543,7 +543,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		int headerColor = GroupThemeResolver.collapsedHeaderBackgroundColor(card.id());
 		g.fill(x, y, x + HEADER_PREVIEW_SIZE, y + HEADER_PREVIEW_SIZE, headerColor);
 		drawOutline(g, x, y, HEADER_PREVIEW_SIZE, HEADER_PREVIEW_SIZE, OreUiPalette.OUTLINE_DARK);
-		renderStackedPreviewIcons(g, card.previewEntries(), x, y);
+		renderStackedPreviewIcons(g, card.headerSource(), x, y);
 
 		int textX = x + HEADER_PREVIEW_SIZE + 6;
 		int maxTextWidth = Math.max(0, textRight - textX);

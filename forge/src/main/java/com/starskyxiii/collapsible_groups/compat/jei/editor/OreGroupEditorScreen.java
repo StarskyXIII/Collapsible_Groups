@@ -3,32 +3,43 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 import com.starskyxiii.collapsible_groups.compat.jei.GroupUiState;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.manager.GroupManagerParent;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.OreEditorContentFilter;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.OreEditorPreviewSummary;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.OreEditorShellMode;
+import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewTooltip;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorChrome;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
-import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupSampleRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreConfirmDialog;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreEditorShellLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.core.GroupThemeColors;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.FormattedCharSequence;
+import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.List;
+import java.util.Optional;
 
 public class OreGroupEditorScreen extends Screen {
 	private static final int ERROR_TEXT_COLOR = 0xFFFF6B5F;
@@ -37,7 +48,19 @@ public class OreGroupEditorScreen extends Screen {
 	private static final int HEADER_PREVIEW_SIZE = 22;
 	private static final int PREVIEW_ICON_SIZE = 16;
 	private static final int SEGMENT_OVERLAP = 1;
-	private static final int LOOK_ROW_HEIGHT = 28;
+	private static final int SETTINGS_ROW_GAP = 3;
+	private static final int SETTINGS_SCROLLBAR_WIDTH = 6;
+	private static final int COLOR_MODAL_WIDTH = 266;
+	private static final int COLOR_MODAL_HEIGHT = 196;
+	private static final int COLOR_DYE_SIZE = 14;
+	private static final int COLOR_DYE_GAP = 3;
+	private static final int COLOR_SLIDER_WIDTH = 132;
+	private static final int[] DYE_COLORS = {
+		0xFFFFFFFF, 0xFFFFD83D, 0xFFFFA43B, 0xFFFF5A7A,
+		0xFFC36BFF, 0xFF6F7DFF, 0xFF45B8FF, 0xFF4DD4AC,
+		0xFF5ABF4A, 0xFF9AD64D, 0xFF8B6A4A, 0xFFB6B6B6,
+		0xFF7A7F85, 0xFF3B3F45, 0xFF5C7CFA, 0xFF1E1E1F
+	};
 
 	private final GroupManagerParent parent;
 	private final GroupEditorState state;
@@ -49,6 +72,7 @@ public class OreGroupEditorScreen extends Screen {
 	private EditorLeftPanel leftPanel;
 	private EditorRightPanel rightPanel;
 	private EditorRulesPanel rulesPanel;
+	private EditorSettingsPanel settingsPanel;
 	private EditBox nameField;
 	private EditBox searchField;
 
@@ -64,6 +88,16 @@ public class OreGroupEditorScreen extends Screen {
 	private OreEditorContentFilter heldContentFilter = null;
 	private boolean hideUsedHeld = false;
 	private boolean discardDialogOpen = false;
+	private boolean settingsPreviewExpanded = true;
+	private int settingsPreviewPage = 0;
+	private @Nullable GroupSampleRenderer.Layout settingsPreviewLayout = null;
+	// fix 7 (P5-polish-5): settings-mode preview hover tooltip, recorded during the
+	// preview render and drawn once at render() end (scissor closed, all panels up).
+	private @Nullable List<Component> previewHoverLines = null;
+	private Optional<net.minecraft.world.inventory.tooltip.TooltipComponent> previewHoverVisual = Optional.empty();
+	private @Nullable ItemStack previewHoverItem = null;
+	private int previewHoverX = 0;
+	private int previewHoverY = 0;
 
 	public OreGroupEditorScreen(GroupManagerParent parent, GroupDefinition existing) {
 		this(parent, existing, false, null);
@@ -113,6 +147,9 @@ public class OreGroupEditorScreen extends Screen {
 		leftPanel = new EditorLeftPanel(state, this::onGroupChanged);
 		rightPanel = new EditorRightPanel(state, this::onGroupChanged);
 		rulesPanel = new EditorRulesPanel(state, font, this::onGroupChanged);
+		settingsPanel = new EditorSettingsPanel(state, font, this::onGroupChanged,
+			() -> rightPanel.groupItems());
+		settingsPanel.setDirtyGate(() -> dirty, value -> dirty = value);
 
 		GroupRegistry.populateJeiCachesIfEmpty();
 		List<Object> allFluids = GroupRegistry.getJeiAllFluids();
@@ -123,6 +160,7 @@ public class OreGroupEditorScreen extends Screen {
 		rightPanel.rebuild();
 		initFields();
 		initRulesPanel();
+		initSettingsPanel();
 		applyContentFilter(activeContentFilter);
 		leftPanel.clampScroll(layout);
 		rightPanel.clampScroll(previewLayout());
@@ -193,6 +231,16 @@ public class OreGroupEditorScreen extends Screen {
 		if (activeMode == OreEditorShellMode.RULES) rulesPanel.onActivate();
 	}
 
+	private void initSettingsPanel() {
+		OreEditorShellLayout.Rect panel = shell.editorPanel();
+		OreEditorShellLayout.Rect content = settingsContentRect();
+		settingsPanel.init(
+			new EditorChrome.Rect(panel.x(), panel.y(), panel.width(), panel.height()),
+			shell.contentTitle().bottom(),
+			new EditorChrome.Rect(content.x(), content.y(), content.width(), content.height()));
+		if (activeMode == OreEditorShellMode.LOOK) settingsPanel.onActivate();
+	}
+
 	private void positionField(EditBox field, OreEditorShellLayout.Rect rect) {
 		field.setPosition(rect.x() + 5, OreUiRenderer.textFieldTextY(font, rect.y(), rect.height()) + 1);
 		field.setWidth(Math.max(1, rect.width() - 10));
@@ -222,6 +270,9 @@ public class OreGroupEditorScreen extends Screen {
 		renderBackground(g, mouseX, mouseY, partialTicks);
 		OreUiRenderer.drawScreenBars(g, this.width, this.height,
 			OreEditorShellLayout.HEADER_HEIGHT, OreEditorShellLayout.FOOTER_HEIGHT);
+		previewHoverLines = null;
+		previewHoverVisual = Optional.empty();
+		previewHoverItem = null;
 		renderHeader(g, mouseX, mouseY);
 		renderShellPanels(g, mouseX, mouseY, partialTicks);
 		renderFooter(g);
@@ -235,6 +286,27 @@ public class OreGroupEditorScreen extends Screen {
 		if (discardDialogOpen) {
 			renderDiscardDialog(g, mouseX, mouseY);
 			return;
+		}
+		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.isModalOpen()) {
+			settingsPanel.renderModals(g, mouseX, mouseY);
+			return;
+		}
+		if (activeMode == OreEditorShellMode.LOOK) {
+			Component settingsTooltip = settingsPanel.hoverTooltip();
+			if (settingsTooltip != null) {
+				g.renderComponentTooltip(font, List.of(settingsTooltip), mouseX, mouseY);
+				return;
+			}
+			// fix 7 (P5-polish-5): preview hover tooltip (suppressed above when a
+			// settings modal or the discard dialog is open, both of which return early).
+			if (previewHoverItem != null) {
+				g.renderTooltip(font, previewHoverItem, previewHoverX, previewHoverY);
+				return;
+			}
+			if (previewHoverLines != null) {
+				g.renderTooltip(font, previewHoverLines, previewHoverVisual, previewHoverX, previewHoverY);
+				return;
+			}
 		}
 
 		boolean disableSourceTooltip = renderDisableSourceTooltip(g, mouseX, mouseY);
@@ -328,7 +400,7 @@ public class OreGroupEditorScreen extends Screen {
 		} else if (activeMode == OreEditorShellMode.RULES) {
 			renderRulesPanel(g, mouseX, mouseY, partialTicks);
 		} else {
-			renderLookPanel(g);
+			renderSettingsPanel(g, mouseX, mouseY);
 		}
 		renderPreviewPanel(g, mouseX, mouseY);
 	}
@@ -403,39 +475,28 @@ public class OreGroupEditorScreen extends Screen {
 		rulesPanel.render(g, mouseX, mouseY, partialTicks);
 	}
 
-	private void renderLookPanel(GuiGraphics g) {
+	private OreEditorShellLayout.Rect settingsContentRect() {
 		OreEditorShellLayout.Rect panel = shell.editorPanel();
 		OreEditorShellLayout.Rect title = shell.contentTitle();
 		int x = title.x();
-		int y = title.y();
 		int w = Math.max(1, panel.width() - OreEditorShellLayout.PANEL_INSET * 2);
-		g.drawString(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_APPEARANCE_HEADER),
-			x, y, OreUiPalette.TEXT_PRIMARY, false);
-		int rowY = title.bottom() + 6;
-		renderLookRow(g, x, rowY, w, Component.translatable(ModTranslationKeys.ORE_EDITOR_APPEARANCE_ICONS).getString(),
-			state.buildPreviewDefinition().iconIds().isEmpty() ? "-" : String.valueOf(state.buildPreviewDefinition().iconIds().size()));
-		renderLookRow(g, x, rowY + LOOK_ROW_HEIGHT + 6, w,
-			Component.translatable(ModTranslationKeys.ORE_EDITOR_APPEARANCE_COLORS).getString(), currentThemeSummary());
+		int y = title.bottom() + 6;
+		int h = Math.max(1, panel.bottom() - y - OreEditorShellLayout.PANEL_INSET - 2);
+		return new OreEditorShellLayout.Rect(x, y, w, h);
 	}
 
-	private void renderLookRow(GuiGraphics g, int x, int y, int w, String label, String value) {
-		g.fill(x, y, x + w, y + LOOK_ROW_HEIGHT, OreUiPalette.SURFACE_DARK);
-		g.fill(x + 1, y + 1, x + w - 1, y + LOOK_ROW_HEIGHT - 1, OreUiPalette.SURFACE);
-		OreUiRenderer.drawOutline(g, x, y, w, LOOK_ROW_HEIGHT, OreUiPalette.OUTLINE_DARK);
-		g.drawString(font, label, x + 6, OreUiRenderer.centeredTextY(font, y, LOOK_ROW_HEIGHT),
-			OreUiPalette.TEXT_PRIMARY, false);
-		String clipped = font.plainSubstrByWidth(value, Math.max(0, w / 2 - 8));
-		g.drawString(font, clipped, x + w - 6 - font.width(clipped),
-			OreUiRenderer.centeredTextY(font, y, LOOK_ROW_HEIGHT), OreUiPalette.TEXT_MUTED, false);
-	}
-
-	private String currentThemeSummary() {
-		GroupDefinition preview = state.buildPreviewDefinition();
-		boolean hasTheme = !preview.theme().equals(com.starskyxiii.collapsible_groups.core.GroupTheme.EMPTY);
-		return hasTheme ? preview.id() : "-";
+	private void renderSettingsPanel(GuiGraphics g, int mouseX, int mouseY) {
+		OreEditorShellLayout.Rect title = shell.contentTitle();
+		g.drawString(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_MODE_SETTINGS),
+			title.x(), title.y(), OreUiPalette.TEXT_PRIMARY, false);
+		settingsPanel.render(g, mouseX, mouseY);
 	}
 
 	private void renderPreviewPanel(GuiGraphics g, int mouseX, int mouseY) {
+		if (activeMode == OreEditorShellMode.LOOK) {
+			renderSettingsPreviewPanel(g, mouseX, mouseY);
+			return;
+		}
 		EditorLayout previewLayout = previewLayout();
 		OreEditorShellLayout.Rect title = shell.previewTitle();
 		int x = title.x();
@@ -456,6 +517,103 @@ public class OreGroupEditorScreen extends Screen {
 			previewLayout.rightRows(), rightPanel.totalRows(previewLayout), rightPanel.scrollRow);
 	}
 
+	private void renderSettingsPreviewPanel(GuiGraphics g, int mouseX, int mouseY) {
+		OreEditorShellLayout.Rect title = shell.previewTitle();
+		g.drawString(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_PREVIEW_HEADER),
+			title.x(), title.y(), OreUiPalette.TEXT_PRIMARY, false);
+		Component hint = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_PREVIEW_HINT);
+		var hintLines = font.split(hint, Math.max(1, title.width()));
+		int hintY = title.bottom() + 2;
+		int drawn = Math.min(2, hintLines.size());
+		for (int i = 0; i < drawn; i++) {
+			g.drawString(font, hintLines.get(i), title.x(), hintY + i * (font.lineHeight + 1),
+				OreUiPalette.TEXT_HINT, false);
+		}
+
+		OreEditorShellLayout.Rect area = settingsPreviewAreaRect();
+		settingsPreviewLayout = GroupSampleRenderer.render(g, sampleRect(area), settingsPreviewExpanded,
+			settingsPreviewPage,
+			state.appearanceDraft.toTheme(), settingsSampleHeaderIcons(), rightPanel.groupItems(),
+			font, sampleFallbacks());
+		settingsPreviewPage = settingsPreviewLayout.page();
+		recordSettingsPreviewHover(mouseX, mouseY);
+	}
+
+	/**
+	 * fix 7 (P5-polish-5): record (not draw) the preview hover tooltip. The header
+	 * cell mirrors the live {@code GroupHeaderElement.getTooltip} (name in the draft
+	 * name color, count label, collapsed preview grid, expand/collapse hint); child
+	 * cells surface the standard item tooltip. Drawn later in {@link #render}.
+	 */
+	private void recordSettingsPreviewHover(int mouseX, int mouseY) {
+		if (settingsPreviewLayout == null) return;
+		for (GroupSampleRenderer.Cell cell : settingsPreviewLayout.cells()) {
+			if (!cell.rect().contains(mouseX, mouseY)) continue;
+			previewHoverX = mouseX;
+			previewHoverY = mouseY;
+			if (cell.header()) {
+				int nameColor = GroupThemeColors.nameColor(
+					state.appearanceDraft.toTheme(), Services.CONFIG.groupNameColor());
+				String name = state.editName == null || state.editName.isBlank()
+					? this.title.getString() : state.editName;
+				GroupPreviewTooltip.Result result = GroupPreviewTooltip.build(
+					name, nameColor & 0x00FFFFFF,
+					rightPanel.groupItems().size(), rightPanel.groupFluids().size(), rightPanel.groupGeneric().size(),
+					settingsPreviewExpanded, settingsPreviewEntries());
+				previewHoverLines = result.lines();
+				previewHoverVisual = result.visual();
+			} else {
+				List<ItemStack> items = settingsPreviewItems();
+				if (cell.itemIndex() >= 0 && cell.itemIndex() < items.size()) {
+					previewHoverItem = items.get(cell.itemIndex());
+				}
+			}
+			return;
+		}
+	}
+
+	/** Non-empty group items — same filter GroupSampleRenderer uses for child cells. */
+	private List<ItemStack> settingsPreviewItems() {
+		List<ItemStack> out = new java.util.ArrayList<>();
+		for (ItemStack stack : rightPanel.groupItems()) {
+			if (stack != null && !stack.isEmpty()) out.add(stack);
+		}
+		return out;
+	}
+
+	/** Live-aligned preview entries for the collapsed header preview grid. */
+	private List<GroupPreviewEntry> settingsPreviewEntries() {
+		List<GroupPreviewEntry> entries = new java.util.ArrayList<>();
+		for (ItemStack stack : rightPanel.groupItems()) entries.add(GroupPreviewEntry.ofItem(stack));
+		for (var fluid : rightPanel.groupFluids()) entries.add(GroupPreviewEntry.ofFluid(fluid.ingredient()));
+		for (var generic : rightPanel.groupGeneric()) {
+			entries.add(GroupPreviewEntry.ofGeneric(generic.type(), generic.ingredient()));
+		}
+		return entries;
+	}
+
+	private GroupSampleRenderer.Rect sampleRect(OreEditorShellLayout.Rect area) {
+		return new GroupSampleRenderer.Rect(area.x(), area.y(), area.width(), area.height());
+	}
+
+	private GroupSampleRenderer.Fallbacks sampleFallbacks() {
+		return new GroupSampleRenderer.Fallbacks(
+			Services.CONFIG.groupNameColor(),
+			Services.CONFIG.collapsedGroupBackgroundColor(),
+			Services.CONFIG.expandedGroupBackgroundColor(),
+			Services.CONFIG.expandedGroupBackgroundColor(),
+			Services.CONFIG.expandedGroupBorderColor());
+	}
+
+	/**
+	 * Header stack icons: honour the draft icon selection (front, back) when
+	 * present, else fall back to the group's own items (the live JEI source).
+	 */
+	private List<ItemStack> settingsSampleHeaderIcons() {
+		List<ItemStack> selected = draftHeaderIcons();
+		return selected.isEmpty() ? rightPanel.groupItems() : selected;
+	}
+
 	private void renderPreviewEmptyState(GuiGraphics g) {
 		OreEditorShellLayout.Rect body = shell.previewBody();
 		String text = font.plainSubstrByWidth(
@@ -470,24 +628,63 @@ public class OreGroupEditorScreen extends Screen {
 		OreUiRenderer.drawMiniScrollbar(g, x, y, height, visibleRows, totalRows, rowOffset);
 	}
 
+	/**
+	 * Shared header-preview box (fix 3a, P5-polish-5): background follows the live
+	 * appearance draft (so new/edited colors reflect immediately), icons honour the
+	 * draft's front/back selection when present, else fall back to the live group
+	 * items via {@link #renderStackedPreviewIcons} (keeps fluid/generic groups from
+	 * degrading to an empty slot). Used by both the compact and full previews.
+	 */
+	private void renderHeaderPreviewBox(GuiGraphics g, int x, int y) {
+		int background = GroupThemeColors.collapsedHeaderBackground(
+			state.appearanceDraft.toTheme(), Services.CONFIG.collapsedGroupBackgroundColor());
+		g.fill(x, y, x + HEADER_PREVIEW_SIZE, y + HEADER_PREVIEW_SIZE, background);
+		OreUiRenderer.drawOutline(g, x, y, HEADER_PREVIEW_SIZE, HEADER_PREVIEW_SIZE, OreUiPalette.OUTLINE_DARK);
+		List<ItemStack> draftIcons = draftHeaderIcons();
+		if (draftIcons.isEmpty()) {
+			renderStackedPreviewIcons(g, x, y);
+		} else {
+			renderStackedItemIcons(g, draftIcons, x, y);
+		}
+	}
+
+	/** Draft front/back icons (non-empty), or empty when the draft carries none. */
+	private List<ItemStack> draftHeaderIcons() {
+		AppearanceDraft draft = state.appearanceDraft;
+		List<ItemStack> icons = new java.util.ArrayList<>();
+		ItemStack front = iconStack(draft.frontIconId());
+		ItemStack back = iconStack(draft.backIconId());
+		if (!front.isEmpty()) icons.add(front);
+		if (!back.isEmpty()) icons.add(back);
+		return icons;
+	}
+
+	/** Stacked item render mirroring {@link #renderStackedPreviewIcons}'s layout. */
+	private void renderStackedItemIcons(GuiGraphics g, List<ItemStack> icons, int x, int y) {
+		if (icons.isEmpty()) return;
+		g.pose().pushPose();
+		g.pose().translate(0, 0, 120);
+		if (icons.size() > 1) {
+			g.renderItem(icons.get(1), x + 4, y + 2);
+			g.pose().translate(0, 0, 8);
+			g.renderItem(icons.get(0), x + 2, y + 4);
+		} else {
+			int inset = (HEADER_PREVIEW_SIZE - PREVIEW_ICON_SIZE) / 2;
+			g.renderItem(icons.get(0), x + inset, y + inset);
+		}
+		g.pose().popPose();
+	}
+
 	private void renderCompactHeaderPreview(GuiGraphics g, OreEditorShellLayout.Rect row) {
 		int x = row.x();
 		int y = row.y() + Math.max(0, (row.height() - HEADER_PREVIEW_SIZE) / 2);
-		String groupId = state.editId == null ? "" : state.editId;
-		g.fill(x, y, x + HEADER_PREVIEW_SIZE, y + HEADER_PREVIEW_SIZE,
-			GroupThemeResolver.collapsedHeaderBackgroundColor(groupId));
-		OreUiRenderer.drawOutline(g, x, y, HEADER_PREVIEW_SIZE, HEADER_PREVIEW_SIZE, OreUiPalette.OUTLINE_DARK);
-		renderStackedPreviewIcons(g, x, y);
+		renderHeaderPreviewBox(g, x, y);
 	}
 
 	private void renderFullHeaderPreview(GuiGraphics g, OreEditorShellLayout.Rect row) {
 		int x = row.x();
 		int y = row.y() + Math.max(0, (row.height() - HEADER_PREVIEW_SIZE) / 2);
-		String groupId = state.editId == null ? "" : state.editId;
-		g.fill(x, y, x + HEADER_PREVIEW_SIZE, y + HEADER_PREVIEW_SIZE,
-			GroupThemeResolver.collapsedHeaderBackgroundColor(groupId));
-		OreUiRenderer.drawOutline(g, x, y, HEADER_PREVIEW_SIZE, HEADER_PREVIEW_SIZE, OreUiPalette.OUTLINE_DARK);
-		renderStackedPreviewIcons(g, x, y);
+		renderHeaderPreviewBox(g, x, y);
 		int textX = x + HEADER_PREVIEW_SIZE + 6;
 		int maxWidth = Math.max(0, row.right() - textX);
 		int textBlockHeight = font.lineHeight * 2 + 2;
@@ -524,6 +721,34 @@ public class OreGroupEditorScreen extends Screen {
 		g.pose().popPose();
 	}
 
+	private ItemStack iconStack(@Nullable String iconId) {
+		if (iconId == null || iconId.isBlank()) return ItemStack.EMPTY;
+		ResourceLocation loc = ResourceLocation.tryParse(iconId);
+		if (loc == null) return ItemStack.EMPTY;
+		Item item = BuiltInRegistries.ITEM.get(loc);
+		return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
+	}
+
+	/**
+	 * Settings-mode preview area (fix 1): start just below the "JEI Preview" title
+	 * and its operation hint, not the Contents/Rules 22px stacked-icon header the
+	 * shared {@code previewBody} bakes in — that offset left ~35px of dead space.
+	 */
+	private OreEditorShellLayout.Rect settingsPreviewAreaRect() {
+		OreEditorShellLayout.Rect panel = shell.previewPanel();
+		OreEditorShellLayout.Rect title = shell.previewTitle();
+		int x = title.x();
+		// fix 2: the preview area starts below however many hint lines actually
+		// render (capped at 2), matching renderSettingsPreviewPanel line count so
+		// the two never drift.
+		int hintLines = Math.min(2, font.split(
+			Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_PREVIEW_HINT), Math.max(1, title.width())).size());
+		int top = title.bottom() + 2 + Math.max(1, hintLines) * (font.lineHeight + 1) - 1 + 6;
+		int width = Math.max(18, title.width());
+		int height = Math.max(18, panel.bottom() - top - OreEditorShellLayout.PANEL_INSET);
+		return new OreEditorShellLayout.Rect(x, top, width, height);
+	}
+
 	private int previewEntryCount() {
 		return rightPanel.groupItems().size() + rightPanel.groupFluids().size() + rightPanel.groupGeneric().size();
 	}
@@ -557,7 +782,9 @@ public class OreGroupEditorScreen extends Screen {
 		g.drawString(font, clipped, shell.footerStatus().x(), y, color, false);
 
 		String hint = Component.translatable(ModTranslationKeys.ORE_EDITOR_FOOTER_HINT).getString();
-		String clippedHint = font.plainSubstrByWidth(hint, Math.max(0, shell.footerHint().width()));
+		int hintWidth = Math.max(0, Math.min(shell.footerHint().width(),
+			shell.footerHint().right() - shell.footerStatus().right() - 8));
+		String clippedHint = font.plainSubstrByWidth(hint, hintWidth);
 		g.drawString(font, clippedHint, shell.footerHint().right() - font.width(clippedHint), y,
 			OreUiPalette.TEXT_HINT, false);
 	}
@@ -616,6 +843,10 @@ public class OreGroupEditorScreen extends Screen {
 			handleDiscardDialogClick(mouseX, mouseY, button);
 			return true;
 		}
+		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.isModalOpen()) {
+			settingsPanel.mouseClicked(mouseX, mouseY, button);
+			return true;
+		}
 		if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
 		if (activeMode == OreEditorShellMode.RULES && rulesPanel.isModalOpen()) {
 			rulesPanel.mouseClicked(mouseX, mouseY, button);
@@ -638,6 +869,10 @@ public class OreGroupEditorScreen extends Screen {
 		}
 		if (activeMode == OreEditorShellMode.RULES) {
 			return rulesPanel.mouseClicked(mouseX, mouseY, button);
+		}
+		if (activeMode == OreEditorShellMode.LOOK) {
+			if (settingsPanel.mouseClicked(mouseX, mouseY, button)) return true;
+			return handleSettingsPreviewClick(mouseX, mouseY);
 		}
 		return false;
 	}
@@ -667,6 +902,7 @@ public class OreGroupEditorScreen extends Screen {
 		if (nameField != null) nameField.setFocused(false);
 		if (searchField != null) searchField.setFocused(false);
 		if (rulesPanel != null) rulesPanel.clearFocus();
+		if (settingsPanel != null) settingsPanel.clearFocus();
 	}
 
 	private boolean handleHeaderButtonClick(double mouseX, double mouseY) {
@@ -711,9 +947,36 @@ public class OreGroupEditorScreen extends Screen {
 		return false;
 	}
 
+	private boolean handleSettingsPreviewClick(double mouseX, double mouseY) {
+		GroupSampleRenderer.Layout layout = settingsPreviewLayout != null
+			? settingsPreviewLayout
+			: GroupSampleRenderer.layout(sampleRect(settingsPreviewAreaRect()), settingsPreviewExpanded,
+				rightPanel.groupItems().size(), settingsPreviewPage);
+		if (layout.previousPageButton() != null && layout.previousPageButton().contains(mouseX, mouseY)
+			&& layout.canPageBackward()) {
+			settingsPreviewPage = Math.max(0, layout.page() - 1);
+			return true;
+		}
+		if (layout.nextPageButton() != null && layout.nextPageButton().contains(mouseX, mouseY)
+			&& layout.canPageForward()) {
+			settingsPreviewPage = layout.page() + 1;
+			return true;
+		}
+		if (layout.headerCell().contains(mouseX, mouseY)) {
+			settingsPreviewExpanded = !settingsPreviewExpanded;
+			settingsPreviewPage = 0;
+			return true;
+		}
+		return false;
+	}
+
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		if (discardDialogOpen) {
+			clearHeldControls();
+			return true;
+		}
+		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.mouseReleased(mouseX, mouseY, button)) {
 			clearHeldControls();
 			return true;
 		}
@@ -796,6 +1059,12 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	private void requestClose() {
+		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.isModalOpen()) {
+			settingsPanel.onDeactivate();
+			return;
+		}
+		settingsPanel.commitPriorityEdit();
+		settingsPanel.clearSwitchHoverSuppression();
 		clearHeldControls();
 		blurEditorFields();
 		if (dirty) {
@@ -823,6 +1092,9 @@ public class OreGroupEditorScreen extends Screen {
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		if (discardDialogOpen) {
 			if (keyCode == GLFW.GLFW_KEY_ESCAPE) discardDialogOpen = false;
+			return true;
+		}
+		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.keyPressed(keyCode, scanCode, modifiers)) {
 			return true;
 		}
 		if (activeMode == OreEditorShellMode.RULES && rulesPanel.isModalOpen()) {
@@ -858,6 +1130,9 @@ public class OreGroupEditorScreen extends Screen {
 	@Override
 	public boolean charTyped(char codePoint, int modifiers) {
 		if (discardDialogOpen) return true;
+		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.charTyped(codePoint, modifiers)) {
+			return true;
+		}
 		if (activeMode == OreEditorShellMode.RULES && rulesPanel.isModalOpen()) {
 			rulesPanel.charTyped(codePoint, modifiers);
 			return true;
@@ -876,6 +1151,9 @@ public class OreGroupEditorScreen extends Screen {
 			return true;
 		}
 		if (button != 0) return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.mouseDragged(mouseX, mouseY, button)) {
+			return true;
+		}
 		if (activeMode == OreEditorShellMode.RULES && rulesPanel.isModalOpen()) {
 			rulesPanel.mouseDragged(mouseX, mouseY, button);
 			return true;
@@ -892,6 +1170,9 @@ public class OreGroupEditorScreen extends Screen {
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
 		if (discardDialogOpen) return true;
+		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.mouseScrolled(mouseX, mouseY, scrollY)) {
+			return true;
+		}
 		if (activeMode == OreEditorShellMode.RULES && rulesPanel.isModalOpen()) {
 			rulesPanel.mouseScrolled(mouseX, mouseY, scrollY);
 			return true;
@@ -914,6 +1195,10 @@ public class OreGroupEditorScreen extends Screen {
 		if (nameField != null) positionField(nameField, shell.nameField());
 		if (searchField != null) positionField(searchField, shell.searchField());
 		if (rulesPanel != null) initRulesPanel();
+		if (settingsPanel != null) {
+			initSettingsPanel();
+			settingsPanel.repositionElements();
+		}
 		if (leftPanel != null) leftPanel.clampScroll(layout);
 		if (rightPanel != null) rightPanel.clampScroll(previewLayout());
 	}
@@ -925,10 +1210,12 @@ public class OreGroupEditorScreen extends Screen {
 	private void switchMode(OreEditorShellMode mode) {
 		if (mode == activeMode) return;
 		if (activeMode == OreEditorShellMode.RULES) rulesPanel.onDeactivate();
+		if (activeMode == OreEditorShellMode.LOOK) settingsPanel.onDeactivate();
 		activeMode = mode;
 		clearLeftHover();
 		clearRightHover();
 		if (activeMode == OreEditorShellMode.RULES) rulesPanel.onActivate();
+		if (activeMode == OreEditorShellMode.LOOK) settingsPanel.onActivate();
 		updateWidgetVisibility();
 	}
 
@@ -1003,6 +1290,7 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	private void saveAndClose() {
+		settingsPanel.commitPriorityEdit();
 		if (!canSaveNow()) return;
 		GroupDefinition saved = state.trySave().orElse(null);
 		if (saved == null) {

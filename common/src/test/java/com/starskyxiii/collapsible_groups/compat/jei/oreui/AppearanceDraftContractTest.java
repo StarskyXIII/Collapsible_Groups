@@ -18,19 +18,19 @@ class AppearanceDraftContractTest {
 			theme
 		);
 
-		assertEquals("minecraft:stone", draft.bottomFrontIconId());
-		assertEquals("minecraft:diamond", draft.topBackIconId());
+		assertEquals("minecraft:stone", draft.frontIconId());
+		assertEquals("minecraft:diamond", draft.backIconId());
 		assertEquals(List.of("minecraft:emerald"), draft.extraIconIds());
 		assertEquals(List.of("minecraft:stone", "minecraft:diamond", "minecraft:emerald"), draft.toIconIds());
 		assertEquals(theme, draft.toTheme());
 	}
 
 	@Test
-	void promotesTopIconWhenBottomIsMissing() {
+	void dropsBackAndExtraWhenFrontIsMissingBecauseJsonHasNoSparseSlot() {
 		AppearanceDraft draft = new AppearanceDraft(
 			null,
 			"minecraft:gold_ingot",
-			List.of(),
+			List.of("minecraft:emerald"),
 			null,
 			null,
 			null,
@@ -38,40 +38,62 @@ class AppearanceDraftContractTest {
 			null
 		);
 
-		assertEquals("minecraft:gold_ingot", draft.bottomFrontIconId());
-		assertEquals(null, draft.topBackIconId());
-		assertEquals(List.of("minecraft:gold_ingot"), draft.toIconIds());
+		assertEquals(null, draft.frontIconId());
+		assertEquals(null, draft.backIconId());
+		assertEquals(List.of(), draft.extraIconIds());
+		assertEquals(List.of(), draft.toIconIds());
 	}
 
 	@Test
-	void clearingBottomPromotesTopAndSwapRequiresTwoIcons() {
+	void clearingFrontClearsDependentIconsAndSwapRequiresTwoIcons() {
 		AppearanceDraft draft = AppearanceDraft.fromIconIds(
 			List.of("minecraft:stone", "minecraft:diamond", "minecraft:emerald"),
 			GroupTheme.EMPTY
 		);
 
-		AppearanceDraft promoted = draft.clearBottomFrontIcon();
-		assertEquals("minecraft:diamond", promoted.bottomFrontIconId());
-		assertEquals(null, promoted.topBackIconId());
-		assertEquals(List.of("minecraft:diamond", "minecraft:emerald"), promoted.toIconIds());
+		AppearanceDraft cleared = draft.clearFrontIcon();
+		assertEquals(null, cleared.frontIconId());
+		assertEquals(null, cleared.backIconId());
+		assertEquals(List.of(), cleared.extraIconIds());
+		assertEquals(List.of(), cleared.toIconIds());
 
-		assertSame(promoted, promoted.swapIcons());
+		assertSame(cleared, cleared.swapIcons());
 
 		AppearanceDraft swapped = draft.swapIcons();
 		assertEquals(List.of("minecraft:diamond", "minecraft:stone", "minecraft:emerald"), swapped.toIconIds());
 	}
 
 	@Test
-	void settingTopWithNoBottomPromotesToBottomAndColorsNormalizeThroughTheme() {
+	void emptyDraftReusesEmptyThemeSingleton() {
+		AppearanceDraft draft = AppearanceDraft.fromIconIds(List.of(), GroupTheme.EMPTY);
+
+		assertSame(GroupTheme.EMPTY, draft.toTheme());
+	}
+
+	@Test
+	void settingBackWithNoFrontIsNoOpAndColorsNormalizeThroughTheme() {
 		AppearanceDraft draft = AppearanceDraft.fromIconIds(List.of(), GroupTheme.EMPTY)
-			.withTopBackIconId(" minecraft:apple ")
+			.withBackIconId(" minecraft:apple ")
 			.withNameColor(" #ABCDEF ")
 			.withExpandedGroupBorder(" ");
 
-		assertEquals("minecraft:apple", draft.bottomFrontIconId());
-		assertEquals(null, draft.topBackIconId());
-		assertEquals(List.of("minecraft:apple"), draft.toIconIds());
+		assertEquals(null, draft.frontIconId());
+		assertEquals(null, draft.backIconId());
+		assertEquals(List.of(), draft.toIconIds());
 		assertEquals("#ABCDEF", draft.toTheme().nameColor());
 		assertEquals(null, draft.toTheme().expandedGroupBorder());
+	}
+
+	@Test
+	void backIconRequiresFrontAndPreservesExtraWhenFrontChanges() {
+		AppearanceDraft draft = AppearanceDraft.fromIconIds(
+			List.of("minecraft:stone", "minecraft:diamond", "minecraft:emerald"),
+			GroupTheme.EMPTY
+		);
+
+		assertEquals(List.of("minecraft:lapis_lazuli", "minecraft:diamond", "minecraft:emerald"),
+			draft.withFrontIconId(" minecraft:lapis_lazuli ").toIconIds());
+		assertEquals(List.of("minecraft:stone", "minecraft:apple", "minecraft:emerald"),
+			draft.withBackIconId(" minecraft:apple ").toIconIds());
 	}
 }

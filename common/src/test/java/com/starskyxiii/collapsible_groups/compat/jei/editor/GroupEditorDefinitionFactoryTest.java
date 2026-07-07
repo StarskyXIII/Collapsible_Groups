@@ -1,5 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.google.gson.JsonObject;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupDisplayName;
@@ -17,6 +19,8 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 class GroupEditorDefinitionFactoryTest {
 	@Test
 	void createPreservesExistingIconsAndTranslationKey() {
+		JsonObject extra = new JsonObject();
+		extra.addProperty("foreign_key", "keep");
 		GroupTheme theme = new GroupTheme("#FFAA00", null, null, null, "#66FFFFFF");
 		GroupDefinition existing = new GroupDefinition(
 			"test_group",
@@ -24,7 +28,9 @@ class GroupEditorDefinitionFactoryTest {
 			true,
 			Filters.itemId("minecraft:stone"),
 			List.of("minecraft:diamond", "minecraft:emerald"),
-			theme
+			theme,
+			4,
+			extra
 		);
 		GroupFilter updatedFilter = Filters.itemTag("minecraft:planks");
 
@@ -42,6 +48,49 @@ class GroupEditorDefinitionFactoryTest {
 		assertFalse(saved.enabled());
 		assertEquals(updatedFilter, saved.filter());
 		assertEquals(theme, saved.theme());
+		assertEquals(4, saved.priority());
+		assertEquals(extra, saved.extra());
+	}
+
+	@Test
+	void createAppliesEditableAppearanceDraftAndPriority() {
+		JsonObject extra = new JsonObject();
+		extra.addProperty("foreign_key", "keep");
+		GroupDefinition existing = new GroupDefinition(
+			"test_group",
+			new GroupDisplayName.Localized("custom.translation.key", "Old Name"),
+			true,
+			Filters.itemId("minecraft:stone"),
+			List.of("minecraft:stone"),
+			new GroupTheme("#FFAA00", null, null, null, null),
+			2,
+			extra
+		);
+		AppearanceDraft appearance = AppearanceDraft.fromIconIds(
+			List.of("minecraft:emerald", "minecraft:gold_ingot", "minecraft:redstone"),
+			GroupTheme.EMPTY
+		)
+			.withNameColor("#112233")
+			.withCollapsedHeaderBackground("#44112233")
+			.withExpandedHeaderBackground("#55223344")
+			.withExpandedGroupBackground("#66334455")
+			.withExpandedGroupBorder("#77445566");
+
+		GroupDefinition saved = GroupEditorDefinitionFactory.create(
+			"test_group",
+			"New Name",
+			true,
+			Filters.itemTag("minecraft:logs"),
+			existing,
+			appearance,
+			9
+		);
+
+		assertEquals(List.of("minecraft:emerald", "minecraft:gold_ingot", "minecraft:redstone"), saved.iconIds());
+		assertEquals(new GroupTheme("#112233", "#44112233", "#55223344", "#66334455", "#77445566"), saved.theme());
+		assertEquals(9, saved.priority());
+		assertEquals(extra, saved.extra());
+		assertEquals("custom.translation.key", saved.displayName().key());
 	}
 
 	@Test
@@ -107,5 +156,7 @@ class GroupEditorDefinitionFactoryTest {
 		assertEquals(List.of("minecraft:diamond"), saved.iconIds());
 		assertFalse(saved.enabled());
 		assertEquals(updatedFilter, saved.filter());
+		assertEquals(0, saved.priority());
+		assertEquals(new JsonObject(), saved.extra());
 	}
 }

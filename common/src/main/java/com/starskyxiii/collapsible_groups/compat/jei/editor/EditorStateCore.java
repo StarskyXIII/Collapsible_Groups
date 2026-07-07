@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleTagResolution;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
@@ -77,6 +78,20 @@ final class EditorStateCore {
 	}
 
 	GroupDefinition buildPreviewDefinition(String editId, String editName, boolean editEnabled) {
+		AppearanceDraft appearance = existingDefinition != null
+			? AppearanceDraft.from(existingDefinition)
+			: AppearanceDraft.fromIconIds(List.of(), com.starskyxiii.collapsible_groups.core.GroupTheme.EMPTY);
+		int priority = existingDefinition != null ? existingDefinition.priority() : 0;
+		return buildPreviewDefinition(editId, editName, editEnabled, appearance, priority);
+	}
+
+	GroupDefinition buildPreviewDefinition(
+		String editId,
+		String editName,
+		boolean editEnabled,
+		AppearanceDraft appearance,
+		int priority
+	) {
 		Optional<GroupFilter> currentFilter = buildCurrentFilter();
 		GroupFilter previewFilter;
 		if (currentFilter.isEmpty()) {
@@ -95,7 +110,9 @@ final class EditorStateCore {
 			editName,
 			editEnabled,
 			previewFilter,
-			existingDefinition
+			existingDefinition,
+			appearance,
+			priority
 		);
 	}
 
@@ -127,14 +144,30 @@ final class EditorStateCore {
 	}
 
 	Optional<GroupDefinition> trySave(String editId, String editName, boolean editEnabled, boolean nameTouched) {
+		AppearanceDraft appearance = existingDefinition != null
+			? AppearanceDraft.from(existingDefinition)
+			: AppearanceDraft.fromIconIds(List.of(), com.starskyxiii.collapsible_groups.core.GroupTheme.EMPTY);
+		int priority = existingDefinition != null ? existingDefinition.priority() : 0;
+		return trySave(editId, editName, editEnabled, nameTouched, appearance, priority);
+	}
+
+	Optional<GroupDefinition> trySave(
+		String editId,
+		String editName,
+		boolean editEnabled,
+		boolean nameTouched,
+		AppearanceDraft appearance,
+		int priority
+	) {
 		if (!canSave(editName)) return Optional.empty();
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		String id = idForSave(editId, editName);
 		try {
 			GroupDefinition saved = shouldPreserveDisplayName(id, nameTouched)
 				? GroupEditorDefinitionFactory.createWithDisplayName(id, existingDefinition.displayName(), editEnabled,
-					filter.get(), existingDefinition)
-				: GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition);
+					filter.get(), existingDefinition, appearance, priority)
+				: GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition,
+					appearance, priority);
 			GroupRegistry.saveQuietly(saved);
 			return Optional.of(saved);
 		} catch (IllegalArgumentException e) {
@@ -195,6 +228,11 @@ final class EditorStateCore {
 			return Component.translatable(ModTranslationKeys.EDITOR_PENDING_ID_ON_SAVE, id).getString();
 		}
 		return Component.translatable(ModTranslationKeys.EDITOR_PENDING_ID_ON_SAVE_GEN, id).getString();
+	}
+
+	@Nullable
+	String pendingRawId(String editId, String editName) {
+		return currentOrGeneratedId(editId, editName);
 	}
 
 	String contentsEditStatusLabel() {

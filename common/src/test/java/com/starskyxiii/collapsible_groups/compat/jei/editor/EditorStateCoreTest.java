@@ -1,10 +1,12 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
+import com.starskyxiii.collapsible_groups.core.GroupTheme;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -69,6 +71,27 @@ class EditorStateCoreTest {
 
 		assertFalse(core.hasRulesRoot());
 		assertFalse(core.hasPendingRuleNode());
+	}
+
+	@Test
+	void previewDefinitionUsesAppearanceDraftAndPriority() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		AppearanceDraft appearance = AppearanceDraft.fromIconIds(
+			List.of("minecraft:emerald", "minecraft:gold_ingot"),
+			new GroupTheme("#112233", "#44112233", "#55223344", "#66334455", "#77445566")
+		);
+
+		GroupDefinition preview = core.buildPreviewDefinition(
+			"preview_group",
+			"Preview Group",
+			true,
+			appearance,
+			8
+		);
+
+		assertEquals(List.of("minecraft:emerald", "minecraft:gold_ingot"), preview.iconIds());
+		assertEquals(new GroupTheme("#112233", "#44112233", "#55223344", "#66334455", "#77445566"), preview.theme());
+		assertEquals(8, preview.priority());
 	}
 
 	@Test

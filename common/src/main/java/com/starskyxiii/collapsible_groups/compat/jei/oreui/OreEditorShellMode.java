@@ -5,7 +5,7 @@ import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 public enum OreEditorShellMode {
 	CONTENTS(ModTranslationKeys.EDITOR_TAB_CONTENTS, true, false, false),
 	RULES(ModTranslationKeys.EDITOR_TAB_RULES, false, true, false),
-	LOOK(ModTranslationKeys.ORE_EDITOR_MODE_LOOK, false, false, true);
+	LOOK(ModTranslationKeys.ORE_EDITOR_MODE_SETTINGS, false, false, true);
 
 	private final String labelKey;
 	private final boolean contentControlsEnabled;

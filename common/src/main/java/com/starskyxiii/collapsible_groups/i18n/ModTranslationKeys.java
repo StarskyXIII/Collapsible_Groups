@@ -371,6 +371,8 @@ public final class ModTranslationKeys {
 
 	public static final String ORE_EDITOR_MODE_LOOK = "collapsible_groups.ore_editor.mode.look";
 
+	public static final String ORE_EDITOR_MODE_SETTINGS = "collapsible_groups.ore_editor.mode.settings";
+
 	public static final String ORE_EDITOR_HIDE_USED_SHORT = "collapsible_groups.ore_editor.hide_used.short";
 
 	public static final String ORE_EDITOR_PREVIEW_HEADER = "collapsible_groups.ore_editor.preview.header";
@@ -418,6 +420,62 @@ public final class ModTranslationKeys {
 	public static final String ORE_EDITOR_APPEARANCE_COLORS = "collapsible_groups.ore_editor.appearance.colors";
 
 	public static final String ORE_EDITOR_APPEARANCE_PENDING = "collapsible_groups.ore_editor.appearance.pending";
+
+	public static final String ORE_EDITOR_SETTINGS_APPEARANCE = "collapsible_groups.ore_editor.settings.appearance";
+
+	public static final String ORE_EDITOR_SETTINGS_BEHAVIOR = "collapsible_groups.ore_editor.settings.behavior";
+
+	public static final String ORE_EDITOR_SETTINGS_FRONT_ICON = "collapsible_groups.ore_editor.settings.front_icon";
+
+	public static final String ORE_EDITOR_SETTINGS_BACK_ICON = "collapsible_groups.ore_editor.settings.back_icon";
+
+	public static final String ORE_EDITOR_SETTINGS_CHANGE = "collapsible_groups.ore_editor.settings.change";
+
+	public static final String ORE_EDITOR_SETTINGS_CLEAR = "collapsible_groups.ore_editor.settings.clear";
+
+	public static final String ORE_EDITOR_SETTINGS_SWAP_ICONS = "collapsible_groups.ore_editor.settings.swap_icons";
+
+	public static final String ORE_EDITOR_SETTINGS_RESET = "collapsible_groups.ore_editor.settings.reset";
+
+	public static final String ORE_EDITOR_SETTINGS_COPY = "collapsible_groups.ore_editor.settings.copy";
+
+	public static final String ORE_EDITOR_SETTINGS_COLOR_NAME = "collapsible_groups.ore_editor.settings.color.name";
+
+	public static final String ORE_EDITOR_SETTINGS_COLOR_COLLAPSED_HEADER = "collapsible_groups.ore_editor.settings.color.collapsed_header";
+
+	public static final String ORE_EDITOR_SETTINGS_COLOR_EXPANDED_HEADER = "collapsible_groups.ore_editor.settings.color.expanded_header";
+
+	public static final String ORE_EDITOR_SETTINGS_COLOR_EXPANDED_GROUP_BG = "collapsible_groups.ore_editor.settings.color.expanded_group_bg";
+
+	public static final String ORE_EDITOR_SETTINGS_COLOR_EXPANDED_GROUP_BORDER = "collapsible_groups.ore_editor.settings.color.expanded_group_border";
+
+	/** Args: color target label (%s) */
+	public static final String ORE_EDITOR_SETTINGS_COLOR_PICKER = "collapsible_groups.ore_editor.settings.color_picker";
+
+	public static final String ORE_EDITOR_SETTINGS_PRIORITY = "collapsible_groups.ore_editor.settings.priority";
+
+	public static final String ORE_EDITOR_SETTINGS_GROUP_ID = "collapsible_groups.ore_editor.settings.group_id";
+
+	public static final String ORE_EDITOR_SETTINGS_ENABLED = "collapsible_groups.ore_editor.settings.enabled";
+
+	public static final String ORE_EDITOR_SETTINGS_PREVIEW_HEADER = "collapsible_groups.ore_editor.settings.preview.header";
+	public static final String ORE_EDITOR_SETTINGS_PREVIEW_HINT = "collapsible_groups.ore_editor.settings.preview.hint";
+
+	public static final String ORE_EDITOR_SETTINGS_PRIORITY_DESC = "collapsible_groups.ore_editor.settings.priority.desc";
+
+	public static final String ORE_EDITOR_SETTINGS_GROUP_ID_DESC = "collapsible_groups.ore_editor.settings.group_id.desc";
+
+	public static final String ORE_EDITOR_SETTINGS_FRONT_ICON_DESC = "collapsible_groups.ore_editor.settings.front_icon.desc";
+
+	public static final String ORE_EDITOR_SETTINGS_BACK_ICON_DESC = "collapsible_groups.ore_editor.settings.back_icon.desc";
+
+	public static final String ORE_EDITOR_SETTINGS_BACK_ICON_LOCKED = "collapsible_groups.ore_editor.settings.back_icon.locked";
+
+	public static final String ORE_EDITOR_ICON_PICKER_TITLE = "collapsible_groups.ore_editor.icon_picker.title";
+
+	public static final String ORE_EDITOR_ICON_PICKER_EMPTY = "collapsible_groups.ore_editor.icon_picker.empty";
+
+	public static final String ORE_EDITOR_ICON_PICKER_SEARCH = "collapsible_groups.ore_editor.icon_picker.search";
 
 	public static final String EDITOR_TAG_MATCHED = "collapsible_groups.editor.tag_matched";
 
