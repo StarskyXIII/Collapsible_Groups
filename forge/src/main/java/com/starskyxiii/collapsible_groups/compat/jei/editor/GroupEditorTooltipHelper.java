@@ -40,6 +40,9 @@ final class GroupEditorTooltipHelper {
 			appendOtherGroups(lines, left.otherGroupsForFluid(fluid));
 			if (!state.canEditContents()) {
 				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			} else if (!state.isFluidSelected(fluidIngredient(fluid))
+				&& state.isFluidRuleCovered(EditorRuleCoverageKeys.fluidKey(fluid))) {
+				lines.add(ruleCovered());
 			} else if (state.isFluidSelected(fluidIngredient(fluid))) {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE_FLUIDS));
@@ -56,6 +59,9 @@ final class GroupEditorTooltipHelper {
 			appendOtherGroups(lines, left.otherGroupsForGeneric(entry));
 			if (!state.canEditContents()) {
 				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+			} else if (!state.isGenericSelected(entry)
+				&& state.isGenericRuleCovered(EditorRuleCoverageKeys.genericKey(entry))) {
+				lines.add(ruleCovered());
 			} else if (state.isGenericSelected(entry)) {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE_ENTRIES));
@@ -107,6 +113,9 @@ final class GroupEditorTooltipHelper {
 	private static void appendItemHint(List<Component> lines, GroupEditorState state, ItemStack stack) {
 		if (!state.canEditContents()) {
 			lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
+		} else if (!state.isWholeItemSelected(stack) && !state.isExactSelected(stack)
+			&& state.isItemRuleCovered(EditorRuleCoverageKeys.itemKey(stack))) {
+			lines.add(ruleCovered());
 		} else if (state.isWholeItemSelected(stack)) {
 			lines.add(hint(ModTranslationKeys.EDITOR_HINT_SWITCH_TO_VARIANT));
 			lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE));
@@ -122,19 +131,22 @@ final class GroupEditorTooltipHelper {
 		}
 	}
 
+	/**
+	 * P3b overlap tooltip: the ownership caches carry the single JEI winner
+	 * (winner semantics, see EditorGroupOwnershipHelper), so this names the group
+	 * that actually displays the ingredient - decided by priority - and stays a
+	 * neutral hint (the cell remains clickable to add to the current group).
+	 */
 	private static void appendOtherGroups(List<Component> lines, List<String> groups) {
 		if (groups.isEmpty()) return;
-		if (groups.size() == 1) {
-			lines.add(Component.translatable(ModTranslationKeys.EDITOR_ALREADY_IN_GROUP).withStyle(ChatFormatting.GOLD)
-				.append(Component.literal(groups.getFirst()).withStyle(ChatFormatting.YELLOW)));
-			return;
-		}
-		lines.add(Component.translatable(ModTranslationKeys.EDITOR_ALREADY_IN_GROUPS).withStyle(ChatFormatting.GOLD));
-		int limit = Math.min(4, groups.size());
-		for (int i = 0; i < limit; i++)
-			lines.add(Component.literal("- " + groups.get(i)).withStyle(ChatFormatting.YELLOW));
-		if (groups.size() > limit)
-			lines.add(Component.translatable(ModTranslationKeys.EDITOR_MORE_GROUPS, groups.size() - limit).withStyle(ChatFormatting.DARK_GRAY));
+		lines.add(Component.translatable(ModTranslationKeys.EDITOR_OVERLAP_SHOWN_BY,
+			Component.literal(groups.getFirst()).withStyle(ChatFormatting.YELLOW))
+			.withStyle(ChatFormatting.GOLD));
+	}
+
+	/** P3b-3: rule-covered hint — green italic, matching the cell's green visual, pointing at the rules mode. */
+	private static Component ruleCovered() {
+		return Component.translatable(ModTranslationKeys.EDITOR_RULE_COVERED).withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC);
 	}
 
 	private static Component hint(String key)  { return Component.translatable(key).withStyle(ChatFormatting.GRAY,      ChatFormatting.ITALIC); }

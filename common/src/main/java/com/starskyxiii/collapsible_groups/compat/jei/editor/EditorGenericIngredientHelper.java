@@ -103,13 +103,14 @@ final class EditorGenericIngredientHelper {
 		return entry.typeId() + "|" + entry.resourceId();
 	}
 
+	// Winner semantics: groups are priority-ordered, so the first match is the JEI
+	// winner; the returned single-element list names it for the overlap tab/tooltip.
 	private static List<String> matchingGroupNames(List<GroupDefinition> groups, GenericIngredientView entry) {
-		Set<String> names = new LinkedHashSet<>();
 		for (GroupDefinition group : groups) {
 			if (GroupMatcher.matchesGeneric(group, entry.typeId(), entry.ingredient(), entry.helper())) {
-				names.add(EditorGroupOwnershipHelper.displayName(group));
+				return List.of(EditorGroupOwnershipHelper.displayName(group));
 			}
 		}
-		return List.copyOf(names);
+		return List.of();
 	}
 }

@@ -417,6 +417,121 @@ public final class OreUiRenderer {
 		}
 	}
 
+	/**
+	 * Amber "shown elsewhere by priority" accent (shared with the icon picker's
+	 * non-group corner tab). Neutral, not a block colour.
+	 */
+	public static final int OVERLAP_ACCENT = 0xFFF2C744;
+
+	/** Faint amber frame drawn around an overlap source cell (1px). */
+	private static final int OVERLAP_FRAME = 0x66F2C744;
+
+	/**
+	 * Overlap marker for a source cell whose JEI winner is another group: a faint
+	 * amber 1px frame plus an amber right-top triangle corner tab (matching the
+	 * icon picker's non-group language). Draw <em>after</em> {@code renderItem};
+	 * callers must raise z above the ingredient depth first (pushPose/translate),
+	 * since the ingredient renders at depth ~150 and plain fills would sit under it.
+	 *
+	 * @param x   left of the 16px icon region
+	 * @param y   top of the 16px icon region
+	 * @param size icon region size (typically 16)
+	 */
+	public static void drawOverlapMarker(GuiGraphics g, int x, int y, int size) {
+		drawOutline(g, x, y, size, size, OVERLAP_FRAME);
+		drawCornerMarker(g, x, y, size, OVERLAP_ACCENT);
+	}
+
+	/** Faint green frame drawn around a selected / rule-covered source cell (1px). */
+	private static final int SELECTED_FRAME = 0x6670B95A;
+
+	/**
+	 * Selected-in-current-group marker for a source cell: a faint green 1px frame
+	 * plus a green right-top triangle corner tab. Symmetric to
+	 * {@link #drawOverlapMarker} (same frame/tab shape, green instead of amber),
+	 * shared by both explicit selections and rule-covered cells. Draw <em>after</em>
+	 * {@code renderItem}; callers must raise z above the ingredient depth first
+	 * (pushPose/translate), since the ingredient renders at depth ~150 and plain
+	 * fills would sit under it.
+	 *
+	 * @param x    left of the icon region
+	 * @param y    top of the icon region
+	 * @param size icon region size (typically 16)
+	 */
+	public static void drawSelectedMarker(GuiGraphics g, int x, int y, int size) {
+		drawOutline(g, x, y, size, size, SELECTED_FRAME);
+		drawCornerMarker(g, x, y, size, OreUiPalette.OUTLINE_SELECTED);
+	}
+
+	/**
+	 * Generic right-top triangle corner tab, used to flag a source cell's state
+	 * (overlap amber, selected-in-current-group green, ...) without a full-cell
+	 * tint. Draw <em>after</em> {@code renderItem}; callers must raise z above the
+	 * ingredient depth first (pushPose/translate), since the ingredient renders at
+	 * depth ~150 and plain fills would sit under it.
+	 *
+	 * @param x     left of the icon region
+	 * @param y     top of the icon region
+	 * @param size  icon region size (typically 16)
+	 * @param color ARGB colour of the tab
+	 */
+	public static void drawCornerMarker(GuiGraphics g, int x, int y, int size, int color) {
+		int right = x + size;
+		// Right-top triangle tab: rows shrink from the right edge inward.
+		for (int row = 0; row < CORNER_MARKER_SIZE; row++) {
+			int rowWidth = CORNER_MARKER_SIZE - row;
+			g.fill(right - rowWidth, y + row, right, y + row + 1, color);
+		}
+	}
+
+	private static final int CORNER_MARKER_SIZE = 5;
+
+	/** Size of the hover remove-× badge on right-panel preview cells. */
+	public static final int REMOVE_BADGE_SIZE = 9;
+	private static final int REMOVE_BADGE_BG = 0xFFCA3636;
+	private static final int REMOVE_BADGE_BORDER = 0xFF1E1E1F;
+	private static final int REMOVE_BADGE_MARK = 0xFFFFFFFF;
+
+	/**
+	 * Hover remove-× badge for a right-panel preview cell (P0: removal only via a
+	 * discrete × hot-zone, never the whole cell). Anchored top-right of the 16px
+	 * icon region, overhanging by 1px. Draw <em>after</em> {@code renderItem} with
+	 * z raised above the ingredient depth (~150).
+	 *
+	 * @param iconX left of the 16px icon region
+	 * @param iconY top of the 16px icon region
+	 */
+	public static void drawRemoveBadge(GuiGraphics g, int iconX, int iconY, boolean hovered) {
+		EditorChrome.Rect r = removeBadgeRect(iconX, iconY);
+		int bx = r.x();
+		int by = r.y();
+		int bRight = r.right();
+		int bBottom = r.bottom();
+		g.fill(bx, by, bRight, bBottom, REMOVE_BADGE_BG);
+		drawOutline(g, bx, by, r.width(), r.height(), REMOVE_BADGE_BORDER);
+		if (hovered) {
+			drawOutline(g, bx, by, r.width(), r.height(), OreUiPalette.OUTLINE_HOVER);
+		}
+		// Two diagonals forming the ×, inset 2px from the badge edges.
+		int x0 = bx + 2;
+		int y0 = by + 2;
+		int span = REMOVE_BADGE_SIZE - 4;
+		for (int i = 0; i < span; i++) {
+			g.fill(x0 + i, y0 + i, x0 + i + 1, y0 + i + 1, REMOVE_BADGE_MARK);
+			g.fill(x0 + (span - 1 - i), y0 + i, x0 + (span - 1 - i) + 1, y0 + i + 1, REMOVE_BADGE_MARK);
+		}
+	}
+
+	/**
+	 * Hit-zone / draw rect for the remove-× badge, flush with the top-right corner
+	 * of the 16px icon region (kept inside the cell so hover hit-testing never
+	 * attributes the badge to a neighbouring cell).
+	 */
+	public static EditorChrome.Rect removeBadgeRect(int iconX, int iconY) {
+		int bx = iconX + 16 - REMOVE_BADGE_SIZE;
+		return new EditorChrome.Rect(bx, iconY, REMOVE_BADGE_SIZE, REMOVE_BADGE_SIZE);
+	}
+
 	public static void drawOutline(GuiGraphics g, int x, int y, int width, int height, int color) {
 		int right = x + width;
 		int bottom = y + height;

@@ -95,6 +95,41 @@ class EditorStateCoreTest {
 	}
 
 	@Test
+	void ruleCoverageSetsAreQueriedByKeyAndRebuiltOnEachUpdate() {
+		// P3b-3: the right-panel rebuild converges its single resolve pass into these
+		// id sets; the source grid queries them by key. A fresh update fully replaces
+		// the previous sets (defensive-copied), so a cell that leaves the group's
+		// matches stops reporting as rule-covered.
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+
+		// No coverage before the first update.
+		assertFalse(core.isItemRuleCovered("minecraft:stone"));
+
+		core.setCoveredSets(
+			new java.util.HashSet<>(List.of("minecraft:stone", "minecraft:diamond")),
+			new java.util.HashSet<>(List.of("minecraft:water")),
+			new java.util.HashSet<>(List.of("mekanism:gas|mekanism:hydrogen")));
+
+		assertTrue(core.isItemRuleCovered("minecraft:stone"));
+		assertTrue(core.isItemRuleCovered("minecraft:diamond"));
+		assertFalse(core.isItemRuleCovered("minecraft:gold_ingot"));
+		assertTrue(core.isFluidRuleCovered("minecraft:water"));
+		assertFalse(core.isFluidRuleCovered("minecraft:lava"));
+		assertTrue(core.isGenericRuleCovered("mekanism:gas|mekanism:hydrogen"));
+		assertFalse(core.isGenericRuleCovered("mekanism:gas|mekanism:oxygen"));
+
+		// Null keys never match; null sets clear coverage.
+		assertFalse(core.isItemRuleCovered(null));
+
+		// A later update replaces (not merges) the previous sets.
+		core.setCoveredSets(new java.util.HashSet<>(List.of("minecraft:gold_ingot")), null, null);
+		assertTrue(core.isItemRuleCovered("minecraft:gold_ingot"));
+		assertFalse(core.isItemRuleCovered("minecraft:stone"));
+		assertFalse(core.isFluidRuleCovered("minecraft:water"));
+		assertFalse(core.isGenericRuleCovered("mekanism:gas|mekanism:hydrogen"));
+	}
+
+	@Test
 	void unresolvedRuleCountUsesInjectedLookupAndSkipsSyntaxErrors() {
 		EditorStateCore core = new EditorStateCore(null, () -> {});
 		GroupFilterRuleDraft.Node root = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.ALL);

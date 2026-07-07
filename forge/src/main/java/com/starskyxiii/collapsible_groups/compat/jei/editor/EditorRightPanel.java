@@ -76,6 +76,13 @@ final class EditorRightPanel {
 			GroupRegistry.resolveFluids(temp), "EditorRightPanel.buildFluidViews");
 		groupGenericIngredients = EditorGenericIngredientHelper.buildViews(
 			GroupRegistry.resolveGenericIngredients(temp), "EditorRightPanel.buildGenericViews");
+		// P3b-3: converge the rule-coverage id sets from this single resolve pass so
+		// the source grid can flag rule-covered cells (green, not toggleable) without
+		// re-resolving or reaching into this panel.
+		state.updateRuleCoverage(
+			EditorRuleCoverageKeys.itemIds(groupItems),
+			EditorRuleCoverageKeys.fluidIds(groupFluids),
+			EditorRuleCoverageKeys.genericKeys(groupGenericIngredients));
 		PerformanceTrace.logIfSlow("EditorRightPanel.rebuild", traceStart, 10,
 			"group=" + temp.id()
 				+ " items=" + groupItems.size()
@@ -165,7 +172,10 @@ final class EditorRightPanel {
 			g.renderItem(stack, iconX, iconY);
 			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredItem = idx;
-				g.fill(iconX, iconY, iconX + 16, iconY + 16, explicit ? 0x28FF5555 : 0x1CFFFFFF);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x1CFFFFFF);
+				if (explicit && state.canEditContents()) {
+					renderRemoveBadge(g, iconX, iconY, mouseX, mouseY);
+				}
 			}
 		});
 	}
@@ -180,7 +190,10 @@ final class EditorRightPanel {
 			IngredientCellRenderer.renderGeneric(g, entry, iconX, iconY);
 			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredGeneric = idx;
-				g.fill(iconX, iconY, iconX + 16, iconY + 16, selected ? 0x28FF5555 : 0x1CFFFFFF);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x1CFFFFFF);
+				if (selected && state.canEditContents()) {
+					renderRemoveBadge(g, iconX, iconY, mouseX, mouseY);
+				}
 			}
 		});
 	}
@@ -195,9 +208,32 @@ final class EditorRightPanel {
 			IngredientCellRenderer.renderFluid(g, fluid, iconX, iconY);
 			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredFluid = idx;
-				g.fill(iconX, iconY, iconX + 16, iconY + 16, selected ? 0x28FF5555 : 0x1CFFFFFF);
+				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x1CFFFFFF);
+				if (selected && state.canEditContents()) {
+					renderRemoveBadge(g, iconX, iconY, mouseX, mouseY);
+				}
 			}
 		});
+	}
+
+	/**
+	 * P0 remove affordance (P3b fix): removal happens only through this hover ×
+	 * badge — the cell body never removes. Shown only on hovered, removable cells
+	 * of editable groups (read-only groups never render it). Drawn with z raised
+	 * above the ingredient depth (~150) so it covers the item/fluid texture.
+	 */
+	private void renderRemoveBadge(GuiGraphics g, int iconX, int iconY, int mouseX, int mouseY) {
+		boolean badgeHovered = OreUiRenderer.removeBadgeRect(iconX, iconY).contains(mouseX, mouseY);
+		g.pose().pushPose();
+		g.pose().translate(0, 0, 160);
+		OreUiRenderer.drawRemoveBadge(g, iconX, iconY, badgeHovered);
+		g.pose().popPose();
+	}
+
+	/** Remove-× hot-zone for the cell at {@code idx}; clicks elsewhere in the cell do nothing. */
+	private boolean isOverRemoveBadge(EditorLayout layout, int idx, int cellTop, double mouseX, double mouseY) {
+		int cellX = layout.rightGridX() + (idx % layout.rightCols()) * EditorLayout.ITEM_SIZE;
+		return OreUiRenderer.removeBadgeRect(cellX + 1, cellTop + 1).contains(mouseX, mouseY);
 	}
 
 	// -----------------------------------------------------------------------
@@ -222,12 +258,16 @@ final class EditorRightPanel {
 		for (int visRow = 0; visRow < layout.rightRows(); visRow++) {
 			int vRow = scrollRow + visRow;
 			int y = layout.gridTop() + visRow * EditorLayout.ITEM_SIZE;
+			// P3b (P0 compliance): the removal hot-zone is the hover × badge only;
+			// clicking anywhere else in a cell consumes the click without removing.
 			if (sections.isItemRow(vRow)) {
 				int idx = EditorGridTraversal.findRowCellIndex(
 					groupItems.size(), vRow, layout.rightCols(), layout.rightGridX(), y, mouseX, mouseY);
 				if (idx < 0) continue;
 				if (!state.canEditContents()) return true;
 				ItemStack stack = groupItems.get(idx);
+				boolean explicit = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
+				if (!explicit || !isOverRemoveBadge(layout, idx, y, mouseX, mouseY)) return true;
 				if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.removeAllSelectionsForItem(stack);
 				else state.removeSingleSelection(stack, allItems);
 				state.syncEditItems();
@@ -239,7 +279,8 @@ final class EditorRightPanel {
 				if (idx < 0) continue;
 				if (!state.canEditContents()) return true;
 				EditorFluidIngredientView fluid = groupFluids.get(idx);
-				if (state.isFluidSelected(fluidIngredient(fluid))) {
+				if (state.isFluidSelected(fluidIngredient(fluid))
+					&& isOverRemoveBadge(layout, idx, y, mouseX, mouseY)) {
 					state.removeFluidSelection(fluidIngredient(fluid));
 					onChange.run();
 				}
@@ -250,7 +291,8 @@ final class EditorRightPanel {
 				if (idx < 0) continue;
 				if (!state.canEditContents()) return true;
 				GenericIngredientView entry = groupGenericIngredients.get(idx);
-				if (state.isGenericSelected(entry)) {
+				if (state.isGenericSelected(entry)
+					&& isOverRemoveBadge(layout, idx, y, mouseX, mouseY)) {
 					state.removeGenericSelection(entry);
 					onChange.run();
 				}

@@ -157,6 +157,25 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		return core.canEditContents();
 	}
 
+	// P3b-3: rule-coverage sets, converged from the right-panel rebuild's single
+	// GroupRegistry.resolve* pass; queried by the source grid to flag rule-covered
+	// cells (green visual, not toggleable) without reaching into the right panel.
+	void updateRuleCoverage(Set<String> itemIds, Set<String> fluidIds, Set<String> genericKeys) {
+		core.setCoveredSets(itemIds, fluidIds, genericKeys);
+	}
+
+	boolean isItemRuleCovered(String itemId) {
+		return core.isItemRuleCovered(itemId);
+	}
+
+	boolean isFluidRuleCovered(String fluidId) {
+		return core.isFluidRuleCovered(fluidId);
+	}
+
+	boolean isGenericRuleCovered(String genericKey) {
+		return core.isGenericRuleCovered(genericKey);
+	}
+
 	boolean isWholeItemSelected(ItemStack stack) {
 		return itemSelection.isWholeItemSelected(stack);
 	}

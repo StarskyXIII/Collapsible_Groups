@@ -13,7 +13,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -63,29 +62,13 @@ final class EditorFluidIngredientHelper {
 		List<GroupDefinition> otherGroups,
 		Map<String, Set<String>> fluidReverseIndex
 	) {
-		Map<EditorFluidIngredientView, List<String>> ownership = new IdentityHashMap<>();
-		if (fluidReverseIndex != null) {
-			for (EditorFluidIngredientView entry : entries) {
-				Set<String> groupIds = fluidReverseIndex.getOrDefault(entry.resourceId(), Set.of());
-				List<String> names = new ArrayList<>();
-				for (String groupId : groupIds) {
-					String name = groupNames.get(groupId);
-					if (name != null) names.add(name);
-				}
-				if (!names.isEmpty()) ownership.put(entry, List.copyOf(names));
-			}
-			return ownership;
-		}
-
-		for (GroupDefinition other : otherGroups) {
-			String name = EditorGroupOwnershipHelper.displayName(other);
-			for (EditorFluidIngredientView entry : entries) {
-				if (GroupMatcher.matchesFluid(other, entry.ingredient())) {
-					ownership.computeIfAbsent(entry, k -> new ArrayList<>()).add(name);
-				}
-			}
-		}
-		return ownership;
+		// Winner semantics via EditorGroupOwnershipHelper.buildOwnership: both
+		// branches key to the single JEI winner (reverseIndex is deduped;
+		// otherGroups is priority-ordered so first-match is the winner).
+		return EditorGroupOwnershipHelper.buildOwnership(entries, groupNames, otherGroups, fluidReverseIndex,
+			EditorFluidIngredientView::resourceId,
+			(group, entry) -> GroupMatcher.matchesFluid(group, entry.ingredient()),
+			EditorGroupOwnershipHelper::displayName);
 	}
 
 	static List<Component> tooltipLines(EditorFluidIngredientView entry) {

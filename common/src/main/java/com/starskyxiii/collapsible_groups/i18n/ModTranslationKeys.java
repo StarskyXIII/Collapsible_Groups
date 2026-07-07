@@ -78,10 +78,6 @@ public final class ModTranslationKeys {
 
 	public static final String COUNT_ITEMS = "collapsible_groups.count.items";
 
-	public static final String EDITOR_ALREADY_IN_GROUP = "collapsible_groups.editor.already_in_group";
-
-	public static final String EDITOR_ALREADY_IN_GROUPS = "collapsible_groups.editor.already_in_groups";
-
 	public static final String EDITOR_CHIP_HIDE_USED = "collapsible_groups.editor.chip.hide_used";
 
 	public static final String EDITOR_FILTER_EDITABLE = "collapsible_groups.editor.filter.editable";
@@ -118,12 +114,15 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_HINT_SWITCH_TO_VARIANT = "collapsible_groups.editor.hint.switch_to_variant";
 
-	/** Args: count (int) */
-	public static final String EDITOR_MORE_GROUPS = "collapsible_groups.editor.more_groups";
-
 	public static final String EDITOR_NAME_HINT = "collapsible_groups.editor.name_hint";
 
 	public static final String EDITOR_NAME_LABEL = "collapsible_groups.editor.name_label";
+
+	/** Args: winning group display name (%s). P3b overlap tooltip: shown-by-priority hint. */
+	public static final String EDITOR_OVERLAP_SHOWN_BY = "collapsible_groups.editor.overlap.shown_by";
+
+	/** P3b-3 rule-covered tooltip: covered by the current group's rules, edit in rules mode. */
+	public static final String EDITOR_RULE_COVERED = "collapsible_groups.editor.rule_covered";
 
 	/** Args: summary string (%s) */
 	public static final String EDITOR_PANEL_CONTENTS_HEADER = "collapsible_groups.editor.panel.contents_header";
@@ -372,8 +371,6 @@ public final class ModTranslationKeys {
 	public static final String ORE_EDITOR_MODE_LOOK = "collapsible_groups.ore_editor.mode.look";
 
 	public static final String ORE_EDITOR_MODE_SETTINGS = "collapsible_groups.ore_editor.mode.settings";
-
-	public static final String ORE_EDITOR_HIDE_USED_SHORT = "collapsible_groups.ore_editor.hide_used.short";
 
 	public static final String ORE_EDITOR_PREVIEW_HEADER = "collapsible_groups.ore_editor.preview.header";
 

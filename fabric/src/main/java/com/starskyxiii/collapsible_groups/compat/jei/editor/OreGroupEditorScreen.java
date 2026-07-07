@@ -457,11 +457,12 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	private void renderHideUsedButton(GuiGraphics g, int mouseX, int mouseY) {
-		boolean hovered = shell.hideUsedButton().contains(mouseX, mouseY);
-		OreUiRenderer.ButtonState state = buttonState(true, leftPanel.isHideUsed(), hovered, hideUsedHeld);
-		OreUiRenderer.drawSegment(g, font, shell.hideUsedButton().x(), shell.hideUsedButton().y(),
-			shell.hideUsedButton().width(), shell.hideUsedButton().height(),
-			Component.translatable(ModTranslationKeys.ORE_EDITOR_HIDE_USED_SHORT).getString(), state);
+		OreEditorShellLayout.Rect rect = shell.hideUsedButton();
+		boolean hovered = rect.contains(mouseX, mouseY);
+		// P3b: boolean toggle uses a switch (matching the Manager enabled switch).
+		// drawSwitch centers a fixed-width visual inside the (wider) hit rect.
+		OreUiRenderer.drawSwitch(g, rect.x(), rect.y(), rect.width(), rect.height(),
+			leftPanel.isHideUsed(), true, hovered, hideUsedHeld);
 	}
 
 	private boolean isHideUsedHover(int mouseX, int mouseY) {

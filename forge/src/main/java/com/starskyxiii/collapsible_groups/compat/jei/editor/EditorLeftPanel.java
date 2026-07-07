@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.IngredientSourceCellState;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
@@ -167,39 +168,83 @@ final class EditorLeftPanel {
 		}
 	}
 
+	/** Faint amber base fill for an overlap source cell (symmetric to the green select fill). */
+	private static final int OVERLAP_FILL = 0x44F2C744;
+
+	/**
+	 * P3b-3 four-state cell (normal / selected-in-current-group / rule-covered /
+	 * overlap), resolved through the common {@link IngredientSourceCellState}
+	 * contract. There is no base occupied tint: overlap is a faint amber base fill
+	 * plus an amber corner tab + faint amber frame; selected and rule-covered share
+	 * the green base fill plus a green corner tab + faint green frame (via
+	 * {@link OreUiRenderer#drawSelectedMarker}). The markers are drawn <em>after</em>
+	 * the ingredient with z raised above the item depth (~150), because fills issued
+	 * before renderItem land under full-cover fluid/item textures.
+	 * {@link IngredientSourceCellState#resolve} enforces the precedence (explicit &gt;
+	 * rule-covered &gt; overlap &gt; normal), so at most one marker branch fires.
+	 * Overlap cells stay clickable (adding to this group); rule-covered cells are not
+	 * toggleable (the rule owns them).
+	 */
 	private void renderCell(GuiGraphics g, Object entry, int x, int y) {
 		int iconX = x + 1;
 		int iconY = y + 1;
+		IngredientSourceCellState cellState;
+		boolean inWhole = false;
 		if (isShowingFluids()) {
 			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
-			if (state.isFluidSelected(fluidIngredient(fluid))) {
-				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x4455BB77);
-			} else if (!otherFluidGroupsCache.getOrDefault(fluid, List.of()).isEmpty()) {
-				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x33CC8844);
-			}
+			boolean selected = state.isFluidSelected(fluidIngredient(fluid));
+			cellState = IngredientSourceCellState.resolve(
+				selected,
+				!selected && state.isFluidRuleCovered(EditorRuleCoverageKeys.fluidKey(fluid)),
+				otherFluidGroupsCache.getOrDefault(fluid, List.of()), false);
+			paintBaseFill(g, cellState, iconX, iconY, false);
 			IngredientCellRenderer.renderFluid(g, fluid, iconX, iconY);
-			return;
-		}
-		if (isShowingGeneric()) {
+		} else if (isShowingGeneric()) {
 			GenericIngredientView generic = (GenericIngredientView) entry;
-			if (state.isGenericSelected(generic)) {
-				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x4455BB77);
-			} else if (!otherGenericGroupsCache.getOrDefault(generic, List.of()).isEmpty()) {
-				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x33CC8844);
-			}
+			boolean selected = state.isGenericSelected(generic);
+			cellState = IngredientSourceCellState.resolve(
+				selected,
+				!selected && state.isGenericRuleCovered(EditorRuleCoverageKeys.genericKey(generic)),
+				otherGenericGroupsCache.getOrDefault(generic, List.of()), false);
+			paintBaseFill(g, cellState, iconX, iconY, false);
 			IngredientCellRenderer.renderGeneric(g, generic, iconX, iconY);
-			return;
+		} else {
+			ItemStack stack = (ItemStack) entry;
+			inWhole = state.isWholeItemSelected(stack);
+			boolean inExact = state.isExactSelected(stack);
+			boolean selected = inWhole || inExact;
+			cellState = IngredientSourceCellState.resolve(
+				selected,
+				!selected && state.isItemRuleCovered(EditorRuleCoverageKeys.itemKey(stack)),
+				otherItemGroupsCache.getOrDefault(stack, List.of()), false);
+			paintBaseFill(g, cellState, iconX, iconY, inWhole);
+			g.renderItem(stack, iconX, iconY);
 		}
+		if (cellState.overlapped()) {
+			g.pose().pushPose();
+			g.pose().translate(0, 0, 160);
+			OreUiRenderer.drawOverlapMarker(g, iconX, iconY, 16);
+			g.pose().popPose();
+		} else if (cellState.renderedAsSelected()) {
+			g.pose().pushPose();
+			g.pose().translate(0, 0, 160);
+			OreUiRenderer.drawSelectedMarker(g, iconX, iconY, 16);
+			g.pose().popPose();
+		}
+	}
 
-		ItemStack stack = (ItemStack) entry;
-		boolean inWhole = state.isWholeItemSelected(stack);
-		boolean inExact = state.isExactSelected(stack);
-		if (inWhole || inExact) {
+	/**
+	 * Base fill drawn before the ingredient: green for selected / rule-covered
+	 * (whole-item selections keep their slightly cooler shade), faint amber for
+	 * overlap.
+	 */
+	private static void paintBaseFill(GuiGraphics g, IngredientSourceCellState cellState,
+	                                  int iconX, int iconY, boolean inWhole) {
+		if (cellState.renderedAsSelected()) {
 			g.fill(iconX, iconY, iconX + 16, iconY + 16, inWhole ? 0x4455BB77 : 0x4466DDAA);
-		} else if (!otherItemGroupsCache.getOrDefault(stack, List.of()).isEmpty()) {
-			g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x33CC8844);
+		} else if (cellState.overlapped()) {
+			g.fill(iconX, iconY, iconX + 16, iconY + 16, OVERLAP_FILL);
 		}
-		g.renderItem(stack, iconX, iconY);
 	}
 
 	private void setHover(int idx) {
@@ -249,6 +294,11 @@ final class EditorLeftPanel {
 		if (!state.canEditContents()) {
 			return;
 		}
+		// P3b-3: rule-covered cells are not toggleable — the rule owns the membership,
+		// so a click is a no-op (the tooltip points the user at the rules mode).
+		if (!canToggleCurrentGroup(entry)) {
+			return;
+		}
 		if (isShowingFluids()) {
 			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
 			boolean was = state.isFluidSelected(fluidIngredient(fluid));
@@ -274,6 +324,27 @@ final class EditorLeftPanel {
 		onChange.run();
 		startDrag(was ? DragGesture.ITEM_REMOVE : DragGesture.ITEM_ADD,
 			was ? dragRemoveKey(stack) : dragAddKey(stack));
+	}
+
+	/**
+	 * P3b-3 gate: an entry is toggleable unless it is rule-covered by the current
+	 * group (explicit selections are never rule-covered, so they stay toggleable to
+	 * allow deselect). Guards both the click and drag toggle paths.
+	 */
+	private boolean canToggleCurrentGroup(Object entry) {
+		if (isShowingFluids()) {
+			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
+			return state.isFluidSelected(fluidIngredient(fluid))
+				|| !state.isFluidRuleCovered(EditorRuleCoverageKeys.fluidKey(fluid));
+		}
+		if (isShowingGeneric()) {
+			GenericIngredientView generic = (GenericIngredientView) entry;
+			return state.isGenericSelected(generic)
+				|| !state.isGenericRuleCovered(EditorRuleCoverageKeys.genericKey(generic));
+		}
+		ItemStack stack = (ItemStack) entry;
+		return state.isExactSelected(stack) || state.isWholeItemSelected(stack)
+			|| !state.isItemRuleCovered(EditorRuleCoverageKeys.itemKey(stack));
 	}
 
 	boolean mouseDragged(double mouseX, double mouseY, int button, EditorLayout layout) {
@@ -322,6 +393,11 @@ final class EditorLeftPanel {
 
 	private void applyDragToEntry(Object entry) {
 		if (!state.canEditContents()) {
+			return;
+		}
+		// P3b-3: same rule-covered gate as the click path — a drag over a rule-covered
+		// cell must not toggle it.
+		if (!canToggleCurrentGroup(entry)) {
 			return;
 		}
 		switch (dragGesture) {

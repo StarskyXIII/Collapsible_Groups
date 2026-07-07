@@ -16,6 +16,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 final class EditorStateCore {
 	private static final GroupFilter EMPTY_PREVIEW_FILTER = Filters.itemTag("minecraft:__cg_preview_empty__");
@@ -31,6 +32,16 @@ final class EditorStateCore {
 	private GroupFilterRuleDraft.Node pendingRuleNode;
 	private boolean contentsQuickEditAvailable;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
+
+	// P3b-3: id sets of everything the current group's rules fully match, keyed the
+	// same way the source-grid ownership caches are (item registry id, fluid
+	// resource id, "typeId|resourceId" for generic). Converged here from the single
+	// GroupRegistry.resolve* pass shared with the right-panel rebuild, so the source
+	// grid can flag rule-covered cells without re-resolving or reaching into the
+	// right panel. Rebuilt on every contents/rules draft change.
+	private Set<String> coveredItemIds = Set.of();
+	private Set<String> coveredFluidIds = Set.of();
+	private Set<String> coveredGenericKeys = Set.of();
 
 	EditorStateCore(GroupDefinition existingDefinition, Runnable onRulesDraftChanged) {
 		this(existingDefinition, false, null, onRulesDraftChanged);
@@ -126,6 +137,29 @@ final class EditorStateCore {
 
 	void setContentsQuickEditAvailable(boolean contentsQuickEditAvailable) {
 		this.contentsQuickEditAvailable = contentsQuickEditAvailable;
+	}
+
+	/**
+	 * Stores the id sets of everything the current group's rules fully match,
+	 * shared from the right-panel rebuild's single resolve pass (P3b-3). Defensive
+	 * copies; nulls become empty sets.
+	 */
+	void setCoveredSets(Set<String> itemIds, Set<String> fluidIds, Set<String> genericKeys) {
+		this.coveredItemIds = itemIds == null ? Set.of() : Set.copyOf(itemIds);
+		this.coveredFluidIds = fluidIds == null ? Set.of() : Set.copyOf(fluidIds);
+		this.coveredGenericKeys = genericKeys == null ? Set.of() : Set.copyOf(genericKeys);
+	}
+
+	boolean isItemRuleCovered(String itemId) {
+		return itemId != null && coveredItemIds.contains(itemId);
+	}
+
+	boolean isFluidRuleCovered(String fluidId) {
+		return fluidId != null && coveredFluidIds.contains(fluidId);
+	}
+
+	boolean isGenericRuleCovered(String genericKey) {
+		return genericKey != null && coveredGenericKeys.contains(genericKey);
 	}
 
 	boolean hasRulesRoot() {
