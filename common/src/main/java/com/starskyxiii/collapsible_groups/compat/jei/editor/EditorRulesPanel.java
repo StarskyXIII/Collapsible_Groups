@@ -153,6 +153,13 @@ final class EditorRulesPanel {
 	private int lastPickerClickIndex = -1;
 	private final Map<RuleNodePresentation.PickerKind, String> pickerLastSearch =
 		new EnumMap<>(RuleNodePresentation.PickerKind.class);
+	// True when the currently open PICKER modal was opened from a field-level "…" button
+	// (as opposed to beginEditor's top-level picker-vs-form branch); its four exit paths
+	// (confirm / Esc / cancel button / click-outside) all return to FORM instead of
+	// closing the editor. See confirmPickerSelection, keyPressed, pickerMouseClicked.
+	private boolean pickerReturnsToForm;
+	@Nullable
+	private RuleFieldRole pickerTargetField;
 
 	// ── Field form state ──────────────────────────────────────────────────
 	private EditBox formType;
@@ -162,6 +169,10 @@ final class EditorRulesPanel {
 	private int formVisibleFields;
 	private EditBox focusedField;
 	private boolean updatingFields;
+	// Field-level "…" picker entry point. Only ever targets PRIMARY_VALUE today
+	// (componentTypeId on HAS_COMPONENT / COMPONENT_PATH); kept generic for future reuse.
+	private boolean formPrimaryHasPickerButton;
+	private final Set<RuleFieldRole> formInvalidRoles = new HashSet<>();
 
 	EditorRulesPanel(EditorRulesState state, Font font, Runnable onChanged) {
 		this.state = state;
@@ -208,7 +219,13 @@ final class EditorRulesPanel {
 		clampScroll();
 	}
 
-	/** Closes any modal, cancelling a pending new node / restoring snapshots first. */
+	/**
+	 * Closes any modal, cancelling a pending new node / restoring snapshots first.
+	 * Called from init/resize/tab-switch: even when a field-level picker is nested on
+	 * top of the form (pickerReturnsToForm), this is a full cancel of the whole editor —
+	 * that nested-vs-top-level distinction only matters for the picker's own four exit
+	 * paths (see confirmPickerSelection / keyPressed / pickerMouseClicked).
+	 */
 	private void abortModal() {
 		if (modal == ModalKind.PICKER || modal == ModalKind.FORM) {
 			cancelEditor();
@@ -217,7 +234,10 @@ final class EditorRulesPanel {
 		modalScrollOffset = 0;
 		modalDragging = false;
 		pickerSearch = null;
+		pickerReturnsToForm = false;
+		pickerTargetField = null;
 		formType = formPrimary = formSecondary = formTertiary = null;
+		formInvalidRoles.clear();
 		focusedField = null;
 	}
 
@@ -711,18 +731,53 @@ final class EditorRulesPanel {
 		}
 	}
 
-	/** Confirm path: values are already on the node (form) or applied by caller (picker). */
+	/**
+	 * Confirm path: values are already on the node (form) or applied by caller (picker).
+	 * For FORM, required fields (per {@link RuleNodeUiContract#requiredRoles()}) must be
+	 * non-blank first — a blank required field aborts the confirm and marks itself
+	 * invalid (red outline) instead of closing the modal.
+	 */
 	private void confirmEditor() {
+		if (modal == ModalKind.FORM && !validateFormRequiredFields()) {
+			return;
+		}
 		if (editingIsNew) {
 			state.commitPendingRuleNode();
 		}
 		editingNode = null;
 		modal = ModalKind.NONE;
 		pickerSearch = null;
+		pickerReturnsToForm = false;
+		pickerTargetField = null;
 		formType = formPrimary = formSecondary = formTertiary = null;
+		formInvalidRoles.clear();
 		focusedField = null;
 		state.markRulesChanged();
 		onChanged.run();
+	}
+
+	/**
+	 * Checks the current node's required fields (contract-driven, aligned with
+	 * {@link com.starskyxiii.collapsible_groups.core.GroupFilterValidator}) and records
+	 * which are blank into {@link #formInvalidRoles} for the red-outline hint.
+	 * Returns true only when every required field is non-blank.
+	 */
+	private boolean validateFormRequiredFields() {
+		formInvalidRoles.clear();
+		if (editingNode == null) {
+			return true;
+		}
+		RuleNodeUiContract contract = RuleNodeUiContract.forKind(editingNode.kind());
+		if (contract.requiresField(RuleFieldRole.PRIMARY_VALUE) && editingNode.primaryValue().isBlank()) {
+			formInvalidRoles.add(RuleFieldRole.PRIMARY_VALUE);
+		}
+		if (contract.requiresField(RuleFieldRole.SECONDARY_VALUE) && editingNode.secondaryValue().isBlank()) {
+			formInvalidRoles.add(RuleFieldRole.SECONDARY_VALUE);
+		}
+		if (contract.requiresField(RuleFieldRole.TERTIARY_VALUE) && editingNode.tertiaryValue().isBlank()) {
+			formInvalidRoles.add(RuleFieldRole.TERTIARY_VALUE);
+		}
+		return formInvalidRoles.isEmpty();
 	}
 
 	/** Cancel path: delete a pending new node, or restore the snapshot on an existing one. */
@@ -742,7 +797,10 @@ final class EditorRulesPanel {
 		editingNode = null;
 		modal = ModalKind.NONE;
 		pickerSearch = null;
+		pickerReturnsToForm = false;
+		pickerTargetField = null;
 		formType = formPrimary = formSecondary = formTertiary = null;
+		formInvalidRoles.clear();
 		focusedField = null;
 		onChanged.run();
 	}
@@ -785,6 +843,8 @@ final class EditorRulesPanel {
 					BuiltInRegistries.ITEM.keySet().stream(),
 					BuiltInRegistries.FLUID.keySet().stream())
 				.map(ResourceLocation::getNamespace).distinct().sorted().toList();
+			case DATA_COMPONENT_TYPE -> BuiltInRegistries.DATA_COMPONENT_TYPE.keySet().stream()
+				.map(ResourceLocation::toString).sorted().toList();
 			case NONE -> List.of();
 		};
 	}
@@ -841,6 +901,7 @@ final class EditorRulesPanel {
 			case FLUID_TAG -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_FLUID_TAG;
 			case BLOCK_TAG -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_BLOCK_TAG;
 			case NAMESPACE -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_NAMESPACE;
+			case DATA_COMPONENT_TYPE -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_DATA_COMPONENT_TYPE;
 			case NONE -> ModTranslationKeys.EDITOR_RULES_EDIT_TITLE;
 		};
 		return Component.translatable(key).getString();
@@ -956,7 +1017,8 @@ final class EditorRulesPanel {
 	private boolean pickerMouseClicked(double mx, double my) {
 		EditorChrome.Rect m = pickerModalRect();
 		if (!m.contains(mx, my)) {
-			cancelEditor();
+			// Exit path: click outside the modal.
+			cancelOrReturnPicker();
 			return true;
 		}
 		EditorChrome.Rect search = pickerSearchRect(m);
@@ -987,16 +1049,23 @@ final class EditorRulesPanel {
 			return true;
 		}
 		if (pickerConfirmRect(m).contains(mx, my)) {
+			// Exit path: confirm button.
 			confirmPickerSelection();
 			return true;
 		}
 		if (pickerCancelRect(m).contains(mx, my)) {
-			cancelEditor();
+			// Exit path: cancel button.
+			cancelOrReturnPicker();
 			return true;
 		}
 		return true;
 	}
 
+	/**
+	 * Exit path: confirm (button, double-click, or Enter — see keyPressed). When the
+	 * picker was opened from a field-level "…" button, writes the value back through
+	 * {@link #setFormFieldValue} and reopens FORM instead of closing the whole editor.
+	 */
 	private void confirmPickerSelection() {
 		if (editingNode == null || pickerSelected < 0) {
 			return;
@@ -1011,8 +1080,34 @@ final class EditorRulesPanel {
 			}
 			value = pickerFiltered.get(index);
 		}
+		if (pickerReturnsToForm) {
+			RuleFieldRole target = pickerTargetField;
+			pickerReturnsToForm = false;
+			pickerTargetField = null;
+			openForm();
+			if (target != null) {
+				setFormFieldValue(target, value);
+			}
+			return;
+		}
 		editingNode.setPrimaryValue(value);
 		confirmEditor();
+	}
+
+	/**
+	 * Exit path shared by Esc / cancel button / click-outside: when nested inside FORM
+	 * via the field-level "…" button, discards the picker and returns to FORM unchanged
+	 * (the field keeps whatever value it already had); otherwise this is a top-level
+	 * picker (beginEditor's picker-vs-form branch) and cancels the whole pending edit.
+	 */
+	private void cancelOrReturnPicker() {
+		if (pickerReturnsToForm) {
+			pickerReturnsToForm = false;
+			pickerTargetField = null;
+			openForm();
+			return;
+		}
+		cancelEditor();
 	}
 
 	/** Moves the picker row selection by ±1 with wraparound, scrolling to keep it visible. */
@@ -1050,6 +1145,12 @@ final class EditorRulesPanel {
 		boolean showTertiary = contract.exposesField(RuleFieldRole.TERTIARY_VALUE);
 		formVisibleFields = (showType ? 1 : 0) + (showPrimary ? 1 : 0)
 			+ (showSecondary ? 1 : 0) + (showTertiary ? 1 : 0);
+		// componentTypeId (primaryValue on HAS_COMPONENT / COMPONENT_PATH) gets a field-level
+		// "…" button opening the DATA_COMPONENT_TYPE picker; see confirmPickerSelection /
+		// cancelOrReturnPicker for the four exit paths that return to this form.
+		formPrimaryHasPickerButton = showPrimary
+			&& (editingNode.kind() == GroupFilterRuleDraft.NodeKind.HAS_COMPONENT
+				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.COMPONENT_PATH);
 
 		EditorChrome.Rect m = formModalRect();
 		int fx = m.x() + GAP;
@@ -1064,23 +1165,24 @@ final class EditorRulesPanel {
 			formType.setTextColorUneditable(OreUiPalette.TEXT_DISABLED);
 			fy += FIELD_H + FIELD_GAP;
 		}
+		int primaryFieldW = formPrimaryHasPickerButton ? fw - ICON_BTN_W - FIELD_GAP : fw;
 		formPrimary = showPrimary
-			? buildFormField(fx, fy, fw, primaryHint(editingNode), editingNode.primaryValue(),
-				editingNode::setPrimaryValue)
+			? buildFormField(fx, fy, primaryFieldW, primaryHint(editingNode), editingNode.primaryValue(),
+				editingNode::setPrimaryValue, RuleFieldRole.PRIMARY_VALUE)
 			: null;
 		if (formPrimary != null) {
 			fy += FIELD_H + FIELD_GAP;
 		}
 		formSecondary = showSecondary
 			? buildFormField(fx, fy, fw, secondaryHint(editingNode), editingNode.secondaryValue(),
-				editingNode::setSecondaryValue)
+				editingNode::setSecondaryValue, RuleFieldRole.SECONDARY_VALUE)
 			: null;
 		if (formSecondary != null) {
 			fy += FIELD_H + FIELD_GAP;
 		}
 		formTertiary = showTertiary
 			? buildFormField(fx, fy, fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE),
-				editingNode.tertiaryValue(), editingNode::setTertiaryValue)
+				editingNode.tertiaryValue(), editingNode::setTertiaryValue, RuleFieldRole.TERTIARY_VALUE)
 			: null;
 
 		EditBox first = formPrimary != null ? formPrimary : formSecondary;
@@ -1088,6 +1190,47 @@ final class EditorRulesPanel {
 			first.setFocused(true);
 			focusedField = first;
 		}
+	}
+
+	/**
+	 * Single entry point for writing a value back into a FORM field from outside the
+	 * field's own EditBox responder — used by the field-level picker's confirm exit path
+	 * today, and intended for P6d's GhostDrop reuse. Updates the node, the EditBox's
+	 * displayed text (guarded by {@code updatingFields} so the responder doesn't re-fire
+	 * a redundant write), and clears any stale invalid-field highlight for the role.
+	 */
+	private void setFormFieldValue(RuleFieldRole role, String value) {
+		if (editingNode == null) {
+			return;
+		}
+		String safe = value == null ? "" : value;
+		EditBox box = switch (role) {
+			case INGREDIENT_TYPE -> formType;
+			case PRIMARY_VALUE -> formPrimary;
+			case SECONDARY_VALUE -> formSecondary;
+			case TERTIARY_VALUE -> formTertiary;
+		};
+		switch (role) {
+			case INGREDIENT_TYPE -> editingNode.setIngredientType(safe);
+			case PRIMARY_VALUE -> editingNode.setPrimaryValue(safe);
+			case SECONDARY_VALUE -> editingNode.setSecondaryValue(safe);
+			case TERTIARY_VALUE -> editingNode.setTertiaryValue(safe);
+		}
+		if (box != null) {
+			updatingFields = true;
+			try {
+				box.setValue(safe);
+			} finally {
+				updatingFields = false;
+			}
+		}
+		formInvalidRoles.remove(role);
+		state.markRulesChanged();
+		onChanged.run();
+	}
+
+	private EditorChrome.Rect formFieldPickerButtonRect(EditorChrome.Rect m, int fy) {
+		return new EditorChrome.Rect(m.right() - GAP - ICON_BTN_W, fy, ICON_BTN_W, FIELD_H);
 	}
 
 	private static boolean isExoticIngredientType(String type) {
@@ -1100,6 +1243,15 @@ final class EditorRulesPanel {
 	}
 
 	private EditBox buildFormField(int x, int y, int w, Component hint, String value, FieldWriter writer) {
+		return buildFormField(x, y, w, hint, value, writer, null);
+	}
+
+	/**
+	 * @param role when non-null, typing in this field clears its stale invalid-field
+	 *             (red outline) highlight from a previous failed confirm attempt.
+	 */
+	private EditBox buildFormField(int x, int y, int w, Component hint, String value, FieldWriter writer,
+	                                @Nullable RuleFieldRole role) {
 		EditBox box = new EditBox(font, x + 4, y + (FIELD_H - font.lineHeight) / 2, w - 8, font.lineHeight + 2,
 			Component.empty());
 		box.setBordered(false);
@@ -1111,6 +1263,9 @@ final class EditorRulesPanel {
 				return;
 			}
 			writer.set(text);
+			if (role != null) {
+				formInvalidRoles.remove(role);
+			}
 			state.markRulesChanged();
 			onChanged.run();
 		});
@@ -1136,6 +1291,26 @@ final class EditorRulesPanel {
 		return new EditorChrome.Rect(confirm.x() - GAP - width, confirm.y(), width, BTN_H);
 	}
 
+	/** (field, role) pairs in form layout order; role is used for invalid-outline lookup. */
+	private record FormFieldEntry(EditBox field, RuleFieldRole role) {}
+
+	private List<FormFieldEntry> formFieldEntries() {
+		List<FormFieldEntry> entries = new ArrayList<>(4);
+		if (formType != null) {
+			entries.add(new FormFieldEntry(formType, RuleFieldRole.INGREDIENT_TYPE));
+		}
+		if (formPrimary != null) {
+			entries.add(new FormFieldEntry(formPrimary, RuleFieldRole.PRIMARY_VALUE));
+		}
+		if (formSecondary != null) {
+			entries.add(new FormFieldEntry(formSecondary, RuleFieldRole.SECONDARY_VALUE));
+		}
+		if (formTertiary != null) {
+			entries.add(new FormFieldEntry(formTertiary, RuleFieldRole.TERTIARY_VALUE));
+		}
+		return entries;
+	}
+
 	private void renderForm(GuiGraphics g, int mouseX, int mouseY) {
 		EditorChrome.Rect m = formModalRect();
 		String title = Component.translatable(ModTranslationKeys.EDITOR_RULES_EDIT_TITLE).getString();
@@ -1146,13 +1321,26 @@ final class EditorRulesPanel {
 		drawModalPanel(g, m, title);
 
 		int fy = m.y() + GAP + font.lineHeight + 6;
-		for (EditBox field : new EditBox[] {formType, formPrimary, formSecondary, formTertiary}) {
-			if (field == null) {
-				continue;
+		for (FormFieldEntry entry : formFieldEntries()) {
+			boolean hasPickerButton = entry.field() == formPrimary && formPrimaryHasPickerButton;
+			int fieldWidth = hasPickerButton
+				? m.width() - GAP * 2 - ICON_BTN_W - FIELD_GAP
+				: m.width() - GAP * 2;
+			EditorChrome.Rect fieldRect = new EditorChrome.Rect(m.x() + GAP, fy, fieldWidth, FIELD_H);
+			boolean invalid = formInvalidRoles.contains(entry.role());
+			if (invalid) {
+				OreUiRenderer.drawOutline(g, fieldRect.x(), fieldRect.y(), fieldRect.width(), fieldRect.height(),
+					OreUiPalette.DANGER);
+			} else {
+				drawFieldChrome(g, fieldRect, entry.field().isFocused(), fieldRect.contains(mouseX, mouseY));
 			}
-			EditorChrome.Rect fieldRect = new EditorChrome.Rect(m.x() + GAP, fy, m.width() - GAP * 2, FIELD_H);
-			drawFieldChrome(g, fieldRect, field.isFocused(), fieldRect.contains(mouseX, mouseY));
-			field.render(g, mouseX, mouseY, 0);
+			entry.field().render(g, mouseX, mouseY, 0);
+			if (hasPickerButton) {
+				EditorChrome.Rect pickerBtn = formFieldPickerButtonRect(m, fy);
+				OreUiRenderer.drawButton(g, font, pickerBtn.x(), pickerBtn.y(), pickerBtn.width(), pickerBtn.height(),
+					Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PICKER_BUTTON).getString(),
+					buttonState(true, pickerBtn.contains(mouseX, mouseY)));
+			}
 			fy += FIELD_H + FIELD_GAP;
 		}
 
@@ -1181,18 +1369,37 @@ final class EditorRulesPanel {
 			return true;
 		}
 		int fy = m.y() + GAP + font.lineHeight + 6;
-		for (EditBox field : new EditBox[] {formType, formPrimary, formSecondary, formTertiary}) {
-			if (field == null) {
-				continue;
+		for (FormFieldEntry entry : formFieldEntries()) {
+			boolean hasPickerButton = entry.field() == formPrimary && formPrimaryHasPickerButton;
+			if (hasPickerButton && formFieldPickerButtonRect(m, fy).contains(mx, my)) {
+				openFieldPicker(RuleFieldRole.PRIMARY_VALUE);
+				return true;
 			}
 			if (my >= fy && my < fy + FIELD_H && mx >= m.x() + GAP && mx < m.right() - GAP) {
-				setFocusedField(field);
-				field.mouseClicked(mx, my, 0);
+				setFocusedField(entry.field());
+				entry.field().mouseClicked(mx, my, 0);
 				return true;
 			}
 			fy += FIELD_H + FIELD_GAP;
 		}
 		return true;
+	}
+
+	/**
+	 * Field-level picker entry point: switches FORM to a DATA_COMPONENT_TYPE
+	 * PICKER for {@code targetRole}, without touching the pending-node lifecycle
+	 * (editingNode / editingIsNew are untouched — only the modal switches). The four
+	 * exit paths (confirmPickerSelection / cancelOrReturnPicker / keyPressed Escape)
+	 * bring the panel back to FORM via {@link #setFormFieldValue}.
+	 */
+	private void openFieldPicker(RuleFieldRole targetRole) {
+		if (editingNode == null) {
+			return;
+		}
+		pickerReturnsToForm = true;
+		pickerTargetField = targetRole;
+		pickerKind = RuleNodePresentation.PickerKind.DATA_COMPONENT_TYPE;
+		openPicker();
 	}
 
 	private void setFocusedField(EditBox field) {
@@ -1420,12 +1627,19 @@ final class EditorRulesPanel {
 			movePickerSelection(key == 264 ? 1 : -1);
 			return true;
 		}
+		if (modal == ModalKind.FORM && key == 258) { // Tab
+			cycleFormFocus((mods & 0x1) != 0); // GLFW_MOD_SHIFT
+			return true;
+		}
 		if (focusedField != null && focusedField.isFocused() && focusedField.keyPressed(key, scan, mods)) {
 			return true;
 		}
 		if (isModalOpen()) {
 			if (key == 256) { // Escape
-				if (modal == ModalKind.PICKER || modal == ModalKind.FORM) {
+				if (modal == ModalKind.PICKER) {
+					// Exit path: Esc.
+					cancelOrReturnPicker();
+				} else if (modal == ModalKind.FORM) {
 					cancelEditor();
 				} else {
 					modal = ModalKind.NONE;
@@ -1434,6 +1648,7 @@ final class EditorRulesPanel {
 			}
 			if (key == 257 || key == 335) { // Enter
 				if (modal == ModalKind.PICKER) {
+					// Exit path: Enter (same as confirm button).
 					confirmPickerSelection();
 					return true;
 				}
@@ -1445,6 +1660,30 @@ final class EditorRulesPanel {
 			return true;
 		}
 		return false;
+	}
+
+	/** Tab focus cycling within FORM's visible, editable fields (Shift+Tab reverses). */
+	private void cycleFormFocus(boolean reverse) {
+		List<EditBox> fields = new ArrayList<>(4);
+		// formType is always read-only (setEditable(false) in openForm) so it's excluded
+		// here; EditBox#isEditable() isn't visible to us, so we track it structurally
+		// instead of calling it.
+		for (EditBox field : new EditBox[] {formPrimary, formSecondary, formTertiary}) {
+			if (field != null) {
+				fields.add(field);
+			}
+		}
+		if (fields.isEmpty()) {
+			return;
+		}
+		int current = focusedField == null ? -1 : fields.indexOf(focusedField);
+		int next;
+		if (current < 0) {
+			next = reverse ? fields.size() - 1 : 0;
+		} else {
+			next = Math.floorMod(current + (reverse ? -1 : 1), fields.size());
+		}
+		setFocusedField(fields.get(next));
 	}
 
 	boolean charTyped(char c, int mods) {

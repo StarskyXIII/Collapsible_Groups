@@ -327,7 +327,12 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_RULES_PICKER_TITLE_NAMESPACE = "collapsible_groups.editor.rules.picker.title.namespace";
 
+	public static final String EDITOR_RULES_PICKER_TITLE_DATA_COMPONENT_TYPE = "collapsible_groups.editor.rules.picker.title.data_component_type";
+
 	public static final String EDITOR_RULES_PICKER_SEARCH = "collapsible_groups.editor.rules.picker.search";
+
+	/** Tooltip/label for the field-level "…" button that opens the component type picker. */
+	public static final String EDITOR_RULES_FIELD_PICKER_BUTTON = "collapsible_groups.editor.rules.field.picker_button";
 
 	/** Args: raw value (%s) */
 	public static final String EDITOR_RULES_PICKER_FALLBACK = "collapsible_groups.editor.rules.picker.fallback";

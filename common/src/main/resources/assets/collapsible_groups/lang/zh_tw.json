@@ -170,6 +170,8 @@
   "collapsible_groups.editor.rules.picker.title.fluid_tag": "選擇流體標籤",
   "collapsible_groups.editor.rules.picker.title.block_tag": "選擇方塊標籤",
   "collapsible_groups.editor.rules.picker.title.namespace": "選擇命名空間",
+  "collapsible_groups.editor.rules.picker.title.data_component_type": "選擇元件類型",
+  "collapsible_groups.editor.rules.field.picker_button": "...",
   "collapsible_groups.editor.rules.picker.search": "搜尋...",
   "collapsible_groups.editor.rules.picker.fallback": "直接使用「%s」（未解析）",
   "collapsible_groups.editor.rules.picker.empty": "沒有符合的項目",

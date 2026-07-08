@@ -170,6 +170,8 @@
   "collapsible_groups.editor.rules.picker.title.fluid_tag": "Select fluid tag",
   "collapsible_groups.editor.rules.picker.title.block_tag": "Select block tag",
   "collapsible_groups.editor.rules.picker.title.namespace": "Select namespace",
+  "collapsible_groups.editor.rules.picker.title.data_component_type": "Select component type",
+  "collapsible_groups.editor.rules.field.picker_button": "...",
   "collapsible_groups.editor.rules.picker.search": "Search...",
   "collapsible_groups.editor.rules.picker.fallback": "Use \"%s\" (unresolved)",
   "collapsible_groups.editor.rules.picker.empty": "No matches",

@@ -53,7 +53,7 @@ public final class EditorSettingsPanel {
 	private static final int COLOR_DYE_SIZE = 14;
 	private static final int COLOR_DYE_GAP = 3;
 	// Track length only; the slider visual language (track/knob geometry and
-	// anatomy) lives in OreUiRenderer.drawSlider (P5-polish-8).
+	// anatomy) lives in OreUiRenderer.drawSlider.
 	private static final int COLOR_SLIDER_WIDTH = 132;
 	private static final int PANEL_INSET = 8;
 	private static final int ERROR_TEXT_COLOR = 0xFFFF6B5F;

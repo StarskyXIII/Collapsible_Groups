@@ -18,7 +18,8 @@ public final class RuleNodePresentation {
 		ITEM_TAG,
 		FLUID_TAG,
 		BLOCK_TAG,
-		NAMESPACE
+		NAMESPACE,
+		DATA_COMPONENT_TYPE
 	}
 
 	public enum BlockAccent {
