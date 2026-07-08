@@ -359,6 +359,19 @@ final class EditorStateCore {
 		return node;
 	}
 
+	boolean canMoveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent) {
+		return ruleDraft.canMove(node, targetParent);
+	}
+
+	boolean moveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent, int index) {
+		if (!ruleDraft.moveNode(node, targetParent, index)) {
+			return false;
+		}
+		selectedRuleNode = node;
+		onRulesDraftChanged.run();
+		return true;
+	}
+
 	void deleteSelectedRule() {
 		if (selectedRuleNode == null) {
 			return;

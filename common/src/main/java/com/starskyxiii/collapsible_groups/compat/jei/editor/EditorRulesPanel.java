@@ -72,6 +72,8 @@ final class EditorRulesPanel {
 	private static final int COL_ROW_HOVER = 0x18FFFFFF;
 	private static final int COL_PICKER_HOVER = 0x33FFFFFF;
 	private static final int COL_MODAL_DIM = 0x99060A12;
+	private static final int COL_DROP_TARGET = 0x553C8527;
+	private static final int COL_GHOST_BG = 0xE01A1D24;
 
 	private enum ModalKind { NONE, MENU, PICKER, FORM }
 
@@ -108,6 +110,78 @@ final class EditorRulesPanel {
 
 	private record Row(GroupFilterRuleDraft.Node node, int depth, String path, boolean collapsed) {}
 
+	// ── Drop-slot model (P6b-2) ───────────────────────────────────────────
+	// A resolved drop position while a reparent drag is live.
+	//   INTO(parent)        → drop lands at the tail of parent's children (P6b behaviour).
+	//   BETWEEN(parent, i)  → insert as parent's i-th child, i in *pre-detach* caller
+	//                         coordinates (moveNode reinterprets it after detach).
+	// depth is the *inserted* node's indent depth, used to place the insertion line's x.
+	// Package-private (not private) so EditorRulesPanelDropSlotTest can exercise resolveSlot.
+	enum SlotKind { INTO, BETWEEN }
+
+	record DropSlot(SlotKind kind, GroupFilterRuleDraft.Node parent, int index, int depth) {}
+
+	/**
+	 * Pure band → slot decision. Takes only plain data (no GuiGraphics / MC types) so it is
+	 * covered directly by common tests. Returns the geometric slot candidate, or {@code null}
+	 * for a suppressed no-op. Cycle/capacity validity ({@code canMove(drag, slot.parent)}) is
+	 * applied by the caller — this function only decides the band geometry and the
+	 * {oldIndex, oldIndex+1} no-op suppression against pre-detach coordinates.
+	 *
+	 * @param f                 vertical fraction within the row, {@code (my-rowTop)/ROW_H}; may
+	 *                          be {@code >= 1.0} when the pointer sits in the ROW_GAP band below.
+	 * @param node              the hovered row's node.
+	 * @param nodeParent        {@code node.parent()} (null only for the root).
+	 * @param indexInParent     {@code nodeParent.children().indexOf(node)}; ignored for root.
+	 * @param nodeDepth         the hovered row's indent depth.
+	 * @param hasVisibleChildren expanded compound with at least one visible child row.
+	 * @param dragParent        the dragged node's current parent (for no-op suppression).
+	 * @param dragOldIndex      the dragged node's current index within {@code dragParent}.
+	 */
+	static DropSlot resolveSlot(
+			double f,
+			GroupFilterRuleDraft.Node node,
+			GroupFilterRuleDraft.Node nodeParent,
+			int indexInParent,
+			int nodeDepth,
+			boolean hasVisibleChildren,
+			GroupFilterRuleDraft.Node dragParent,
+			int dragOldIndex) {
+		boolean compound = node.kind().compound();
+		boolean isRoot = nodeParent == null;
+		DropSlot slot;
+		if (compound) {
+			// Root has no top band: its whole upper half folds into the INTO(root) middle band.
+			double top = isRoot ? 0.0 : 0.25;
+			if (f < top) {
+				// Insert as a sibling directly above this compound.
+				slot = new DropSlot(SlotKind.BETWEEN, nodeParent, indexInParent, nodeDepth);
+			} else if (f < 0.75) {
+				// Drop into this compound (tail append — the P6b behaviour).
+				slot = new DropSlot(SlotKind.INTO, node, 0, nodeDepth);
+			} else if (hasVisibleChildren) {
+				// Lower band of an expanded, non-empty compound → become its first child, which
+				// matches the visual gap opening just under the compound header.
+				slot = new DropSlot(SlotKind.BETWEEN, node, 0, nodeDepth + 1);
+			} else {
+				// Collapsed or empty compound → insert as a sibling directly below it.
+				slot = new DropSlot(SlotKind.BETWEEN, nodeParent, indexInParent + 1, nodeDepth);
+			}
+		} else {
+			// Leaf row: upper half inserts above, lower half (incl. gap band) below.
+			int idx = f < 0.5 ? indexInParent : indexInParent + 1;
+			slot = new DropSlot(SlotKind.BETWEEN, nodeParent, idx, nodeDepth);
+		}
+		// No-op suppression: a BETWEEN that would drop the node back into one of the two gaps
+		// bordering its current slot has no effect. Compared in pre-detach coordinates.
+		if (slot.kind() == SlotKind.BETWEEN
+				&& slot.parent() == dragParent
+				&& (slot.index() == dragOldIndex || slot.index() == dragOldIndex + 1)) {
+			return null;
+		}
+		return slot;
+	}
+
 	// ── Dependencies ──────────────────────────────────────────────────────
 	private final EditorRulesState state;
 	private final Font font;
@@ -122,6 +196,23 @@ final class EditorRulesPanel {
 	private boolean draggingScroll;
 	private double dragStartY;
 	private int dragStartOffset;
+
+	// ── Node reparent drag ────────────────────────────────────────────────
+	// dragCandidate is armed on a bare row-body press (glyph / chip / edit / delete /
+	// scrollbar hits are excluded so they fire their own action instead). It promotes to
+	// dragNode only once the pointer travels past DRAG_THRESHOLD, preserving single-click
+	// selection semantics for taps that never move.
+	private static final int DRAG_THRESHOLD = 4;
+	@Nullable
+	private GroupFilterRuleDraft.Node dragCandidate;
+	@Nullable
+	private GroupFilterRuleDraft.Node dragNode;
+	@Nullable
+	private DropSlot dropSlot;
+	// Screen-space Y of the BETWEEN insertion line (undefined for INTO / null slot).
+	private int dropLineY;
+	private double dragOriginX;
+	private double dragOriginY;
 
 	// ── Modal state ───────────────────────────────────────────────────────
 	private ModalKind modal = ModalKind.NONE;
@@ -239,6 +330,7 @@ final class EditorRulesPanel {
 		formType = formPrimary = formSecondary = formTertiary = null;
 		formInvalidRoles.clear();
 		focusedField = null;
+		clearDrag();
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -336,18 +428,51 @@ final class EditorRulesPanel {
 		int listMouseY = modalUp ? Integer.MIN_VALUE : mouseY;
 		renderToolbar(g, listMouseX, listMouseY);
 		renderList(g, listMouseX, listMouseY);
-		if (modalUp) {
-			g.pose().pushPose();
-			g.pose().translate(0, 0, MODAL_Z);
-			g.fill(bodyX, bodyY, bodyX + bodyW, bodyY + bodyH, COL_MODAL_DIM);
-			switch (modal) {
-				case MENU -> renderMenu(g, mouseX, mouseY);
-				case PICKER -> renderPicker(g, mouseX, mouseY);
-				case FORM -> renderForm(g, mouseX, mouseY);
-				default -> {}
-			}
-			g.pose().popPose();
+		// Drag ghost tag follows the pointer, drawn last and outside any scissor so it can
+		// float over the whole body. Modal dimming/drawing is now hoisted to the full-screen
+		// layer by the Screen via renderModals(), so nothing modal-related happens here.
+		if (dragNode != null) {
+			renderDragGhost(g, mouseX, mouseY);
 		}
+	}
+
+	/**
+	 * Full-screen modal layer: dims the entire screen (header / footer / preview included)
+	 * then draws the active rules modal on top. Called by the Screen at the shell's top Z,
+	 * mirroring the LOOK-mode settings precedent, so the dim is no longer confined to the
+	 * rules body. {@link #render} intentionally no longer paints modals or a body-only dim.
+	 */
+	void renderModals(GuiGraphics g, int screenW, int screenH, int mouseX, int mouseY) {
+		if (!isModalOpen()) {
+			return;
+		}
+		g.pose().pushPose();
+		g.pose().translate(0, 0, MODAL_Z);
+		g.fill(0, 0, screenW, screenH, COL_MODAL_DIM);
+		switch (modal) {
+			case MENU -> renderMenu(g, mouseX, mouseY);
+			case PICKER -> renderPicker(g, mouseX, mouseY);
+			case FORM -> renderForm(g, mouseX, mouseY);
+			default -> {}
+		}
+		g.pose().popPose();
+	}
+
+	private void renderDragGhost(GuiGraphics g, int mouseX, int mouseY) {
+		if (dragNode == null) {
+			return;
+		}
+		String label = chipLabel(dragNode);
+		int w = font.width(label) + 8;
+		int h = font.lineHeight + 4;
+		int gx = mouseX + 8;
+		int gy = mouseY + 8;
+		g.pose().pushPose();
+		g.pose().translate(0, 0, MODAL_Z);
+		g.fill(gx, gy, gx + w, gy + h, COL_GHOST_BG);
+		OreUiRenderer.drawOutline(g, gx, gy, w, h, OreUiPalette.OUTLINE_SELECTED);
+		g.drawString(font, label, gx + 4, gy + 2, OreUiPalette.TEXT_SELECTED, false);
+		g.pose().popPose();
 	}
 
 	private void renderToolbar(GuiGraphics g, int mouseX, int mouseY) {
@@ -423,6 +548,12 @@ final class EditorRulesPanel {
 				y += ROW_H + ROW_GAP;
 			}
 			renderAccentBars(g, list, rows);
+			// BETWEEN drop line (P6b-2): 2px accent between rows, indented to the inserted node's
+			// level. INTO uses the row highlight in renderRow instead. Kept inside the list scissor.
+			if (dropSlot != null && dropSlot.kind() == SlotKind.BETWEEN) {
+				int lineX = list.x() + PAD + dropSlot.depth() * INDENT_W;
+				g.fill(lineX, dropLineY, list.right() - PAD, dropLineY + 2, OreUiPalette.BUTTON_PRIMARY);
+			}
 		} finally {
 			g.disableScissor();
 		}
@@ -458,7 +589,11 @@ final class EditorRulesPanel {
 		GroupFilterRuleDraft.Node node = row.node();
 		boolean selected = node == state.selectedRuleNode();
 		boolean rowHover = mouseY >= y && mouseY < y + ROW_H && mouseX >= list.x() && mouseX < list.right();
-		if (selected) {
+		boolean intoTarget = dropSlot != null && dropSlot.kind() == SlotKind.INTO && dropSlot.parent() == node;
+		if (intoTarget) {
+			g.fill(list.x() + 1, y, list.right() - 1, y + ROW_H, COL_DROP_TARGET);
+			OreUiRenderer.drawOutline(g, list.x() + 1, y, list.width() - 2, ROW_H, CHIP_POSITIVE);
+		} else if (selected) {
 			g.fill(list.x() + 1, y, list.right() - 1, y + ROW_H, COL_ROW_SELECTED);
 		} else if (rowHover) {
 			g.fill(list.x() + 1, y, list.right() - 1, y + ROW_H, COL_ROW_HOVER);
@@ -1450,6 +1585,7 @@ final class EditorRulesPanel {
 		}
 
 		clearFocus();
+		clearDrag();
 
 		EditorChrome.Rect addCond = addConditionRect();
 		if (addCond.contains(mx, my)) {
@@ -1535,7 +1671,15 @@ final class EditorRulesPanel {
 				return true;
 			}
 		}
+		// [pre-審條件 5] Only a bare row-body press (past glyph / chip / edit·delete / scrollbar
+		// hits, all of which returned above) arms the reparent drag candidate. Root is skipped —
+		// canMove rejects it anyway, but arming it would show a ghost with nowhere to drop.
 		state.selectRuleNode(node);
+		if (node.parent() != null) {
+			dragCandidate = node;
+			dragOriginX = mx;
+			dragOriginY = my;
+		}
 		return true;
 	}
 
@@ -1551,7 +1695,25 @@ final class EditorRulesPanel {
 			}
 			return true;
 		}
-		if (button != 0 || !draggingScroll) {
+		if (button != 0) {
+			return false;
+		}
+		// Node reparent drag takes priority over scrollbar dragging (the two never arm
+		// together — dragCandidate is only set on a bare row-body press, scrollbar drag on a
+		// gutter press). Promote the candidate to an active drag past the travel threshold.
+		if (dragNode != null || dragCandidate != null) {
+			if (dragNode == null
+				&& Math.abs(mx - dragOriginX) < DRAG_THRESHOLD
+				&& Math.abs(my - dragOriginY) < DRAG_THRESHOLD) {
+				return true; // still within the click tolerance — keep single-click semantics
+			}
+			if (dragNode == null) {
+				dragNode = dragCandidate;
+			}
+			updateDropSlot(mx, my);
+			return true;
+		}
+		if (!draggingScroll) {
 			return false;
 		}
 		EditorChrome.Rect list = listRect();
@@ -1560,13 +1722,116 @@ final class EditorRulesPanel {
 		return true;
 	}
 
+	/**
+	 * Hit-tests the row under the pointer and records the resolved {@link #dropSlot}. Shared by
+	 * drag / scroll / release so the three never disagree.
+	 *
+	 * <p>Coordinate discipline: {@code index} here is a <em>row (geometry) index</em>, used only
+	 * to locate the hovered row. The model index handed to moveNode is always
+	 * {@code parent.children().indexOf(node)} — while a compound is collapsed its visual row
+	 * index diverges from its model index (buildRows' {@code skipDeeperThan} skips descendant
+	 * rows), so the two must never be conflated.
+	 */
+	private void updateDropSlot(double mx, double my) {
+		dropSlot = null;
+		if (dragNode == null) {
+			return;
+		}
+		EditorChrome.Rect list = listRect();
+		if (!list.contains(mx, my)) {
+			return;
+		}
+		List<Row> rows = buildRows();
+		int stride = ROW_H + ROW_GAP;
+		int index = (int) ((my - list.y() - PAD + scrollOffset) / stride);
+		if (index < 0 || index >= rows.size()) {
+			return;
+		}
+		int rowTop = list.y() + PAD - scrollOffset + index * stride;
+		// [pre-審必改 1] Do NOT early-return on the ROW_GAP band (my >= rowTop + ROW_H): f then
+		// runs into [1.0, 1.1) and folds into the row's lower band. No slot is silently dropped.
+		double f = (my - rowTop) / (double) ROW_H;
+		Row row = rows.get(index);
+		GroupFilterRuleDraft.Node node = row.node();
+		GroupFilterRuleDraft.Node nodeParent = node.parent();
+		int indexInParent = nodeParent == null ? -1 : nodeParent.children().indexOf(node);
+		boolean hasVisibleChildren = node.kind().compound() && !row.collapsed()
+			&& index + 1 < rows.size() && rows.get(index + 1).depth() > row.depth();
+
+		GroupFilterRuleDraft.Node dragParent = dragNode.parent();
+		int dragOldIndex = dragParent == null ? -1 : dragParent.children().indexOf(dragNode);
+
+		DropSlot slot = resolveSlot(f, node, nodeParent, indexInParent, row.depth(),
+			hasVisibleChildren, dragParent, dragOldIndex);
+		if (slot == null) {
+			return;
+		}
+		// [pre-審必改 2] Validity via canMove against the *slot's parent* (for BETWEEN(node,0)
+		// that parent is node itself), so the cycle/capacity guard actually covers the insertion
+		// target and no invalid line is drawn.
+		if (slot.kind() == SlotKind.INTO) {
+			if (!state.canMoveRuleNode(dragNode, slot.parent())) {
+				return;
+			}
+		} else {
+			if (slot.parent() == null || !state.canMoveRuleNode(dragNode, slot.parent())) {
+				return;
+			}
+		}
+		dropSlot = slot;
+		// Insertion-line Y: centre of the gap the line sits in, aligned to renderAccentBars'
+		// "+ROW_H" bottom-of-row baseline. "Above" bands hug the gap above the hovered row;
+		// "into-first-child" and "below" bands hug the gap under it.
+		boolean above = row.node().kind().compound() ? f < (nodeParent == null ? 0.0 : 0.25) : f < 0.5;
+		if (slot.kind() == SlotKind.BETWEEN && above) {
+			dropLineY = rowTop - (ROW_GAP + 1) / 2;
+		} else {
+			dropLineY = rowTop + ROW_H + ROW_GAP / 2;
+		}
+	}
+
 	boolean mouseReleased(double mx, double my, int button) {
 		draggingScroll = false;
 		modalDragging = false;
+		if (dragNode != null) {
+			// Recompute against the release position, then commit. INTO drops at the tail of the
+			// target compound (P6b behaviour); BETWEEN inserts at the pre-detach index (moveNode
+			// reinterprets it after the detach).
+			updateDropSlot(mx, my);
+			if (dropSlot != null) {
+				GroupFilterRuleDraft.Node node = dragNode;
+				int index = dropSlot.kind() == SlotKind.INTO
+					? dropSlot.parent().children().size()
+					: dropSlot.index();
+				if (state.moveRuleNode(node, dropSlot.parent(), index)) {
+					onChanged.run();
+				}
+			}
+			clearDrag();
+			return true;
+		}
+		clearDrag();
 		return false;
 	}
 
+	private void clearDrag() {
+		dragCandidate = null;
+		dragNode = null;
+		dropSlot = null;
+	}
+
 	boolean mouseScrolled(double mx, double my, double deltaY) {
+		if (dragNode != null) {
+			// Scroll stays unlocked mid-drag so long lists can be scrolled to reach an off-screen
+			// drop position; recompute the slot afterwards. (Scrollbar-drag / selection / collapse
+			// remain locked via their own gates.)
+			EditorChrome.Rect list = listRect();
+			int max = Math.max(0, contentHeight(buildRows()) - list.height());
+			scrollOffset = ScrollbarHelper.clamp(
+				scrollOffset - (int) Math.signum(deltaY) * (ROW_H + ROW_GAP), 0, max);
+			updateDropSlot(mx, my);
+			return true;
+		}
 		if (modal == ModalKind.MENU) {
 			EditorChrome.Rect list = menuListRect(menuModalRect());
 			scrollModal(deltaY, menuContentHeight(), list.height());
@@ -1623,6 +1888,13 @@ final class EditorRulesPanel {
 	}
 
 	boolean keyPressed(int key, int scan, int mods) {
+		// Esc aborts an in-progress reparent drag first, before any modal / close-editor
+		// handling. This branch only fires while a drag is live (modal is NONE then), so it
+		// never contends with the modal-Esc / Screen-close-editor paths below or upstream.
+		if (key == 256 && dragNode != null) { // Escape
+			clearDrag();
+			return true;
+		}
 		if (modal == ModalKind.PICKER && (key == 265 || key == 264)) { // Up / Down
 			movePickerSelection(key == 264 ? 1 : -1);
 			return true;

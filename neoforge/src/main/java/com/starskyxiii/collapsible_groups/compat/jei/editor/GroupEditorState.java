@@ -344,6 +344,16 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	}
 
 	@Override
+	public boolean canMoveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent) {
+		return core.canMoveRuleNode(node, targetParent);
+	}
+
+	@Override
+	public boolean moveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent, int index) {
+		return core.moveRuleNode(node, targetParent, index);
+	}
+
+	@Override
 	public void deleteSelectedRule() {
 		core.deleteSelectedRule();
 	}

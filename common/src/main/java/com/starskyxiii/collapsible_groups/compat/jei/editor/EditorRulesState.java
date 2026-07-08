@@ -41,6 +41,10 @@ public interface EditorRulesState {
 	@Nullable
 	GroupFilterRuleDraft.Node wrapSelectedRule(GroupFilterRuleDraft.NodeKind kind);
 
+	boolean canMoveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent);
+
+	boolean moveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent, int index);
+
 	void markRulesChanged();
 
 	List<Component> currentValidationErrors();

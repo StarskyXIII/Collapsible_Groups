@@ -291,6 +291,10 @@ public class OreGroupEditorScreen extends Screen {
 			settingsPanel.renderModals(g, mouseX, mouseY);
 			return;
 		}
+		if (activeMode == OreEditorShellMode.RULES && rulesPanel.isModalOpen()) {
+			rulesPanel.renderModals(g, this.width, this.height, mouseX, mouseY);
+			return;
+		}
 		if (activeMode == OreEditorShellMode.LOOK) {
 			Component settingsTooltip = settingsPanel.hoverTooltip();
 			if (settingsTooltip != null) {
