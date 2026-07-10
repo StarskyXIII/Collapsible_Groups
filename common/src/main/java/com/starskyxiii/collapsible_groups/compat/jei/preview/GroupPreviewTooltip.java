@@ -18,7 +18,7 @@ import java.util.Optional;
  *
  * <p>Mirrors the composition of {@code GroupHeaderElement.getTooltip} and
  * {@code MixinIngredientFilter#cg$buildCountLabel} so the editor preview reads the
- * same as the real JEI element. Kept in {@code common} (fix 7, P5-polish-5) so the
+ * same as the real JEI element. Kept in {@code common} so the
  * three loader screens share one decision path and stay byte-identical.
  */
 public final class GroupPreviewTooltip {

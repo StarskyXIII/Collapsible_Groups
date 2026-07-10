@@ -31,8 +31,8 @@ class EditorModeAndCellStateContractTest {
 
 	@Test
 	void sourceCellStatesExposeOverlapOwnershipAndStayClickable() {
-		// P3b revision (2026-07-07): overlap replaces the red blocked state and
-		// remains clickable — clicking adds the ingredient to the current group.
+		// Overlap replaces the red blocked state and remains clickable —
+		// clicking adds the ingredient to the current group.
 		IngredientSourceCellState overlap = IngredientSourceCellState.overlap(List.of("Other Group"));
 
 		assertEquals(IngredientSourceCellVisualState.OVERLAP, overlap.visualState());
@@ -68,7 +68,7 @@ class EditorModeAndCellStateContractTest {
 
 	@Test
 	void ruleCoveredStateSharesGreenVisualButIsNotToggleable() {
-		// P3b-3: a full match of the current group's rules that was not explicitly
+		// a full match of the current group's rules that was not explicitly
 		// picked — green like a selection, but not toggleable (the rule owns it).
 		IngredientSourceCellState covered = IngredientSourceCellState.ruleCovered(List.of("Other Group"));
 

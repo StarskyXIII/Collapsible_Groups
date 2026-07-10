@@ -7,7 +7,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Boundary matrix for {@link EditorRulesPanel#resolveSlot} (P6b-2 spec item 8): band edges
+ * Boundary matrix for {@link EditorRulesPanel#resolveSlot}: band edges
  * f=0.24/0.25/0.74/0.75/0.99/1.0 (gap folds into the lower band), the exact two-point no-op
  * suppression set {oldIndex, oldIndex+1}, the collapsed/empty-compound lower-band branch, and
  * the root row's missing top band. Pure-data function — no MC types are touched at class init.
@@ -94,7 +94,7 @@ class EditorRulesPanelDropSlotTest {
 
 	@Test
 	void gapBandFoldsIntoLowerBandInsteadOfDroppingTheSlot() {
-		// [pre-審必改 1] f >= 1.0 (pointer in the ROW_GAP strip) must yield the same slot as the
+		// f >= 1.0 (pointer in the ROW_GAP strip) must yield the same slot as the
 		// row's lower band, never null-by-omission.
 		EditorRulesPanel.DropSlot slot = onAny(1.05);
 		assertNotNull(slot);

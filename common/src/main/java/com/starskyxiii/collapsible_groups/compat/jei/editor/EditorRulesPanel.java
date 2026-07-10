@@ -110,9 +110,9 @@ final class EditorRulesPanel {
 
 	private record Row(GroupFilterRuleDraft.Node node, int depth, String path, boolean collapsed) {}
 
-	// ── Drop-slot model (P6b-2) ───────────────────────────────────────────
+	// ── Drop-slot model ───────────────────────────────────────────
 	// A resolved drop position while a reparent drag is live.
-	//   INTO(parent)        → drop lands at the tail of parent's children (P6b behaviour).
+	// INTO(parent) → drop lands at the tail of parent's children.
 	//   BETWEEN(parent, i)  → insert as parent's i-th child, i in *pre-detach* caller
 	//                         coordinates (moveNode reinterprets it after detach).
 	// depth is the *inserted* node's indent depth, used to place the insertion line's x.
@@ -157,7 +157,7 @@ final class EditorRulesPanel {
 				// Insert as a sibling directly above this compound.
 				slot = new DropSlot(SlotKind.BETWEEN, nodeParent, indexInParent, nodeDepth);
 			} else if (f < 0.75) {
-				// Drop into this compound (tail append — the P6b behaviour).
+				// Drop into this compound.
 				slot = new DropSlot(SlotKind.INTO, node, 0, nodeDepth);
 			} else if (hasVisibleChildren) {
 				// Lower band of an expanded, non-empty compound → become its first child, which
@@ -548,7 +548,7 @@ final class EditorRulesPanel {
 				y += ROW_H + ROW_GAP;
 			}
 			renderAccentBars(g, list, rows);
-			// BETWEEN drop line (P6b-2): 2px accent between rows, indented to the inserted node's
+			// BETWEEN drop line: 2px accent between rows, indented to the inserted node's
 			// level. INTO uses the row highlight in renderRow instead. Kept inside the list scissor.
 			if (dropSlot != null && dropSlot.kind() == SlotKind.BETWEEN) {
 				int lineX = list.x() + PAD + dropSlot.depth() * INDENT_W;
@@ -1330,7 +1330,7 @@ final class EditorRulesPanel {
 	/**
 	 * Single entry point for writing a value back into a FORM field from outside the
 	 * field's own EditBox responder — used by the field-level picker's confirm exit path
-	 * today, and intended for P6d's GhostDrop reuse. Updates the node, the EditBox's
+	 * today, and intended for GhostDrop reuse. Updates the node, the EditBox's
 	 * displayed text (guarded by {@code updatingFields} so the responder doesn't re-fire
 	 * a redundant write), and clears any stale invalid-field highlight for the role.
 	 */
@@ -1671,7 +1671,7 @@ final class EditorRulesPanel {
 				return true;
 			}
 		}
-		// [pre-審條件 5] Only a bare row-body press (past glyph / chip / edit·delete / scrollbar
+		// Only a bare row-body press (past glyph / chip / edit·delete / scrollbar
 		// hits, all of which returned above) arms the reparent drag candidate. Root is skipped —
 		// canMove rejects it anyway, but arming it would show a ghost with nowhere to drop.
 		state.selectRuleNode(node);
@@ -1748,7 +1748,7 @@ final class EditorRulesPanel {
 			return;
 		}
 		int rowTop = list.y() + PAD - scrollOffset + index * stride;
-		// [pre-審必改 1] Do NOT early-return on the ROW_GAP band (my >= rowTop + ROW_H): f then
+		// Do not early-return on the ROW_GAP band (my >= rowTop + ROW_H): f then
 		// runs into [1.0, 1.1) and folds into the row's lower band. No slot is silently dropped.
 		double f = (my - rowTop) / (double) ROW_H;
 		Row row = rows.get(index);
@@ -1766,7 +1766,7 @@ final class EditorRulesPanel {
 		if (slot == null) {
 			return;
 		}
-		// [pre-審必改 2] Validity via canMove against the *slot's parent* (for BETWEEN(node,0)
+		// Determine validity with canMove against the *slot's parent* (for BETWEEN(node,0)
 		// that parent is node itself), so the cycle/capacity guard actually covers the insertion
 		// target and no invalid line is drawn.
 		if (slot.kind() == SlotKind.INTO) {
@@ -1795,7 +1795,7 @@ final class EditorRulesPanel {
 		modalDragging = false;
 		if (dragNode != null) {
 			// Recompute against the release position, then commit. INTO drops at the tail of the
-			// target compound (P6b behaviour); BETWEEN inserts at the pre-detach index (moveNode
+			// target compound; BETWEEN inserts at the pre-detach index (moveNode
 			// reinterprets it after the detach).
 			updateDropSlot(mx, my);
 			if (dropSlot != null) {

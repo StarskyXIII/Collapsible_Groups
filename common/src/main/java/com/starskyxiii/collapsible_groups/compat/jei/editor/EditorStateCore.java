@@ -31,9 +31,14 @@ final class EditorStateCore {
 	private GroupFilterRuleDraft.Node selectedRuleNode;
 	private GroupFilterRuleDraft.Node pendingRuleNode;
 	private boolean contentsQuickEditAvailable;
+	// decoupled from contentsQuickEditAvailable. A hybrid draft (preserved advanced
+	// subtrees present) is still contents-editable but is NOT flat-index safe, so the
+	// indexed item preview must not be used for it — see canUseIndexedItemPreview().
+	private boolean flatIndexPreviewSafe;
+	private int contentsAdvancedRuleCount;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
 
-	// P3b-3: id sets of everything the current group's rules fully match, keyed the
+	// id sets of everything the current group's rules fully match, keyed the
 	// same way the source-grid ownership caches are (item registry id, fluid
 	// resource id, "typeId|resourceId" for generic). Converged here from the single
 	// GroupRegistry.resolve* pass shared with the right-panel rebuild, so the source
@@ -128,20 +133,56 @@ final class EditorStateCore {
 	}
 
 	boolean canUseIndexedItemPreview() {
-		return contentsQuickEditAvailable;
+		return flatIndexPreviewSafe;
 	}
 
 	boolean canEditContents() {
 		return contentsQuickEditAvailable;
 	}
 
+	/**
+	 * sets contents editability and flat-index preview safety independently.
+	 * A hybrid draft is {@code editable=true} but {@code flatIndexSafe=false}.
+	 */
+	void setContentsEditability(boolean editable, boolean flatIndexSafe) {
+		this.contentsQuickEditAvailable = editable;
+		this.flatIndexPreviewSafe = flatIndexSafe;
+	}
+
 	void setContentsQuickEditAvailable(boolean contentsQuickEditAvailable) {
-		this.contentsQuickEditAvailable = contentsQuickEditAvailable;
+		setContentsEditability(contentsQuickEditAvailable, contentsQuickEditAvailable);
+	}
+
+	/**
+	 * number of preserved advanced subtrees in the current filter, intended to feed the
+	 * non-blocking Contents hint "N advanced rules managed in Rules mode"
+	 * ({@link ModTranslationKeys#EDITOR_CONTENTS_ADVANCED_RULES}).
+	 *
+	 * <p>Retained without a render consumer for now: shipped and was play-tested with no
+	 * hint rendered, and the hint surface that would have consumed this was reverted.
+	 * The count/hint accessors below are kept as-is to be wired into a future Contents
+	 * polish pass rather than re-touching the three loader panels for it now.
+	 */
+	void setContentsAdvancedRuleCount(int contentsAdvancedRuleCount) {
+		this.contentsAdvancedRuleCount = contentsAdvancedRuleCount;
+	}
+
+	int contentsAdvancedRuleCount() {
+		return contentsAdvancedRuleCount;
+	}
+
+	boolean hasContentsAdvancedRules() {
+		return contentsAdvancedRuleCount > 0;
+	}
+
+	String contentsAdvancedRulesHint() {
+		return Component.translatable(
+			ModTranslationKeys.EDITOR_CONTENTS_ADVANCED_RULES, contentsAdvancedRuleCount).getString();
 	}
 
 	/**
 	 * Stores the id sets of everything the current group's rules fully match,
-	 * shared from the right-panel rebuild's single resolve pass (P3b-3). Defensive
+	 * shared from the right-panel rebuild's single resolve pass. Defensive
 	 * copies; nulls become empty sets.
 	 */
 	void setCoveredSets(Set<String> itemIds, Set<String> fluidIds, Set<String> genericKeys) {

@@ -172,7 +172,7 @@ final class EditorLeftPanel {
 	private static final int OVERLAP_FILL = 0x44F2C744;
 
 	/**
-	 * P3b-3 four-state cell (normal / selected-in-current-group / rule-covered /
+	 * four-state cell (normal / selected-in-current-group / rule-covered /
 	 * overlap), resolved through the common {@link IngredientSourceCellState}
 	 * contract. There is no base occupied tint: overlap is a faint amber base fill
 	 * plus an amber corner tab + faint amber frame; selected and rule-covered share
@@ -215,7 +215,7 @@ final class EditorLeftPanel {
 			boolean selected = inWhole || inExact;
 			cellState = IngredientSourceCellState.resolve(
 				selected,
-				!selected && state.isItemRuleCovered(EditorRuleCoverageKeys.itemKey(stack)),
+				!selected && state.itemRuleCoverageKey(stack).map(state::isItemRuleCovered).orElse(false),
 				otherItemGroupsCache.getOrDefault(stack, List.of()), false);
 			paintBaseFill(g, cellState, iconX, iconY, inWhole);
 			g.renderItem(stack, iconX, iconY);
@@ -294,7 +294,7 @@ final class EditorLeftPanel {
 		if (!state.canEditContents()) {
 			return;
 		}
-		// P3b-3: rule-covered cells are not toggleable — the rule owns the membership,
+		// rule-covered cells are not toggleable — the rule owns the membership,
 		// so a click is a no-op (the tooltip points the user at the rules mode).
 		if (!canToggleCurrentGroup(entry)) {
 			return;
@@ -327,7 +327,7 @@ final class EditorLeftPanel {
 	}
 
 	/**
-	 * P3b-3 gate: an entry is toggleable unless it is rule-covered by the current
+	 * gate: an entry is toggleable unless it is rule-covered by the current
 	 * group (explicit selections are never rule-covered, so they stay toggleable to
 	 * allow deselect). Guards both the click and drag toggle paths.
 	 */
@@ -344,7 +344,7 @@ final class EditorLeftPanel {
 		}
 		ItemStack stack = (ItemStack) entry;
 		return state.isExactSelected(stack) || state.isWholeItemSelected(stack)
-			|| !state.isItemRuleCovered(EditorRuleCoverageKeys.itemKey(stack));
+			|| !state.itemRuleCoverageKey(stack).map(state::isItemRuleCovered).orElse(false);
 	}
 
 	boolean mouseDragged(double mouseX, double mouseY, int button, EditorLayout layout) {
@@ -395,7 +395,7 @@ final class EditorLeftPanel {
 		if (!state.canEditContents()) {
 			return;
 		}
-		// P3b-3: same rule-covered gate as the click path — a drag over a rule-covered
+		// same rule-covered gate as the click path — a drag over a rule-covered
 		// cell must not toggle it.
 		if (!canToggleCurrentGroup(entry)) {
 			return;

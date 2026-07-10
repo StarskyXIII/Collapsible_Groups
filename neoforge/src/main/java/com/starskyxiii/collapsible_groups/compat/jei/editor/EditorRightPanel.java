@@ -70,17 +70,25 @@ final class EditorRightPanel {
 			}
 			groupItems = indexed;
 		} else {
-			groupItems = GroupRegistry.resolveItems(temp);
+			// Hybrid drafts with preserved subtrees are not flat-index safe. Resolve the union of the
+			// indexed flat matches and the memoised preserved-subtree full scan — item-for-item and
+			// order-for-order identical to resolveItems(temp).
+			List<ItemStack> union = GroupRegistry.resolveHybridEditorDraftItems(state.draft, state.editEnabled);
+			if (EditorItemIndex.isVerifyEnabled()) {
+				List<ItemStack> scanned = GroupRegistry.resolveItems(temp);
+				verifyIndexResult(union, scanned);
+			}
+			groupItems = union;
 		}
 		groupFluids = EditorFluidIngredientHelper.buildViews(
 			GroupRegistry.resolveFluids(temp), "EditorRightPanel.buildFluidViews");
 		groupGenericIngredients = EditorGenericIngredientHelper.buildViews(
 			GroupRegistry.resolveGenericIngredients(temp), "EditorRightPanel.buildGenericViews");
-		// P3b-3: converge the rule-coverage id sets from this single resolve pass so
+		// Converge the rule-coverage id sets from this single resolve pass so
 		// the source grid can flag rule-covered cells (green, not toggleable) without
 		// re-resolving or reaching into this panel.
 		state.updateRuleCoverage(
-			EditorRuleCoverageKeys.itemIds(groupItems),
+			state.itemRuleCoverageKeys(groupItems),
 			EditorRuleCoverageKeys.fluidIds(groupFluids),
 			EditorRuleCoverageKeys.genericKeys(groupGenericIngredients));
 		PerformanceTrace.logIfSlow("EditorRightPanel.rebuild", traceStart, 10,
@@ -217,7 +225,7 @@ final class EditorRightPanel {
 	}
 
 	/**
-	 * P0 remove affordance (P3b fix): removal happens only through this hover ×
+	 * Removal happens only through this hover ×
 	 * badge — the cell body never removes. Shown only on hovered, removable cells
 	 * of editable groups (read-only groups never render it). Drawn with z raised
 	 * above the ingredient depth (~150) so it covers the item/fluid texture.
@@ -258,7 +266,7 @@ final class EditorRightPanel {
 		for (int visRow = 0; visRow < layout.rightRows(); visRow++) {
 			int vRow = scrollRow + visRow;
 			int y = layout.gridTop() + visRow * EditorLayout.ITEM_SIZE;
-			// P3b (P0 compliance): the removal hot-zone is the hover × badge only;
+			// The removal hot-zone is the hover × badge only;
 			// clicking anywhere else in a cell consumes the click without removing.
 			if (sections.isItemRow(vRow)) {
 				int idx = EditorGridTraversal.findRowCellIndex(

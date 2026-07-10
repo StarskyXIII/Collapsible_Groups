@@ -77,7 +77,7 @@ class GroupSampleRendererTest {
 		assertEquals(new GroupSampleRenderer.Rect(0, 0, 16, 16), second.headerCell());
 	}
 
-	// fix 7 (P5-polish-5): the preview hover tooltip picks a cell by containment.
+	// the preview hover tooltip picks a cell by containment.
 	// Mirror that hit-test against the layout cells (header / item / none).
 
 	@Test

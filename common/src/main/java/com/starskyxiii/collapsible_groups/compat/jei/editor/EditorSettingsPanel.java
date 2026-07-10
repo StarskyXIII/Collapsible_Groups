@@ -99,7 +99,7 @@ public final class EditorSettingsPanel {
 	private boolean colorPickerDirtySnapshot;
 	private int colorPickerArgb = 0xFFFFFFFF;
 	private String colorPickerHex = "FFFFFFFF";
-	// fix 1 (P5-polish-5): native EditBox for the modal hex field. Independent of
+	// native EditBox for the modal hex field. Independent of
 	// iconPickerSearch (the two modals never open together, so no focus race). The
 	// String above stays the source of truth for validity/apply; the box mirrors it.
 	private @Nullable EditBox colorPickerHexBox;
@@ -605,7 +605,7 @@ public final class EditorSettingsPanel {
 	/**
 	 * Top-left corner (and size) of the modal's hex row, mirroring the vertical
 	 * cursor walk in {@link #renderColorPickerModal}. Render and the EditBox share
-	 * this one geometry so they never drift (fix 1, P5-polish-5).
+	 * this one geometry so they never drift.
 	 */
 	private EditorChrome.Rect colorHexRowRect() {
 		EditorChrome.Rect modal = colorModalRect();
@@ -927,7 +927,7 @@ public final class EditorSettingsPanel {
 				return true;
 			}
 		}
-		// fix 4 (P5-polish-5): click outside the modal confirms (== OK); the live
+		// click outside the modal confirms (== OK); the live
 		// draft already carries the value, so commit just clears the snapshot.
 		if (!modal.contains(mouseX, mouseY)) {
 			confirmColorPicker();
@@ -1189,7 +1189,7 @@ public final class EditorSettingsPanel {
 		}
 
 		g.enableScissor(grid.x(), grid.y(), grid.right(), grid.bottom());
-		// P5-polish-7: one shared-line grid instead of per-slot outlines (which
+		// one shared-line grid instead of per-slot outlines (which
 		// doubled to 2px between adjacent cells). Scrolls with the cells; the
 		// scissor above clips it to the visible window.
 		int totalGridRows = (entries.size() + ICON_PICKER_COLS - 1) / ICON_PICKER_COLS;
@@ -1245,7 +1245,7 @@ public final class EditorSettingsPanel {
 		}
 		EditorChrome.Rect grid = iconPickerGridRect();
 		if (!grid.contains(mouseX, mouseY)) {
-			// fix 4 (P5-polish-5): click outside the modal closes the icon picker.
+			// click outside the modal closes the icon picker.
 			if (!modal.contains(mouseX, mouseY)) {
 				closeIconPicker();
 			}

@@ -53,6 +53,13 @@ public final class ItemStackIngredientView implements IngredientView {
 	}
 
 	@Override
+	public boolean matchesDecodedExactStack(ItemStack decoded) {
+		// the reference was already decoded (and normalizedCopy'd) once by the folded
+		// exact-stack node; here we only normalize the candidate and compare item + components.
+		return ItemStack.isSameItemSameComponents(decoded, GroupItemSelector.normalizedCopy(stack));
+	}
+
+	@Override
 	public boolean hasComponent(String componentTypeId, String encodedValue) {
 		ResourceLocation typeId = ResourceLocation.tryParse(componentTypeId);
 		if (typeId == null) return false;

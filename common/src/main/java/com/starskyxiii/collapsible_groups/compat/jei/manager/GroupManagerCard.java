@@ -81,7 +81,7 @@ public record GroupManagerCard(
 	}
 
 	/**
-	 * Header stack source (fix 3b, P5-polish-5): resolve {@code group.iconIds()} to
+	 * Header stack source: resolve {@code group.iconIds()} to
 	 * item preview entries so the manager card header mirrors the live JEI header
 	 * (which prefers {@code iconIds} via {@code MixinIngredientFilter}). When the
 	 * group carries no icon ids, or none resolve to a real item, fall back to the

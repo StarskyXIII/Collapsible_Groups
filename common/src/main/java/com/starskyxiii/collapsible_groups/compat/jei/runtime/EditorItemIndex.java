@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -14,6 +15,7 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
 
 /**
  * Pre-built index over the JEI item list for fast editor draft resolution.
@@ -37,6 +39,15 @@ public final class EditorItemIndex {
 	private final Map<ResourceLocation, List<ItemStack>> byTag;
 	/** Maps each ItemStack object identity -> its stable index in JEI order. */
 	private final IdentityHashMap<ItemStack, Integer> orderByIdentity;
+
+	// single-slot (LRU=1) preserved-subtree resolution cache. Key = the hybrid draft's
+	// preserved subtrees by record value equality; value = the full-scan item matches (shared
+	// by reference, not copied). The cache lives on the index instance, so it is invalidated
+	// for free whenever jeiAllItems is replaced and GroupRegistry rebuilds the index — no extra
+	// invalidation hook. A rule edit changes the preserved fingerprint and misses naturally.
+	// Mutated only from the single-threaded editor render/rebuild path, like resolveDraft.
+	private List<GroupFilter> cachedPreservedKey = null;
+	private List<ItemStack> cachedPreservedValue = List.of();
 
 	private static final String VERIFY_OVERRIDE =
 		System.getProperty("collapsible_groups.editor_index_verify");
@@ -162,6 +173,58 @@ public final class EditorItemIndex {
 				+ " tags=" + draft.itemTags().size()
 				+ " result=" + copy.size());
 		return copy;
+	}
+
+	/**
+	 * resolves the item preview for a <em>hybrid</em> draft (flat contents leaves plus
+	 * preserved advanced subtrees) as the union of the indexed flat matches and the preserved
+	 * subtrees' full-scan matches.
+	 *
+	 * <p>The flat part reuses {@link #resolveDraft} (index lookup). The preserved part is
+	 * resolved through {@code preservedResolver} (a full scan) but memoised in a single-slot
+	 * cache keyed on the preserved fingerprint, so repeated rebuilds after a click/removal that
+	 * leaves the rules untouched pay the scan only once. The union is ordinal-sorted and
+	 * identity-deduplicated so the result is item-for-item, order-for-order identical to a
+	 * single full scan of {@code Any(flat…, preserved…)} (see {@link HybridPreviewUnion}).
+	 *
+	 * @param draft the hybrid editor draft (flat leaves + {@code preservedSubtrees})
+	 * @param preservedResolver full-scan resolver for a non-empty preserved subtree list
+	 * @return ordered, deduplicated union of flat and preserved item matches
+	 */
+	public List<ItemStack> resolveHybridDraft(
+		GroupFilterEditorDraft draft,
+		Function<List<GroupFilter>, List<ItemStack>> preservedResolver
+	) {
+		long traceStart = PerformanceTrace.begin();
+		List<ItemStack> flat = resolveDraft(draft);
+		List<GroupFilter> preserved = draft.preservedSubtrees();
+		if (preserved.isEmpty()) {
+			return flat;
+		}
+		List<ItemStack> preservedItems = resolvePreservedCached(preserved, preservedResolver);
+		List<ItemStack> union = HybridPreviewUnion.orderedUnion(
+			flat, preservedItems, s -> orderByIdentity.getOrDefault(s, Integer.MAX_VALUE));
+		PerformanceTrace.logIfSlow("EditorItemIndex.resolveHybridDraft", traceStart, 1,
+			"flat=" + flat.size() + " preserved=" + preservedItems.size() + " union=" + union.size());
+		return union;
+	}
+
+	/**
+	 * Single-slot memoisation of the preserved-subtree full scan. Hit iff the incoming
+	 * preserved list is record-value-equal to the cached key; otherwise the resolver runs
+	 * and its result (shared by reference) replaces the slot.
+	 */
+	private List<ItemStack> resolvePreservedCached(
+		List<GroupFilter> preserved,
+		Function<List<GroupFilter>, List<ItemStack>> preservedResolver
+	) {
+		if (preserved.equals(cachedPreservedKey)) {
+			return cachedPreservedValue;
+		}
+		List<ItemStack> resolved = preservedResolver.apply(preserved);
+		cachedPreservedKey = List.copyOf(preserved);
+		cachedPreservedValue = resolved;
+		return resolved;
 	}
 
 	/** Whether correctness verification mode is active (development only). */

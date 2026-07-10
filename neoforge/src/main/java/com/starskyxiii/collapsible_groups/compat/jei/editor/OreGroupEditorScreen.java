@@ -91,7 +91,7 @@ public class OreGroupEditorScreen extends Screen {
 	private boolean settingsPreviewExpanded = true;
 	private int settingsPreviewPage = 0;
 	private @Nullable GroupSampleRenderer.Layout settingsPreviewLayout = null;
-	// fix 7 (P5-polish-5): settings-mode preview hover tooltip, recorded during the
+	// settings-mode preview hover tooltip, recorded during the
 	// preview render and drawn once at render() end (scissor closed, all panels up).
 	private @Nullable List<Component> previewHoverLines = null;
 	private Optional<net.minecraft.world.inventory.tooltip.TooltipComponent> previewHoverVisual = Optional.empty();
@@ -301,7 +301,7 @@ public class OreGroupEditorScreen extends Screen {
 				g.renderComponentTooltip(font, List.of(settingsTooltip), mouseX, mouseY);
 				return;
 			}
-			// fix 7 (P5-polish-5): preview hover tooltip (suppressed above when a
+			// preview hover tooltip (suppressed above when a
 			// settings modal or the discard dialog is open, both of which return early).
 			if (previewHoverItem != null) {
 				g.renderTooltip(font, previewHoverItem, previewHoverX, previewHoverY);
@@ -463,7 +463,7 @@ public class OreGroupEditorScreen extends Screen {
 	private void renderHideUsedButton(GuiGraphics g, int mouseX, int mouseY) {
 		OreEditorShellLayout.Rect rect = shell.hideUsedButton();
 		boolean hovered = rect.contains(mouseX, mouseY);
-		// P3b: boolean toggle uses a switch (matching the Manager enabled switch).
+		// boolean toggle uses a switch (matching the Manager enabled switch).
 		// drawSwitch centers a fixed-width visual inside the (wider) hit rect.
 		OreUiRenderer.drawSwitch(g, rect.x(), rect.y(), rect.width(), rect.height(),
 			leftPanel.isHideUsed(), true, hovered, hideUsedHeld);
@@ -545,7 +545,7 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	/**
-	 * fix 7 (P5-polish-5): record (not draw) the preview hover tooltip. The header
+	 * record (not draw) the preview hover tooltip. The header
 	 * cell mirrors the live {@code GroupHeaderElement.getTooltip} (name in the draft
 	 * name color, count label, collapsed preview grid, expand/collapse hint); child
 	 * cells surface the standard item tooltip. Drawn later in {@link #render}.
@@ -634,7 +634,7 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	/**
-	 * Shared header-preview box (fix 3a, P5-polish-5): background follows the live
+	 * Shared header-preview box: background follows the live
 	 * appearance draft (so new/edited colors reflect immediately), icons honour the
 	 * draft's front/back selection when present, else fall back to the live group
 	 * items via {@link #renderStackedPreviewIcons} (keeps fluid/generic groups from
@@ -735,7 +735,7 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	/**
-	 * Settings-mode preview area (fix 1): start just below the "JEI Preview" title
+	 * Settings-mode preview area: start just below the "JEI Preview" title
 	 * and its operation hint, not the Contents/Rules 22px stacked-icon header the
 	 * shared {@code previewBody} bakes in — that offset left ~35px of dead space.
 	 */
@@ -743,7 +743,7 @@ public class OreGroupEditorScreen extends Screen {
 		OreEditorShellLayout.Rect panel = shell.previewPanel();
 		OreEditorShellLayout.Rect title = shell.previewTitle();
 		int x = title.x();
-		// fix 2: the preview area starts below however many hint lines actually
+		// the preview area starts below however many hint lines actually
 		// render (capped at 2), matching renderSettingsPreviewPanel line count so
 		// the two never drift.
 		int hintLines = Math.min(2, font.split(

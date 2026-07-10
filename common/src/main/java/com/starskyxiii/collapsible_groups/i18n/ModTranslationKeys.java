@@ -84,6 +84,9 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_FILTER_READONLY = "collapsible_groups.editor.filter.readonly";
 
+	/** non-blocking Contents hint — "%s advanced rules managed in Rules mode". */
+	public static final String EDITOR_CONTENTS_ADVANCED_RULES = "collapsible_groups.editor.contents.advanced_rules";
+
 	public static final String EDITOR_HINT_ADD_THIS = "collapsible_groups.editor.hint.add_this";
 
 	public static final String EDITOR_HINT_CLICK_ADD_TO_GROUP = "collapsible_groups.editor.hint.click_add_to_group";
@@ -118,10 +121,10 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_NAME_LABEL = "collapsible_groups.editor.name_label";
 
-	/** Args: winning group display name (%s). P3b overlap tooltip: shown-by-priority hint. */
+	/** Args: winning group display name (%s). Overlap tooltip: shown-by-priority hint. */
 	public static final String EDITOR_OVERLAP_SHOWN_BY = "collapsible_groups.editor.overlap.shown_by";
 
-	/** P3b-3 rule-covered tooltip: covered by the current group's rules, edit in rules mode. */
+	/** rule-covered tooltip: covered by the current group's rules, edit in rules mode. */
 	public static final String EDITOR_RULE_COVERED = "collapsible_groups.editor.rule_covered";
 
 	/** Args: summary string (%s) */

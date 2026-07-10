@@ -1,5 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
+import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 
 import com.starskyxiii.collapsible_groups.Constants;
@@ -433,6 +435,37 @@ public final class GroupRegistry {
 		return getOrCreateEditorItemIndex().resolveDraft(draft);
 	}
 
+	/**
+	 * item preview for a <em>hybrid</em> draft (flat contents leaves + preserved advanced
+	 * subtrees). The flat part is resolved from the item index; the preserved part is full-scanned
+	 * once and memoised in the index's single-slot cache. The two are unioned (identity-dedup,
+	 * ordinal order) so the result is item-for-item, order-for-order identical to the previous
+	 * {@code resolveItems(buildPreviewDefinition())} full scan — the hot-path fix for hybrids
+	 * that re-scanned every {@code onGroupChanged} tick.
+	 *
+	 * <p>Returns empty for a disabled group, mirroring {@code GroupDefinition.matches}
+	 * ({@code enabled && …}) so the union stays equivalent to the full scan in that case too.
+	 */
+	public static List<ItemStack> resolveHybridEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled) {
+		if (!enabled) return List.of();
+		populateJeiCachesIfEmpty();
+		return getOrCreateEditorItemIndex().resolveHybridDraft(draft, GroupRegistry::resolveItemsForPreserved);
+	}
+
+	/**
+	 * full-scan the JEI item cache for the union ({@code Any(...)}) of a hybrid draft's
+	 * preserved advanced subtrees, wrapped as a throwaway preview definition so the existing
+	 * {@link #resolveItems} machinery is reused verbatim. Called only on a preserved-fingerprint
+	 * cache miss (rule edit / first entry).
+	 */
+	public static List<ItemStack> resolveItemsForPreserved(List<GroupFilter> preserved) {
+		if (preserved.isEmpty()) return List.of();
+		GroupFilter combined = preserved.size() == 1
+			? preserved.get(0)
+			: Filters.any(preserved.toArray(GroupFilter[]::new));
+		return resolveItems(new GroupDefinition("__cg_preserved_preview__", "", true, combined));
+	}
+
 	// -----------------------------------------------------------------------
 	// Resolved-items cache  (pre-built by MixinIngredientFilter)
 	// -----------------------------------------------------------------------
@@ -817,7 +850,10 @@ public final class GroupRegistry {
 		GroupDefinition previewDefinition = managerPreviewDefinition(saved);
 		List<ItemStack> items;
 		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(saved.filter());
-		if (decoded.structurallyEditable()) {
+		// Gate the flat-index fast path on the flat-index-safe predicate,
+		// not on editability. A hybrid draft with preserved advanced subtrees is editable but
+		// its item membership cannot be resolved from the flat index alone — resolve fully.
+		if (decoded.flatIndexSafe()) {
 			populateJeiCachesIfEmpty();
 			items = getOrCreateEditorItemIndex().resolveDraft(decoded.draft());
 		} else {

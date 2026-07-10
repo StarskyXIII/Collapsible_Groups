@@ -119,7 +119,7 @@ class GroupManagerCardTest {
 		assertEquals(1, updated.viewModel().preview().genericCount());
 	}
 
-	// fix 3b (P5-polish-5): header source resolution. The item-resolution branch
+	// header source resolution. The item-resolution branch
 	// (valid icon ids) needs a bootstrapped item registry and is only exercisable
 	// in-game; these cover the registry-free fallback branches.
 

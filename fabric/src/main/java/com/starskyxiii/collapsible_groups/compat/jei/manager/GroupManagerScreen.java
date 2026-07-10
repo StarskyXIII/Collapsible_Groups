@@ -22,7 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
-/** Fabric group manager. P4A3 supports item and fluid previews; editor fluid editing lands later. */
+/** Fabric group manager. Supports item and fluid previews; editor fluid editing lands later. */
 public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int CARD_WIDTH    = 162;
 	private static final int CARD_HEIGHT   = 108;

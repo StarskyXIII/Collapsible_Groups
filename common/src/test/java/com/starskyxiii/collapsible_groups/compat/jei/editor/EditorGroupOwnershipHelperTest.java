@@ -15,7 +15,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * P3b regression: both branches of {@link EditorGroupOwnershipHelper#buildOwnership}
+ * regression: both branches of {@link EditorGroupOwnershipHelper#buildOwnership}
  * must share the "single JEI winner" semantics — the reverseIndex (live) path and
  * the priority-ordered first-match fallback path produce the same output for the
  * same inputs. Uses the registry-free generic core with string entries.

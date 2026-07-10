@@ -96,7 +96,7 @@ class EditorStateCoreTest {
 
 	@Test
 	void ruleCoverageSetsAreQueriedByKeyAndRebuiltOnEachUpdate() {
-		// P3b-3: the right-panel rebuild converges its single resolve pass into these
+		// the right-panel rebuild converges its single resolve pass into these
 		// id sets; the source grid queries them by key. A fresh update fully replaces
 		// the previous sets (defensive-copied), so a cell that leaves the group's
 		// matches stops reporting as rule-covered.
@@ -144,21 +144,33 @@ class EditorStateCoreTest {
 	}
 
 	@Test
-	void nestedCompoundRulesKeepContentsQuickEditUnavailable() {
+	void hybridDraftPreservesAdvancedSubtreeThroughContentsSync() {
+		// any(not(itemTag)) normalizes to a lone not(itemTag) — a preserved advanced
+		// subtree. It is editable (contents grid stays live) but not flat-index safe.
 		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(
 			Filters.any(Filters.not(Filters.itemTag("c:ingots"))));
-		assertFalse(decoded.structurallyEditable());
+		assertTrue(decoded.structurallyEditable());
+		assertFalse(decoded.flatIndexSafe());
+		assertEquals(List.of(new GroupFilter.Not(new GroupFilter.Tag("item", "c:ingots"))),
+			decoded.preservedSubtrees());
 
 		GroupDefinition nested = new GroupDefinition("nested", "Nested", true,
 			Filters.any(Filters.not(Filters.itemTag("c:ingots"))));
 		EditorStateCore core = new EditorStateCore(nested, () -> {});
-		assertFalse(core.canEditContents());
+		core.setContentsEditability(true, false);
 
+		// A hybrid contents draft carries the preserved Not plus a new explicit selection;
+		// syncing rebuilds the rules as Any(preserved…, flat…) with the Not intact.
 		GroupFilterEditorDraft draft = GroupFilterEditorDraft.empty();
+		draft.preservedSubtrees().addAll(decoded.preservedSubtrees());
 		draft.explicitItemSelectors().add("stack:{\"id\":\"minecraft:stone\"}");
 		core.syncRulesFromContentsDraft(draft);
-		GroupFilter.Not kept = assertInstanceOf(GroupFilter.Not.class, core.buildCurrentFilter().orElseThrow());
-		assertEquals(new GroupFilter.Tag("item", "c:ingots"), kept.child());
+
+		GroupFilter.Any result = assertInstanceOf(GroupFilter.Any.class, core.buildCurrentFilter().orElseThrow());
+		assertEquals(List.of(
+			new GroupFilter.Not(new GroupFilter.Tag("item", "c:ingots")),
+			new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\"}")
+		), result.children());
 	}
 
 	@Test

@@ -87,6 +87,19 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		return itemSelection.cachedExactSelector(stack);
 	}
 
+	/** single entry point for component-aware item rule-coverage keys. */
+	Optional<String> itemRuleCoverageKey(ItemStack stack) {
+		return EditorRuleCoverageKeys.itemKey(stack, () -> cachedExactSelector(stack));
+	}
+
+	Set<String> itemRuleCoverageKeys(List<ItemStack> stacks) {
+		java.util.HashSet<String> keys = new java.util.HashSet<>(Math.max(16, stacks.size()));
+		for (ItemStack stack : stacks) {
+			itemRuleCoverageKey(stack).ifPresent(keys::add);
+		}
+		return keys;
+	}
+
 	void setEditName(String editName) {
 		if (!Objects.equals(this.editName, editName)) {
 			this.editName = editName;
@@ -151,7 +164,7 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		return core.canEditContents();
 	}
 
-	// P3b-3: rule-coverage sets, converged from the right-panel rebuild's single
+	// rule-coverage sets, converged from the right-panel rebuild's single
 	// GroupRegistry.resolve* pass; queried by the source grid to flag rule-covered
 	// cells (green visual, not toggleable) without reaching into the right panel.
 	void updateRuleCoverage(Set<String> itemIds, Set<String> fluidIds, Set<String> genericKeys) {
@@ -366,12 +379,15 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		clearContentsDraft();
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		if (filter.isEmpty()) {
-			core.setContentsQuickEditAvailable(!core.hasRulesRoot());
+			boolean available = !core.hasRulesRoot();
+			core.setContentsEditability(available, available);
+			core.setContentsAdvancedRuleCount(0);
 			return;
 		}
 
 		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(filter.get());
-		core.setContentsQuickEditAvailable(decoded.structurallyEditable());
+		core.setContentsEditability(decoded.structurallyEditable(), decoded.flatIndexSafe());
+		core.setContentsAdvancedRuleCount(decoded.preservedSubtrees().size());
 		if (core.canEditContents()) {
 			copyContentsDraft(decoded.draft());
 		}
@@ -384,6 +400,7 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		editFluidTags.clear();
 		editGenericIds.clear();
 		editGenericTags.clear();
+		draft.preservedSubtrees().clear();
 	}
 
 	private void copyContentsDraft(GroupFilterEditorDraft source) {
@@ -393,5 +410,6 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		editFluidTags.addAll(source.fluidTags());
 		editGenericIds.addAll(source.genericIds());
 		editGenericTags.addAll(source.genericTags());
+		draft.preservedSubtrees().addAll(source.preservedSubtrees());
 	}
 }

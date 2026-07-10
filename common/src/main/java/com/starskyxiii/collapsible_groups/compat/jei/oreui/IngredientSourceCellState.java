@@ -11,10 +11,9 @@ import java.util.Objects;
  *
  * <p>Precedence: explicit selection in the current group &gt; rule-covered by the
  * current group &gt; overlap (JEI winner is another group) &gt; normal. Overlap
- * cells remain clickable (2026-07-07 P3b revision — adding to the current group is
- * allowed; which group displays the ingredient in JEI is decided by priority).
+ * cells remain clickable.
  *
- * <p>2026-07-08 (P3b-3): rule-covered cells (a full match of the current group's
+ * <p>rule-covered cells (a full match of the current group's
  * own rules that was not explicitly picked) share the selected green visual but
  * are not toggleable — {@link #canToggleCurrentGroup()} is {@code false} so a click
  * is a no-op; the rule owns the membership.

@@ -114,10 +114,14 @@ final class GroupEditorTooltipHelper {
 		if (!state.canEditContents()) {
 			lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 		} else if (!state.isWholeItemSelected(stack) && !state.isExactSelected(stack)
-			&& state.isItemRuleCovered(EditorRuleCoverageKeys.itemKey(stack))) {
+			&& state.itemRuleCoverageKey(stack).map(state::isItemRuleCovered).orElse(false)) {
 			lines.add(ruleCovered());
 		} else if (state.isWholeItemSelected(stack)) {
-			lines.add(hint(ModTranslationKeys.EDITOR_HINT_SWITCH_TO_VARIANT));
+			// a component-less whole selection toggles off on a plain click; only items that
+			// carry a component patch switch to an exact variant on the next click.
+			lines.add(hint(stack.getComponentsPatch().isEmpty()
+				? ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP
+				: ModTranslationKeys.EDITOR_HINT_SWITCH_TO_VARIANT));
 			lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE));
 			lines.add(hint2(ModTranslationKeys.EDITOR_HINT_CTRL_REMOVE_ALL));
 		} else if (state.isExactSelected(stack)) {
@@ -132,7 +136,7 @@ final class GroupEditorTooltipHelper {
 	}
 
 	/**
-	 * P3b overlap tooltip: the ownership caches carry the single JEI winner
+	 * overlap tooltip: the ownership caches carry the single JEI winner
 	 * (winner semantics, see EditorGroupOwnershipHelper), so this names the group
 	 * that actually displays the ingredient - decided by priority - and stays a
 	 * neutral hint (the cell remains clickable to add to the current group).
@@ -144,7 +148,7 @@ final class GroupEditorTooltipHelper {
 			.withStyle(ChatFormatting.GOLD));
 	}
 
-	/** P3b-3: rule-covered hint — green italic, matching the cell's green visual, pointing at the rules mode. */
+	/** rule-covered hint — green italic, matching the cell's green visual, pointing at the rules mode. */
 	private static Component ruleCovered() {
 		return Component.translatable(ModTranslationKeys.EDITOR_RULE_COVERED).withStyle(ChatFormatting.GREEN, ChatFormatting.ITALIC);
 	}

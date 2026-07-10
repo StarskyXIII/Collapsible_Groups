@@ -328,7 +328,7 @@ public final class OreUiRenderer {
 		drawOutline(g, x, y, size, size, OreUiPalette.OUTLINE_DARK);
 	}
 
-	// ── Bedrock-style slider (P5-polish-8) ─────────────────────────────────
+	// ── Bedrock-style slider ─────────────────────────────────
 	// Single authority for the slider visual language: thin track, accent left
 	// fill, and a knob that replicates the tactile button look (drawButton's
 	// nine-slice sprite is designed at height 20 and degrades below it, so the
@@ -493,7 +493,7 @@ public final class OreUiRenderer {
 	private static final int REMOVE_BADGE_MARK = 0xFFFFFFFF;
 
 	/**
-	 * Hover remove-× badge for a right-panel preview cell (P0: removal only via a
+	 * Hover remove-× badge for a right-panel preview cell (removal only via a
 	 * discrete × hot-zone, never the whole cell). Anchored top-right of the 16px
 	 * icon region, overhanging by 1px. Draw <em>after</em> {@code renderItem} with
 	 * z raised above the ingredient depth (~150).

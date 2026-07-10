@@ -131,7 +131,7 @@ public record OreEditorShellLayout(
 		Rect contentTypeRow = new Rect(editorPanel.x() + PANEL_INSET, contentY,
 			Math.max(1, editorPanel.width() - PANEL_INSET * 2), SEGMENT_HEIGHT);
 		int controlY = contentTypeRow.bottom() + 8;
-		// P3b: the hide-used control is a drawSwitch (fixed 22px visual, centered in
+		// the hide-used control is a drawSwitch (fixed 22px visual, centered in
 		// the rect); the rect hugs the visual so the hit zone matches what is drawn.
 		int hideUsedWidth = 30;
 		Rect hideUsedButton = new Rect(editorPanel.right() - PANEL_INSET - hideUsedWidth, controlY,

@@ -94,6 +94,7 @@
   "collapsible_groups.count.fluids": "%s 種流體",
   "collapsible_groups.count.items": "%s 個物品",
   "collapsible_groups.editor.chip.hide_used": "隱藏已使用項目",
+  "collapsible_groups.editor.contents.advanced_rules": "%s 條進階規則於規則模式管理",
   "collapsible_groups.editor.filter.editable": "可編輯篩選條件",
   "collapsible_groups.editor.filter.readonly": "唯讀篩選條件",
   "collapsible_groups.editor.hint.add_this": "點擊以加入此變體",
