@@ -98,7 +98,6 @@ public final class FabricConfig implements IConfigProvider {
 			&& isAnyMacawsSeriesLoaded();
 	}
 	@Override public boolean showManagerButton()                    { return data.ui.showManagerButton; }
-	@Override public boolean useOreUiManager()                     { return data.ui.useOreUiManager; }
 	@Override public boolean showGroupBackgrounds()                 { return data.ui.showGroupBackgrounds; }
 	@Override public boolean searchUngroupSmallGroups()             { return data.ui.searchUngroupSmallGroups; }
 	@Override public int searchUngroupThreshold()                   { return Math.max(0, data.ui.searchUngroupThreshold); }
@@ -148,7 +147,6 @@ public final class FabricConfig implements IConfigProvider {
 		public static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
 
 		public boolean showManagerButton    = true;
-		public boolean useOreUiManager      = false;
 		public boolean showGroupBackgrounds = true;
 		public boolean searchUngroupSmallGroups = true;
 		public int searchUngroupThreshold = 5;

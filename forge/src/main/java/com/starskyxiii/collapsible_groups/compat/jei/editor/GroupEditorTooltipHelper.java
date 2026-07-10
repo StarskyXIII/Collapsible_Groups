@@ -15,7 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Builds and renders hover-tooltips for both panels of {@link GroupEditorScreen}.
+ * Builds and renders hover-tooltips for both panels of {@link OreGroupEditorScreen}.
  */
 final class GroupEditorTooltipHelper {
 

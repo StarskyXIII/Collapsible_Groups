@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Holds all mutable edit state for {@link GroupEditorScreen}.
+ * Holds all mutable edit state for {@link OreGroupEditorScreen}.
  *
  * <p>The Fabric editor supports item and fluid contents editing, and mirrors the richer rules workflow:
  * a flat contents draft powers quick item editing while a rule-tree draft powers the

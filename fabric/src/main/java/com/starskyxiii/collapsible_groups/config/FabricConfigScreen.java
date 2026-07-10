@@ -51,7 +51,6 @@ public class FabricConfigScreen extends Screen {
 	private boolean loadRS2;
 	private boolean loadMacawsSeries;
 	private boolean showManagerButton;
-	private boolean useOreUiManager;
 	private boolean showGroupBackgrounds;
 	private boolean searchUngroupSmallGroups;
 	private int searchUngroupThreshold;
@@ -107,7 +106,6 @@ public class FabricConfigScreen extends Screen {
 			loadRS2              = d.defaultGroups.modIntegration.loadRS2;
 			loadMacawsSeries     = d.defaultGroups.modIntegration.loadMacawsSeries;
 			showManagerButton    = d.ui.showManagerButton;
-			useOreUiManager      = d.ui.useOreUiManager;
 			showGroupBackgrounds = d.ui.showGroupBackgrounds;
 			searchUngroupSmallGroups = d.ui.searchUngroupSmallGroups;
 			searchUngroupThreshold = Math.max(0, d.ui.searchUngroupThreshold);
@@ -156,8 +154,6 @@ public class FabricConfigScreen extends Screen {
 
 		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_SHOW_MANAGER_BUTTON,
 			() -> showManagerButton, v -> showManagerButton = v);      y += ROW_H + ROW_GAP;
-		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_USE_ORE_UI_MANAGER,
-			() -> useOreUiManager, v -> useOreUiManager = v);          y += ROW_H + ROW_GAP;
 		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_SHOW_GROUP_BACKGROUNDS,
 			() -> showGroupBackgrounds, v -> showGroupBackgrounds = v); y += ROW_H + ROW_GAP;
 		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_SEARCH_UNGROUP_SMALL_GROUPS,
@@ -291,7 +287,6 @@ public class FabricConfigScreen extends Screen {
 		newData.defaultGroups.modIntegration.loadRS2               = loadRS2;
 		newData.defaultGroups.modIntegration.loadMacawsSeries      = loadMacawsSeries;
 		newData.ui.showManagerButton                               = showManagerButton;
-		newData.ui.useOreUiManager                                 = useOreUiManager;
 		newData.ui.showGroupBackgrounds                            = showGroupBackgrounds;
 		newData.ui.searchUngroupSmallGroups                        = searchUngroupSmallGroups;
 		newData.ui.searchUngroupThreshold                          = readNonNegativeInt(

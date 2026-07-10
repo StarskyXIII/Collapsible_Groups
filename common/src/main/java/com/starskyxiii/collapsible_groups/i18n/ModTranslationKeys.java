@@ -40,8 +40,6 @@ public final class ModTranslationKeys {
 
 	public static final String CONFIG_OPT_SHOW_MANAGER_BUTTON = "collapsible_groups.config.opt.show_manager_button";
 
-	public static final String CONFIG_OPT_USE_ORE_UI_MANAGER = "collapsible_groups.config.opt.use_ore_ui_manager";
-
 	public static final String CONFIG_OPT_SHOW_GROUP_BACKGROUNDS = "collapsible_groups.config.opt.show_group_backgrounds";
 
 	public static final String CONFIG_OPT_SEARCH_UNGROUP_SMALL_GROUPS = "collapsible_groups.config.opt.search_ungroup_small_groups";
@@ -127,9 +125,6 @@ public final class ModTranslationKeys {
 	/** rule-covered tooltip: covered by the current group's rules, edit in rules mode. */
 	public static final String EDITOR_RULE_COVERED = "collapsible_groups.editor.rule_covered";
 
-	/** Args: summary string (%s) */
-	public static final String EDITOR_PANEL_CONTENTS_HEADER = "collapsible_groups.editor.panel.contents_header";
-
 	/** Args: count (%s) */
 	public static final String EDITOR_PANEL_COUNT_ENTRIES = "collapsible_groups.editor.panel.count_entries";
 
@@ -159,15 +154,11 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_COPY_DISABLE_SOURCE = "collapsible_groups.editor.copy.disable_source";
 
-	public static final String EDITOR_RULES_ADD = "collapsible_groups.editor.rules.add";
-
 	public static final String EDITOR_RULES_BASIC_HEADER = "collapsible_groups.editor.rules.basic_header";
 
 	public static final String EDITOR_RULES_CLAUSES = "collapsible_groups.editor.rules.clauses";
 
 	public static final String EDITOR_RULES_COMPOUND_HEADER = "collapsible_groups.editor.rules.compound_header";
-
-	public static final String EDITOR_RULES_CONFIGURE = "collapsible_groups.editor.rules.configure";
 
 	public static final String EDITOR_RULES_CONTENTS_LOCKED = "collapsible_groups.editor.rules.contents_locked";
 
@@ -226,8 +217,6 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_RULES_FIELD_VALUE_2 = "collapsible_groups.editor.rules.field.value_2";
 
 	public static final String EDITOR_RULES_FIELD_VALUE_3 = "collapsible_groups.editor.rules.field.value_3";
-
-	public static final String EDITOR_RULES_NO_FILTER = "collapsible_groups.editor.rules.no_filter";
 
 	public static final String EDITOR_RULES_PREVIEW_NOTE = "collapsible_groups.editor.rules.preview_note";
 
@@ -398,8 +387,6 @@ public final class ModTranslationKeys {
 
 	public static final String ORE_EDITOR_STATUS_CLEAN = "collapsible_groups.ore_editor.status.clean";
 
-	public static final String ORE_EDITOR_STATUS_DIRTY = "collapsible_groups.ore_editor.status.dirty";
-
 	public static final String ORE_EDITOR_STATUS_READY = "collapsible_groups.ore_editor.status.ready";
 
 	/** Args: reason (%s) */
@@ -543,11 +530,7 @@ public final class ModTranslationKeys {
 	/** Args: source group name (%s) */
 	public static final String MANAGER_COPY_NAME_FORMAT = "collapsible_groups.manager.copy_name_format";
 
-	public static final String MANAGER_BTN_DISABLED = "collapsible_groups.manager.btn_disabled";
-
 	public static final String MANAGER_BTN_EDIT = "collapsible_groups.manager.btn_edit";
-
-	public static final String MANAGER_BTN_ENABLED = "collapsible_groups.manager.btn_enabled";
 
 	public static final String MANAGER_BTN_FILTER_BUILTIN = "collapsible_groups.manager.btn_filter_builtin";
 
@@ -602,12 +585,6 @@ public final class ModTranslationKeys {
 	public static final String MANAGER_EMPTY_SEARCH = "collapsible_groups.manager.empty_search";
 
 	public static final String MANAGER_FOOTER_HINT = "collapsible_groups.manager.footer_hint";
-
-	/** Args: group name (%s) */
-	public static final String MANAGER_PREFIX_BUILTIN = "collapsible_groups.manager.prefix_builtin";
-
-	/** Args: group name (%s) */
-	public static final String MANAGER_PREFIX_KUBEJS = "collapsible_groups.manager.prefix_kubejs";
 
 	public static final String MANAGER_TOOLTIP_COPY_AS_CUSTOM = "collapsible_groups.manager.tooltip.copy_as_custom";
 

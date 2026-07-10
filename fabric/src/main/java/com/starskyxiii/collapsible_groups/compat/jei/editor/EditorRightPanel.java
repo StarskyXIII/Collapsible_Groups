@@ -17,7 +17,7 @@ import net.minecraft.world.item.ItemStack;
 import java.util.List;
 
 /**
- * Manages the right pane of {@link GroupEditorScreen}: the resolved item,
+ * Manages the right pane of {@link OreGroupEditorScreen}: the resolved item,
  * fluid, and generic members of the group currently being edited.
  */
 final class EditorRightPanel {

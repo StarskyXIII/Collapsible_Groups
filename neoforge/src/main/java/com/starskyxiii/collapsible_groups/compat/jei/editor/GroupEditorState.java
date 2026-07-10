@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Holds all mutable edit state for {@link GroupEditorScreen}.
+ * Holds all mutable edit state for {@link OreGroupEditorScreen}.
  *
  * <p>The editor now tracks two parallel representations:
  * <ul>

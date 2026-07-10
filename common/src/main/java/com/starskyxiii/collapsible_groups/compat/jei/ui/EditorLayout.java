@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
 /**
- * Immutable snapshot of the GroupEditorScreen layout computed each time the
+ * Immutable snapshot of the editor layout computed each time the
  * screen is (re-)initialized. Both {@code EditorLeftPanel} and
  * {@code EditorRightPanel} receive this record instead of having to repeat the
  * same arithmetic.

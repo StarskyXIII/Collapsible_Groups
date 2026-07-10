@@ -17,7 +17,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Holds all mutable edit state for {@link GroupEditorScreen}.
+ * Holds all mutable edit state for {@link OreGroupEditorScreen}.
  *
  * <p>The Forge editor supports item, fluid, and generic/custom quick-editing
  * through the shared contents draft while preserving the richer Rules workflow.
