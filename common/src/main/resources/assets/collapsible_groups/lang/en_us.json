@@ -91,7 +91,6 @@
   "collapsible_groups.count.fluids": "%s fluids",
   "collapsible_groups.count.items": "%s items",
   "collapsible_groups.editor.chip.hide_used": "Hide Used",
-  "collapsible_groups.editor.contents.advanced_rules": "%s advanced rules managed in Rules mode",
   "collapsible_groups.editor.filter.editable": "Editable filter",
   "collapsible_groups.editor.filter.readonly": "Read-only filter",
   "collapsible_groups.editor.hint.add_this": "Click to add this variant",

@@ -83,7 +83,6 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_FILTER_READONLY = "collapsible_groups.editor.filter.readonly";
 
 	/** non-blocking Contents hint — "%s advanced rules managed in Rules mode". */
-	public static final String EDITOR_CONTENTS_ADVANCED_RULES = "collapsible_groups.editor.contents.advanced_rules";
 
 	public static final String EDITOR_HINT_ADD_THIS = "collapsible_groups.editor.hint.add_this";
 

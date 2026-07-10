@@ -9,14 +9,12 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
-import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
  * Builds and renders hover-tooltips for both panels of {@link OreGroupEditorScreen}.
- * All methods are static; the class is never instantiated.
  */
 final class GroupEditorTooltipHelper {
 
@@ -97,7 +95,7 @@ final class GroupEditorTooltipHelper {
 			List<Component> lines = EditorFluidIngredientHelper.tooltipLines(fluid);
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 			else if (state.isFluidSelected(fluidIngredient(fluid))) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
-			else                              lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
+			else lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 			return;
 		}
@@ -105,15 +103,11 @@ final class GroupEditorTooltipHelper {
 			GenericIngredientView entry = right.groupGeneric().get(right.hoveredGeneric);
 			List<Component> lines = EditorGenericIngredientHelper.tooltipLines(entry);
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
-			else if (state.isGenericSelected(entry))   lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
+			else if (state.isGenericSelected(entry)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else if (state.isGenericTagMatched(entry)) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 		}
 	}
-
-	// -----------------------------------------------------------------------
-	// Left panel item hints
-	// -----------------------------------------------------------------------
 
 	private static void appendItemHint(List<Component> lines, GroupEditorState state, ItemStack stack) {
 		if (!state.canEditContents()) {
@@ -140,10 +134,6 @@ final class GroupEditorTooltipHelper {
 		}
 	}
 
-	// -----------------------------------------------------------------------
-	// Shared tooltip helpers
-	// -----------------------------------------------------------------------
-
 	/**
 	 * overlap tooltip: the ownership caches carry the single JEI winner
 	 * (winner semantics, see EditorGroupOwnershipHelper), so this names the group
@@ -166,7 +156,7 @@ final class GroupEditorTooltipHelper {
 	private static Component hint2(String key) { return Component.translatable(key).withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC); }
 	private static Component dim(String key)   { return Component.translatable(key).withStyle(ChatFormatting.DARK_GRAY); }
 
-	private static FluidStack fluidIngredient(EditorFluidIngredientView fluid) {
-		return (FluidStack) fluid.ingredient();
+	private static Object fluidIngredient(EditorFluidIngredientView fluid) {
+		return fluid.ingredient();
 	}
 }

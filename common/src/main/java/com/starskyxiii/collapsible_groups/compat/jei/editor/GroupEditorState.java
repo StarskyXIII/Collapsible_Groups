@@ -19,7 +19,7 @@ import java.util.Set;
 /**
  * Holds all mutable edit state for {@link OreGroupEditorScreen}.
  *
- * <p>The Fabric editor supports item and fluid contents editing, and mirrors the richer rules workflow:
+ * <p>The editor supports item and fluid contents editing, and mirrors the richer rules workflow:
  * a flat contents draft powers quick item editing while a rule-tree draft powers the
  * Rules tab and persistence. Generic/custom entries use the same contents draft
  * contract as item and fluid entries.
@@ -383,13 +383,11 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		if (filter.isEmpty()) {
 			boolean available = !core.hasRulesRoot();
 			core.setContentsEditability(available, available);
-			core.setContentsAdvancedRuleCount(0);
 			return;
 		}
 
 		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(filter.get());
 		core.setContentsEditability(decoded.structurallyEditable(), decoded.flatIndexSafe());
-		core.setContentsAdvancedRuleCount(decoded.preservedSubtrees().size());
 		if (core.canEditContents()) {
 			copyContentsDraft(decoded.draft());
 		}

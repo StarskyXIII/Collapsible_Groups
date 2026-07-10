@@ -35,7 +35,6 @@ final class EditorStateCore {
 	// subtrees present) is still contents-editable but is NOT flat-index safe, so the
 	// indexed item preview must not be used for it — see canUseIndexedItemPreview().
 	private boolean flatIndexPreviewSafe;
-	private int contentsAdvancedRuleCount;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
 
 	// id sets of everything the current group's rules fully match, keyed the
@@ -151,33 +150,6 @@ final class EditorStateCore {
 
 	void setContentsQuickEditAvailable(boolean contentsQuickEditAvailable) {
 		setContentsEditability(contentsQuickEditAvailable, contentsQuickEditAvailable);
-	}
-
-	/**
-	 * number of preserved advanced subtrees in the current filter, intended to feed the
-	 * non-blocking Contents hint "N advanced rules managed in Rules mode"
-	 * ({@link ModTranslationKeys#EDITOR_CONTENTS_ADVANCED_RULES}).
-	 *
-	 * <p>Retained without a render consumer for now: shipped and was play-tested with no
-	 * hint rendered, and the hint surface that would have consumed this was reverted.
-	 * The count/hint accessors below are kept as-is to be wired into a future Contents
-	 * polish pass rather than re-touching the three loader panels for it now.
-	 */
-	void setContentsAdvancedRuleCount(int contentsAdvancedRuleCount) {
-		this.contentsAdvancedRuleCount = contentsAdvancedRuleCount;
-	}
-
-	int contentsAdvancedRuleCount() {
-		return contentsAdvancedRuleCount;
-	}
-
-	boolean hasContentsAdvancedRules() {
-		return contentsAdvancedRuleCount > 0;
-	}
-
-	String contentsAdvancedRulesHint() {
-		return Component.translatable(
-			ModTranslationKeys.EDITOR_CONTENTS_ADVANCED_RULES, contentsAdvancedRuleCount).getString();
 	}
 
 	/**
