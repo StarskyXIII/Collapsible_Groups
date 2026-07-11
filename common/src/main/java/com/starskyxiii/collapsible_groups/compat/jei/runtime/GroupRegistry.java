@@ -463,7 +463,15 @@ public final class GroupRegistry {
 		GroupFilter combined = preserved.size() == 1
 			? preserved.get(0)
 			: Filters.any(preserved.toArray(GroupFilter[]::new));
-		return resolveItems(new GroupDefinition("__cg_preserved_preview__", "", true, combined));
+		try {
+			return resolveItems(new GroupDefinition("__cg_preserved_preview__", "", true, combined));
+		} catch (IllegalArgumentException e) {
+			// A mid-edit rules draft can contain a not-yet-valid node (e.g. a pending
+			// HAS_COMPONENT with empty fields). An invalid preserved tree matches nothing
+			// until it validates; the fingerprint changes again once the node is completed,
+			// so the cached empty result cannot go stale.
+			return List.of();
+		}
 	}
 
 	// -----------------------------------------------------------------------

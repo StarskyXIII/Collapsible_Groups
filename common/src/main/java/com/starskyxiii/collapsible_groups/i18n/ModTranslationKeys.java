@@ -322,7 +322,7 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_RULES_PICKER_SEARCH = "collapsible_groups.editor.rules.picker.search";
 
-	/** Tooltip/label for the field-level "…" button that opens the component type picker. */
+	/** Label for a field-level "…" picker button. */
 	public static final String EDITOR_RULES_FIELD_PICKER_BUTTON = "collapsible_groups.editor.rules.field.picker_button";
 
 	/** Args: raw value (%s) */
@@ -331,6 +331,28 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_RULES_PICKER_EMPTY = "collapsible_groups.editor.rules.picker.empty";
 
 	public static final String EDITOR_RULES_PICKER_CONFIRM = "collapsible_groups.editor.rules.picker.confirm";
+
+	public static final String EDITOR_RULES_REFERENCE_CHOOSE = "collapsible_groups.editor.rules.reference.choose";
+
+	public static final String EDITOR_RULES_REFERENCE_SELECTED = "collapsible_groups.editor.rules.reference.selected";
+
+	public static final String EDITOR_RULES_REFERENCE_CLEAR = "collapsible_groups.editor.rules.reference.clear";
+
+	public static final String EDITOR_RULES_REFERENCE_ITEM_TITLE = "collapsible_groups.editor.rules.reference.item_title";
+
+	public static final String EDITOR_RULES_REFERENCE_ITEM_SEARCH = "collapsible_groups.editor.rules.reference.item_search";
+
+	public static final String EDITOR_RULES_REFERENCE_COMPONENT_TITLE = "collapsible_groups.editor.rules.reference.component_title";
+
+	public static final String EDITOR_RULES_REFERENCE_PATH_TITLE = "collapsible_groups.editor.rules.reference.path_title";
+
+	public static final String EDITOR_RULES_REFERENCE_NO_COMPONENTS = "collapsible_groups.editor.rules.reference.no_components";
+
+	public static final String EDITOR_RULES_REFERENCE_NO_PATHS = "collapsible_groups.editor.rules.reference.no_paths";
+
+	public static final String EDITOR_RULES_REFERENCE_PATCH = "collapsible_groups.editor.rules.reference.patch";
+
+	public static final String EDITOR_RULES_REFERENCE_BACK = "collapsible_groups.editor.rules.reference.back";
 
 	public static final String EDITOR_SAVE_BLOCKED_NO_FILTER = "collapsible_groups.editor.save_blocked.no_filter";
 

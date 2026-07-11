@@ -101,10 +101,10 @@ public final class ItemStackIngredientView implements IngredientView {
 			.orElse(false);
 	}
 
-	private static boolean matchesEncodedValue(JsonElement encoded, String encodedValue) {
+	static boolean matchesEncodedValue(JsonElement encoded, String encodedValue) {
 		// For string-encoded components (ResourceLocations, enums), compare the unwrapped value directly.
 		if (encoded instanceof JsonPrimitive p && p.isString()) {
-			return p.getAsString().equals(encodedValue);
+			return EncodedValueNormalizer.normalize(encoded).equals(encodedValue);
 		}
 		// For non-string types (numbers, objects, arrays), try structural JSON comparison.
 		try {
@@ -112,7 +112,7 @@ public final class ItemStackIngredientView implements IngredientView {
 			return encoded.equals(expected);
 		} catch (RuntimeException e) {
 			// If the encodedValue isn't valid JSON, fall back to toString comparison.
-			return encoded.toString().equals(encodedValue);
+			return EncodedValueNormalizer.normalize(encoded).equals(encodedValue);
 		}
 	}
 }

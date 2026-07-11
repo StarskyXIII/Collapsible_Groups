@@ -9,6 +9,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.oreui.OreEditorPreviewSumma
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.OreEditorShellMode;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewTooltip;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.EditorItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorChrome;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
@@ -19,6 +20,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupThemeColors;
+import com.starskyxiii.collapsible_groups.core.ItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.ChatFormatting;
@@ -64,6 +66,7 @@ public class OreGroupEditorScreen extends Screen {
 
 	private final GroupManagerParent parent;
 	private final GroupEditorState state;
+	private final ItemUniverseProvider itemUniverseProvider = EditorItemUniverseProvider.INSTANCE;
 	private final Component nameFieldHint = Component.translatable(ModTranslationKeys.EDITOR_NAME_HINT);
 	private final Component searchFieldHint = Component.translatable(ModTranslationKeys.EDITOR_SEARCH_HINT);
 
@@ -146,7 +149,7 @@ public class OreGroupEditorScreen extends Screen {
 		layout = shell.panelLayout();
 		leftPanel = new EditorLeftPanel(state, this::onGroupChanged);
 		rightPanel = new EditorRightPanel(state, this::onGroupChanged);
-		rulesPanel = new EditorRulesPanel(state, font, this::onGroupChanged);
+		rulesPanel = new EditorRulesPanel(state, font, this::onGroupChanged, itemUniverseProvider);
 		settingsPanel = new EditorSettingsPanel(state, font, this::onGroupChanged,
 			() -> rightPanel.groupItems());
 		settingsPanel.setDirtyGate(() -> dirty, value -> dirty = value);
@@ -168,11 +171,7 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	private List<ItemStack> editorItems() {
-		if (!GroupRegistry.getJeiAllItems().isEmpty()) return GroupRegistry.getJeiAllItems();
-		return net.minecraft.core.registries.BuiltInRegistries.ITEM.stream()
-			.filter(item -> item != net.minecraft.world.item.Items.AIR)
-			.map(net.minecraft.world.item.ItemStack::new)
-			.toList();
+		return itemUniverseProvider.allStacks();
 	}
 
 	private OreEditorShellLayout computeShellLayout() {

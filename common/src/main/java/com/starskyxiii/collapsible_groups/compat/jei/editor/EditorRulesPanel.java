@@ -9,7 +9,13 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorChrome;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
+import com.starskyxiii.collapsible_groups.core.ComponentPathNavigator;
+import com.starskyxiii.collapsible_groups.core.ComponentReferenceExtractor;
+import com.starskyxiii.collapsible_groups.core.EncodedValueNormalizer;
 import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
+import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
+import com.starskyxiii.collapsible_groups.core.ItemPickerSearchQuery;
+import com.starskyxiii.collapsible_groups.core.ItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -17,6 +23,7 @@ import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -56,6 +63,10 @@ final class EditorRulesPanel {
 	private static final int PICKER_ROW_H = 12;
 	private static final int FIELD_H = 20;
 	private static final int FIELD_GAP = 4;
+	private static final int REFERENCE_SLOT_SIZE = 22;
+	private static final int REFERENCE_ROW_H = 30;
+	private static final int REFERENCE_PICKER_ROW_H = 20;
+	private static final int ITEM_PICKER_CELL_PITCH = 20;
 	// Sprite (ore_button) nine-slice art is 20px tall; using anything less crops the frame.
 	// Menu row spacing (BTN_H + 2) and modalRect height math both key off this constant.
 	private static final int BTN_H = 20;
@@ -75,7 +86,11 @@ final class EditorRulesPanel {
 	private static final int COL_DROP_TARGET = 0x553C8527;
 	private static final int COL_GHOST_BG = 0xE01A1D24;
 
-	private enum ModalKind { NONE, MENU, PICKER, FORM }
+	private enum ModalKind { NONE, MENU, PICKER, FORM, REFERENCE_PICKER }
+
+	private enum ReferencePickerMode { NONE, REFERENCE_ITEM, REFERENCE_COMPONENT, REFERENCE_PATH }
+
+	private enum ReferenceItemTarget { REFERENCE_SLOT, FORM_PRIMARY }
 
 	private record MenuEntry(
 		GroupFilterRuleDraft.NodeKind kind,
@@ -186,6 +201,7 @@ final class EditorRulesPanel {
 	private final EditorRulesState state;
 	private final Font font;
 	private final Runnable onChanged;
+	private final ItemUniverseProvider itemUniverseProvider;
 
 	// ── Body rect ─────────────────────────────────────────────────────────
 	private int bodyX, bodyY, bodyW, bodyH;
@@ -264,11 +280,38 @@ final class EditorRulesPanel {
 	// (componentTypeId on HAS_COMPONENT / COMPONENT_PATH); kept generic for future reuse.
 	private boolean formPrimaryHasPickerButton;
 	private final Set<RuleFieldRole> formInvalidRoles = new HashSet<>();
+	@Nullable
+	private ItemStack referenceStack;
+	private ReferencePickerMode referencePickerMode = ReferencePickerMode.NONE;
+	private ReferenceItemTarget referenceItemTarget = ReferenceItemTarget.REFERENCE_SLOT;
+	private List<ItemStack> referenceItems = List.of();
+	private List<ItemStack> referenceFilteredItems = List.of();
+	private List<ComponentReferenceExtractor.ComponentReference> referenceComponents = List.of();
+	private List<ComponentReferenceExtractor.ComponentReference> referenceFilteredComponents = List.of();
+	private List<ComponentPathNavigator.PathNode> referencePaths = List.of();
+	private List<ComponentPathNavigator.PathNode> referenceFilteredPaths = List.of();
+	@Nullable
+	private ComponentReferenceExtractor.ComponentReference referenceSelectedComponent;
+	private EditBox referencePickerSearch;
+	private int referencePickerSelected = -1;
+	private long lastReferencePickerClickMs;
+	private int lastReferencePickerClickIndex = -1;
+	private String referenceComponentSearch = "";
+	private String referencePathSearch = "";
+	private String referenceItemSearch = "";
+	private boolean referenceItemFilterDirty;
+	private long referenceItemFilterDeadline;
 
-	EditorRulesPanel(EditorRulesState state, Font font, Runnable onChanged) {
+	EditorRulesPanel(
+		EditorRulesState state,
+		Font font,
+		Runnable onChanged,
+		ItemUniverseProvider itemUniverseProvider
+	) {
 		this.state = state;
 		this.font = font;
 		this.onChanged = onChanged;
+		this.itemUniverseProvider = itemUniverseProvider;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -318,7 +361,7 @@ final class EditorRulesPanel {
 	 * paths (see confirmPickerSelection / keyPressed / pickerMouseClicked).
 	 */
 	private void abortModal() {
-		if (modal == ModalKind.PICKER || modal == ModalKind.FORM) {
+		if (modal == ModalKind.PICKER || modal == ModalKind.FORM || modal == ModalKind.REFERENCE_PICKER) {
 			cancelEditor();
 		}
 		modal = ModalKind.NONE;
@@ -329,6 +372,8 @@ final class EditorRulesPanel {
 		pickerTargetField = null;
 		formType = formPrimary = formSecondary = formTertiary = null;
 		formInvalidRoles.clear();
+		referenceStack = null;
+		resetReferencePickerState();
 		focusedField = null;
 		clearDrag();
 	}
@@ -453,6 +498,7 @@ final class EditorRulesPanel {
 			case MENU -> renderMenu(g, mouseX, mouseY);
 			case PICKER -> renderPicker(g, mouseX, mouseY);
 			case FORM -> renderForm(g, mouseX, mouseY);
+			case REFERENCE_PICKER -> renderReferencePicker(g, mouseX, mouseY);
 			default -> {}
 		}
 		g.pose().popPose();
@@ -886,6 +932,8 @@ final class EditorRulesPanel {
 		pickerTargetField = null;
 		formType = formPrimary = formSecondary = formTertiary = null;
 		formInvalidRoles.clear();
+		referenceStack = null;
+		resetReferencePickerState();
 		focusedField = null;
 		state.markRulesChanged();
 		onChanged.run();
@@ -936,6 +984,8 @@ final class EditorRulesPanel {
 		pickerTargetField = null;
 		formType = formPrimary = formSecondary = formTertiary = null;
 		formInvalidRoles.clear();
+		referenceStack = null;
+		resetReferencePickerState();
 		focusedField = null;
 		onChanged.run();
 	}
@@ -1264,10 +1314,480 @@ final class EditorRulesPanel {
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
+	// Typed reference item / component / path picker
+	// ─────────────────────────────────────────────────────────────────────
+
+	private void openReferenceItemPicker(ReferenceItemTarget target) {
+		if (editingNode == null) return;
+		modal = ModalKind.REFERENCE_PICKER;
+		referencePickerMode = ReferencePickerMode.REFERENCE_ITEM;
+		referenceItemTarget = target;
+		referenceItems = itemUniverseProvider.allStacks().stream()
+			.filter(stack -> stack != null && !stack.isEmpty())
+			.toList();
+		referenceComponents = List.of();
+		referenceFilteredComponents = List.of();
+		referencePaths = List.of();
+		referenceFilteredPaths = List.of();
+		referenceSelectedComponent = null;
+		modalScrollOffset = 0;
+		lastReferencePickerClickMs = 0;
+		lastReferencePickerClickIndex = -1;
+		initReferencePickerSearch(referenceItemSearch);
+		refilterReferencePicker();
+		if (target == ReferenceItemTarget.REFERENCE_SLOT && referenceStack != null) {
+			referencePickerSelected = indexOfItem(referenceFilteredItems, referenceStack);
+		}
+		scrollReferencePickerToSelection();
+	}
+
+	private void openReferenceComponentPicker() {
+		openReferenceComponentPicker(null);
+	}
+
+	private void openReferenceComponentPicker(
+		@Nullable ComponentReferenceExtractor.ComponentReference preferred
+	) {
+		if (referenceStack == null || editingNode == null || !hasReferenceSlot()) return;
+		modal = ModalKind.REFERENCE_PICKER;
+		referencePickerMode = ReferencePickerMode.REFERENCE_COMPONENT;
+		referenceItems = List.of();
+		referenceFilteredItems = List.of();
+		referenceComponents = ComponentReferenceExtractor.extract(referenceStack);
+		referencePaths = List.of();
+		referenceFilteredPaths = List.of();
+		referenceSelectedComponent = preferred;
+		modalScrollOffset = 0;
+		lastReferencePickerClickMs = 0;
+		lastReferencePickerClickIndex = -1;
+		initReferencePickerSearch(referenceComponentSearch);
+		refilterReferencePicker();
+		if (preferred != null) referencePickerSelected = referenceFilteredComponents.indexOf(preferred);
+		if (referencePickerSelected < 0) {
+			referencePickerSelected = indexOfComponentId(referenceFilteredComponents, editingNode.primaryValue());
+		}
+		scrollReferencePickerToSelection();
+	}
+
+	private void openReferencePathPicker(ComponentReferenceExtractor.ComponentReference component) {
+		modal = ModalKind.REFERENCE_PICKER;
+		referencePickerMode = ReferencePickerMode.REFERENCE_PATH;
+		referenceSelectedComponent = component;
+		referencePaths = ComponentPathNavigator.enumerateReachable(component.encodedJson());
+		referenceFilteredComponents = List.of();
+		modalScrollOffset = 0;
+		lastReferencePickerClickMs = 0;
+		lastReferencePickerClickIndex = -1;
+		initReferencePickerSearch(referencePathSearch);
+		refilterReferencePicker();
+		referencePickerSelected = indexOfPath(referenceFilteredPaths, editingNode.secondaryValue());
+		scrollReferencePickerToSelection();
+	}
+
+	private void initReferencePickerSearch(String value) {
+		EditorChrome.Rect search = pickerSearchRect(referencePickerModalRect());
+		referencePickerSearch = new EditBox(font,
+			search.x() + 4, search.y() + (search.height() - font.lineHeight) / 2,
+			search.width() - 8, font.lineHeight + 2, Component.empty());
+		referencePickerSearch.setBordered(false);
+		referencePickerSearch.setMaxLength(256);
+		referencePickerSearch.setHint(Component.translatable(
+			referencePickerMode == ReferencePickerMode.REFERENCE_ITEM
+				? ModTranslationKeys.EDITOR_RULES_REFERENCE_ITEM_SEARCH
+				: ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH));
+		referencePickerSearch.setValue(value);
+		referencePickerSearch.setResponder(query -> {
+			if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
+				referenceItemSearch = query;
+				referenceItemFilterDirty = true;
+				referenceItemFilterDeadline = System.currentTimeMillis() + FILTER_DEBOUNCE_MS;
+				return;
+			} else if (referencePickerMode == ReferencePickerMode.REFERENCE_COMPONENT) {
+				referenceComponentSearch = query;
+			} else if (referencePickerMode == ReferencePickerMode.REFERENCE_PATH) {
+				referencePathSearch = query;
+			}
+			refilterReferencePicker();
+			modalScrollOffset = 0;
+		});
+		referencePickerSearch.setFocused(true);
+		focusedField = referencePickerSearch;
+	}
+
+	private void refilterReferencePicker() {
+		referenceItemFilterDirty = false;
+		String query = referencePickerSearch == null
+			? ""
+			: referencePickerSearch.getValue().trim();
+		String lowerQuery = query.toLowerCase(Locale.ROOT);
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
+			ItemPickerSearchQuery parsed = ItemPickerSearchQuery.parse(query);
+			referenceFilteredItems = parsed.isEmpty()
+				? referenceItems
+				: referenceItems.stream().filter(parsed::matches).toList();
+			referencePickerSelected = -1;
+		} else if (referencePickerMode == ReferencePickerMode.REFERENCE_COMPONENT) {
+			referenceFilteredComponents = referenceComponents.stream()
+				.filter(entry -> lowerQuery.isEmpty()
+					|| entry.componentTypeId().toLowerCase(Locale.ROOT).contains(lowerQuery)
+					|| entry.encodedValue().toLowerCase(Locale.ROOT).contains(lowerQuery))
+				.toList();
+			referencePickerSelected = -1;
+		} else if (referencePickerMode == ReferencePickerMode.REFERENCE_PATH) {
+			referenceFilteredPaths = referencePaths.stream()
+				.filter(entry -> lowerQuery.isEmpty()
+					|| entry.path().toLowerCase(Locale.ROOT).contains(lowerQuery)
+					|| EncodedValueNormalizer.normalize(entry.value()).toLowerCase(Locale.ROOT).contains(lowerQuery))
+				.toList();
+			referencePickerSelected = -1;
+		}
+	}
+
+	private static int indexOfComponentId(
+		List<ComponentReferenceExtractor.ComponentReference> entries,
+		String componentTypeId
+	) {
+		for (int i = 0; i < entries.size(); i++) {
+			if (entries.get(i).componentTypeId().equals(componentTypeId)) return i;
+		}
+		return -1;
+	}
+
+	private static int indexOfPath(List<ComponentPathNavigator.PathNode> entries, String path) {
+		for (int i = 0; i < entries.size(); i++) {
+			if (entries.get(i).path().equals(path)) return i;
+		}
+		return -1;
+	}
+
+	private static int indexOfItem(List<ItemStack> entries, ItemStack wanted) {
+		for (int i = 0; i < entries.size(); i++) {
+			if (ItemStack.isSameItemSameComponents(entries.get(i), wanted)) return i;
+		}
+		return -1;
+	}
+
+	private EditorChrome.Rect referencePickerModalRect() {
+		return modalRect(300, 230);
+	}
+
+	private int referencePickerEntryCount() {
+		return switch (referencePickerMode) {
+			case REFERENCE_ITEM -> referenceFilteredItems.size();
+			case REFERENCE_COMPONENT -> referenceFilteredComponents.size();
+			case REFERENCE_PATH -> referenceFilteredPaths.size();
+			case NONE -> 0;
+		};
+	}
+
+	private int referencePickerTotalCount() {
+		return switch (referencePickerMode) {
+			case REFERENCE_ITEM -> referenceItems.size();
+			case REFERENCE_COMPONENT -> referenceComponents.size();
+			case REFERENCE_PATH -> referencePaths.size();
+			case NONE -> 0;
+		};
+	}
+
+	private int referencePickerContentHeight() {
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
+			int columns = referenceItemColumns(pickerListRect(referencePickerModalRect()));
+			return Math.max(1, (referencePickerEntryCount() + columns - 1) / columns) * ITEM_PICKER_CELL_PITCH + 1;
+		}
+		return referencePickerEntryCount() * REFERENCE_PICKER_ROW_H;
+	}
+
+	private String referencePickerTitle() {
+		String key = switch (referencePickerMode) {
+			case REFERENCE_ITEM -> ModTranslationKeys.EDITOR_RULES_REFERENCE_ITEM_TITLE;
+			case REFERENCE_PATH -> ModTranslationKeys.EDITOR_RULES_REFERENCE_PATH_TITLE;
+			case REFERENCE_COMPONENT, NONE -> ModTranslationKeys.EDITOR_RULES_REFERENCE_COMPONENT_TITLE;
+		};
+		return Component.translatable(key).getString();
+	}
+
+	private void renderReferencePicker(GuiGraphics g, int mouseX, int mouseY) {
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM
+			&& referenceItemFilterDirty && System.currentTimeMillis() >= referenceItemFilterDeadline) {
+			refilterReferencePicker();
+			modalScrollOffset = 0;
+		}
+		EditorChrome.Rect modalRect = referencePickerModalRect();
+		drawModalPanel(g, modalRect, referencePickerTitle());
+		EditorChrome.Rect search = pickerSearchRect(modalRect);
+		drawFieldChrome(g, search,
+			referencePickerSearch != null && referencePickerSearch.isFocused(), search.contains(mouseX, mouseY));
+		if (referencePickerSearch != null) referencePickerSearch.render(g, mouseX, mouseY, 0);
+
+		EditorChrome.Rect list = pickerListRect(modalRect);
+		g.fill(list.x(), list.y(), list.right(), list.bottom(), OreUiPalette.SURFACE_DARK);
+		g.enableScissor(list.x(), list.y(), list.right(), list.bottom());
+		try {
+			if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
+				renderReferenceItemGrid(g, list, mouseX, mouseY);
+			} else {
+				for (int index = 0; index < referencePickerEntryCount(); index++) {
+					int y = list.y() + index * REFERENCE_PICKER_ROW_H - modalScrollOffset;
+					if (y + REFERENCE_PICKER_ROW_H >= list.y() && y <= list.bottom()) {
+						renderReferencePickerRow(g, list, y, index, mouseX, mouseY);
+					}
+				}
+			}
+			if (referencePickerEntryCount() == 0) {
+				String key;
+				if (referencePickerTotalCount() > 0 || referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
+					key = ModTranslationKeys.EDITOR_RULES_PICKER_EMPTY;
+				} else if (referencePickerMode == ReferencePickerMode.REFERENCE_PATH) {
+					key = ModTranslationKeys.EDITOR_RULES_REFERENCE_NO_PATHS;
+				} else {
+					key = ModTranslationKeys.EDITOR_RULES_REFERENCE_NO_COMPONENTS;
+				}
+				g.drawString(font, Component.translatable(key).getString(),
+					list.x() + PAD, list.y() + PAD, OreUiPalette.TEXT_HINT, false);
+			}
+		} finally {
+			g.disableScissor();
+		}
+		ScrollbarHelper.renderPixels(g, list.right() + ScrollbarHelper.GAP, list.y(), list.height(),
+			list.height(), referencePickerContentHeight(), modalScrollOffset);
+		g.drawString(font, referencePickerEntryCount() + " / " + referencePickerTotalCount(),
+			list.x(), list.bottom() + 3, OreUiPalette.TEXT_HINT, false);
+
+		EditorChrome.Rect confirm = pickerConfirmRect(modalRect);
+		EditorChrome.Rect cancel = pickerCancelRect(modalRect);
+		OreUiRenderer.drawButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
+			Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM).getString(),
+			buttonState(referencePickerSelected >= 0, confirm.contains(mouseX, mouseY)));
+		String cancelKey = referencePickerMode == ReferencePickerMode.REFERENCE_PATH
+			? ModTranslationKeys.EDITOR_RULES_REFERENCE_BACK : ModTranslationKeys.BUTTON_CANCEL;
+		OreUiRenderer.drawButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
+			Component.translatable(cancelKey).getString(), buttonState(true, cancel.contains(mouseX, mouseY)));
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
+			ItemStack hovered = referenceItemAt(list, mouseX, mouseY);
+			if (hovered != null) g.renderTooltip(font, hovered, mouseX, mouseY);
+		}
+	}
+
+	private int referenceItemColumns(EditorChrome.Rect list) {
+		return Math.max(1, (list.width() - 1) / ITEM_PICKER_CELL_PITCH);
+	}
+
+	@Nullable
+	private ItemStack referenceItemAt(EditorChrome.Rect list, double mouseX, double mouseY) {
+		if (!list.contains(mouseX, mouseY)) return null;
+		int columns = referenceItemColumns(list);
+		int col = (int) ((mouseX - list.x()) / ITEM_PICKER_CELL_PITCH);
+		if (col >= columns) return null;
+		int row = (int) ((mouseY - list.y() + modalScrollOffset) / ITEM_PICKER_CELL_PITCH);
+		int index = row * columns + col;
+		return index >= 0 && index < referenceFilteredItems.size() ? referenceFilteredItems.get(index) : null;
+	}
+
+	/** Draws only the visible grid rows; a 20k-stack universe never produces 20k layouts. */
+	private void renderReferenceItemGrid(GuiGraphics g, EditorChrome.Rect list, int mouseX, int mouseY) {
+		int columns = referenceItemColumns(list);
+		int firstRow = modalScrollOffset / ITEM_PICKER_CELL_PITCH;
+		int pixelOffset = modalScrollOffset % ITEM_PICKER_CELL_PITCH;
+		int visibleRows = (list.height() + pixelOffset + ITEM_PICKER_CELL_PITCH - 1) / ITEM_PICKER_CELL_PITCH + 1;
+		int gridY = list.y() - pixelOffset;
+		OreUiRenderer.drawSlotGrid(g, list.x(), gridY, columns, visibleRows, ITEM_PICKER_CELL_PITCH);
+		int firstIndex = firstRow * columns;
+		int lastIndex = Math.min(referenceFilteredItems.size(), firstIndex + visibleRows * columns);
+		for (int index = firstIndex; index < lastIndex; index++) {
+			int visibleIndex = index - firstIndex;
+			int col = visibleIndex % columns;
+			int row = visibleIndex / columns;
+			int x = list.x() + col * ITEM_PICKER_CELL_PITCH;
+			int y = gridY + row * ITEM_PICKER_CELL_PITCH;
+			boolean hovered = mouseX > x && mouseX < x + ITEM_PICKER_CELL_PITCH
+				&& mouseY > y && mouseY < y + ITEM_PICKER_CELL_PITCH;
+			if (index == referencePickerSelected) {
+				g.fill(x + 1, y + 1, x + ITEM_PICKER_CELL_PITCH, y + ITEM_PICKER_CELL_PITCH, COL_ROW_SELECTED);
+			} else if (hovered) {
+				g.fill(x + 1, y + 1, x + ITEM_PICKER_CELL_PITCH, y + ITEM_PICKER_CELL_PITCH, COL_PICKER_HOVER);
+			}
+			g.renderItem(referenceFilteredItems.get(index), x + 2, y + 2);
+		}
+	}
+
+	private void renderReferencePickerRow(
+		GuiGraphics g, EditorChrome.Rect list, int y, int index, int mouseX, int mouseY
+	) {
+		boolean selected = index == referencePickerSelected;
+		boolean hovered = list.contains(mouseX, mouseY)
+			&& mouseY >= y && mouseY < y + REFERENCE_PICKER_ROW_H;
+		if (selected) {
+			g.fill(list.x(), y, list.right(), y + REFERENCE_PICKER_ROW_H, COL_ROW_SELECTED);
+		} else if (hovered) {
+			g.fill(list.x(), y, list.right(), y + REFERENCE_PICKER_ROW_H, COL_PICKER_HOVER);
+		}
+
+		String primary;
+		String preview;
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_COMPONENT) {
+			ComponentReferenceExtractor.ComponentReference entry = referenceFilteredComponents.get(index);
+			primary = entry.componentTypeId();
+			if (entry.fromPatch()) {
+				primary += " [" + Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_PATCH).getString() + "]";
+			}
+			preview = entry.encodedValue();
+		} else {
+			ComponentPathNavigator.PathNode entry = referenceFilteredPaths.get(index);
+			primary = entry.path();
+			preview = EncodedValueNormalizer.normalize(entry.value());
+		}
+		int primaryWidth = Math.max(40, list.width() * 3 / 5);
+		g.drawString(font, font.plainSubstrByWidth(primary, primaryWidth - PAD * 2),
+			list.x() + PAD, y + (REFERENCE_PICKER_ROW_H - font.lineHeight) / 2,
+			OreUiPalette.TEXT_PRIMARY, false);
+		int previewX = list.x() + primaryWidth;
+		g.drawString(font, font.plainSubstrByWidth(preview, Math.max(0, list.right() - previewX - PAD)),
+			previewX, y + (REFERENCE_PICKER_ROW_H - font.lineHeight) / 2,
+			OreUiPalette.TEXT_HINT, false);
+	}
+
+	private boolean referencePickerMouseClicked(double mx, double my) {
+		EditorChrome.Rect modalRect = referencePickerModalRect();
+		if (!modalRect.contains(mx, my)) {
+			cancelOrBackReferencePicker();
+			return true;
+		}
+		EditorChrome.Rect search = pickerSearchRect(modalRect);
+		if (search.contains(mx, my) && referencePickerSearch != null) {
+			referencePickerSearch.setFocused(true);
+			focusedField = referencePickerSearch;
+			referencePickerSearch.mouseClicked(mx, my, 0);
+			return true;
+		}
+		EditorChrome.Rect list = pickerListRect(modalRect);
+		if (handleModalScrollbarClick(mx, my, list, referencePickerContentHeight())) return true;
+		if (list.contains(mx, my)) {
+			int index;
+			if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
+				int columns = referenceItemColumns(list);
+				int row = (int) ((my - list.y() + modalScrollOffset) / ITEM_PICKER_CELL_PITCH);
+				int col = (int) ((mx - list.x()) / ITEM_PICKER_CELL_PITCH);
+				index = col < columns ? row * columns + col : -1;
+			} else {
+				index = (int) ((my - list.y() + modalScrollOffset) / REFERENCE_PICKER_ROW_H);
+			}
+			if (index >= 0 && index < referencePickerEntryCount()) {
+				long now = System.currentTimeMillis();
+				boolean doubleClick = index == lastReferencePickerClickIndex
+					&& now - lastReferencePickerClickMs <= DOUBLE_CLICK_MS;
+				lastReferencePickerClickIndex = index;
+				lastReferencePickerClickMs = now;
+				referencePickerSelected = index;
+				if (doubleClick) confirmReferencePickerSelection();
+			}
+			return true;
+		}
+		if (pickerConfirmRect(modalRect).contains(mx, my)) {
+			confirmReferencePickerSelection();
+			return true;
+		}
+		if (pickerCancelRect(modalRect).contains(mx, my)) {
+			cancelOrBackReferencePicker();
+			return true;
+		}
+		return true;
+	}
+
+	private void confirmReferencePickerSelection() {
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM && referenceItemFilterDirty) {
+			refilterReferencePicker();
+		}
+		if (editingNode == null || referencePickerSelected < 0) return;
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
+			if (referencePickerSelected >= referenceFilteredItems.size()) return;
+			ItemStack selected = referenceFilteredItems.get(referencePickerSelected).copy();
+			if (referenceItemTarget == ReferenceItemTarget.REFERENCE_SLOT) {
+				referenceStack = selected;
+				openReferenceComponentPicker();
+			} else {
+				String value = switch (editingNode.kind()) {
+					case ID -> BuiltInRegistries.ITEM.getKey(selected.getItem()).toString();
+					case EXACT_STACK -> GroupItemSelector.tryExactSelector(selected)
+						.map(selector -> selector.startsWith("stack:")
+							? selector.substring("stack:".length()) : selector)
+						.orElse("");
+					default -> "";
+				};
+				openForm();
+				if (!value.isEmpty()) setFormFieldValue(RuleFieldRole.PRIMARY_VALUE, value);
+			}
+			return;
+		}
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_COMPONENT) {
+			if (referencePickerSelected >= referenceFilteredComponents.size()) return;
+			ComponentReferenceExtractor.ComponentReference component =
+				referenceFilteredComponents.get(referencePickerSelected);
+			if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.HAS_COMPONENT) {
+				openForm();
+				setFormFieldValues(Map.of(
+					RuleFieldRole.PRIMARY_VALUE, component.componentTypeId(),
+					RuleFieldRole.SECONDARY_VALUE, component.encodedValue()));
+			} else if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.COMPONENT_PATH) {
+				openReferencePathPicker(component);
+			}
+			return;
+		}
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_PATH
+			&& referenceSelectedComponent != null
+			&& referencePickerSelected < referenceFilteredPaths.size()) {
+			ComponentReferenceExtractor.ComponentReference component = referenceSelectedComponent;
+			ComponentPathNavigator.PathNode path = referenceFilteredPaths.get(referencePickerSelected);
+			openForm();
+			setFormFieldValues(Map.of(
+				RuleFieldRole.PRIMARY_VALUE, component.componentTypeId(),
+				RuleFieldRole.SECONDARY_VALUE, path.path(),
+				RuleFieldRole.TERTIARY_VALUE, EncodedValueNormalizer.normalize(path.value())));
+		}
+	}
+
+	private void cancelOrBackReferencePicker() {
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_PATH) {
+			ComponentReferenceExtractor.ComponentReference component = referenceSelectedComponent;
+			openReferenceComponentPicker(component);
+		} else {
+			openForm();
+		}
+	}
+
+	private void moveReferencePickerSelection(int delta) {
+		int total = referencePickerEntryCount();
+		if (total <= 0) return;
+		int step = referencePickerMode == ReferencePickerMode.REFERENCE_ITEM
+			? referenceItemColumns(pickerListRect(referencePickerModalRect())) : 1;
+		referencePickerSelected = referencePickerSelected < 0
+			? (delta > 0 ? 0 : total - 1)
+			: Math.floorMod(referencePickerSelected + delta * step, total);
+		scrollReferencePickerToSelection();
+	}
+
+	private void scrollReferencePickerToSelection() {
+		if (referencePickerSelected < 0) return;
+		EditorChrome.Rect list = pickerListRect(referencePickerModalRect());
+		int rowHeight = referencePickerMode == ReferencePickerMode.REFERENCE_ITEM
+			? ITEM_PICKER_CELL_PITCH : REFERENCE_PICKER_ROW_H;
+		int rowIndex = referencePickerMode == ReferencePickerMode.REFERENCE_ITEM
+			? referencePickerSelected / referenceItemColumns(list) : referencePickerSelected;
+		int rowTop = rowIndex * rowHeight;
+		int rowBottom = rowTop + rowHeight;
+		if (rowTop < modalScrollOffset) {
+			modalScrollOffset = rowTop;
+		} else if (rowBottom > modalScrollOffset + list.height()) {
+			modalScrollOffset = rowBottom - list.height();
+		}
+		clampModalScroll(referencePickerContentHeight(), list.height());
+	}
+
+	// ─────────────────────────────────────────────────────────────────────
 	// Field form modal
 	// ─────────────────────────────────────────────────────────────────────
 
 	private void openForm() {
+		resetReferencePickerState();
 		modal = ModalKind.FORM;
 		modalScrollOffset = 0;
 		RuleNodeUiContract contract = RuleNodeUiContract.forKind(editingNode.kind());
@@ -1280,17 +1800,19 @@ final class EditorRulesPanel {
 		boolean showTertiary = contract.exposesField(RuleFieldRole.TERTIARY_VALUE);
 		formVisibleFields = (showType ? 1 : 0) + (showPrimary ? 1 : 0)
 			+ (showSecondary ? 1 : 0) + (showTertiary ? 1 : 0);
-		// componentTypeId (primaryValue on HAS_COMPONENT / COMPONENT_PATH) gets a field-level
-		// "…" button opening the DATA_COMPONENT_TYPE picker; see confirmPickerSelection /
-		// cancelOrReturnPicker for the four exit paths that return to this form.
+		// Item ID / exact-stack values open the item grid; component primary values keep
+		// using the DATA_COMPONENT_TYPE picker. Every exit path returns to this form.
 		formPrimaryHasPickerButton = showPrimary
-			&& (editingNode.kind() == GroupFilterRuleDraft.NodeKind.HAS_COMPONENT
+			&& ((editingNode.kind() == GroupFilterRuleDraft.NodeKind.ID
+					&& "item".equals(editingNode.ingredientType()))
+				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.EXACT_STACK
+				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.HAS_COMPONENT
 				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.COMPONENT_PATH);
 
 		EditorChrome.Rect m = formModalRect();
 		int fx = m.x() + GAP;
 		int fw = m.width() - GAP * 2;
-		int fy = m.y() + GAP + font.lineHeight + 6;
+		int fy = formFieldsY(m);
 
 		formType = null;
 		if (showType) {
@@ -1327,41 +1849,145 @@ final class EditorRulesPanel {
 		}
 	}
 
+	private void resetReferencePickerState() {
+		referencePickerMode = ReferencePickerMode.NONE;
+		referenceItemTarget = ReferenceItemTarget.REFERENCE_SLOT;
+		referenceItems = List.of();
+		referenceFilteredItems = List.of();
+		referenceComponents = List.of();
+		referenceFilteredComponents = List.of();
+		referencePaths = List.of();
+		referenceFilteredPaths = List.of();
+		referenceSelectedComponent = null;
+		referencePickerSearch = null;
+		referencePickerSelected = -1;
+		lastReferencePickerClickMs = 0;
+		lastReferencePickerClickIndex = -1;
+		referenceItemFilterDirty = false;
+		referenceItemFilterDeadline = 0;
+	}
+
 	/**
 	 * Single entry point for writing a value back into a FORM field from outside the
-	 * field's own EditBox responder — used by the field-level picker's confirm exit path
-	 * today, and intended for GhostDrop reuse. Updates the node, the EditBox's
+	 * field's own EditBox responder — used by typed picker confirm paths. Updates the node,
+	 * the EditBox's
 	 * displayed text (guarded by {@code updatingFields} so the responder doesn't re-fire
 	 * a redundant write), and clears any stale invalid-field highlight for the role.
 	 */
 	private void setFormFieldValue(RuleFieldRole role, String value) {
+		setFormFieldValues(Map.of(role, value == null ? "" : value));
+	}
+
+	/** Atomically updates every supplied role and emits exactly one rules/onChanged notification. */
+	private void setFormFieldValues(Map<RuleFieldRole, String> values) {
 		if (editingNode == null) {
 			return;
 		}
-		String safe = value == null ? "" : value;
-		EditBox box = switch (role) {
-			case INGREDIENT_TYPE -> formType;
-			case PRIMARY_VALUE -> formPrimary;
-			case SECONDARY_VALUE -> formSecondary;
-			case TERTIARY_VALUE -> formTertiary;
-		};
-		switch (role) {
-			case INGREDIENT_TYPE -> editingNode.setIngredientType(safe);
-			case PRIMARY_VALUE -> editingNode.setPrimaryValue(safe);
-			case SECONDARY_VALUE -> editingNode.setSecondaryValue(safe);
-			case TERTIARY_VALUE -> editingNode.setTertiaryValue(safe);
-		}
-		if (box != null) {
-			updatingFields = true;
-			try {
+		updatingFields = true;
+		try {
+			for (Map.Entry<RuleFieldRole, String> entry : values.entrySet()) {
+				RuleFieldRole role = entry.getKey();
+				String safe = entry.getValue() == null ? "" : entry.getValue();
+				switch (role) {
+					case INGREDIENT_TYPE -> editingNode.setIngredientType(safe);
+					case PRIMARY_VALUE -> editingNode.setPrimaryValue(safe);
+					case SECONDARY_VALUE -> editingNode.setSecondaryValue(safe);
+					case TERTIARY_VALUE -> editingNode.setTertiaryValue(safe);
+				}
+				EditBox box = switch (role) {
+					case INGREDIENT_TYPE -> formType;
+					case PRIMARY_VALUE -> formPrimary;
+					case SECONDARY_VALUE -> formSecondary;
+					case TERTIARY_VALUE -> formTertiary;
+				};
+				if (box != null) {
 				box.setValue(safe);
-			} finally {
-				updatingFields = false;
+				}
+				formInvalidRoles.remove(role);
 			}
+		} finally {
+			updatingFields = false;
 		}
-		formInvalidRoles.remove(role);
 		state.markRulesChanged();
 		onChanged.run();
+	}
+
+	private boolean hasReferenceSlot() {
+		return editingNode != null
+			&& (editingNode.kind() == GroupFilterRuleDraft.NodeKind.HAS_COMPONENT
+				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.COMPONENT_PATH);
+	}
+
+	private int formFieldsY(EditorChrome.Rect modalRect) {
+		int y = modalRect.y() + GAP + font.lineHeight + 6;
+		return hasReferenceSlot() ? y + REFERENCE_ROW_H : y;
+	}
+
+	private EditorChrome.Rect referenceSlotRect(EditorChrome.Rect modalRect) {
+		int rowY = modalRect.y() + GAP + font.lineHeight + 6;
+		return new EditorChrome.Rect(modalRect.x() + GAP,
+			rowY + (REFERENCE_ROW_H - REFERENCE_SLOT_SIZE) / 2,
+			REFERENCE_SLOT_SIZE, REFERENCE_SLOT_SIZE);
+	}
+
+	private EditorChrome.Rect referenceRowRect(EditorChrome.Rect modalRect) {
+		int rowY = modalRect.y() + GAP + font.lineHeight + 6;
+		return new EditorChrome.Rect(modalRect.x() + GAP, rowY,
+			modalRect.width() - GAP * 2, REFERENCE_ROW_H);
+	}
+
+	private EditorChrome.Rect referenceClearButtonRect(EditorChrome.Rect modalRect) {
+		String label = Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_CLEAR).getString();
+		int width = Math.max(38, font.width(label) + 10);
+		EditorChrome.Rect row = referenceRowRect(modalRect);
+		return new EditorChrome.Rect(row.right() - width, row.y() + (row.height() - BTN_H) / 2, width, BTN_H);
+	}
+
+	private void renderReferenceSlot(GuiGraphics g, EditorChrome.Rect modalRect, int mouseX, int mouseY) {
+		if (!hasReferenceSlot()) {
+			return;
+		}
+		EditorChrome.Rect slot = referenceSlotRect(modalRect);
+		g.fill(slot.x(), slot.y(), slot.right(), slot.bottom(), OreUiPalette.SURFACE_DARK);
+		drawDashedOutline(g, slot, slot.contains(mouseX, mouseY)
+			? OreUiPalette.OUTLINE_HOVER : OreUiPalette.OUTLINE_SELECTED);
+		if (referenceStack != null && !referenceStack.isEmpty()) {
+			g.renderItem(referenceStack, slot.x() + 3, slot.y() + 3);
+		}
+
+		int textX = slot.right() + GAP;
+		int textRight = modalRect.right() - GAP;
+		if (referenceStack != null) {
+			textRight = referenceClearButtonRect(modalRect).x() - GAP;
+		}
+		Component message;
+		if (referenceStack != null) {
+			message = Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_SELECTED,
+				referenceStack.getHoverName());
+		} else {
+			message = Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_CHOOSE);
+		}
+		String clipped = font.plainSubstrByWidth(message.getString(), Math.max(0, textRight - textX));
+		g.drawString(font, clipped, textX,
+			OreUiRenderer.centeredTextY(font, slot.y(), slot.height()), OreUiPalette.TEXT_MUTED, false);
+
+		if (referenceStack != null) {
+			EditorChrome.Rect clear = referenceClearButtonRect(modalRect);
+			OreUiRenderer.drawButton(g, font, clear.x(), clear.y(), clear.width(), clear.height(),
+				Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_CLEAR).getString(),
+				buttonState(true, clear.contains(mouseX, mouseY)));
+		}
+	}
+
+	private static void drawDashedOutline(GuiGraphics g, EditorChrome.Rect rect, int color) {
+		for (int x = rect.x(); x < rect.right(); x += 4) {
+			g.fill(x, rect.y(), Math.min(x + 2, rect.right()), rect.y() + 1, color);
+			g.fill(x, rect.bottom() - 1, Math.min(x + 2, rect.right()), rect.bottom(), color);
+		}
+		for (int y = rect.y(); y < rect.bottom(); y += 4) {
+			g.fill(rect.x(), y, rect.x() + 1, Math.min(y + 2, rect.bottom()), color);
+			g.fill(rect.right() - 1, y, rect.right(), Math.min(y + 2, rect.bottom()), color);
+		}
 	}
 
 	private EditorChrome.Rect formFieldPickerButtonRect(EditorChrome.Rect m, int fy) {
@@ -1409,7 +2035,9 @@ final class EditorRulesPanel {
 
 	private EditorChrome.Rect formModalRect() {
 		int fields = Math.max(1, formVisibleFields);
-		int desiredH = GAP + font.lineHeight + 6 + fields * (FIELD_H + FIELD_GAP) + BTN_H + GAP * 2;
+		int referenceHeight = hasReferenceSlot() ? REFERENCE_ROW_H : 0;
+		int desiredH = GAP + font.lineHeight + 6 + referenceHeight
+			+ fields * (FIELD_H + FIELD_GAP) + BTN_H + GAP * 2;
 		return modalRect(250, desiredH);
 	}
 
@@ -1454,8 +2082,9 @@ final class EditorRulesPanel {
 				RuleNodePresentation.chipLabelKey(editingNode.kind(), editingNode.ingredientType())).getString();
 		}
 		drawModalPanel(g, m, title);
+		renderReferenceSlot(g, m, mouseX, mouseY);
 
-		int fy = m.y() + GAP + font.lineHeight + 6;
+		int fy = formFieldsY(m);
 		for (FormFieldEntry entry : formFieldEntries()) {
 			boolean hasPickerButton = entry.field() == formPrimary && formPrimaryHasPickerButton;
 			int fieldWidth = hasPickerButton
@@ -1495,6 +2124,19 @@ final class EditorRulesPanel {
 			cancelEditor();
 			return true;
 		}
+		if (hasReferenceSlot() && referenceStack != null
+			&& referenceClearButtonRect(m).contains(mx, my)) {
+			referenceStack = null;
+			return true;
+		}
+		if (hasReferenceSlot() && referenceRowRect(m).contains(mx, my)) {
+			if (referenceStack == null) {
+				openReferenceItemPicker(ReferenceItemTarget.REFERENCE_SLOT);
+			} else {
+				openReferenceComponentPicker();
+			}
+			return true;
+		}
 		if (formConfirmRect(m).contains(mx, my)) {
 			confirmEditor();
 			return true;
@@ -1503,7 +2145,7 @@ final class EditorRulesPanel {
 			cancelEditor();
 			return true;
 		}
-		int fy = m.y() + GAP + font.lineHeight + 6;
+		int fy = formFieldsY(m);
 		for (FormFieldEntry entry : formFieldEntries()) {
 			boolean hasPickerButton = entry.field() == formPrimary && formPrimaryHasPickerButton;
 			if (hasPickerButton && formFieldPickerButtonRect(m, fy).contains(mx, my)) {
@@ -1521,14 +2163,19 @@ final class EditorRulesPanel {
 	}
 
 	/**
-	 * Field-level picker entry point: switches FORM to a DATA_COMPONENT_TYPE
-	 * PICKER for {@code targetRole}, without touching the pending-node lifecycle
+	 * Field-level picker entry point: switches FORM to the typed picker appropriate
+	 * for the edited node, without touching the pending-node lifecycle
 	 * (editingNode / editingIsNew are untouched — only the modal switches). The four
 	 * exit paths (confirmPickerSelection / cancelOrReturnPicker / keyPressed Escape)
 	 * bring the panel back to FORM via {@link #setFormFieldValue}.
 	 */
 	private void openFieldPicker(RuleFieldRole targetRole) {
 		if (editingNode == null) {
+			return;
+		}
+		if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.ID
+			|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.EXACT_STACK) {
+			openReferenceItemPicker(ReferenceItemTarget.FORM_PRIMARY);
 			return;
 		}
 		pickerReturnsToForm = true;
@@ -1582,6 +2229,9 @@ final class EditorRulesPanel {
 		}
 		if (modal == ModalKind.FORM) {
 			return formMouseClicked(mx, my);
+		}
+		if (modal == ModalKind.REFERENCE_PICKER) {
+			return referencePickerMouseClicked(mx, my);
 		}
 
 		clearFocus();
@@ -1686,10 +2336,16 @@ final class EditorRulesPanel {
 	boolean mouseDragged(double mx, double my, int button) {
 		if (isModalOpen()) {
 			if (modalDragging) {
-				EditorChrome.Rect list = modal == ModalKind.MENU
-					? menuListRect(menuModalRect())
-					: pickerListRect(pickerModalRect());
-				int content = modal == ModalKind.MENU ? menuContentHeight() : pickerContentHeight();
+				EditorChrome.Rect list = switch (modal) {
+					case MENU -> menuListRect(menuModalRect());
+					case REFERENCE_PICKER -> pickerListRect(referencePickerModalRect());
+					default -> pickerListRect(pickerModalRect());
+				};
+				int content = switch (modal) {
+					case MENU -> menuContentHeight();
+					case REFERENCE_PICKER -> referencePickerContentHeight();
+					default -> pickerContentHeight();
+				};
 				modalScrollOffset = ScrollbarHelper.dragToOffset(my, modalDragY, modalDragStart,
 					content, list.height(), list.height());
 			}
@@ -1842,6 +2498,11 @@ final class EditorRulesPanel {
 			scrollModal(deltaY, pickerContentHeight(), list.height());
 			return true;
 		}
+		if (modal == ModalKind.REFERENCE_PICKER) {
+			EditorChrome.Rect list = pickerListRect(referencePickerModalRect());
+			scrollModal(deltaY, referencePickerContentHeight(), list.height());
+			return true;
+		}
 		if (modal == ModalKind.FORM) {
 			return true;
 		}
@@ -1899,6 +2560,10 @@ final class EditorRulesPanel {
 			movePickerSelection(key == 264 ? 1 : -1);
 			return true;
 		}
+		if (modal == ModalKind.REFERENCE_PICKER && (key == 265 || key == 264)) { // Up / Down
+			moveReferencePickerSelection(key == 264 ? 1 : -1);
+			return true;
+		}
 		if (modal == ModalKind.FORM && key == 258) { // Tab
 			cycleFormFocus((mods & 0x1) != 0); // GLFW_MOD_SHIFT
 			return true;
@@ -1911,6 +2576,8 @@ final class EditorRulesPanel {
 				if (modal == ModalKind.PICKER) {
 					// Exit path: Esc.
 					cancelOrReturnPicker();
+				} else if (modal == ModalKind.REFERENCE_PICKER) {
+					cancelOrBackReferencePicker();
 				} else if (modal == ModalKind.FORM) {
 					cancelEditor();
 				} else {
@@ -1922,6 +2589,10 @@ final class EditorRulesPanel {
 				if (modal == ModalKind.PICKER) {
 					// Exit path: Enter (same as confirm button).
 					confirmPickerSelection();
+					return true;
+				}
+				if (modal == ModalKind.REFERENCE_PICKER) {
+					confirmReferencePickerSelection();
 					return true;
 				}
 				if (modal == ModalKind.FORM) {
