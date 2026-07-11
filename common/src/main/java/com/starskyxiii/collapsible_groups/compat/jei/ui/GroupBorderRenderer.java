@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -50,10 +50,10 @@ public final class GroupBorderRenderer {
 	 * frame, then clears the accumulator.  Called by
 	 * {@code MixinIngredientListOverlay} at the tail of {@code drawScreen}.
 	 */
-	public static void renderAndClear(GuiGraphics guiGraphics) {
+	public static void renderAndClear(GuiGraphicsExtractor guiGraphics) {
 		if (framePositions.isEmpty()) return;
-		guiGraphics.pose().pushPose();
-		guiGraphics.pose().translate(0, 0, 200);
+		guiGraphics.pose().pushMatrix();
+		guiGraphics.nextStratum();
 		try {
 			for (Map.Entry<String, List<int[]>> entry : framePositions.entrySet()) {
 				int color = GroupThemeResolver.expandedGroupBorderColor(entry.getKey());
@@ -61,7 +61,7 @@ public final class GroupBorderRenderer {
 				drawBorder(guiGraphics, positions, color);
 			}
 		} finally {
-			guiGraphics.pose().popPose();
+			guiGraphics.pose().popMatrix();
 			framePositions.clear();
 		}
 	}
@@ -75,7 +75,7 @@ public final class GroupBorderRenderer {
 	 * 18px slot pitch. Public so previews (e.g. the settings-mode group sample)
 	 * render byte-identical borders to the live JEI panel.
 	 */
-	public static void drawBorder(GuiGraphics g, List<int[]> positions, int color) {
+	public static void drawBorder(GuiGraphicsExtractor g, List<int[]> positions, int color) {
 		if (positions.isEmpty()) return;
 
 		Set<Long> cellSet = new HashSet<>();

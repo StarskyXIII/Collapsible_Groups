@@ -11,7 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
 class GroupFilterValidatorTest {
 	@Test
-	void validateComponentsReturnsTranslatedMessagesForInvalidResourceLocation() {
+	void validateComponentsReturnsTranslatedMessagesForInvalidIdentifier() {
 		List<Component> errors = GroupFilterValidator.validateComponents(new GroupFilter.Id("item", "not a rl"));
 
 		assertEquals(1, errors.size());

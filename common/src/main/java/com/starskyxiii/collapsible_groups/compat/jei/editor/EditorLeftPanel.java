@@ -13,7 +13,7 @@ import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -143,7 +143,7 @@ final class EditorLeftPanel {
 			otherGenericGroupsCache, hideUsed, query);
 	}
 
-	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
+	void render(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout) {
 		hoveredItem = -1;
 		hoveredFluid = -1;
 		hoveredGeneric = -1;
@@ -188,7 +188,7 @@ final class EditorLeftPanel {
 	 * Overlap cells stay clickable (adding to this group); rule-covered cells are not
 	 * toggleable (the rule owns them).
 	 */
-	private void renderCell(GuiGraphics g, Object entry, int x, int y) {
+	private void renderCell(GuiGraphicsExtractor g, Object entry, int x, int y) {
 		int iconX = x + 1;
 		int iconY = y + 1;
 		IngredientSourceCellState cellState;
@@ -221,18 +221,18 @@ final class EditorLeftPanel {
 				!selected && state.itemRuleCoverageKey(stack).map(state::isItemRuleCovered).orElse(false),
 				otherItemGroupsCache.getOrDefault(stack, List.of()), false);
 			paintBaseFill(g, cellState, iconX, iconY, inWhole);
-			g.renderItem(stack, iconX, iconY);
+			g.item(stack, iconX, iconY);
 		}
 		if (cellState.overlapped()) {
-			g.pose().pushPose();
-			g.pose().translate(0, 0, 160);
+			g.pose().pushMatrix();
+			g.nextStratum();
 			OreUiRenderer.drawOverlapMarker(g, iconX, iconY, 16);
-			g.pose().popPose();
+			g.pose().popMatrix();
 		} else if (cellState.renderedAsSelected()) {
-			g.pose().pushPose();
-			g.pose().translate(0, 0, 160);
+			g.pose().pushMatrix();
+			g.nextStratum();
 			OreUiRenderer.drawSelectedMarker(g, iconX, iconY, 16);
-			g.pose().popPose();
+			g.pose().popMatrix();
 		}
 	}
 
@@ -241,7 +241,7 @@ final class EditorLeftPanel {
 	 * (whole-item selections keep their slightly cooler shade), faint amber for
 	 * overlap.
 	 */
-	private static void paintBaseFill(GuiGraphics g, IngredientSourceCellState cellState,
+	private static void paintBaseFill(GuiGraphicsExtractor g, IngredientSourceCellState cellState,
 	                                  int iconX, int iconY, boolean inWhole) {
 		if (cellState.renderedAsSelected()) {
 			g.fill(iconX, iconY, iconX + 16, iconY + 16, inWhole ? 0x4455BB77 : 0x4466DDAA);
@@ -321,7 +321,7 @@ final class EditorLeftPanel {
 
 		ItemStack stack = (ItemStack) entry;
 		boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
-		if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
+		if (com.starskyxiii.collapsible_groups.compat.jei.ui.InputModifierHelper.controlDown()) state.toggleWholeItemSelection(stack);
 		else state.toggleSingleSelection(stack);
 		state.syncEditItems();
 		onChange.run();

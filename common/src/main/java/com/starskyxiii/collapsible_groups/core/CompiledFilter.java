@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.core;
 
 import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -39,9 +39,9 @@ public final class CompiledFilter {
 			case GroupFilter.Any any -> compileAny(any);
 			case GroupFilter.All all -> new AllNode(all.children().stream().map(CompiledFilter::compileNode).toList());
 			case GroupFilter.Not not -> new NotNode(compileNode(not.child()));
-			case GroupFilter.Id id -> new IdNode(canonicalType(id.ingredientType()), ResourceLocation.parse(id.id()));
-			case GroupFilter.Tag tag -> new TagNode(canonicalType(tag.ingredientType()), ResourceLocation.parse(tag.tag()));
-			case GroupFilter.BlockTag blockTag -> new BlockTagNode(ResourceLocation.parse(blockTag.tag()));
+			case GroupFilter.Id id -> new IdNode(canonicalType(id.ingredientType()), Identifier.parse(id.id()));
+			case GroupFilter.Tag tag -> new TagNode(canonicalType(tag.ingredientType()), Identifier.parse(tag.tag()));
+			case GroupFilter.BlockTag blockTag -> new BlockTagNode(Identifier.parse(blockTag.tag()));
 			case GroupFilter.ItemPathStartsWith startsWith -> new ItemPathStartsWithNode(startsWith.prefix());
 			case GroupFilter.ItemPathContains contains -> new ItemPathContainsNode(contains.needle());
 			case GroupFilter.ItemPathEndsWith endsWith -> new ItemPathEndsWithNode(endsWith.suffix());
@@ -78,12 +78,12 @@ public final class CompiledFilter {
 		while (i < size) {
 			GroupFilter child = children.get(i);
 			if (child instanceof GroupFilter.Id) {
-				Map<String, Set<ResourceLocation>> idsByType = new LinkedHashMap<>();
+				Map<String, Set<Identifier>> idsByType = new LinkedHashMap<>();
 				int j = i;
 				while (j < size && children.get(j) instanceof GroupFilter.Id idFilter) {
 					idsByType
 						.computeIfAbsent(canonicalType(idFilter.ingredientType()), type -> new LinkedHashSet<>())
-						.add(ResourceLocation.parse(idFilter.id()));
+						.add(Identifier.parse(idFilter.id()));
 					j++;
 				}
 				result.add(new IdSetNode(idsByType));
@@ -136,7 +136,7 @@ public final class CompiledFilter {
 		}
 	}
 
-	private record IdNode(String ingredientType, ResourceLocation id) implements CompiledNode {
+	private record IdNode(String ingredientType, Identifier id) implements CompiledNode {
 		@Override
 		public boolean matches(IngredientView view) {
 			return sameType(ingredientType, view) && id.equals(view.resourceLocation());
@@ -148,26 +148,26 @@ public final class CompiledFilter {
 	 * {@code Any} node, grouped by {@link #canonicalType(String)}. {@code view.resourceLocation()
 	 * == null} is checked first and short-circuits to {@code false} before any set lookup.
 	 */
-	private record IdSetNode(Map<String, Set<ResourceLocation>> idsByType) implements CompiledNode {
+	private record IdSetNode(Map<String, Set<Identifier>> idsByType) implements CompiledNode {
 		@Override
 		public boolean matches(IngredientView view) {
-			ResourceLocation resourceLocation = view.resourceLocation();
+			Identifier resourceLocation = view.resourceLocation();
 			if (resourceLocation == null) {
 				return false;
 			}
-			Set<ResourceLocation> ids = idsByType.get(canonicalType(view.ingredientType()));
+			Set<Identifier> ids = idsByType.get(canonicalType(view.ingredientType()));
 			return ids != null && ids.contains(resourceLocation);
 		}
 	}
 
-	private record TagNode(String ingredientType, ResourceLocation tagId) implements CompiledNode {
+	private record TagNode(String ingredientType, Identifier tagId) implements CompiledNode {
 		@Override
 		public boolean matches(IngredientView view) {
 			return sameType(ingredientType, view) && view.hasTag(tagId);
 		}
 	}
 
-	private record BlockTagNode(ResourceLocation tagId) implements CompiledNode {
+	private record BlockTagNode(Identifier tagId) implements CompiledNode {
 		@Override
 		public boolean matches(IngredientView view) {
 			return sameType("item", view) && view.hasBlockTag(tagId);
@@ -180,7 +180,7 @@ public final class CompiledFilter {
 			if (!sameType("item", view)) {
 				return false;
 			}
-			ResourceLocation resourceLocation = view.resourceLocation();
+			Identifier resourceLocation = view.resourceLocation();
 			return resourceLocation != null && resourceLocation.getPath().startsWith(prefix);
 		}
 	}
@@ -191,7 +191,7 @@ public final class CompiledFilter {
 			if (!sameType("item", view)) {
 				return false;
 			}
-			ResourceLocation resourceLocation = view.resourceLocation();
+			Identifier resourceLocation = view.resourceLocation();
 			return resourceLocation != null && resourceLocation.getPath().contains(needle);
 		}
 	}
@@ -202,7 +202,7 @@ public final class CompiledFilter {
 			if (!sameType("item", view)) {
 				return false;
 			}
-			ResourceLocation resourceLocation = view.resourceLocation();
+			Identifier resourceLocation = view.resourceLocation();
 			return resourceLocation != null && resourceLocation.getPath().endsWith(suffix);
 		}
 	}
@@ -213,7 +213,7 @@ public final class CompiledFilter {
 			if (!sameType(ingredientType, view)) {
 				return false;
 			}
-			ResourceLocation resourceLocation = view.resourceLocation();
+			Identifier resourceLocation = view.resourceLocation();
 			return resourceLocation != null && namespace.equals(resourceLocation.getNamespace());
 		}
 	}
@@ -262,7 +262,7 @@ public final class CompiledFilter {
 		private static final String STACK_PREFIX = "stack:";
 
 		private final List<String> encodedStacks;
-		private volatile Map<ResourceLocation, List<ItemStack>> bucket;
+		private volatile Map<Identifier, List<ItemStack>> bucket;
 
 		ExactStackSetNode(List<String> encodedStacks) {
 			this.encodedStacks = encodedStacks;
@@ -274,11 +274,11 @@ public final class CompiledFilter {
 			if (!sameType("item", view)) {
 				return false;
 			}
-			Map<ResourceLocation, List<ItemStack>> resolved = resolveBucket();
+			Map<Identifier, List<ItemStack>> resolved = resolveBucket();
 			if (resolved == null) {
 				return false; // registry not ready yet; retried on a later evaluation.
 			}
-			ResourceLocation resourceLocation = view.resourceLocation();
+			Identifier resourceLocation = view.resourceLocation();
 			if (resourceLocation == null) {
 				return false;
 			}
@@ -294,8 +294,8 @@ public final class CompiledFilter {
 			return false;
 		}
 
-		private Map<ResourceLocation, List<ItemStack>> resolveBucket() {
-			Map<ResourceLocation, List<ItemStack>> local = bucket;
+		private Map<Identifier, List<ItemStack>> resolveBucket() {
+			Map<Identifier, List<ItemStack>> local = bucket;
 			if (local != null) {
 				return local;
 			}
@@ -304,7 +304,7 @@ public final class CompiledFilter {
 				if (local != null) {
 					return local;
 				}
-				Map<ResourceLocation, List<ItemStack>> built = buildBucket();
+				Map<Identifier, List<ItemStack>> built = buildBucket();
 				if (built != null) {
 					bucket = built; // one-shot publish of a fully immutable map.
 				}
@@ -312,14 +312,14 @@ public final class CompiledFilter {
 			}
 		}
 
-		private Map<ResourceLocation, List<ItemStack>> buildBucket() {
+		private Map<Identifier, List<ItemStack>> buildBucket() {
 			// Capture the registry resolution ONCE and use that same snapshot for every decode in
 			// the run AND for the publication decision below. Re-observing Minecraft state after
 			// the decodes would race game startup (TOCTOU): the connection could appear between an
 			// all-failed fallback decode and the readiness check, permanently publishing an empty
 			// bucket that never got a live-registry decode attempt.
 			GroupItemSelector.ExactDecodeContext context = GroupItemSelector.exactDecodeContext();
-			Map<ResourceLocation, List<ItemStack>> mutable = new LinkedHashMap<>();
+			Map<Identifier, List<ItemStack>> mutable = new LinkedHashMap<>();
 			int decoded = 0;
 			for (String encodedStack : encodedStacks) {
 				Optional<ItemStack> reference = GroupItemSelector.decodeExactSelector(STACK_PREFIX + encodedStack, context);
@@ -327,7 +327,7 @@ public final class CompiledFilter {
 					continue;
 				}
 				ItemStack stack = reference.get(); // decode already applied normalizedCopy.
-				ResourceLocation baseId = BuiltInRegistries.ITEM.getKey(stack.getItem());
+				Identifier baseId = BuiltInRegistries.ITEM.getKey(stack.getItem());
 				mutable.computeIfAbsent(baseId, id -> new ArrayList<>()).add(stack);
 				decoded++;
 			}
@@ -336,8 +336,8 @@ public final class CompiledFilter {
 			if (decoded == 0 && !context.liveRegistry()) {
 				return null;
 			}
-			Map<ResourceLocation, List<ItemStack>> immutable = new LinkedHashMap<>();
-			for (Map.Entry<ResourceLocation, List<ItemStack>> entry : mutable.entrySet()) {
+			Map<Identifier, List<ItemStack>> immutable = new LinkedHashMap<>();
+			for (Map.Entry<Identifier, List<ItemStack>> entry : mutable.entrySet()) {
 				immutable.put(entry.getKey(), List.copyOf(entry.getValue()));
 			}
 			return Map.copyOf(immutable);

@@ -18,11 +18,15 @@ import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
 import com.starskyxiii.collapsible_groups.core.ItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -137,7 +141,7 @@ final class EditorRulesPanel {
 	record DropSlot(SlotKind kind, GroupFilterRuleDraft.Node parent, int index, int depth) {}
 
 	/**
-	 * Pure band → slot decision. Takes only plain data (no GuiGraphics / MC types) so it is
+	 * Pure band → slot decision. Takes only plain data (no GuiGraphicsExtractor / MC types) so it is
 	 * covered directly by common tests. Returns the geometric slot candidate, or {@code null}
 	 * for a suppressed no-op. Cycle/capacity validity ({@code canMove(drag, slot.parent)}) is
 	 * applied by the caller — this function only decides the band geometry and the
@@ -470,7 +474,7 @@ final class EditorRulesPanel {
 	// Render
 	// ─────────────────────────────────────────────────────────────────────
 
-	void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+	void render(GuiGraphicsExtractor g, int mouseX, int mouseY, float partial) {
 		boolean modalUp = isModalOpen();
 		int listMouseX = modalUp ? Integer.MIN_VALUE : mouseX;
 		int listMouseY = modalUp ? Integer.MIN_VALUE : mouseY;
@@ -490,12 +494,12 @@ final class EditorRulesPanel {
 	 * mirroring the LOOK-mode settings precedent, so the dim is no longer confined to the
 	 * rules body. {@link #render} intentionally no longer paints modals or a body-only dim.
 	 */
-	void renderModals(GuiGraphics g, int screenW, int screenH, int mouseX, int mouseY) {
+	void renderModals(GuiGraphicsExtractor g, int screenW, int screenH, int mouseX, int mouseY) {
 		if (!isModalOpen()) {
 			return;
 		}
-		g.pose().pushPose();
-		g.pose().translate(0, 0, MODAL_Z);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		g.fill(0, 0, screenW, screenH, COL_MODAL_DIM);
 		switch (modal) {
 			case MENU -> renderMenu(g, mouseX, mouseY);
@@ -504,10 +508,10 @@ final class EditorRulesPanel {
 			case REFERENCE_PICKER -> renderReferencePicker(g, mouseX, mouseY);
 			default -> {}
 		}
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
-	private void renderDragGhost(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderDragGhost(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		if (dragNode == null) {
 			return;
 		}
@@ -516,15 +520,15 @@ final class EditorRulesPanel {
 		int h = font.lineHeight + 4;
 		int gx = mouseX + 8;
 		int gy = mouseY + 8;
-		g.pose().pushPose();
-		g.pose().translate(0, 0, MODAL_Z);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		g.fill(gx, gy, gx + w, gy + h, COL_GHOST_BG);
 		OreUiRenderer.drawOutline(g, gx, gy, w, h, OreUiPalette.OUTLINE_SELECTED);
-		g.drawString(font, label, gx + 4, gy + 2, OreUiPalette.TEXT_SELECTED, false);
-		g.pose().popPose();
+		g.text(font, label, gx + 4, gy + 2, OreUiPalette.TEXT_SELECTED, false);
+		g.pose().popMatrix();
 	}
 
-	private void renderToolbar(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderToolbar(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		EditorChrome.Rect addCond = addConditionRect();
 		EditorChrome.Rect addGroup = addGroupRect();
 		OreUiRenderer.drawButton(g, font, addCond.x(), addCond.y(), addCond.width(), addCond.height(),
@@ -537,7 +541,7 @@ final class EditorRulesPanel {
 	}
 
 	/** Read-only "<root operator> · N rules" label, anchored to the toolbar's left edge. */
-	private void renderToolbarInfo(GuiGraphics g, EditorChrome.Rect firstButton) {
+	private void renderToolbarInfo(GuiGraphicsExtractor g, EditorChrome.Rect firstButton) {
 		List<GroupFilterRuleDraft.FlatNode> flat = state.flattenedRuleNodes();
 		if (flat.isEmpty()) {
 			return;
@@ -549,7 +553,7 @@ final class EditorRulesPanel {
 			.getString();
 		int maxWidth = Math.max(0, firstButton.x() - GAP - (bodyX + PAD));
 		int ty = bodyY + (TOOLBAR_H - font.lineHeight) / 2 + 1;
-		g.drawString(font, font.plainSubstrByWidth(text, maxWidth), bodyX + PAD, ty, OreUiPalette.TEXT_MUTED, false);
+		g.text(font, font.plainSubstrByWidth(text, maxWidth), bodyX + PAD, ty, OreUiPalette.TEXT_MUTED, false);
 	}
 
 	private boolean canOpenGroupMenu() {
@@ -576,13 +580,13 @@ final class EditorRulesPanel {
 		return new EditorChrome.Rect(addGroupRect().x() - GAP - width, bodyY, width, TOOLBAR_H);
 	}
 
-	private void renderList(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderList(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		EditorChrome.Rect list = listRect();
 		List<Row> rows = buildRows();
 
 		if (rows.isEmpty()) {
 			String empty = Component.translatable(ModTranslationKeys.EDITOR_RULES_NO_ROOT).getString();
-			g.drawString(font, font.plainSubstrByWidth(empty, list.width()),
+			g.text(font, font.plainSubstrByWidth(empty, list.width()),
 				list.x() + PAD, list.y() + PAD, OreUiPalette.TEXT_HINT, false);
 			return;
 		}
@@ -611,7 +615,7 @@ final class EditorRulesPanel {
 			list.height(), contentHeight(rows), scrollOffset);
 	}
 
-	private void renderAccentBars(GuiGraphics g, EditorChrome.Rect list, List<Row> rows) {
+	private void renderAccentBars(GuiGraphicsExtractor g, EditorChrome.Rect list, List<Row> rows) {
 		for (int i = 0; i < rows.size(); i++) {
 			Row row = rows.get(i);
 			if (!row.node().kind().compound() || row.collapsed()) {
@@ -634,7 +638,7 @@ final class EditorRulesPanel {
 		}
 	}
 
-	private void renderRow(GuiGraphics g, EditorChrome.Rect list, Row row, int y, int mouseX, int mouseY) {
+	private void renderRow(GuiGraphicsExtractor g, EditorChrome.Rect list, Row row, int y, int mouseX, int mouseY) {
 		GroupFilterRuleDraft.Node node = row.node();
 		boolean selected = node == state.selectedRuleNode();
 		boolean rowHover = mouseY >= y && mouseY < y + ROW_H && mouseX >= list.x() && mouseX < list.right();
@@ -667,7 +671,7 @@ final class EditorRulesPanel {
 			case NONE -> CHIP_NEUTRAL;
 		};
 		g.fill(x, chipY, x + chipW, chipY + CHIP_H, chipColor);
-		g.drawString(font, chip, x + CHIP_PAD, chipY + (CHIP_H - font.lineHeight) / 2 + 1,
+		g.text(font, chip, x + CHIP_PAD, chipY + (CHIP_H - font.lineHeight) / 2 + 1,
 			OreUiPalette.TEXT_SELECTED, false);
 		if (chipCyclable(node)) {
 			int ax = x + chipW - CHIP_PAD - 5;
@@ -699,7 +703,7 @@ final class EditorRulesPanel {
 			String count = empty
 				? Component.translatable(ModTranslationKeys.EDITOR_RULES_EMPTY_GROUP).getString()
 				: Component.translatable(ModTranslationKeys.EDITOR_RULES_CHILD_COUNT, node.children().size()).getString();
-			g.drawString(font, font.plainSubstrByWidth(count, Math.max(0, textRight - x)),
+			g.text(font, font.plainSubstrByWidth(count, Math.max(0, textRight - x)),
 				x, textY, empty ? COL_UNRESOLVED : OreUiPalette.TEXT_MUTED, false);
 			if (empty) {
 				OreUiRenderer.drawOutline(g, list.x() + 1, y, list.width() - 2, ROW_H, OreUiPalette.DANGER);
@@ -710,16 +714,16 @@ final class EditorRulesPanel {
 				: "";
 			int warnW = warn.isEmpty() ? 0 : font.width(warn) + 6;
 			String value = RuleNodePresentation.valueText(node);
-			g.drawString(font, font.plainSubstrByWidth(value, Math.max(0, textRight - x - warnW)),
+			g.text(font, font.plainSubstrByWidth(value, Math.max(0, textRight - x - warnW)),
 				x, textY, OreUiPalette.TEXT_PRIMARY, false);
 			if (!warn.isEmpty()) {
-				g.drawString(font, warn, textRight - font.width(warn), textY, COL_UNRESOLVED, false);
+				g.text(font, warn, textRight - font.width(warn), textY, COL_UNRESOLVED, false);
 				OreUiRenderer.drawOutline(g, list.x() + 1, y, list.width() - 2, ROW_H, OreUiPalette.DANGER);
 			}
 		}
 	}
 
-	private int renderCollapseGlyph(GuiGraphics g, int x, int y, boolean collapsed) {
+	private int renderCollapseGlyph(GuiGraphicsExtractor g, int x, int y, boolean collapsed) {
 		int cy = y + ROW_H / 2;
 		int color = OreUiPalette.TEXT_MUTED;
 		if (collapsed) {
@@ -748,9 +752,9 @@ final class EditorRulesPanel {
 		return new EditorChrome.Rect(x, y, Math.max(60, w), Math.max(60, h));
 	}
 
-	private void drawModalPanel(GuiGraphics g, EditorChrome.Rect m, String title) {
+	private void drawModalPanel(GuiGraphicsExtractor g, EditorChrome.Rect m, String title) {
 		OreUiRenderer.drawPanel(g, m.x(), m.y(), m.width(), m.height());
-		g.drawString(font, font.plainSubstrByWidth(title, m.width() - GAP * 2),
+		g.text(font, font.plainSubstrByWidth(title, m.width() - GAP * 2),
 			m.x() + GAP, m.y() + GAP, OreUiPalette.TEXT_PRIMARY, false);
 	}
 
@@ -759,7 +763,7 @@ final class EditorRulesPanel {
 	 * plus a three-state outline. Mirrors the Screen shell's {@code renderFieldChrome}
 	 * visual vocabulary so modal text fields match the header's name field.
 	 */
-	private void drawFieldChrome(GuiGraphics g, EditorChrome.Rect rect, boolean focused, boolean hovered) {
+	private void drawFieldChrome(GuiGraphicsExtractor g, EditorChrome.Rect rect, boolean focused, boolean hovered) {
 		int outline = focused ? OreUiPalette.OUTLINE_SELECTED : hovered ? OreUiPalette.OUTLINE_HOVER : OreUiPalette.OUTLINE_DARK;
 		g.fill(rect.x(), rect.y(), rect.right(), rect.bottom(), OreUiPalette.SURFACE_DARK);
 		g.fill(rect.x() + 1, rect.y() + 1, rect.right() - 1, rect.bottom() - 1, OreUiPalette.SURFACE);
@@ -813,7 +817,7 @@ final class EditorRulesPanel {
 		return menuEntries().size() * (BTN_H + 2);
 	}
 
-	private void renderMenu(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderMenu(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		EditorChrome.Rect m = menuModalRect();
 		clampModalScroll(menuContentHeight(), menuListRect(m).height());
 		String title = Component.translatable(menuGroupMode
@@ -843,7 +847,7 @@ final class EditorRulesPanel {
 		ScrollbarHelper.renderPixels(g, list.right() + ScrollbarHelper.GAP, list.y(), list.height(),
 			list.height(), menuContentHeight(), modalScrollOffset);
 
-		g.drawString(font, font.plainSubstrByWidth(hoverDesc, m.width() - GAP * 2),
+		g.text(font, font.plainSubstrByWidth(hoverDesc, m.width() - GAP * 2),
 			m.x() + GAP, m.bottom() - GAP - font.lineHeight, OreUiPalette.TEXT_HINT, false);
 	}
 
@@ -1021,18 +1025,18 @@ final class EditorRulesPanel {
 
 	private static List<String> snapshotFor(RuleNodePresentation.PickerKind kind) {
 		return switch (kind) {
-			case ITEM_TAG -> BuiltInRegistries.ITEM.getTagNames()
+			case ITEM_TAG -> BuiltInRegistries.ITEM.getTags().map(tag -> tag.key())
 				.map(tag -> tag.location().toString()).sorted().toList();
-			case FLUID_TAG -> BuiltInRegistries.FLUID.getTagNames()
+			case FLUID_TAG -> BuiltInRegistries.FLUID.getTags().map(tag -> tag.key())
 				.map(tag -> tag.location().toString()).sorted().toList();
-			case BLOCK_TAG -> BuiltInRegistries.BLOCK.getTagNames()
+			case BLOCK_TAG -> BuiltInRegistries.BLOCK.getTags().map(tag -> tag.key())
 				.map(tag -> tag.location().toString()).sorted().toList();
 			case NAMESPACE -> Stream.concat(
 					BuiltInRegistries.ITEM.keySet().stream(),
 					BuiltInRegistries.FLUID.keySet().stream())
-				.map(ResourceLocation::getNamespace).distinct().sorted().toList();
+				.map(Identifier::getNamespace).distinct().sorted().toList();
 			case DATA_COMPONENT_TYPE -> BuiltInRegistries.DATA_COMPONENT_TYPE.keySet().stream()
-				.map(ResourceLocation::toString).sorted().toList();
+				.map(Identifier::toString).sorted().toList();
 			case NONE -> List.of();
 		};
 	}
@@ -1063,7 +1067,7 @@ final class EditorRulesPanel {
 			}
 			return !query.isEmpty();
 		}
-		return ResourceLocation.tryParse(query) != null;
+		return Identifier.tryParse(query) != null;
 	}
 
 	private void scrollPickerToCurrent() {
@@ -1130,7 +1134,7 @@ final class EditorRulesPanel {
 		return new EditorChrome.Rect(confirm.x() - GAP - width, confirm.y(), width, BTN_H);
 	}
 
-	private void renderPicker(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderPicker(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		if (pickerFilterDirty && System.currentTimeMillis() >= pickerFilterDeadline) {
 			refilterPicker();
 		}
@@ -1142,7 +1146,7 @@ final class EditorRulesPanel {
 		boolean searchHovered = search.contains(mouseX, mouseY);
 		drawFieldChrome(g, search, searchFocused, searchHovered);
 		if (pickerSearch != null) {
-			pickerSearch.render(g, mouseX, mouseY, 0);
+			pickerSearch.extractRenderState(g, mouseX, mouseY, 0);
 		}
 
 		EditorChrome.Rect list = pickerListRect(m);
@@ -1167,7 +1171,7 @@ final class EditorRulesPanel {
 				display++;
 			}
 			if (display == 0) {
-				g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_EMPTY).getString(),
+				g.text(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_EMPTY).getString(),
 					list.x() + PAD, list.y() + PAD, OreUiPalette.TEXT_HINT, false);
 			}
 		} finally {
@@ -1177,7 +1181,7 @@ final class EditorRulesPanel {
 			list.height(), pickerContentHeight(), modalScrollOffset);
 
 		String countText = pickerFiltered.size() + " / " + pickerSnapshot.size();
-		g.drawString(font, countText, list.x(), list.bottom() + 3, OreUiPalette.TEXT_HINT, false);
+		g.text(font, countText, list.x(), list.bottom() + 3, OreUiPalette.TEXT_HINT, false);
 
 		EditorChrome.Rect confirm = pickerConfirmRect(m);
 		EditorChrome.Rect cancel = pickerCancelRect(m);
@@ -1189,7 +1193,7 @@ final class EditorRulesPanel {
 			buttonState(true, cancel.contains(mouseX, mouseY)));
 	}
 
-	private void renderPickerRow(GuiGraphics g, EditorChrome.Rect list, int y, int display, String text,
+	private void renderPickerRow(GuiGraphicsExtractor g, EditorChrome.Rect list, int y, int display, String text,
 	                             int color, int mouseX, int mouseY) {
 		boolean selected = display == pickerSelected;
 		boolean hovered = list.contains(mouseX, mouseY) && mouseY >= y && mouseY < y + PICKER_ROW_H;
@@ -1198,7 +1202,7 @@ final class EditorRulesPanel {
 		} else if (hovered) {
 			g.fill(list.x(), y, list.right(), y + PICKER_ROW_H, COL_PICKER_HOVER);
 		}
-		g.drawString(font, font.plainSubstrByWidth(text, list.width() - PAD * 2),
+		g.text(font, font.plainSubstrByWidth(text, list.width() - PAD * 2),
 			list.x() + PAD, y + (PICKER_ROW_H - font.lineHeight) / 2 + 1, color, false);
 	}
 
@@ -1213,7 +1217,7 @@ final class EditorRulesPanel {
 		if (search.contains(mx, my) && pickerSearch != null) {
 			pickerSearch.setFocused(true);
 			focusedField = pickerSearch;
-			pickerSearch.mouseClicked(mx, my, 0);
+			pickerSearch.mouseClicked(new MouseButtonEvent(mx, my, new MouseButtonInfo(0, 0)), false);
 			return true;
 		}
 		EditorChrome.Rect list = pickerListRect(m);
@@ -1509,7 +1513,7 @@ final class EditorRulesPanel {
 		return Component.translatable(key).getString();
 	}
 
-	private void renderReferencePicker(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderReferencePicker(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM
 			&& referenceItemFilterDirty && System.currentTimeMillis() >= referenceItemFilterDeadline) {
 			refilterReferencePicker();
@@ -1520,7 +1524,7 @@ final class EditorRulesPanel {
 		EditorChrome.Rect search = pickerSearchRect(modalRect);
 		drawFieldChrome(g, search,
 			referencePickerSearch != null && referencePickerSearch.isFocused(), search.contains(mouseX, mouseY));
-		if (referencePickerSearch != null) referencePickerSearch.render(g, mouseX, mouseY, 0);
+		if (referencePickerSearch != null) referencePickerSearch.extractRenderState(g, mouseX, mouseY, 0);
 
 		EditorChrome.Rect list = pickerListRect(modalRect);
 		g.fill(list.x(), list.y(), list.right(), list.bottom(), OreUiPalette.SURFACE_DARK);
@@ -1545,7 +1549,7 @@ final class EditorRulesPanel {
 				} else {
 					key = ModTranslationKeys.EDITOR_RULES_REFERENCE_NO_COMPONENTS;
 				}
-				g.drawString(font, Component.translatable(key).getString(),
+				g.text(font, Component.translatable(key).getString(),
 					list.x() + PAD, list.y() + PAD, OreUiPalette.TEXT_HINT, false);
 			}
 		} finally {
@@ -1553,7 +1557,7 @@ final class EditorRulesPanel {
 		}
 		ScrollbarHelper.renderPixels(g, list.right() + ScrollbarHelper.GAP, list.y(), list.height(),
 			list.height(), referencePickerContentHeight(), modalScrollOffset);
-		g.drawString(font, referencePickerEntryCount() + " / " + referencePickerTotalCount(),
+		g.text(font, referencePickerEntryCount() + " / " + referencePickerTotalCount(),
 			list.x(), list.bottom() + 3, OreUiPalette.TEXT_HINT, false);
 
 		EditorChrome.Rect confirm = pickerConfirmRect(modalRect);
@@ -1567,9 +1571,9 @@ final class EditorRulesPanel {
 			Component.translatable(cancelKey).getString(), buttonState(true, cancel.contains(mouseX, mouseY)));
 		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
 			ItemStack hovered = referenceItemAt(list, mouseX, mouseY);
-			if (hovered != null) g.renderTooltip(font, hovered, mouseX, mouseY);
+			if (hovered != null) g.setTooltipForNextFrame(font, hovered, mouseX, mouseY);
 			else if (search.contains(mouseX, mouseY)) {
-				g.renderComponentTooltip(font, GroupEditorTooltipHelper.searchSyntaxLines(), mouseX, mouseY);
+				g.setComponentTooltipForNextFrame(font, GroupEditorTooltipHelper.searchSyntaxLines(), mouseX, mouseY);
 			}
 		}
 	}
@@ -1590,7 +1594,7 @@ final class EditorRulesPanel {
 	}
 
 	/** Draws only the visible grid rows; a 20k-stack universe never produces 20k layouts. */
-	private void renderReferenceItemGrid(GuiGraphics g, EditorChrome.Rect list, int mouseX, int mouseY) {
+	private void renderReferenceItemGrid(GuiGraphicsExtractor g, EditorChrome.Rect list, int mouseX, int mouseY) {
 		int columns = referenceItemColumns(list);
 		int firstRow = modalScrollOffset / ITEM_PICKER_CELL_PITCH;
 		int pixelOffset = modalScrollOffset % ITEM_PICKER_CELL_PITCH;
@@ -1612,12 +1616,12 @@ final class EditorRulesPanel {
 			} else if (hovered) {
 				g.fill(x + 1, y + 1, x + ITEM_PICKER_CELL_PITCH, y + ITEM_PICKER_CELL_PITCH, COL_PICKER_HOVER);
 			}
-			g.renderItem(referenceFilteredItems.get(index), x + 2, y + 2);
+			g.item(referenceFilteredItems.get(index), x + 2, y + 2);
 		}
 	}
 
 	private void renderReferencePickerRow(
-		GuiGraphics g, EditorChrome.Rect list, int y, int index, int mouseX, int mouseY
+		GuiGraphicsExtractor g, EditorChrome.Rect list, int y, int index, int mouseX, int mouseY
 	) {
 		boolean selected = index == referencePickerSelected;
 		boolean hovered = list.contains(mouseX, mouseY)
@@ -1643,11 +1647,11 @@ final class EditorRulesPanel {
 			preview = EncodedValueNormalizer.normalize(entry.value());
 		}
 		int primaryWidth = Math.max(40, list.width() * 3 / 5);
-		g.drawString(font, font.plainSubstrByWidth(primary, primaryWidth - PAD * 2),
+		g.text(font, font.plainSubstrByWidth(primary, primaryWidth - PAD * 2),
 			list.x() + PAD, y + (REFERENCE_PICKER_ROW_H - font.lineHeight) / 2,
 			OreUiPalette.TEXT_PRIMARY, false);
 		int previewX = list.x() + primaryWidth;
-		g.drawString(font, font.plainSubstrByWidth(preview, Math.max(0, list.right() - previewX - PAD)),
+		g.text(font, font.plainSubstrByWidth(preview, Math.max(0, list.right() - previewX - PAD)),
 			previewX, y + (REFERENCE_PICKER_ROW_H - font.lineHeight) / 2,
 			OreUiPalette.TEXT_HINT, false);
 	}
@@ -1662,7 +1666,7 @@ final class EditorRulesPanel {
 		if (search.contains(mx, my) && referencePickerSearch != null) {
 			referencePickerSearch.setFocused(true);
 			focusedField = referencePickerSearch;
-			referencePickerSearch.mouseClicked(mx, my, 0);
+			referencePickerSearch.mouseClicked(new MouseButtonEvent(mx, my, new MouseButtonInfo(0, 0)), false);
 			return true;
 		}
 		EditorChrome.Rect list = pickerListRect(modalRect);
@@ -1949,7 +1953,7 @@ final class EditorRulesPanel {
 		return new EditorChrome.Rect(row.right() - width, row.y() + (row.height() - BTN_H) / 2, width, BTN_H);
 	}
 
-	private void renderReferenceSlot(GuiGraphics g, EditorChrome.Rect modalRect, int mouseX, int mouseY) {
+	private void renderReferenceSlot(GuiGraphicsExtractor g, EditorChrome.Rect modalRect, int mouseX, int mouseY) {
 		if (!hasReferenceSlot()) {
 			return;
 		}
@@ -1958,7 +1962,7 @@ final class EditorRulesPanel {
 		drawDashedOutline(g, slot, slot.contains(mouseX, mouseY)
 			? OreUiPalette.OUTLINE_HOVER : OreUiPalette.OUTLINE_SELECTED);
 		if (referenceStack != null && !referenceStack.isEmpty()) {
-			g.renderItem(referenceStack, slot.x() + 3, slot.y() + 3);
+			g.item(referenceStack, slot.x() + 3, slot.y() + 3);
 		}
 
 		int textX = slot.right() + GAP;
@@ -1974,7 +1978,7 @@ final class EditorRulesPanel {
 			message = Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_CHOOSE);
 		}
 		String clipped = font.plainSubstrByWidth(message.getString(), Math.max(0, textRight - textX));
-		g.drawString(font, clipped, textX,
+		g.text(font, clipped, textX,
 			OreUiRenderer.centeredTextY(font, slot.y(), slot.height()), OreUiPalette.TEXT_MUTED, false);
 
 		if (referenceStack != null) {
@@ -1985,7 +1989,7 @@ final class EditorRulesPanel {
 		}
 	}
 
-	private static void drawDashedOutline(GuiGraphics g, EditorChrome.Rect rect, int color) {
+	private static void drawDashedOutline(GuiGraphicsExtractor g, EditorChrome.Rect rect, int color) {
 		for (int x = rect.x(); x < rect.right(); x += 4) {
 			g.fill(x, rect.y(), Math.min(x + 2, rect.right()), rect.y() + 1, color);
 			g.fill(x, rect.bottom() - 1, Math.min(x + 2, rect.right()), rect.bottom(), color);
@@ -2080,7 +2084,7 @@ final class EditorRulesPanel {
 		return entries;
 	}
 
-	private void renderForm(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderForm(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		EditorChrome.Rect m = formModalRect();
 		String title = Component.translatable(ModTranslationKeys.EDITOR_RULES_EDIT_TITLE).getString();
 		if (editingNode != null) {
@@ -2104,7 +2108,7 @@ final class EditorRulesPanel {
 			} else {
 				drawFieldChrome(g, fieldRect, entry.field().isFocused(), fieldRect.contains(mouseX, mouseY));
 			}
-			entry.field().render(g, mouseX, mouseY, 0);
+			entry.field().extractRenderState(g, mouseX, mouseY, 0);
 			if (hasPickerButton) {
 				EditorChrome.Rect pickerBtn = formFieldPickerButtonRect(m, fy);
 				OreUiRenderer.drawButton(g, font, pickerBtn.x(), pickerBtn.y(), pickerBtn.width(), pickerBtn.height(),
@@ -2160,7 +2164,7 @@ final class EditorRulesPanel {
 			}
 			if (my >= fy && my < fy + FIELD_H && mx >= m.x() + GAP && mx < m.right() - GAP) {
 				setFocusedField(entry.field());
-				entry.field().mouseClicked(mx, my, 0);
+				entry.field().mouseClicked(new MouseButtonEvent(mx, my, new MouseButtonInfo(0, 0)), false);
 				return true;
 			}
 			fy += FIELD_H + FIELD_GAP;
@@ -2574,7 +2578,7 @@ final class EditorRulesPanel {
 			cycleFormFocus((mods & 0x1) != 0); // GLFW_MOD_SHIFT
 			return true;
 		}
-		if (focusedField != null && focusedField.isFocused() && focusedField.keyPressed(key, scan, mods)) {
+		if (focusedField != null && focusedField.isFocused() && focusedField.keyPressed(new KeyEvent(key, scan, mods))) {
 			return true;
 		}
 		if (isModalOpen()) {
@@ -2637,7 +2641,7 @@ final class EditorRulesPanel {
 
 	boolean charTyped(char c, int mods) {
 		if (focusedField != null && focusedField.isFocused()) {
-			return focusedField.charTyped(c, mods);
+			return focusedField.charTyped(new CharacterEvent(c));
 		}
 		return false;
 	}

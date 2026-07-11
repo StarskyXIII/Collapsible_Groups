@@ -5,7 +5,7 @@ import net.minecraft.core.component.DataComponentType;
 import net.minecraft.core.component.TypedDataComponent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.RegistryOps;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
@@ -56,7 +56,7 @@ public final class ComponentReferenceExtractor {
 			patch,
 			ops,
 			type -> {
-				ResourceLocation id = BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(type);
+				Identifier id = BuiltInRegistries.DATA_COMPONENT_TYPE.getKey(type);
 				return id == null ? null : id.toString();
 			},
 			(encodeOps, type, component) -> type.codec() == null

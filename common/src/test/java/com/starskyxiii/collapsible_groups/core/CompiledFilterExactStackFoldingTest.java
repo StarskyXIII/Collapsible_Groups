@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.core;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.Test;
 
@@ -39,8 +39,8 @@ class CompiledFilterExactStackFoldingTest {
 
 		// A non-item view: the folded node's type gate returns false before any decode, so this is
 		// safe to evaluate and reveals how many type checks the whole run costs.
-		CountingIngredientView smallView = new CountingIngredientView("fluid", ResourceLocation.parse("minecraft:water"));
-		CountingIngredientView largeView = new CountingIngredientView("fluid", ResourceLocation.parse("minecraft:water"));
+		CountingIngredientView smallView = new CountingIngredientView("fluid", Identifier.parse("minecraft:water"));
+		CountingIngredientView largeView = new CountingIngredientView("fluid", Identifier.parse("minecraft:water"));
 
 		assertFalse(small.matches(smallView));
 		assertFalse(large.matches(largeView));
@@ -55,10 +55,10 @@ class CompiledFilterExactStackFoldingTest {
 	}
 
 	@Test
-	void exactStackTypeMismatchNeverInspectsResourceLocationOrDecodes() {
+	void exactStackTypeMismatchNeverInspectsIdentifierOrDecodes() {
 		CompiledFilter compiled = CompiledFilter.compile(buildExactStackRunAny(50));
 
-		CountingIngredientView fluidView = new CountingIngredientView("fluid", ResourceLocation.parse("minecraft:lava"));
+		CountingIngredientView fluidView = new CountingIngredientView("fluid", Identifier.parse("minecraft:lava"));
 		// No decode is attempted (a decode here would fail ItemStack's class initialization with an
 		// ExceptionInInitializerError), so simply completing this call proves the type gate
 		// precedes initialization.
@@ -83,7 +83,7 @@ class CompiledFilterExactStackFoldingTest {
 		// A non-item view drives every top-level child without decoding. Each IdSetNode consults
 		// resourceLocation() then ingredientType(); the (single) ExactStackSetNode consults only
 		// ingredientType() before its type gate returns false.
-		CountingIngredientView view = new CountingIngredientView("fluid", ResourceLocation.parse("modns:x"));
+		CountingIngredientView view = new CountingIngredientView("fluid", Identifier.parse("modns:x"));
 		assertFalse(compiled.matches(view));
 
 		assertEquals(2, view.resourceLocationCalls, "expected exactly two IdSetNodes (the id runs on either side of the exact-stack run)");
@@ -110,7 +110,7 @@ class CompiledFilterExactStackFoldingTest {
 		));
 		CompiledFilter compiled = CompiledFilter.compile(tree);
 
-		RecordingIngredientView missView = new RecordingIngredientView("fluid", ResourceLocation.parse("modns:x"), null);
+		RecordingIngredientView missView = new RecordingIngredientView("fluid", Identifier.parse("modns:x"), null);
 		assertFalse(compiled.matches(missView));
 		assertEquals(
 			List.of(
@@ -125,7 +125,7 @@ class CompiledFilterExactStackFoldingTest {
 
 		// Short-circuit probe: when marker B matches, evaluation must stop there - the folded
 		// exact-stack node and tag C must never be consulted.
-		RecordingIngredientView shortCircuitView = new RecordingIngredientView("fluid", ResourceLocation.parse("modns:x"), ResourceLocation.parse("marker:b"));
+		RecordingIngredientView shortCircuitView = new RecordingIngredientView("fluid", Identifier.parse("modns:x"), Identifier.parse("marker:b"));
 		assertTrue(compiled.matches(shortCircuitView));
 		assertEquals(
 			List.of(
@@ -148,11 +148,11 @@ class CompiledFilterExactStackFoldingTest {
 	/** Records the exact sequence of view calls, making node evaluation order observable. */
 	private static final class RecordingIngredientView implements IngredientView {
 		private final String ingredientType;
-		private final ResourceLocation resourceLocation;
-		private final ResourceLocation matchingTag;
+		private final Identifier resourceLocation;
+		private final Identifier matchingTag;
 		private final List<String> calls = new ArrayList<>();
 
-		RecordingIngredientView(String ingredientType, ResourceLocation resourceLocation, ResourceLocation matchingTag) {
+		RecordingIngredientView(String ingredientType, Identifier resourceLocation, Identifier matchingTag) {
 			this.ingredientType = ingredientType;
 			this.resourceLocation = resourceLocation;
 			this.matchingTag = matchingTag;
@@ -165,13 +165,13 @@ class CompiledFilterExactStackFoldingTest {
 		}
 
 		@Override
-		public ResourceLocation resourceLocation() {
+		public Identifier resourceLocation() {
 			calls.add("rl");
 			return resourceLocation;
 		}
 
 		@Override
-		public boolean hasTag(ResourceLocation tagId) {
+		public boolean hasTag(Identifier tagId) {
 			calls.add("tag:" + tagId);
 			return tagId.equals(matchingTag);
 		}
@@ -191,11 +191,11 @@ class CompiledFilterExactStackFoldingTest {
 
 	private static final class CountingIngredientView implements IngredientView {
 		private final String ingredientType;
-		private final ResourceLocation resourceLocation;
+		private final Identifier resourceLocation;
 		private int ingredientTypeCalls = 0;
 		private int resourceLocationCalls = 0;
 
-		CountingIngredientView(String ingredientType, ResourceLocation resourceLocation) {
+		CountingIngredientView(String ingredientType, Identifier resourceLocation) {
 			this.ingredientType = ingredientType;
 			this.resourceLocation = resourceLocation;
 		}
@@ -207,13 +207,13 @@ class CompiledFilterExactStackFoldingTest {
 		}
 
 		@Override
-		public ResourceLocation resourceLocation() {
+		public Identifier resourceLocation() {
 			resourceLocationCalls++;
 			return resourceLocation;
 		}
 
 		@Override
-		public boolean hasTag(ResourceLocation tagId) {
+		public boolean hasTag(Identifier tagId) {
 			return false;
 		}
 

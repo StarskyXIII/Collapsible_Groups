@@ -3,7 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
 import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -16,7 +16,7 @@ final class EditorItemSearchHelper {
 	private EditorItemSearchHelper() {}
 
 	static IngredientSearchDocument document(ItemStack stack) {
-		ResourceLocation id = BuiltInRegistries.ITEM.getKey(stack.getItem());
+		Identifier id = BuiltInRegistries.ITEM.getKey(stack.getItem());
 		Set<String> tags = stack.getItem().builtInRegistryHolder().tags()
 			.map(tag -> tag.location().toString())
 			.collect(Collectors.toUnmodifiableSet());

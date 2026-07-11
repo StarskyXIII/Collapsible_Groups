@@ -13,13 +13,16 @@ import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.Util;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -281,7 +284,7 @@ public final class EditorSettingsPanel {
 	// Render (rows + backdrop + scrollbar)
 	// ─────────────────────────────────────────────────────────────────────
 
-	public void render(GuiGraphics g, int mouseX, int mouseY) {
+	public void render(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		colorTooltip = null;
 		EditorChrome.Rect content = contentRect();
 		clampScroll();
@@ -305,22 +308,22 @@ public final class EditorSettingsPanel {
 	}
 
 	/** Renders the color / icon picker modals at the caller-established top Z. */
-	public void renderModals(GuiGraphics g, int mouseX, int mouseY) {
+	public void renderModals(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		if (!isModalOpen()) return;
 		// fix 5: lift the whole modal above the row list's renderItem draws (~z150).
 		// The modal backdrop lands at z200, its own items at ~z350, still below the
 		// OreConfirmDialog at z500. Panel-drawn tooltips inside stay on this pose.
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 200);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		if (isColorPickerOpen()) {
 			renderColorPickerModal(g, mouseX, mouseY);
 		} else if (iconPickerOpen) {
 			renderIconPickerModal(g, mouseX, mouseY);
 		}
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
-	private void renderSectionBackdrop(GuiGraphics g, SettingsRowLayout.Result result, EditorChrome.Rect content) {
+	private void renderSectionBackdrop(GuiGraphicsExtractor g, SettingsRowLayout.Result result, EditorChrome.Rect content) {
 		// fix 4: backdrop / divider right edge shares the row column width (which
 		// reserves the scrollbar gutter) so the scrollbar never overlaps the frame.
 		int columnWidth = rowColumnWidth();
@@ -351,12 +354,12 @@ public final class EditorSettingsPanel {
 		}
 	}
 
-	private void drawSectionPanel(GuiGraphics g, int x, int top, int w, int bottom) {
+	private void drawSectionPanel(GuiGraphicsExtractor g, int x, int top, int w, int bottom) {
 		g.fill(x, top, x + w, bottom, OreUiPalette.SURFACE);
 		OreUiRenderer.drawOutline(g, x, top, w, bottom - top, OreUiPalette.OUTLINE_DARK);
 	}
 
-	private void renderRow(GuiGraphics g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
+	private void renderRow(GuiGraphicsExtractor g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
 		switch (row.kind()) {
 			case SUBHEADER -> renderSubheader(g, row);
 			case ICON -> renderIconRow(g, row, mouseX, mouseY);
@@ -376,13 +379,13 @@ public final class EditorSettingsPanel {
 		};
 	}
 
-	private void renderSubheader(GuiGraphics g, SettingsRowLayout.Row row) {
+	private void renderSubheader(GuiGraphicsExtractor g, SettingsRowLayout.Row row) {
 		String label = subheaderLabel((String) row.payload());
-		g.drawString(font, font.plainSubstrByWidth(label, Math.max(0, row.rect().width())),
+		g.text(font, font.plainSubstrByWidth(label, Math.max(0, row.rect().width())),
 			row.rect().x() + SettingsRowLayout.PAD, row.rect().y() + 7, OreUiPalette.TEXT_MUTED, false);
 	}
 
-	private void renderIconRow(GuiGraphics g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
+	private void renderIconRow(GuiGraphicsExtractor g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
 		boolean back = (Boolean) row.payload();
 		SettingsRowLayout.Rect rect = row.rect();
 		boolean backLocked = back && !state.appearanceDraft().canEditBackIcon();
@@ -401,10 +404,10 @@ public final class EditorSettingsPanel {
 		renderItemIconId(g, iconId, slot.x() + 2, slot.y() + 2);
 
 		int textX = slot.right() + 8;
-		g.drawString(font, font.plainSubstrByWidth(label, Math.max(0, row.changeBtn().x() - textX - 4)),
+		g.text(font, font.plainSubstrByWidth(label, Math.max(0, row.changeBtn().x() - textX - 4)),
 			textX, rect.y() + 3, OreUiPalette.TEXT_PRIMARY, false);
 		String value = iconId == null ? desc : iconId;
-		g.drawString(font, font.plainSubstrByWidth(value, Math.max(0, row.changeBtn().x() - textX - 4)),
+		g.text(font, font.plainSubstrByWidth(value, Math.max(0, row.changeBtn().x() - textX - 4)),
 			textX, rect.y() + 3 + font.lineHeight + 1,
 			iconId == null ? OreUiPalette.TEXT_HINT : OreUiPalette.TEXT_MUTED, false);
 
@@ -417,14 +420,14 @@ public final class EditorSettingsPanel {
 			buttonState(iconId != null, iconId != null && row.clearBtn().contains(mouseX, mouseY)));
 	}
 
-	private void renderSwapRow(GuiGraphics g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
+	private void renderSwapRow(GuiGraphicsExtractor g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
 		String label = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_SWAP_ICONS).getString();
 		boolean enabled = state.appearanceDraft().frontIconId() != null && state.appearanceDraft().backIconId() != null;
 		SettingsRowLayout.Rect swap = row.swapBtn();
 		drawRowButton(g, swap, label, buttonState(enabled, enabled && swap.contains(mouseX, mouseY)));
 	}
 
-	private void renderColorRow(GuiGraphics g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
+	private void renderColorRow(GuiGraphicsExtractor g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
 		SettingsColorTarget target = (SettingsColorTarget) row.payload();
 		SettingsRowLayout.Rect rect = row.rect();
 		int textY = OreUiRenderer.centeredTextY(font, rect.y(), rect.height());
@@ -433,7 +436,7 @@ public final class EditorSettingsPanel {
 		SettingsRowLayout.Rect swatch = row.swatch();
 		int labelX = rect.x() + SettingsRowLayout.PAD;
 		int labelMax = Math.max(0, swatch.x() - labelX - 4);
-		g.drawString(font, font.plainSubstrByWidth(label, labelMax), labelX, textY, OreUiPalette.TEXT_PRIMARY, false);
+		g.text(font, font.plainSubstrByWidth(label, labelMax), labelX, textY, OreUiPalette.TEXT_PRIMARY, false);
 
 		int color = resolvedSettingsColor(target);
 		g.fill(swatch.x(), swatch.y(), swatch.right(), swatch.bottom(), color);
@@ -444,7 +447,7 @@ public final class EditorSettingsPanel {
 		SettingsRowLayout.Rect hexBox = row.hexBox();
 		int hexMax = Math.max(0, hexBox.width());
 		String clipped = font.plainSubstrByWidth(value, hexMax);
-		g.drawString(font, clipped, hexBox.x(), textY, raw == null ? OreUiPalette.TEXT_HINT : OreUiPalette.TEXT_MUTED, false);
+		g.text(font, clipped, hexBox.x(), textY, raw == null ? OreUiPalette.TEXT_HINT : OreUiPalette.TEXT_MUTED, false);
 		if (font.width(value) > hexMax && rect.contains(mouseX, mouseY)) {
 			colorTooltip = value;
 		}
@@ -456,12 +459,12 @@ public final class EditorSettingsPanel {
 			buttonState(raw != null, raw != null && row.resetBtn().contains(mouseX, mouseY)));
 	}
 
-	private void renderPriorityRow(GuiGraphics g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
+	private void renderPriorityRow(GuiGraphicsExtractor g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
 		SettingsRowLayout.Rect rect = row.rect();
 		String label = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_PRIORITY).getString();
 		String desc = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_PRIORITY_DESC).getString();
-		g.drawString(font, label, rect.x() + 6, rect.y() + 4, OreUiPalette.TEXT_PRIMARY, false);
-		g.drawString(font, font.plainSubstrByWidth(desc, Math.max(0, row.stepMinus().x() - rect.x() - 12)),
+		g.text(font, label, rect.x() + 6, rect.y() + 4, OreUiPalette.TEXT_PRIMARY, false);
+		g.text(font, font.plainSubstrByWidth(desc, Math.max(0, row.stepMinus().x() - rect.x() - 12)),
 			rect.x() + 6, rect.y() + 4 + font.lineHeight + 1, OreUiPalette.TEXT_HINT, false);
 
 		drawRowButton(g, row.stepMinus(), "-",
@@ -477,8 +480,8 @@ public final class EditorSettingsPanel {
 		// the caret sits just past the centered text's right edge and blinks.
 		int valueX = valueBox.x() + Math.max(0, (valueBox.width() - font.width(clipped)) / 2);
 		int valueY = OreUiRenderer.centeredTextY(font, valueBox.y(), valueBox.height());
-		g.drawString(font, clipped, valueX, valueY, OreUiPalette.TEXT_PRIMARY, false);
-		if (focused && (Util.getMillis() / 500) % 2 == 0) {
+		g.text(font, clipped, valueX, valueY, OreUiPalette.TEXT_PRIMARY, false);
+		if (focused && (System.currentTimeMillis() / 500) % 2 == 0) {
 			int cursorX = Math.min(valueBox.right() - 3, valueX + font.width(clipped) + 1);
 			g.fill(cursorX, valueY - 1, cursorX + 1, valueY + font.lineHeight, OreUiPalette.TEXT_PRIMARY);
 		}
@@ -486,36 +489,36 @@ public final class EditorSettingsPanel {
 			buttonState(true, row.stepPlus().contains(mouseX, mouseY)));
 	}
 
-	private void renderIdRow(GuiGraphics g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
+	private void renderIdRow(GuiGraphicsExtractor g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
 		SettingsRowLayout.Rect rect = row.rect();
 		String label = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_GROUP_ID).getString();
 		String desc = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_GROUP_ID_DESC).getString();
-		g.drawString(font, label, rect.x() + 6, rect.y() + 4, OreUiPalette.TEXT_PRIMARY, false);
-		g.drawString(font, font.plainSubstrByWidth(desc, Math.max(0, row.copyBtn().x() - rect.x() - 12)),
+		g.text(font, label, rect.x() + 6, rect.y() + 4, OreUiPalette.TEXT_PRIMARY, false);
+		g.text(font, font.plainSubstrByWidth(desc, Math.max(0, row.copyBtn().x() - rect.x() - 12)),
 			rect.x() + 6, rect.y() + 4 + font.lineHeight + 1, OreUiPalette.TEXT_HINT, false);
 
 		String rawId = state.pendingRawId();
 		String value = rawId.isBlank() ? "-" : rawId;
 		int idX = rect.x() + 6 + Math.max(font.width(label), 0) + 12;
 		int idMax = Math.max(0, row.copyBtn().x() - idX - 6);
-		g.drawString(font, font.plainSubstrByWidth(value, idMax),
+		g.text(font, font.plainSubstrByWidth(value, idMax),
 			idX, rect.y() + 4, rawId.isBlank() ? OreUiPalette.TEXT_HINT : OreUiPalette.TEXT_MUTED, false);
 		drawRowButton(g, row.copyBtn(),
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_COPY).getString(),
 			buttonState(!rawId.isBlank(), !rawId.isBlank() && row.copyBtn().contains(mouseX, mouseY)));
 	}
 
-	private void renderEnabledRow(GuiGraphics g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
+	private void renderEnabledRow(GuiGraphicsExtractor g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
 		SettingsRowLayout.Rect rect = row.rect();
 		String label = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_ENABLED).getString();
-		g.drawString(font, label, rect.x() + 6, OreUiRenderer.centeredTextY(font, rect.y(), rect.height()),
+		g.text(font, label, rect.x() + 6, OreUiRenderer.centeredTextY(font, rect.y(), rect.height()),
 			OreUiPalette.TEXT_PRIMARY, false);
 		SettingsRowLayout.Rect sw = row.switchRect();
 		boolean hovered = effectiveSwitchHover(sw.contains(mouseX, mouseY));
 		OreUiRenderer.drawSwitch(g, sw.x(), sw.y(), sw.width(), sw.height(), state.editEnabled(), true, hovered, false);
 	}
 
-	private void drawRowButton(GuiGraphics g, SettingsRowLayout.Rect rect, String label, OreUiRenderer.ButtonState buttonState) {
+	private void drawRowButton(GuiGraphicsExtractor g, SettingsRowLayout.Rect rect, String label, OreUiRenderer.ButtonState buttonState) {
 		OreUiRenderer.drawButton(g, font, rect.x(), rect.y(), rect.width(), rect.height(), label, buttonState);
 	}
 
@@ -565,18 +568,18 @@ public final class EditorSettingsPanel {
 			: String.format(Locale.ROOT, "#%08X", argb);
 	}
 
-	private void renderItemIconId(GuiGraphics g, @Nullable String iconId, int x, int y) {
+	private void renderItemIconId(GuiGraphicsExtractor g, @Nullable String iconId, int x, int y) {
 		ItemStack stack = iconStack(iconId);
 		if (!stack.isEmpty()) {
-			g.renderItem(stack, x, y);
+			g.item(stack, x, y);
 		}
 	}
 
 	private ItemStack iconStack(@Nullable String iconId) {
 		if (iconId == null || iconId.isBlank()) return ItemStack.EMPTY;
-		ResourceLocation loc = ResourceLocation.tryParse(iconId);
+		Identifier loc = Identifier.tryParse(iconId);
 		if (loc == null) return ItemStack.EMPTY;
-		Item item = BuiltInRegistries.ITEM.get(loc);
+		Item item = BuiltInRegistries.ITEM.getValue(loc);
 		return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
 	}
 
@@ -666,7 +669,6 @@ public final class EditorSettingsPanel {
 		box.setMaxLength(max);
 		box.setTextColor(OreUiPalette.TEXT_PRIMARY);
 		// Uppercase hex digits only, capped at the channel width.
-		box.setFilter(s -> s.chars().allMatch(c -> isHexChar((char) c)) && s.length() <= max);
 		box.setValue(colorPickerHex);
 		box.setResponder(this::onColorPickerHexTyped);
 		colorPickerHexBox = box;
@@ -773,7 +775,7 @@ public final class EditorSettingsPanel {
 		applyColorPickerArgb((a << 24) | (r << 16) | (gg << 8) | b);
 	}
 
-	private void renderColorPickerModal(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderColorPickerModal(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		SettingsColorTarget target = activeColorTarget;
 		if (target == null) return;
 		EditorChrome.Rect modal = colorModalRect();
@@ -784,7 +786,7 @@ public final class EditorSettingsPanel {
 		int y = modal.y() + 8;
 		String title = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_COLOR_PICKER,
 			Component.translatable(target.labelKey).getString()).getString();
-		g.drawString(font, font.plainSubstrByWidth(title, Math.max(0, modal.width() - 16)),
+		g.text(font, font.plainSubstrByWidth(title, Math.max(0, modal.width() - 16)),
 			x, y, OreUiPalette.TEXT_PRIMARY, false);
 		y += font.lineHeight + 6;
 
@@ -817,7 +819,7 @@ public final class EditorSettingsPanel {
 			buttonState(true, contains(cancelX, buttonY, buttonW, 20, mouseX, mouseY)));
 	}
 
-	private void renderDyePalette(GuiGraphics g, int x, int y, int mouseX, int mouseY) {
+	private void renderDyePalette(GuiGraphicsExtractor g, int x, int y, int mouseX, int mouseY) {
 		for (int i = 0; i < DYE_COLORS.length; i++) {
 			int col = i % 8;
 			int row = i / 8;
@@ -831,7 +833,7 @@ public final class EditorSettingsPanel {
 		}
 	}
 
-	private void renderColorSlider(GuiGraphics g, int channel, int x, int y, boolean rgbOnly, int mouseX, int mouseY) {
+	private void renderColorSlider(GuiGraphicsExtractor g, int channel, int x, int y, boolean rgbOnly, int mouseX, int mouseY) {
 		String label = switch (channel) {
 			case 0 -> "R";
 			case 1 -> "G";
@@ -841,7 +843,7 @@ public final class EditorSettingsPanel {
 		boolean active = channel != 3 || !rgbOnly;
 		int value = colorChannel(channel);
 		int textColor = active ? OreUiPalette.TEXT_PRIMARY : OreUiPalette.TEXT_DISABLED;
-		g.drawString(font, label, x, OreUiRenderer.centeredTextY(font, y, 16), textColor, false);
+		g.text(font, label, x, OreUiRenderer.centeredTextY(font, y, 16), textColor, false);
 		int sliderX = x + 16;
 		int bandY = y + 2;
 		boolean sliderHot = draggingColorChannel == channel
@@ -849,14 +851,14 @@ public final class EditorSettingsPanel {
 				.contains(mouseX, mouseY));
 		OreUiRenderer.drawSlider(g, sliderX, bandY, COLOR_SLIDER_WIDTH, value, 255, active, sliderHot);
 		String valueText = String.valueOf(value);
-		g.drawString(font, valueText, sliderX + COLOR_SLIDER_WIDTH + 8,
+		g.text(font, valueText, sliderX + COLOR_SLIDER_WIDTH + 8,
 			OreUiRenderer.centeredTextY(font, y, 16), textColor, false);
 	}
 
-	private void renderHexField(GuiGraphics g, int mouseX, int mouseY, SettingsColorTarget target) {
+	private void renderHexField(GuiGraphicsExtractor g, int mouseX, int mouseY, SettingsColorTarget target) {
 		EditorChrome.Rect row = colorHexRowRect();
 		String label = target.rgbOnly ? "#RRGGBB" : "#AARRGGBB";
-		g.drawString(font, label, row.x(), OreUiRenderer.centeredTextY(font, row.y(), 18),
+		g.text(font, label, row.x(), OreUiRenderer.centeredTextY(font, row.y(), 18),
 			OreUiPalette.TEXT_MUTED, false);
 		EditorChrome.Rect field = colorHexFieldRect();
 		boolean valid = isHexInputValid(target);
@@ -870,7 +872,7 @@ public final class EditorSettingsPanel {
 		OreUiRenderer.drawOutline(g, field.x(), field.y(), field.width(), field.height(), outline);
 		if (colorPickerHexBox != null) {
 			colorPickerHexBox.setTextColor(valid ? OreUiPalette.TEXT_PRIMARY : ERROR_TEXT_COLOR);
-			colorPickerHexBox.render(g, mouseX, mouseY, 0);
+			colorPickerHexBox.extractRenderState(g, mouseX, mouseY, 0);
 		}
 	}
 
@@ -894,7 +896,7 @@ public final class EditorSettingsPanel {
 		// fix 1: clicking the hex field focuses the EditBox and forwards the click.
 		if (colorHexFieldRect().contains(mouseX, mouseY) && colorPickerHexBox != null) {
 			colorPickerHexBox.setFocused(true);
-			colorPickerHexBox.mouseClicked(mouseX, mouseY, 0);
+			colorPickerHexBox.mouseClicked(new MouseButtonEvent(mouseX, mouseY, new MouseButtonInfo(0, 0)), false);
 			return true;
 		}
 		if (colorPickerHexBox != null) {
@@ -960,14 +962,14 @@ public final class EditorSettingsPanel {
 			return true;
 		}
 		if (colorPickerHexBox != null && colorPickerHexBox.isFocused()) {
-			colorPickerHexBox.keyPressed(keyCode, scanCode, modifiers);
+			colorPickerHexBox.keyPressed(new KeyEvent(keyCode, scanCode, modifiers));
 		}
 		return true;
 	}
 
 	private boolean handleColorPickerChar(char codePoint, int modifiers) {
-		if (colorPickerHexBox != null && colorPickerHexBox.isFocused()) {
-			colorPickerHexBox.charTyped(codePoint, modifiers);
+		if (colorPickerHexBox != null && colorPickerHexBox.isFocused() && isHexChar(codePoint)) {
+			colorPickerHexBox.charTyped(new CharacterEvent(codePoint));
 		}
 		return true;
 	}
@@ -1146,7 +1148,7 @@ public final class EditorSettingsPanel {
 		iconPickerScrollOffset = clamp(rowTop - grid.height() / 2 + ICON_PICKER_SLOT / 2, 0, iconPickerMaxScroll());
 	}
 
-	private void renderIconPickerModal(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderIconPickerModal(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		EditorChrome.Rect modal = iconPickerModalRect();
 		OreUiRenderer.drawPanel(g, modal.x(), modal.y(), modal.width(), modal.height());
 		OreUiRenderer.drawOutline(g, modal.x(), modal.y(), modal.width(), modal.height(), OreUiPalette.OUTLINE_SELECTED);
@@ -1154,7 +1156,7 @@ public final class EditorSettingsPanel {
 		int x = modal.x() + 10;
 		int y = modal.y() + 10;
 		EditorChrome.Rect close = iconPickerCloseButtonRect();
-		g.drawString(font, font.plainSubstrByWidth(
+		g.text(font, font.plainSubstrByWidth(
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_ICON_PICKER_TITLE).getString(),
 			Math.max(0, close.x() - x - 6)),
 			x, y, OreUiPalette.TEXT_PRIMARY, false);
@@ -1171,7 +1173,7 @@ public final class EditorSettingsPanel {
 		g.fill(search.x() + 1, search.y() + 1, search.right() - 1, search.bottom() - 1, OreUiPalette.SURFACE);
 		OreUiRenderer.drawOutline(g, search.x(), search.y(), search.width(), search.height(), outline);
 		if (iconPickerSearch != null) {
-			iconPickerSearch.render(g, mouseX, mouseY, 0);
+			iconPickerSearch.extractRenderState(g, mouseX, mouseY, 0);
 		}
 
 		EditorChrome.Rect grid = iconPickerGridRect();
@@ -1182,7 +1184,7 @@ public final class EditorSettingsPanel {
 			int lineY = grid.y() + 4;
 			for (net.minecraft.util.FormattedCharSequence line : font.split(
 					Component.translatable(ModTranslationKeys.ORE_EDITOR_ICON_PICKER_EMPTY), Math.max(1, grid.width()))) {
-				g.drawString(font, line, grid.x(), lineY, OreUiPalette.TEXT_HINT, false);
+				g.text(font, line, grid.x(), lineY, OreUiPalette.TEXT_HINT, false);
 				lineY += font.lineHeight + 1;
 			}
 			return;
@@ -1204,7 +1206,7 @@ public final class EditorSettingsPanel {
 			int cx = grid.x() + col * ICON_PICKER_SLOT;
 			int cy = grid.y() + row * ICON_PICKER_SLOT - iconPickerScrollOffset;
 			if (cy + ICON_PICKER_SLOT < grid.y() || cy > grid.bottom()) continue;
-			g.renderItem(entry.stack(), cx + 1, cy + 1);
+			g.item(entry.stack(), cx + 1, cy + 1);
 			String itemId = BuiltInRegistries.ITEM.getKey(entry.stack().getItem()).toString();
 			if (entry.nonGroup()) {
 				// Non-group item marker: amber corner tab (top-right) so the "data
@@ -1227,7 +1229,7 @@ public final class EditorSettingsPanel {
 				grid.height(), grid.height() + maxScroll, iconPickerScrollOffset);
 		}
 		if (hovered != null) {
-			g.renderTooltip(font, hovered, mouseX, mouseY);
+			g.setTooltipForNextFrame(font, hovered, mouseX, mouseY);
 		}
 	}
 
@@ -1240,7 +1242,7 @@ public final class EditorSettingsPanel {
 		EditorChrome.Rect search = iconPickerSearchRect();
 		if (search.contains(mouseX, mouseY) && iconPickerSearch != null) {
 			iconPickerSearch.setFocused(true);
-			iconPickerSearch.mouseClicked(mouseX, mouseY, 0);
+			iconPickerSearch.mouseClicked(new MouseButtonEvent(mouseX, mouseY, new MouseButtonInfo(0, 0)), false);
 			return true;
 		}
 		EditorChrome.Rect grid = iconPickerGridRect();
@@ -1275,7 +1277,7 @@ public final class EditorSettingsPanel {
 			return true;
 		}
 		if (iconPickerSearch != null && iconPickerSearch.isFocused()
-			&& iconPickerSearch.keyPressed(keyCode, scanCode, modifiers)) {
+			&& iconPickerSearch.keyPressed(new KeyEvent(keyCode, scanCode, modifiers))) {
 			iconPickerScrollOffset = clamp(iconPickerScrollOffset, 0, iconPickerMaxScroll());
 			return true;
 		}
@@ -1283,7 +1285,7 @@ public final class EditorSettingsPanel {
 	}
 
 	private boolean handleIconPickerChar(char codePoint, int modifiers) {
-		if (iconPickerSearch != null && iconPickerSearch.charTyped(codePoint, modifiers)) {
+		if (iconPickerSearch != null && iconPickerSearch.charTyped(new CharacterEvent(codePoint))) {
 			iconPickerScrollOffset = clamp(iconPickerScrollOffset, 0, iconPickerMaxScroll());
 		}
 		return true;
@@ -1480,7 +1482,7 @@ public final class EditorSettingsPanel {
 	}
 
 	private void handlePriorityRowClick(SettingsRowLayout.Row row, double mouseX, double mouseY) {
-		int step = Screen.hasShiftDown() ? 10 : 1;
+		int step = com.starskyxiii.collapsible_groups.compat.jei.ui.InputModifierHelper.shiftDown() ? 10 : 1;
 		if (row.valueBox().contains(mouseX, mouseY)) {
 			beginPriorityEdit();
 		} else if (row.stepMinus().contains(mouseX, mouseY)) {

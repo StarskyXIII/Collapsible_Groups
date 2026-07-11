@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.core;
 
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
@@ -48,7 +48,7 @@ class CompiledFilterIdSetFoldingTest {
 	void idSetFoldMissCostsConstantCallsRegardlessOfRunSize() {
 		GroupFilter small = buildIdRunAny(5, "modns");
 		GroupFilter large = buildIdRunAny(1000, "modns");
-		ResourceLocation notInSet = ResourceLocation.parse("modns:not_in_the_set");
+		Identifier notInSet = Identifier.parse("modns:not_in_the_set");
 
 		CountingIngredientView smallMiss = new CountingIngredientView("item", notInSet);
 		CountingIngredientView largeMiss = new CountingIngredientView("item", notInSet);
@@ -75,7 +75,7 @@ class CompiledFilterIdSetFoldingTest {
 	}
 
 	@Test
-	void idSetFoldNullResourceLocationShortCircuitsBeforeIngredientTypeLookup() {
+	void idSetFoldNullIdentifierShortCircuitsBeforeIngredientTypeLookup() {
 		GroupFilter large = buildIdRunAny(1000, "modns");
 		CountingIngredientView view = new CountingIngredientView("item", null);
 
@@ -312,12 +312,12 @@ class CompiledFilterIdSetFoldingTest {
 		return new GroupFilter.Any(List.copyOf(children));
 	}
 
-	private static ResourceLocation idAt(String namespace, int index) {
-		return ResourceLocation.parse(namespace + ":ore_" + String.format("%04d", index));
+	private static Identifier idAt(String namespace, int index) {
+		return Identifier.parse(namespace + ":ore_" + String.format("%04d", index));
 	}
 
-	private static ResourceLocation rl(String value) {
-		return ResourceLocation.parse(value);
+	private static Identifier rl(String value) {
+		return Identifier.parse(value);
 	}
 
 	private static void assertEquivalent(GroupFilter filter, CompiledFilter compiled, IngredientView view) {
@@ -330,8 +330,8 @@ class CompiledFilterIdSetFoldingTest {
 			case GroupFilter.Any any -> any.children().stream().anyMatch(child -> referenceMatches(child, view));
 			case GroupFilter.All all -> all.children().stream().allMatch(child -> referenceMatches(child, view));
 			case GroupFilter.Not not -> !referenceMatches(not.child(), view);
-			case GroupFilter.Id id -> sameType(id.ingredientType(), view) && ResourceLocation.parse(id.id()).equals(view.resourceLocation());
-			case GroupFilter.Tag tag -> sameType(tag.ingredientType(), view) && view.hasTag(ResourceLocation.parse(tag.tag()));
+			case GroupFilter.Id id -> sameType(id.ingredientType(), view) && Identifier.parse(id.id()).equals(view.resourceLocation());
+			case GroupFilter.Tag tag -> sameType(tag.ingredientType(), view) && view.hasTag(Identifier.parse(tag.tag()));
 			case GroupFilter.ExactStack exactStack -> sameType("item", view) && view.matchesExactStack(exactStack.encodedStack());
 			default -> throw new UnsupportedOperationException("referenceMatches: filter kind not needed by this test matrix: " + filter);
 		};
@@ -346,11 +346,11 @@ class CompiledFilterIdSetFoldingTest {
 
 	private static final class CountingIngredientView implements IngredientView {
 		private final String ingredientType;
-		private final ResourceLocation resourceLocation;
+		private final Identifier resourceLocation;
 		private int ingredientTypeCalls = 0;
 		private int resourceLocationCalls = 0;
 
-		CountingIngredientView(String ingredientType, ResourceLocation resourceLocation) {
+		CountingIngredientView(String ingredientType, Identifier resourceLocation) {
 			this.ingredientType = ingredientType;
 			this.resourceLocation = resourceLocation;
 		}
@@ -362,13 +362,13 @@ class CompiledFilterIdSetFoldingTest {
 		}
 
 		@Override
-		public ResourceLocation resourceLocation() {
+		public Identifier resourceLocation() {
 			resourceLocationCalls++;
 			return resourceLocation;
 		}
 
 		@Override
-		public boolean hasTag(ResourceLocation tagId) {
+		public boolean hasTag(Identifier tagId) {
 			return false;
 		}
 
@@ -378,9 +378,9 @@ class CompiledFilterIdSetFoldingTest {
 		}
 	}
 
-	private record MatrixIngredientView(String ingredientType, ResourceLocation resourceLocation, Set<ResourceLocation> tags, boolean exactStackMatches) implements IngredientView {
+	private record MatrixIngredientView(String ingredientType, Identifier resourceLocation, Set<Identifier> tags, boolean exactStackMatches) implements IngredientView {
 		@Override
-		public boolean hasTag(ResourceLocation tagId) {
+		public boolean hasTag(Identifier tagId) {
 			return tags.contains(tagId);
 		}
 

@@ -102,7 +102,7 @@ public final class ItemStackIngredientView implements IngredientView {
 	}
 
 	static boolean matchesEncodedValue(JsonElement encoded, String encodedValue) {
-		// For string-encoded components (ResourceLocations, enums), compare the unwrapped value directly.
+		// For string-encoded components (Identifiers, enums), compare the unwrapped value directly.
 		if (encoded instanceof JsonPrimitive p && p.isString()) {
 			return EncodedValueNormalizer.normalize(encoded).equals(encodedValue);
 		}

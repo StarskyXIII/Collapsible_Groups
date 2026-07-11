@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 
 import java.util.List;
@@ -15,19 +15,19 @@ public final class OreConfirmDialog {
 
 	private OreConfirmDialog() {}
 
-	public static void render(GuiGraphics g, Font font, int screenWidth, int screenHeight,
+	public static void render(GuiGraphicsExtractor g, Font font, int screenWidth, int screenHeight,
 	                          Component title, List<Component> bodyLines,
 	                          Component primaryLabel, Component secondaryLabel,
 	                          int mouseX, int mouseY) {
 		Rect bounds = bounds(screenWidth, screenHeight);
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 500);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		g.fill(0, 0, screenWidth, screenHeight, 0xAA000000);
 		OreUiRenderer.drawPanel(g, bounds.x(), bounds.y(), bounds.width(), bounds.height());
 		OreUiRenderer.drawOutline(g, bounds.x(), bounds.y(), bounds.width(), bounds.height(), OreUiPalette.OUTLINE_DARK);
 
 		String titleText = title.getString();
-		g.drawString(font, titleText, bounds.x() + (bounds.width() - font.width(titleText)) / 2,
+		g.text(font, titleText, bounds.x() + (bounds.width() - font.width(titleText)) / 2,
 			bounds.y() + 12, OreUiPalette.TEXT_PRIMARY, false);
 
 		int bodyY = bounds.y() + (bodyLines.size() <= 1 ? 38 : 34);
@@ -41,7 +41,7 @@ public final class OreConfirmDialog {
 			primaryLabel.getString(), buttonState(primary.contains(mouseX, mouseY)));
 		OreUiRenderer.drawButton(g, font, secondary.x(), secondary.y(), secondary.width(), secondary.height(),
 			secondaryLabel.getString(), buttonState(secondary.contains(mouseX, mouseY)));
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
 	public static Action hitTest(int screenWidth, int screenHeight, double mouseX, double mouseY) {
@@ -67,9 +67,9 @@ public final class OreConfirmDialog {
 		return new Rect(primary.right() + BUTTON_GAP, primary.y(), BUTTON_WIDTH, BUTTON_HEIGHT);
 	}
 
-	private static void drawCenteredLine(GuiGraphics g, Font font, Rect bounds, String text, int y, int color) {
+	private static void drawCenteredLine(GuiGraphicsExtractor g, Font font, Rect bounds, String text, int y, int color) {
 		String clipped = font.plainSubstrByWidth(text, bounds.width() - 24);
-		g.drawString(font, clipped, bounds.x() + (bounds.width() - font.width(clipped)) / 2, y, color, false);
+		g.text(font, clipped, bounds.x() + (bounds.width() - font.width(clipped)) / 2, y, color, false);
 	}
 
 	private static OreUiRenderer.ButtonState buttonState(boolean hovered) {

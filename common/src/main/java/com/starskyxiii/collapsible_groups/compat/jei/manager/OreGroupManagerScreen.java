@@ -23,12 +23,15 @@ import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
@@ -279,7 +282,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return layout.x() + layout.width() + SORT_BUTTON_GAP;
 	}
 
-	private void renderSearchFieldChrome(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderSearchFieldChrome(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		SearchFieldLayout layout = searchFieldLayout();
 		if (!layout.visible()) return;
 		boolean hovered = isMouseOver(mouseX, mouseY, layout.x(), layout.y(), layout.width(), layout.height());
@@ -330,13 +333,13 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	@Override
-	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
 		g.fill(0, 0, this.width, this.height, OreUiPalette.SCREEN_SCRIM);
 	}
 
 	@Override
-	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
-		renderBackground(g, mouseX, mouseY, partialTicks);
+	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
+		extractBackground(g, mouseX, mouseY, partialTicks);
 		pendingTooltip = null;
 
 		int headerHeight = headerHeight();
@@ -356,18 +359,18 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		renderScrollbar(g);
 		renderHeaderButtons(g, mouseX, mouseY);
 
-		g.drawString(font, this.title.copy().withStyle(ChatFormatting.BOLD), HEADER_TITLE_X, 7,
+		g.text(font, this.title.copy().withStyle(ChatFormatting.BOLD), HEADER_TITLE_X, 7,
 			OreUiPalette.TEXT_PRIMARY, false);
 		Component countText = filteredCards.size() == allCards.size()
 			? Component.translatable(ModTranslationKeys.MANAGER_COUNT_ALL, allCards.size())
 			: Component.translatable(ModTranslationKeys.MANAGER_COUNT_FILTERED, filteredCards.size(), allCards.size());
-		g.drawString(font, countText, HEADER_TITLE_X, 18, OreUiPalette.TEXT_MUTED, false);
-		g.drawString(font, Component.translatable(ModTranslationKeys.MANAGER_FOOTER_HINT),
+		g.text(font, countText, HEADER_TITLE_X, 18, OreUiPalette.TEXT_MUTED, false);
+		g.text(font, Component.translatable(ModTranslationKeys.MANAGER_FOOTER_HINT),
 			6, vpBottom + OreUiRenderer.centeredTextY(font, 0, FOOTER_HEIGHT), OreUiPalette.TEXT_HINT, false);
 
 		for (var child : this.children()) {
 			if (child instanceof Renderable renderable) {
-				renderable.render(g, mouseX, mouseY, partialTicks);
+				renderable.extractRenderState(g, mouseX, mouseY, partialTicks);
 			}
 		}
 		if (sortMenuOpen && searchFieldLayout().visible() && !hasPendingDialog()) {
@@ -378,11 +381,11 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			pendingTooltip = null;
 			renderPendingDialog(g, mouseX, mouseY);
 		} else if (pendingTooltip != null) {
-			g.renderTooltip(font, pendingTooltip, mouseX, mouseY);
+			g.setTooltipForNextFrame(font, pendingTooltip, mouseX, mouseY);
 		}
 	}
 
-	private void renderHeaderButtons(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderHeaderButtons(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		boolean backHover = isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H);
 		renderButton(g, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H,
 			Component.translatable(ModTranslationKeys.MANAGER_BTN_BACK).getString(), true, backHover, backButtonHeld && backHover);
@@ -410,7 +413,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			Component.translatable(ModTranslationKeys.MANAGER_BTN_NEW_GROUP).getString(), true, newHover, newGroupButtonHeld && newHover);
 	}
 
-	private void renderBatchToolbar(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderBatchToolbar(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		BatchActionEligibility eligibility = currentBatchEligibility();
 		renderBatchToolbarButton(g, BatchToolbarAction.SELECT_ALL_RESULTS, eligibility, mouseX, mouseY);
 		renderBatchToolbarButton(g, BatchToolbarAction.ENABLE, eligibility, mouseX, mouseY);
@@ -418,7 +421,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		renderBatchToolbarButton(g, BatchToolbarAction.DELETE, eligibility, mouseX, mouseY);
 	}
 
-	private void renderSortButton(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderSortButton(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		SearchFieldLayout layout = searchFieldLayout();
 		if (!layout.visible()) return;
 		int x = sortButtonX();
@@ -436,11 +439,11 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		}
 	}
 
-	private void renderSortMenu(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderSortMenu(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		int x = sortMenuX();
 		int y = sortMenuY();
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 350);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		g.fill(x - 1, y - 1, x + SORT_MENU_WIDTH + 1,
 			y + GroupSortMode.values().length * SORT_MENU_ROW_HEIGHT + 1, OreUiPalette.SURFACE_DARK);
 		for (int i = 0; i < GroupSortMode.values().length; i++) {
@@ -457,7 +460,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			OreUiRenderer.drawSegment(g, font, x, rowY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT,
 				Component.translatable(sortLabelKey(mode)).getString(), state);
 		}
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
 	private static String sortLabelKey(GroupSortMode mode) {
@@ -476,7 +479,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return SEARCH_FIELD_Y + SORT_BUTTON_SIZE;
 	}
 
-	private void renderBatchToolbarButton(GuiGraphics g, BatchToolbarAction action,
+	private void renderBatchToolbarButton(GuiGraphicsExtractor g, BatchToolbarAction action,
 	                                     BatchActionEligibility eligibility, int mouseX, int mouseY) {
 		int x = batchActionButtonX(action);
 		int y = batchActionButtonY();
@@ -487,7 +490,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			active, hovered, heldBatchToolbarAction == action && hovered);
 	}
 
-	private void renderBatchSelectedStatus(GuiGraphics g) {
+	private void renderBatchSelectedStatus(GuiGraphicsExtractor g) {
 		int y = SEARCH_FIELD_Y;
 		Component selected = Component.translatable(ModTranslationKeys.MANAGER_BATCH_SELECTED_COUNT, batchSelection.selectedCount());
 		int textY = OreUiRenderer.textFieldTextY(font, y, SEARCH_FIELD_HEIGHT);
@@ -497,18 +500,18 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		String selectedText = font.plainSubstrByWidth(selected.getString(), BATCH_SELECTED_STATUS_W - 8);
 		int textX = this.width - CARD_PADDING - font.width(selectedText);
 		g.fill(textX - 6, barY, textX - 4, barY + font.lineHeight + 4, OreUiPalette.OUTLINE_SELECTED);
-		g.drawString(font, selectedText, textX, textY, OreUiPalette.TEXT_PRIMARY, false);
+		g.text(font, selectedText, textX, textY, OreUiPalette.TEXT_PRIMARY, false);
 	}
 
-	private void renderEmptyState(GuiGraphics g, int viewportTop, int viewportBottom) {
+	private void renderEmptyState(GuiGraphicsExtractor g, int viewportTop, int viewportBottom) {
 		Component empty = Component.translatable(ModTranslationKeys.MANAGER_EMPTY_SEARCH);
 		String text = font.plainSubstrByWidth(empty.getString(), Math.max(0, this.width - 24));
 		int x = Math.max(6, (this.width - font.width(text)) / 2);
 		int y = viewportTop + Math.max(0, (viewportBottom - viewportTop - font.lineHeight) / 2);
-		g.drawString(font, text, x, y, OreUiPalette.TEXT_HINT, false);
+		g.text(font, text, x, y, OreUiPalette.TEXT_HINT, false);
 	}
 
-	private void renderSegmentedFilter(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderSegmentedFilter(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		GroupUiState.ManagerSourceFilter[] filters = segmentFilters();
 		int hoveredIndex = hoveredSegmentIndex(filters, mouseX, mouseY);
 		int selectedIndex = -1;
@@ -540,7 +543,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return -1;
 	}
 
-	private void renderSegment(GuiGraphics g, GroupUiState.ManagerSourceFilter[] filters, int index,
+	private void renderSegment(GuiGraphicsExtractor g, GroupUiState.ManagerSourceFilter[] filters, int index,
 	                           boolean selected, boolean hovered) {
 		int x = segmentX(filters, index);
 		int w = segmentWidth(filters);
@@ -601,7 +604,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return segmentX(filters, lastIndex) + segmentWidth(filters);
 	}
 
-	private void renderCard(GuiGraphics g, int index, int mouseX, int mouseY) {
+	private void renderCard(GuiGraphicsExtractor g, int index, int mouseX, int mouseY) {
 		GroupManagerCard card = filteredCards.get(index);
 		int[] pos = cardPos(index);
 		int x = pos[0];
@@ -629,14 +632,14 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		}
 	}
 
-	private void renderDisabledOverlay(GuiGraphics g, int x, int y) {
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 200);
+	private void renderDisabledOverlay(GuiGraphicsExtractor g, int x, int y) {
+		g.pose().pushMatrix();
+		g.nextStratum();
 		g.fill(x + 1, y + 1, x + CARD_WIDTH - 1, y + CARD_HEIGHT - 1, OreUiPalette.DISABLED_OVERLAY);
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
-	private void renderHeaderPreview(GuiGraphics g, GroupManagerCard card, int x, int y, int textRight, boolean hovered) {
+	private void renderHeaderPreview(GuiGraphicsExtractor g, GroupManagerCard card, int x, int y, int textRight, boolean hovered) {
 		int headerColor = GroupThemeResolver.collapsedHeaderBackgroundColor(card.id());
 		g.fill(x, y, x + HEADER_PREVIEW_SIZE, y + HEADER_PREVIEW_SIZE, headerColor);
 		drawOutline(g, x, y, HEADER_PREVIEW_SIZE, HEADER_PREVIEW_SIZE, OreUiPalette.OUTLINE_DARK);
@@ -646,24 +649,24 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		int maxTextWidth = Math.max(0, textRight - textX);
 		renderScrollingText(g, localizedDisplayName(card).getString(), textX, y + 1,
 			maxTextWidth, OreUiPalette.TEXT_PRIMARY, hovered);
-		g.drawString(font, countLabel(card), textX, y + 12, OreUiPalette.TEXT_MUTED, false);
+		g.text(font, countLabel(card), textX, y + 12, OreUiPalette.TEXT_MUTED, false);
 	}
 
-	private void renderStackedPreviewIcons(GuiGraphics g, List<GroupPreviewEntry> entries, int x, int y) {
+	private void renderStackedPreviewIcons(GuiGraphicsExtractor g, List<GroupPreviewEntry> entries, int x, int y) {
 		if (entries.isEmpty()) return;
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 120);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		if (entries.size() > 1) {
 			entries.get(1).render(g, x + 4, y + 2);
-			g.pose().translate(0, 0, 8);
+			g.nextStratum();
 			entries.get(0).render(g, x + 2, y + 4);
 		} else {
 			entries.get(0).render(g, x + 3, y + 3);
 		}
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
-	private void renderCardPreview(GuiGraphics g, GroupManagerCard card, int previewX, int previewY, int rowOffset) {
+	private void renderCardPreview(GuiGraphicsExtractor g, GroupManagerCard card, int previewX, int previewY, int rowOffset) {
 		OreUiRenderer.drawSlotGrid(g, previewX, previewY, PREVIEW_COLS, PREVIEW_ROWS, PREVIEW_CELL_PITCH);
 		renderPreviewEntries(g, card.previewEntries(), previewX, previewY, rowOffset);
 		int previewTotalRows = totalRowsForCard(card);
@@ -674,7 +677,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		OreUiRenderer.drawMiniScrollbar(g, sbX, previewY, sbH, PREVIEW_ROWS, previewTotalRows, rowOffset);
 	}
 
-	private void renderPreviewEntries(GuiGraphics g, List<GroupPreviewEntry> entries, int previewX, int previewY, int rowOffset) {
+	private void renderPreviewEntries(GuiGraphicsExtractor g, List<GroupPreviewEntry> entries, int previewX, int previewY, int rowOffset) {
 		PreviewGridLayout layout = PreviewGridLayout.fixedColumns(entries.size(), PREVIEW_COLS, PREVIEW_ROWS, rowOffset);
 		layout.forEachCell((entryIndex, column, row) ->
 			entries.get(entryIndex).render(g,
@@ -686,15 +689,15 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		int lastX = previewX + layout.overflowColumn() * PREVIEW_CELL_PITCH + PREVIEW_ICON_INSET;
 		int lastY = previewY + layout.overflowRow() * PREVIEW_CELL_PITCH + PREVIEW_ICON_INSET;
 		String more = "+" + layout.overflowCount();
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 200);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		g.fill(lastX, lastY, lastX + cellInner, lastY + cellInner, OreUiPalette.DISABLED_OVERLAY);
-		g.drawString(font, more, lastX + (cellInner - font.width(more)) / 2,
+		g.text(font, more, lastX + (cellInner - font.width(more)) / 2,
 			lastY + (cellInner - 8) / 2, OreUiPalette.TEXT_PRIMARY, false);
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
-	private void renderCardControls(GuiGraphics g, GroupManagerCard card, int cardX, int cardY, int mouseX, int mouseY) {
+	private void renderCardControls(GuiGraphicsExtractor g, GroupManagerCard card, int cardX, int cardY, int mouseX, int mouseY) {
 		int switchX = switchControlX(cardX);
 		int switchY = switchControlY(cardY);
 		int editX = editButtonX(cardX);
@@ -713,17 +716,17 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		boolean editHover = controlsInteractive && isMouseOver(mouseX, mouseY, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
 		boolean deleteHover = controlsInteractive && isMouseOver(mouseX, mouseY, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
 		boolean switchPressed = canSwitch && switchHover && card.id().equals(heldSwitchGroupId);
-		boolean shiftDeleteArmed = controlsInteractive && deleteHover && canShiftDelete && Screen.hasShiftDown();
+		boolean shiftDeleteArmed = controlsInteractive && deleteHover && canShiftDelete && com.starskyxiii.collapsible_groups.compat.jei.ui.InputModifierHelper.shiftDown();
 
-		g.pose().pushPose();
-		g.pose().translate(0, 0, CARD_CONTROL_Z);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		OreUiRenderer.drawSwitch(g, switchX, switchY, SWITCH_WIDTH, SWITCH_HEIGHT,
 			card.group().enabled(), canSwitch, switchHover, switchPressed);
 		renderIconButton(g, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
 			OreUiRenderer.ICON_EDIT, canUseMiddleAction, editHover, false);
 		renderIconButton(g, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
 			OreUiRenderer.ICON_DELETE, canDelete || shiftDeleteArmed, deleteHover, shiftDeleteArmed);
-		g.pose().popPose();
+		g.pose().popMatrix();
 
 		if (controlsInteractive) {
 			if (switchHover && !canSwitch) pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_SWITCH_READONLY);
@@ -737,7 +740,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	private Component deleteTooltip(GroupManagerCard card) {
-		if (card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE) && Screen.hasShiftDown()) {
+		if (card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE) && com.starskyxiii.collapsible_groups.compat.jei.ui.InputModifierHelper.shiftDown()) {
 			return Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_SHIFT_DELETE);
 		}
 		if (card.actionEligibility().canRequest(GroupAction.DELETE)) {
@@ -746,15 +749,15 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_DELETE_READONLY);
 	}
 
-	private void renderBatchSelectedOverlay(GuiGraphics g, int x, int y) {
-		g.pose().pushPose();
-		g.pose().translate(0, 0, CARD_CONTROL_Z + 40);
+	private void renderBatchSelectedOverlay(GuiGraphicsExtractor g, int x, int y) {
+		g.pose().pushMatrix();
+		g.nextStratum();
 		g.fill(x + 1, y + 1, x + CARD_WIDTH - 1, y + CARD_HEIGHT - 1, BATCH_SELECTED_OVERLAY);
 		drawOutline(g, x, y, CARD_WIDTH, CARD_HEIGHT, OreUiPalette.OUTLINE_SELECTED);
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
-	private void renderSourceTab(GuiGraphics g, GroupManagerCard card, int cardX, int cardY) {
+	private void renderSourceTab(GuiGraphicsExtractor g, GroupManagerCard card, int cardX, int cardY) {
 		String label = switch (card.source()) {
 			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_BUILTIN).getString();
 			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_KUBEJS).getString();
@@ -769,7 +772,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		g.fill(left, top, left + tabWidth, bottom, OreUiPalette.SURFACE_DARK);
 		g.fill(left, top, left + tabWidth, top + 1, OreUiPalette.OUTLINE_DARK);
 		g.fill(left + tabWidth - 1, top, left + tabWidth, bottom, OreUiPalette.OUTLINE_DARK);
-		g.drawString(font, label, left + 5,
+		g.text(font, label, left + 5,
 			OreUiRenderer.centeredTextY(font, top, tabHeight), OreUiPalette.TEXT_MUTED, false);
 	}
 
@@ -797,7 +800,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return result != null ? result : Component.empty();
 	}
 
-	private void renderButton(GuiGraphics g, int x, int y, int w, int h, String label, boolean active, boolean hovered, boolean pressed) {
+	private void renderButton(GuiGraphicsExtractor g, int x, int y, int w, int h, String label, boolean active, boolean hovered, boolean pressed) {
 		OreUiRenderer.ButtonState state = !active
 			? OreUiRenderer.ButtonState.DISABLED
 			: pressed ? OreUiRenderer.ButtonState.PRESSED
@@ -805,8 +808,8 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		OreUiRenderer.drawButton(g, font, x, y, w, h, label, state);
 	}
 
-	private void renderIconButton(GuiGraphics g, int x, int y, int w, int h,
-	                              ResourceLocation icon, boolean active, boolean hovered, boolean pressed) {
+	private void renderIconButton(GuiGraphicsExtractor g, int x, int y, int w, int h,
+	                              Identifier icon, boolean active, boolean hovered, boolean pressed) {
 		OreUiRenderer.ButtonState state = !active
 			? OreUiRenderer.ButtonState.DISABLED
 			: pressed ? OreUiRenderer.ButtonState.PRESSED
@@ -924,7 +927,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return null;
 	}
 
-	private void renderPendingDialog(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderPendingDialog(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		Component title = pendingBatchDelete != null
 			? Component.translatable(ModTranslationKeys.MANAGER_BATCH_DELETE_DIALOG_TITLE,
 				pendingBatchDelete.deletableCount())
@@ -957,20 +960,20 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return Component.translatable(ModTranslationKeys.MANAGER_BTN_DELETE).getString();
 	}
 
-	private void drawOutline(GuiGraphics g, int x, int y, int width, int height, int color) {
+	private void drawOutline(GuiGraphicsExtractor g, int x, int y, int width, int height, int color) {
 		OreUiRenderer.drawOutline(g, x, y, width, height, color);
 	}
 
-	private void renderScrollingText(GuiGraphics g, String text, int x, int y, int maxWidth, int color, boolean hovered) {
+	private void renderScrollingText(GuiGraphicsExtractor g, String text, int x, int y, int maxWidth, int color, boolean hovered) {
 		int safeWidth = Math.max(0, maxWidth);
 		int textWidth = font.width(text);
 		if (textWidth <= safeWidth) {
-			g.drawString(font, text, x, y, color, true);
+			g.text(font, text, x, y, color, true);
 			return;
 		}
 		if (!hovered || safeWidth <= font.width("...")) {
 			String truncated = font.plainSubstrByWidth(text, Math.max(0, safeWidth - font.width("..."))) + "...";
-			g.drawString(font, truncated, x, y, color, true);
+			g.text(font, truncated, x, y, color, true);
 			return;
 		}
 		g.enableScissor(x, y - 1, x + safeWidth, y + font.lineHeight + 1);
@@ -979,13 +982,16 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		float scrollOffset = (System.currentTimeMillis() % (totalCycle * 30L)) / 30.0f;
 		int drawX1 = (int)(x - scrollOffset);
 		int drawX2 = drawX1 + totalCycle;
-		g.drawString(font, text, drawX1, y, color, true);
-		g.drawString(font, text, drawX2, y, color, true);
+		g.text(font, text, drawX1, y, color, true);
+		g.text(font, text, drawX2, y, color, true);
 		g.disableScissor();
 	}
 
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (hasPendingDialog()) {
 			return handlePendingDialogClick(mouseX, mouseY, button);
 		}
@@ -1039,7 +1045,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			newGroupButtonHeld = true;
 			return true;
 		}
-		if (super.mouseClicked(mouseX, mouseY, button)) return true;
+		if (super.mouseClicked(event, doubleClick)) return true;
 		if (button != 0) return false;
 
 		if (handleScrollbarClick(mouseX, mouseY)) return true;
@@ -1077,7 +1083,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 				return true;
 			}
 			if (deleteClick) {
-				if (Screen.hasShiftDown()) {
+				if (com.starskyxiii.collapsible_groups.compat.jei.ui.InputModifierHelper.shiftDown()) {
 					if (!card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE)) return true;
 					executeSingleDelete(card.id(), GroupAction.SHIFT_DELETE);
 				} else {
@@ -1100,7 +1106,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		setFocused(searchField);
 		searchField.setFocused(true);
 		if (searchField.isMouseOver(mouseX, mouseY)) {
-			searchField.mouseClicked(mouseX, mouseY, button);
+			searchField.mouseClicked(new MouseButtonEvent(mouseX, mouseY, new net.minecraft.client.input.MouseButtonInfo(button, 0)), false);
 		}
 		return true;
 	}
@@ -1306,7 +1312,10 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+	public boolean mouseDragged(MouseButtonEvent event, double deltaX, double deltaY) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (hasPendingDialog()) {
 			clearTransientInputState();
 			return true;
@@ -1326,11 +1335,14 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			}
 			return true;
 		}
-		return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
+		return super.mouseDragged(event, deltaX, deltaY);
 	}
 
 	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+	public boolean mouseReleased(MouseButtonEvent event) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (hasPendingDialog()) {
 			clearTransientInputState();
 			return true;
@@ -1410,7 +1422,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			return true;
 		}
 		if (button == 0) isDraggingScrollbar = false;
-		return super.mouseReleased(mouseX, mouseY, button);
+		return super.mouseReleased(event);
 	}
 
 	@Override
@@ -1427,7 +1439,10 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+	public boolean keyPressed(KeyEvent event) {
+		int keyCode = event.key();
+		int scanCode = event.scancode();
+		int modifiers = event.modifiers();
 		if (hasPendingDialog() && keyCode == GLFW.GLFW_KEY_ESCAPE) {
 			cancelPendingDialog();
 			return true;
@@ -1448,9 +1463,9 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 				}
 				return true;
 			}
-			if (searchField.keyPressed(keyCode, scanCode, modifiers)) return true;
+			if (searchField.keyPressed(event)) return true;
 		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
+		return super.keyPressed(event);
 	}
 
 	private GroupSortMode hoveredSortMode(double mouseX, double mouseY) {
@@ -1465,13 +1480,15 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	@Override
-	public boolean charTyped(char codePoint, int modifiers) {
+	public boolean charTyped(CharacterEvent event) {
+		char codePoint = (char) event.codepoint();
+		int modifiers = 0;
 		if (hasPendingDialog()) return true;
 		if (searchField != null && searchField.isFocused()
-			&& searchField.charTyped(codePoint, modifiers)) {
+			&& searchField.charTyped(event)) {
 			return true;
 		}
-		return super.charTyped(codePoint, modifiers);
+		return super.charTyped(event);
 	}
 
 	private boolean scrollHoveredPreview(double mouseX, double mouseY, double deltaY) {
@@ -1630,7 +1647,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		return false;
 	}
 
-	private void renderScrollbar(GuiGraphics g) {
+	private void renderScrollbar(GuiGraphicsExtractor g) {
 		int x = this.width - CARD_PADDING - SCROLLBAR_WIDTH;
 		int y = headerHeight() + CARD_PADDING;
 		int height = contentHeight();

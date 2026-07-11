@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
  *
  * <p>Query-plan assertions that execute {@code ItemFilterQueryCompiler.compile(...)}
  * cannot run here because {@code compileBlockTag(...)} calls
- * {@code ResourceLocation.tryParse(...)}, which requires Minecraft classes on the
+ * {@code Identifier.tryParse(...)}, which requires Minecraft classes on the
  * test runtime classpath.
  *
  * <p>Integration requirement:

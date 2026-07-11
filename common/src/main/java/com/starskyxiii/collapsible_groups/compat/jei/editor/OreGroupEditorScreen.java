@@ -26,14 +26,17 @@ import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.CharacterEvent;
+import net.minecraft.client.input.KeyEvent;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.util.FormattedCharSequence;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
@@ -268,13 +271,13 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+	public void extractBackground(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
 		g.fill(0, 0, this.width, this.height, OreUiPalette.SCREEN_SCRIM);
 	}
 
 	@Override
-	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
-		renderBackground(g, mouseX, mouseY, partialTicks);
+	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
+		extractBackground(g, mouseX, mouseY, partialTicks);
 		OreUiRenderer.drawScreenBars(g, this.width, this.height,
 			OreEditorShellLayout.HEADER_HEIGHT, OreEditorShellLayout.FOOTER_HEIGHT);
 		previewHoverLines = null;
@@ -286,7 +289,7 @@ public class OreGroupEditorScreen extends Screen {
 
 		for (var child : this.children()) {
 			if (child instanceof Renderable renderable) {
-				renderable.render(g, mouseX, mouseY, partialTicks);
+				renderable.extractRenderState(g, mouseX, mouseY, partialTicks);
 			}
 		}
 
@@ -305,17 +308,17 @@ public class OreGroupEditorScreen extends Screen {
 		if (activeMode == OreEditorShellMode.LOOK) {
 			Component settingsTooltip = settingsPanel.hoverTooltip();
 			if (settingsTooltip != null) {
-				g.renderComponentTooltip(font, List.of(settingsTooltip), mouseX, mouseY);
+				g.setComponentTooltipForNextFrame(font, List.of(settingsTooltip), mouseX, mouseY);
 				return;
 			}
 			// preview hover tooltip (suppressed above when a
 			// settings modal or the discard dialog is open, both of which return early).
 			if (previewHoverItem != null) {
-				g.renderTooltip(font, previewHoverItem, previewHoverX, previewHoverY);
+				g.setTooltipForNextFrame(font, previewHoverItem, previewHoverX, previewHoverY);
 				return;
 			}
 			if (previewHoverLines != null) {
-				g.renderTooltip(font, previewHoverLines, previewHoverVisual, previewHoverX, previewHoverY);
+				g.setTooltipForNextFrame(font, previewHoverLines, previewHoverVisual, previewHoverX, previewHoverY);
 				return;
 			}
 		}
@@ -323,7 +326,7 @@ public class OreGroupEditorScreen extends Screen {
 		boolean disableSourceTooltip = renderDisableSourceTooltip(g, mouseX, mouseY);
 		boolean hideUsedHover = isHideUsedHover(mouseX, mouseY);
 		if (!disableSourceTooltip && hideUsedHover) {
-			g.renderComponentTooltip(font,
+			g.setComponentTooltipForNextFrame(font,
 				List.of(Component.translatable(ModTranslationKeys.EDITOR_CHIP_HIDE_USED)), mouseX, mouseY);
 		} else if (!disableSourceTooltip && activeMode == OreEditorShellMode.CONTENTS) {
 			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font, shell);
@@ -333,11 +336,11 @@ public class OreGroupEditorScreen extends Screen {
 			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font, shell);
 		}
 		if (shell.saveButton().contains(mouseX, mouseY) && !canSaveNow()) {
-			g.renderComponentTooltip(font, saveDisabledTooltip(), mouseX, mouseY);
+			g.setComponentTooltipForNextFrame(font, saveDisabledTooltip(), mouseX, mouseY);
 		}
 	}
 
-	private void renderHeader(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderHeader(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		renderActionTitle(g, shell.actionTitle());
 		renderHeaderButton(g, shell.saveButton(), Component.translatable(ModTranslationKeys.BUTTON_SAVE).getString(),
 			canSaveNow(), saveButtonHeld, mouseX, mouseY);
@@ -350,15 +353,15 @@ public class OreGroupEditorScreen extends Screen {
 		renderModeSegments(g, mouseX, mouseY);
 	}
 
-	private void renderActionTitle(GuiGraphics g, OreEditorShellLayout.Rect rect) {
+	private void renderActionTitle(GuiGraphicsExtractor g, OreEditorShellLayout.Rect rect) {
 		Component boldTitle = this.title.copy().withStyle(ChatFormatting.BOLD);
 		FormattedCharSequence clipped = Language.getInstance().getVisualOrder(
 			font.substrByWidth(boldTitle, Math.max(0, rect.width())));
-		g.drawString(font, clipped, rect.x(), OreUiRenderer.centeredTextY(font, rect.y(), rect.height()),
+		g.text(font, clipped, rect.x(), OreUiRenderer.centeredTextY(font, rect.y(), rect.height()),
 			OreUiPalette.TEXT_PRIMARY, false);
 	}
 
-	private void renderDisableSourceOption(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderDisableSourceOption(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		OreEditorShellLayout.Rect checkbox = shell.disableSourceCheckbox();
 		OreEditorShellLayout.Rect label = shell.disableSourceLabel();
 		if (!showDisableSourceOption() || checkbox == null || label == null) return;
@@ -377,20 +380,20 @@ public class OreGroupEditorScreen extends Screen {
 
 		String text = disableSourceLabel().getString();
 		String clipped = font.plainSubstrByWidth(text, Math.max(0, label.width()));
-		g.drawString(font, clipped, label.x(), OreUiRenderer.centeredTextY(font, label.y(), label.height()),
+		g.text(font, clipped, label.x(), OreUiRenderer.centeredTextY(font, label.y(), label.height()),
 			hovered ? OreUiPalette.TEXT_PRIMARY : OreUiPalette.TEXT_MUTED, false);
 	}
 
-	private boolean renderDisableSourceTooltip(GuiGraphics g, int mouseX, int mouseY) {
+	private boolean renderDisableSourceTooltip(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		OreEditorShellLayout.Rect label = shell.disableSourceLabel();
 		if (!showDisableSourceOption() || label == null || !disableSourceOptionContains(mouseX, mouseY)) return false;
 		Component text = disableSourceLabel();
 		if (font.width(text.getString()) <= label.width()) return false;
-		g.renderComponentTooltip(font, List.of(text), mouseX, mouseY);
+		g.setComponentTooltipForNextFrame(font, List.of(text), mouseX, mouseY);
 		return true;
 	}
 
-	private void renderCheckboxMark(GuiGraphics g, OreEditorShellLayout.Rect checkbox) {
+	private void renderCheckboxMark(GuiGraphicsExtractor g, OreEditorShellLayout.Rect checkbox) {
 		int color = OreUiPalette.TEXT_SELECTED;
 		int x = checkbox.x();
 		int y = checkbox.y();
@@ -400,7 +403,7 @@ public class OreGroupEditorScreen extends Screen {
 		g.fill(x + 9, y + 4, x + 11, y + 7, color);
 	}
 
-	private void renderShellPanels(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+	private void renderShellPanels(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
 		OreUiRenderer.drawPanel(g, shell.editorPanel().x(), shell.editorPanel().y(),
 			shell.editorPanel().width(), shell.editorPanel().height());
 		OreUiRenderer.drawPanel(g, shell.previewPanel().x(), shell.previewPanel().y(),
@@ -416,7 +419,7 @@ public class OreGroupEditorScreen extends Screen {
 		renderPreviewPanel(g, mouseX, mouseY);
 	}
 
-	private void renderModeSegments(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderModeSegments(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		for (OreEditorShellMode mode : OreEditorShellMode.values()) {
 			OreEditorShellLayout.Rect rect = modeSegmentRect(mode);
 			boolean hovered = rect.contains(mouseX, mouseY);
@@ -426,7 +429,7 @@ public class OreGroupEditorScreen extends Screen {
 		}
 	}
 
-	private void renderContentsPanel(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderContentsPanel(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		renderContentFilterSegments(g, mouseX, mouseY);
 		renderFieldChrome(g, shell.searchField(), searchField != null && searchField.isFocused(),
 			shell.searchField().contains(mouseX, mouseY));
@@ -438,12 +441,12 @@ public class OreGroupEditorScreen extends Screen {
 			layout.leftRows(), leftPanel.totalRows(layout), leftPanel.scrollRow);
 	}
 
-	private void renderSourceCount(GuiGraphics g) {
+	private void renderSourceCount(GuiGraphicsExtractor g) {
 		OreEditorShellLayout.Rect row = shell.contentCount();
 		String summary = Component.translatable(ModTranslationKeys.ORE_EDITOR_SOURCE_COUNT_SUMMARY,
 			leftPanel.entryCount(), leftPanel.totalEntryCount(), selectedContentCount()).getString();
 		String clippedCount = font.plainSubstrByWidth(summary, Math.max(0, row.width()));
-		g.drawString(font, clippedCount, row.right() - font.width(clippedCount), row.y(),
+		g.text(font, clippedCount, row.right() - font.width(clippedCount), row.y(),
 			OreUiPalette.TEXT_HINT, false);
 	}
 
@@ -455,7 +458,7 @@ public class OreGroupEditorScreen extends Screen {
 		};
 	}
 
-	private void renderContentFilterSegments(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderContentFilterSegments(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		for (OreEditorContentFilter filter : OreEditorContentFilter.values()) {
 			OreEditorShellLayout.Rect rect = contentFilterRect(filter);
 			boolean enabled = isContentFilterEnabled(filter);
@@ -467,7 +470,7 @@ public class OreGroupEditorScreen extends Screen {
 		}
 	}
 
-	private void renderHideUsedButton(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderHideUsedButton(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		OreEditorShellLayout.Rect rect = shell.hideUsedButton();
 		boolean hovered = rect.contains(mouseX, mouseY);
 		// boolean toggle uses a switch (matching the Manager enabled switch).
@@ -480,9 +483,9 @@ public class OreGroupEditorScreen extends Screen {
 		return activeMode == OreEditorShellMode.CONTENTS && shell.hideUsedButton().contains(mouseX, mouseY);
 	}
 
-	private void renderRulesPanel(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+	private void renderRulesPanel(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
 		OreEditorShellLayout.Rect title = shell.contentTitle();
-		g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_TAB_RULES),
+		g.text(font, Component.translatable(ModTranslationKeys.EDITOR_TAB_RULES),
 			title.x(), title.y(), OreUiPalette.TEXT_PRIMARY, false);
 		rulesPanel.render(g, mouseX, mouseY, partialTicks);
 	}
@@ -497,14 +500,14 @@ public class OreGroupEditorScreen extends Screen {
 		return new OreEditorShellLayout.Rect(x, y, w, h);
 	}
 
-	private void renderSettingsPanel(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderSettingsPanel(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		OreEditorShellLayout.Rect title = shell.contentTitle();
-		g.drawString(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_MODE_SETTINGS),
+		g.text(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_MODE_SETTINGS),
 			title.x(), title.y(), OreUiPalette.TEXT_PRIMARY, false);
 		settingsPanel.render(g, mouseX, mouseY);
 	}
 
-	private void renderPreviewPanel(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderPreviewPanel(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		if (activeMode == OreEditorShellMode.LOOK) {
 			renderSettingsPreviewPanel(g, mouseX, mouseY);
 			return;
@@ -513,7 +516,7 @@ public class OreGroupEditorScreen extends Screen {
 		OreEditorShellLayout.Rect title = shell.previewTitle();
 		int x = title.x();
 		int y = title.y();
-		g.drawString(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_PREVIEW_HEADER),
+		g.text(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_PREVIEW_HEADER),
 			x, y, OreUiPalette.TEXT_PRIMARY, false);
 		renderFullHeaderPreview(g, shell.previewHeader());
 
@@ -529,16 +532,16 @@ public class OreGroupEditorScreen extends Screen {
 			previewLayout.rightRows(), rightPanel.totalRows(previewLayout), rightPanel.scrollRow);
 	}
 
-	private void renderSettingsPreviewPanel(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderSettingsPreviewPanel(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		OreEditorShellLayout.Rect title = shell.previewTitle();
-		g.drawString(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_PREVIEW_HEADER),
+		g.text(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_PREVIEW_HEADER),
 			title.x(), title.y(), OreUiPalette.TEXT_PRIMARY, false);
 		Component hint = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_PREVIEW_HINT);
 		var hintLines = font.split(hint, Math.max(1, title.width()));
 		int hintY = title.bottom() + 2;
 		int drawn = Math.min(2, hintLines.size());
 		for (int i = 0; i < drawn; i++) {
-			g.drawString(font, hintLines.get(i), title.x(), hintY + i * (font.lineHeight + 1),
+			g.text(font, hintLines.get(i), title.x(), hintY + i * (font.lineHeight + 1),
 				OreUiPalette.TEXT_HINT, false);
 		}
 
@@ -626,17 +629,17 @@ public class OreGroupEditorScreen extends Screen {
 		return selected.isEmpty() ? rightPanel.groupItems() : selected;
 	}
 
-	private void renderPreviewEmptyState(GuiGraphics g) {
+	private void renderPreviewEmptyState(GuiGraphicsExtractor g) {
 		OreEditorShellLayout.Rect body = shell.previewBody();
 		String text = font.plainSubstrByWidth(
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_PREVIEW_EMPTY).getString(),
 			Math.max(0, body.width() - 12));
 		int x = body.x() + Math.max(0, (body.width() - font.width(text)) / 2);
 		int y = body.y() + Math.max(0, (body.height() - font.lineHeight) / 2);
-		g.drawString(font, text, x, y, OreUiPalette.TEXT_HINT, false);
+		g.text(font, text, x, y, OreUiPalette.TEXT_HINT, false);
 	}
 
-	private void renderOreScrollbar(GuiGraphics g, int x, int y, int height, int visibleRows, int totalRows, int rowOffset) {
+	private void renderOreScrollbar(GuiGraphicsExtractor g, int x, int y, int height, int visibleRows, int totalRows, int rowOffset) {
 		OreUiRenderer.drawMiniScrollbar(g, x, y, height, visibleRows, totalRows, rowOffset);
 	}
 
@@ -647,7 +650,7 @@ public class OreGroupEditorScreen extends Screen {
 	 * items via {@link #renderStackedPreviewIcons} (keeps fluid/generic groups from
 	 * degrading to an empty slot). Used by both the compact and full previews.
 	 */
-	private void renderHeaderPreviewBox(GuiGraphics g, int x, int y) {
+	private void renderHeaderPreviewBox(GuiGraphicsExtractor g, int x, int y) {
 		int background = GroupThemeColors.collapsedHeaderBackground(
 			state.appearanceDraft.toTheme(), Services.CONFIG.collapsedGroupBackgroundColor());
 		g.fill(x, y, x + HEADER_PREVIEW_SIZE, y + HEADER_PREVIEW_SIZE, background);
@@ -672,28 +675,28 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	/** Stacked item render mirroring {@link #renderStackedPreviewIcons}'s layout. */
-	private void renderStackedItemIcons(GuiGraphics g, List<ItemStack> icons, int x, int y) {
+	private void renderStackedItemIcons(GuiGraphicsExtractor g, List<ItemStack> icons, int x, int y) {
 		if (icons.isEmpty()) return;
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 120);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		if (icons.size() > 1) {
-			g.renderItem(icons.get(1), x + 4, y + 2);
-			g.pose().translate(0, 0, 8);
-			g.renderItem(icons.get(0), x + 2, y + 4);
+			g.item(icons.get(1), x + 4, y + 2);
+			g.nextStratum();
+			g.item(icons.get(0), x + 2, y + 4);
 		} else {
 			int inset = (HEADER_PREVIEW_SIZE - PREVIEW_ICON_SIZE) / 2;
-			g.renderItem(icons.get(0), x + inset, y + inset);
+			g.item(icons.get(0), x + inset, y + inset);
 		}
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
-	private void renderCompactHeaderPreview(GuiGraphics g, OreEditorShellLayout.Rect row) {
+	private void renderCompactHeaderPreview(GuiGraphicsExtractor g, OreEditorShellLayout.Rect row) {
 		int x = row.x();
 		int y = row.y() + Math.max(0, (row.height() - HEADER_PREVIEW_SIZE) / 2);
 		renderHeaderPreviewBox(g, x, y);
 	}
 
-	private void renderFullHeaderPreview(GuiGraphics g, OreEditorShellLayout.Rect row) {
+	private void renderFullHeaderPreview(GuiGraphicsExtractor g, OreEditorShellLayout.Rect row) {
 		int x = row.x();
 		int y = row.y() + Math.max(0, (row.height() - HEADER_PREVIEW_SIZE) / 2);
 		renderHeaderPreviewBox(g, x, y);
@@ -703,9 +706,9 @@ public class OreGroupEditorScreen extends Screen {
 		int textY = y + Math.max(0, (HEADER_PREVIEW_SIZE - textBlockHeight) / 2);
 		String name = state.editName == null || state.editName.isBlank() ? this.title.getString() : state.editName;
 		String clipped = font.plainSubstrByWidth(name, maxWidth);
-		g.drawString(font, clipped, textX, textY, OreUiPalette.TEXT_PRIMARY, false);
+		g.text(font, clipped, textX, textY, OreUiPalette.TEXT_PRIMARY, false);
 		String summary = font.plainSubstrByWidth(fullPreviewSummary(), maxWidth);
-		g.drawString(font, summary, textX, textY + font.lineHeight + 2, OreUiPalette.TEXT_MUTED, false);
+		g.text(font, summary, textX, textY + font.lineHeight + 2, OreUiPalette.TEXT_MUTED, false);
 	}
 
 	private String fullPreviewSummary() {
@@ -717,27 +720,27 @@ public class OreGroupEditorScreen extends Screen {
 		return Component.translatable(summary.labelKey(), summary.labelArgs()).getString();
 	}
 
-	private void renderStackedPreviewIcons(GuiGraphics g, int x, int y) {
+	private void renderStackedPreviewIcons(GuiGraphicsExtractor g, int x, int y) {
 		int count = previewEntryCount();
 		if (count <= 0) return;
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 120);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		if (count > 1) {
 			renderPreviewEntry(g, 1, x + 4, y + 2);
-			g.pose().translate(0, 0, 8);
+			g.nextStratum();
 			renderPreviewEntry(g, 0, x + 2, y + 4);
 		} else {
 			int inset = (HEADER_PREVIEW_SIZE - PREVIEW_ICON_SIZE) / 2;
 			renderPreviewEntry(g, 0, x + inset, y + inset);
 		}
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
 	private ItemStack iconStack(@Nullable String iconId) {
 		if (iconId == null || iconId.isBlank()) return ItemStack.EMPTY;
-		ResourceLocation loc = ResourceLocation.tryParse(iconId);
+		Identifier loc = Identifier.tryParse(iconId);
 		if (loc == null) return ItemStack.EMPTY;
-		Item item = BuiltInRegistries.ITEM.get(loc);
+		Item item = BuiltInRegistries.ITEM.getValue(loc);
 		return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
 	}
 
@@ -765,10 +768,10 @@ public class OreGroupEditorScreen extends Screen {
 		return rightPanel.groupItems().size() + rightPanel.groupFluids().size() + rightPanel.groupGeneric().size();
 	}
 
-	private void renderPreviewEntry(GuiGraphics g, int index, int x, int y) {
+	private void renderPreviewEntry(GuiGraphicsExtractor g, int index, int x, int y) {
 		int itemCount = rightPanel.groupItems().size();
 		if (index < itemCount) {
-			g.renderItem(rightPanel.groupItems().get(index), x, y);
+			g.item(rightPanel.groupItems().get(index), x, y);
 			return;
 		}
 		index -= itemCount;
@@ -783,7 +786,7 @@ public class OreGroupEditorScreen extends Screen {
 		}
 	}
 
-	private void renderFooter(GuiGraphics g) {
+	private void renderFooter(GuiGraphicsExtractor g) {
 		int y = shell.footerStatus().y() + OreUiRenderer.centeredTextY(font, 0, shell.footerStatus().height());
 		Component status = footerStatus();
 		int unresolvedCount = state.unresolvedRuleCount();
@@ -791,13 +794,13 @@ public class OreGroupEditorScreen extends Screen {
 			: unresolvedCount > 0 ? UNRESOLVED_TEXT_COLOR
 			: dirty ? READY_TEXT_COLOR : OreUiPalette.TEXT_HINT;
 		String clipped = font.plainSubstrByWidth(status.getString(), Math.max(0, shell.footerStatus().width()));
-		g.drawString(font, clipped, shell.footerStatus().x(), y, color, false);
+		g.text(font, clipped, shell.footerStatus().x(), y, color, false);
 
 		String hint = Component.translatable(ModTranslationKeys.ORE_EDITOR_FOOTER_HINT).getString();
 		int hintWidth = Math.max(0, Math.min(shell.footerHint().width(),
 			shell.footerHint().right() - shell.footerStatus().right() - 8));
 		String clippedHint = font.plainSubstrByWidth(hint, hintWidth);
-		g.drawString(font, clippedHint, shell.footerHint().right() - font.width(clippedHint), y,
+		g.text(font, clippedHint, shell.footerHint().right() - font.width(clippedHint), y,
 			OreUiPalette.TEXT_HINT, false);
 	}
 
@@ -813,7 +816,7 @@ public class OreGroupEditorScreen extends Screen {
 		return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_CLEAN);
 	}
 
-	private void renderHeaderButton(GuiGraphics g, OreEditorShellLayout.Rect rect, String label, boolean active,
+	private void renderHeaderButton(GuiGraphicsExtractor g, OreEditorShellLayout.Rect rect, String label, boolean active,
 	                                boolean held, int mouseX, int mouseY) {
 		boolean hovered = rect.contains(mouseX, mouseY);
 		OreUiRenderer.ButtonState state = !active
@@ -823,7 +826,7 @@ public class OreGroupEditorScreen extends Screen {
 		OreUiRenderer.drawButton(g, font, rect.x(), rect.y(), rect.width(), rect.height(), label, state);
 	}
 
-	private void renderDiscardDialog(GuiGraphics g, int mouseX, int mouseY) {
+	private void renderDiscardDialog(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		OreConfirmDialog.render(g, font, this.width, this.height,
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_DISCARD_DIALOG_TITLE),
 			List.of(Component.translatable(ModTranslationKeys.ORE_EDITOR_DISCARD_DIALOG_BODY)),
@@ -842,7 +845,7 @@ public class OreGroupEditorScreen extends Screen {
 		return hovered ? OreUiRenderer.ButtonState.HOVERED : OreUiRenderer.ButtonState.NORMAL;
 	}
 
-	private void renderFieldChrome(GuiGraphics g, OreEditorShellLayout.Rect rect, boolean focused, boolean hovered) {
+	private void renderFieldChrome(GuiGraphicsExtractor g, OreEditorShellLayout.Rect rect, boolean focused, boolean hovered) {
 		int outline = focused ? OreUiPalette.OUTLINE_SELECTED : hovered ? OreUiPalette.OUTLINE_HOVER : OreUiPalette.OUTLINE_DARK;
 		g.fill(rect.x(), rect.y(), rect.right(), rect.bottom(), OreUiPalette.SURFACE_DARK);
 		g.fill(rect.x() + 1, rect.y() + 1, rect.right() - 1, rect.bottom() - 1, OreUiPalette.SURFACE);
@@ -850,7 +853,10 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (discardDialogOpen) {
 			handleDiscardDialogClick(mouseX, mouseY, button);
 			return true;
@@ -859,7 +865,7 @@ public class OreGroupEditorScreen extends Screen {
 			settingsPanel.mouseClicked(mouseX, mouseY, button);
 			return true;
 		}
-		if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
+		if (button != 0) return super.mouseClicked(event, doubleClick);
 		if (activeMode == OreEditorShellMode.RULES && rulesPanel.isModalOpen()) {
 			rulesPanel.mouseClicked(mouseX, mouseY, button);
 			return true;
@@ -871,7 +877,7 @@ public class OreGroupEditorScreen extends Screen {
 			return true;
 		}
 		blurEditorFields();
-		if (super.mouseClicked(mouseX, mouseY, button)) return true;
+		if (super.mouseClicked(event, doubleClick)) return true;
 		if (handleModeClick(mouseX, mouseY)) return true;
 		if (activeMode == OreEditorShellMode.CONTENTS && handleContentsChromeClick(mouseX, mouseY)) return true;
 
@@ -896,7 +902,7 @@ public class OreGroupEditorScreen extends Screen {
 		setFocused(nameField);
 		nameField.setFocused(true);
 		nameField.setTextColor(OreUiPalette.TEXT_PRIMARY);
-		nameField.mouseClicked(mouseX, mouseY, button);
+		nameField.mouseClicked(new MouseButtonEvent(mouseX, mouseY, new net.minecraft.client.input.MouseButtonInfo(button, 0)), false);
 		return true;
 	}
 
@@ -906,7 +912,7 @@ public class OreGroupEditorScreen extends Screen {
 		if (activeMode == OreEditorShellMode.RULES) rulesPanel.clearFocus();
 		setFocused(searchField);
 		searchField.setFocused(true);
-		searchField.mouseClicked(mouseX, mouseY, button);
+		searchField.mouseClicked(new MouseButtonEvent(mouseX, mouseY, new net.minecraft.client.input.MouseButtonInfo(button, 0)), false);
 		return true;
 	}
 
@@ -983,7 +989,10 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+	public boolean mouseReleased(MouseButtonEvent event) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (discardDialogOpen) {
 			clearHeldControls();
 			return true;
@@ -1011,7 +1020,7 @@ public class OreGroupEditorScreen extends Screen {
 		} else if (activeMode == OreEditorShellMode.RULES) {
 			rulesPanel.mouseReleased(mouseX, mouseY, button);
 		}
-		return super.mouseReleased(mouseX, mouseY, button);
+		return super.mouseReleased(event);
 	}
 
 	private boolean modeSegmentContains(OreEditorShellMode mode, double mouseX, double mouseY) {
@@ -1101,7 +1110,10 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+	public boolean keyPressed(KeyEvent event) {
+		int keyCode = event.key();
+		int scanCode = event.scancode();
+		int modifiers = event.modifiers();
 		if (discardDialogOpen) {
 			if (keyCode == GLFW.GLFW_KEY_ESCAPE) discardDialogOpen = false;
 			return true;
@@ -1118,7 +1130,7 @@ public class OreGroupEditorScreen extends Screen {
 				blurEditorFields();
 				return true;
 			}
-			if (nameField.keyPressed(keyCode, scanCode, modifiers)) return true;
+			if (nameField.keyPressed(event)) return true;
 		}
 		if (searchField != null && searchField.visible && searchField.isFocused()) {
 			if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
@@ -1129,18 +1141,20 @@ public class OreGroupEditorScreen extends Screen {
 				}
 				return true;
 			}
-			if (searchField.keyPressed(keyCode, scanCode, modifiers)) return true;
+			if (searchField.keyPressed(event)) return true;
 		}
 		if (activeMode == OreEditorShellMode.RULES && rulesPanel.keyPressed(keyCode, scanCode, modifiers)) return true;
 		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
 			requestClose();
 			return true;
 		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
+		return super.keyPressed(event);
 	}
 
 	@Override
-	public boolean charTyped(char codePoint, int modifiers) {
+	public boolean charTyped(CharacterEvent event) {
+		char codePoint = (char) event.codepoint();
+		int modifiers = 0;
 		if (discardDialogOpen) return true;
 		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.charTyped(codePoint, modifiers)) {
 			return true;
@@ -1149,20 +1163,23 @@ public class OreGroupEditorScreen extends Screen {
 			rulesPanel.charTyped(codePoint, modifiers);
 			return true;
 		}
-		if (nameField != null && nameField.isFocused() && nameField.charTyped(codePoint, modifiers)) return true;
+		if (nameField != null && nameField.isFocused() && nameField.charTyped(event)) return true;
 		if (searchField != null && searchField.visible && searchField.isFocused()
-			&& searchField.charTyped(codePoint, modifiers)) return true;
+			&& searchField.charTyped(event)) return true;
 		if (activeMode == OreEditorShellMode.RULES && rulesPanel.charTyped(codePoint, modifiers)) return true;
-		return super.charTyped(codePoint, modifiers);
+		return super.charTyped(event);
 	}
 
 	@Override
-	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+	public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
+		double mouseX = event.x();
+		double mouseY = event.y();
+		int button = event.button();
 		if (discardDialogOpen) {
 			clearHeldControls();
 			return true;
 		}
-		if (button != 0) return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+		if (button != 0) return super.mouseDragged(event, dragX, dragY);
 		if (activeMode == OreEditorShellMode.LOOK && settingsPanel.mouseDragged(mouseX, mouseY, button)) {
 			return true;
 		}
@@ -1176,7 +1193,7 @@ public class OreGroupEditorScreen extends Screen {
 		} else if (activeMode == OreEditorShellMode.RULES) {
 			if (rulesPanel.mouseDragged(mouseX, mouseY, button)) return true;
 		}
-		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
+		return super.mouseDragged(event, dragX, dragY);
 	}
 
 	@Override

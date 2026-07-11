@@ -1,44 +1,45 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
+import net.minecraft.client.renderer.RenderPipelines;
 import com.starskyxiii.collapsible_groups.Constants;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.resources.Identifier;
 
 import java.util.HashSet;
 import java.util.Set;
 
 /** Texture-backed primitives for the Bedrock/Ore-inspired visual skin. */
 public final class OreUiRenderer {
-	private static final ResourceLocation PANEL = sprite("ore_panel");
-	private static final ResourceLocation CARD = sprite("ore_card");
-	private static final ResourceLocation BUTTON = sprite("ore_button");
-	private static final ResourceLocation BUTTON_HOVER = sprite("ore_button_hover");
-	private static final ResourceLocation BUTTON_PRESSED = sprite("ore_button_pressed");
-	private static final ResourceLocation BUTTON_DISABLED = sprite("ore_button_disabled");
-	private static final ResourceLocation BUTTON_SELECTED = sprite("ore_button_selected");
-	private static final ResourceLocation BUTTON_SELECTED_HOVER = sprite("ore_button_selected_hover");
-	private static final ResourceLocation BUTTON_SELECTED_PRESSED = sprite("ore_button_selected_pressed");
-	private static final ResourceLocation SEGMENT = sprite("ore_segment");
-	private static final ResourceLocation SEGMENT_HOVER = sprite("ore_segment_hover");
-	private static final ResourceLocation SEGMENT_PRESSED = sprite("ore_segment_pressed");
-	private static final ResourceLocation SEGMENT_SELECTED = sprite("ore_segment_selected");
-	private static final ResourceLocation SEGMENT_SELECTED_HOVER = sprite("ore_segment_selected_hover");
-	private static final ResourceLocation SEGMENT_SELECTED_PRESSED = sprite("ore_segment_selected_pressed");
-	private static final ResourceLocation ICON_BUTTON = sprite("ore_icon_button");
-	private static final ResourceLocation ICON_BUTTON_HOVER = sprite("ore_icon_button_hover");
-	private static final ResourceLocation ICON_BUTTON_PRESSED = sprite("ore_icon_button_pressed");
-	private static final ResourceLocation ICON_BUTTON_DISABLED = sprite("ore_icon_button_disabled");
-	private static final ResourceLocation SWITCH_OFF = sprite("ore_switch_off");
-	private static final ResourceLocation SWITCH_OFF_HOVER = sprite("ore_switch_off_hover");
-	private static final ResourceLocation SWITCH_OFF_DISABLED = sprite("ore_switch_off_disabled");
-	private static final ResourceLocation SWITCH_ON = sprite("ore_switch_on");
-	private static final ResourceLocation SWITCH_ON_HOVER = sprite("ore_switch_on_hover");
-	private static final ResourceLocation SWITCH_ON_DISABLED = sprite("ore_switch_on_disabled");
-	private static final ResourceLocation SCROLLBAR_THUMB = sprite("ore_scrollbar_thumb");
-	public static final ResourceLocation ICON_EDIT = sprite("ore_icon_edit");
-	public static final ResourceLocation ICON_DELETE = sprite("ore_icon_delete");
-	public static final ResourceLocation ICON_SORT = sprite("ore_icon_sort");
+	private static final Identifier PANEL = sprite("ore_panel");
+	private static final Identifier CARD = sprite("ore_card");
+	private static final Identifier BUTTON = sprite("ore_button");
+	private static final Identifier BUTTON_HOVER = sprite("ore_button_hover");
+	private static final Identifier BUTTON_PRESSED = sprite("ore_button_pressed");
+	private static final Identifier BUTTON_DISABLED = sprite("ore_button_disabled");
+	private static final Identifier BUTTON_SELECTED = sprite("ore_button_selected");
+	private static final Identifier BUTTON_SELECTED_HOVER = sprite("ore_button_selected_hover");
+	private static final Identifier BUTTON_SELECTED_PRESSED = sprite("ore_button_selected_pressed");
+	private static final Identifier SEGMENT = sprite("ore_segment");
+	private static final Identifier SEGMENT_HOVER = sprite("ore_segment_hover");
+	private static final Identifier SEGMENT_PRESSED = sprite("ore_segment_pressed");
+	private static final Identifier SEGMENT_SELECTED = sprite("ore_segment_selected");
+	private static final Identifier SEGMENT_SELECTED_HOVER = sprite("ore_segment_selected_hover");
+	private static final Identifier SEGMENT_SELECTED_PRESSED = sprite("ore_segment_selected_pressed");
+	private static final Identifier ICON_BUTTON = sprite("ore_icon_button");
+	private static final Identifier ICON_BUTTON_HOVER = sprite("ore_icon_button_hover");
+	private static final Identifier ICON_BUTTON_PRESSED = sprite("ore_icon_button_pressed");
+	private static final Identifier ICON_BUTTON_DISABLED = sprite("ore_icon_button_disabled");
+	private static final Identifier SWITCH_OFF = sprite("ore_switch_off");
+	private static final Identifier SWITCH_OFF_HOVER = sprite("ore_switch_off_hover");
+	private static final Identifier SWITCH_OFF_DISABLED = sprite("ore_switch_off_disabled");
+	private static final Identifier SWITCH_ON = sprite("ore_switch_on");
+	private static final Identifier SWITCH_ON_HOVER = sprite("ore_switch_on_hover");
+	private static final Identifier SWITCH_ON_DISABLED = sprite("ore_switch_on_disabled");
+	private static final Identifier SCROLLBAR_THUMB = sprite("ore_scrollbar_thumb");
+	public static final Identifier ICON_EDIT = sprite("ore_icon_edit");
+	public static final Identifier ICON_DELETE = sprite("ore_icon_delete");
+	public static final Identifier ICON_SORT = sprite("ore_icon_sort");
 	private static final int CONTROL_EDGE_DARK = 0xFF413F54;
 	private static final int TOOLBAR_ICON_WIDTH = 16;
 	private static final int TOOLBAR_BUTTON_WIDTH = 18;
@@ -71,8 +72,8 @@ public final class OreUiRenderer {
 		}
 	}
 
-	private static ResourceLocation sprite(String name) {
-		return ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, name);
+	private static Identifier sprite(String name) {
+		return Identifier.fromNamespaceAndPath(Constants.MOD_ID, name);
 	}
 
 	public enum ButtonState {
@@ -85,7 +86,7 @@ public final class OreUiRenderer {
 		SELECTED_PRESSED
 	}
 
-	public static void drawScreenBars(GuiGraphics g, int width, int height, int headerHeight, int footerHeight) {
+	public static void drawScreenBars(GuiGraphicsExtractor g, int width, int height, int headerHeight, int footerHeight) {
 		int footerY = height - footerHeight;
 		g.fill(0, 0, width, headerHeight, OreUiPalette.SCREEN_BAR);
 		g.fill(0, headerHeight, width, headerHeight + 1, OreUiPalette.DIVIDER);
@@ -93,27 +94,27 @@ public final class OreUiRenderer {
 		g.fill(0, footerY, width, footerY + 1, OreUiPalette.DIVIDER);
 	}
 
-	public static void drawPanel(GuiGraphics g, int x, int y, int width, int height) {
+	public static void drawPanel(GuiGraphicsExtractor g, int x, int y, int width, int height) {
 		g.fill(x, y, x + width, y + height, OreUiPalette.SURFACE_DARK);
-		g.blitSprite(PANEL, x, y, width, height);
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, y, width, height);
 	}
 
-	public static void drawCard(GuiGraphics g, int x, int y, int width, int height, boolean hovered, int borderColor) {
+	public static void drawCard(GuiGraphicsExtractor g, int x, int y, int width, int height, boolean hovered, int borderColor) {
 		g.fill(x, y, x + width, y + height, OreUiPalette.SURFACE_DARK);
-		g.blitSprite(CARD, x, y, width, height);
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, CARD, x, y, width, height);
 		if (hovered) {
 			g.fill(x + 1, y + 1, x + width - 1, y + height - 1, OreUiPalette.CARD_BODY_HOVER);
 		}
 		drawOutline(g, x, y, width, height, borderColor);
 	}
 
-	public static void drawButton(GuiGraphics g, Font font, int x, int y, int width, int height,
+	public static void drawButton(GuiGraphicsExtractor g, Font font, int x, int y, int width, int height,
 	                              String label, ButtonState state) {
 		warnNonDesignHeight("drawButton", width, height);
 		int depth = buttonVisualDepth(state);
-		ResourceLocation sprite = buttonSprite(state);
+		Identifier sprite = buttonSprite(state);
 		if (sprite != null) {
-			g.blitSprite(sprite, x, y, width, height);
+			g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, width, height);
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
 		}
@@ -121,16 +122,16 @@ public final class OreUiRenderer {
 		int text = buttonTextColor(state);
 		int yOffset = buttonTextOffset(state);
 		String clipped = font.plainSubstrByWidth(label, Math.max(0, width - 4));
-		g.drawString(font, clipped, x + Math.max(0, (width - font.width(clipped)) / 2),
+		g.text(font, clipped, x + Math.max(0, (width - font.width(clipped)) / 2),
 			centeredTextY(font, y, height) + yOffset, text, false);
 	}
 
-	public static void drawSegment(GuiGraphics g, Font font, int x, int y, int width, int height,
+	public static void drawSegment(GuiGraphicsExtractor g, Font font, int x, int y, int width, int height,
 	                               String label, ButtonState state) {
 		int depth = segmentVisualDepth(state);
-		ResourceLocation sprite = segmentSprite(state);
+		Identifier sprite = segmentSprite(state);
 		if (sprite != null) {
-			g.blitSprite(sprite, x + 1, y + 1, width - 2, height - 2);
+			g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x + 1, y + 1, width - 2, height - 2);
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
 		}
@@ -138,11 +139,11 @@ public final class OreUiRenderer {
 		int text = buttonTextColor(state);
 		int yOffset = segmentTextOffset(state);
 		String clipped = font.plainSubstrByWidth(label, Math.max(0, width - 4));
-		g.drawString(font, clipped, x + Math.max(0, (width - font.width(clipped)) / 2),
+		g.text(font, clipped, x + Math.max(0, (width - font.width(clipped)) / 2),
 			centeredTextY(font, y, height) + yOffset, text, false);
 	}
 
-	private static void drawControlFrame(GuiGraphics g, int x, int y, int width, int height, int depth) {
+	private static void drawControlFrame(GuiGraphicsExtractor g, int x, int y, int width, int height, int depth) {
 		int right = x + width;
 		int bottom = y + height;
 		int top = y + depth;
@@ -168,7 +169,7 @@ public final class OreUiRenderer {
 		};
 	}
 
-	private static ResourceLocation segmentSprite(ButtonState state) {
+	private static Identifier segmentSprite(ButtonState state) {
 		return switch (state) {
 			case NORMAL -> SEGMENT;
 			case HOVERED -> SEGMENT_HOVER;
@@ -180,54 +181,50 @@ public final class OreUiRenderer {
 		};
 	}
 
-	public static void drawIconButton(GuiGraphics g, int x, int y, int buttonSize,
-	                                  ResourceLocation icon, int iconSize, ButtonState state) {
+	public static void drawIconButton(GuiGraphicsExtractor g, int x, int y, int buttonSize,
+	                                  Identifier icon, int iconSize, ButtonState state) {
 		warnNonDesignHeight("drawIconButton", buttonSize, buttonSize);
 		int depth = buttonVisualDepth(state);
-		ResourceLocation sprite = buttonSprite(state);
+		Identifier sprite = buttonSprite(state);
 		if (sprite != null) {
-			g.blitSprite(sprite, x, y, buttonSize, buttonSize);
+			g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, buttonSize, buttonSize);
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, buttonSize - 2, buttonSize - depth - 2, state);
 		}
 		drawControlFrame(g, x, y, buttonSize, buttonSize, depth);
 		int iconX = x + Math.max(0, (buttonSize - iconSize) / 2);
 		int iconY = y + Math.max(0, (buttonSize - iconSize) / 2) + buttonTextOffset(state);
-		g.blitSprite(icon, iconX, iconY, iconSize, iconSize);
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, icon, iconX, iconY, iconSize, iconSize);
 	}
 
-	public static void drawToolbarIconButton(GuiGraphics g, int x, int y, int width, int height,
-	                                         ResourceLocation icon, ButtonState state) {
+	public static void drawToolbarIconButton(GuiGraphicsExtractor g, int x, int y, int width, int height,
+	                                         Identifier icon, ButtonState state) {
 		int yOffset = toolbarButtonOffset(state);
 		int originX = x + Math.max(0, (width - TOOLBAR_ICON_WIDTH) / 2);
 		int originY = y + Math.max(0, (height - TOOLBAR_BUTTON_HEIGHT) / 2);
-		g.blitSprite(toolbarButtonSprite(state),
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, toolbarButtonSprite(state),
 			originX - 1, originY + yOffset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
 
-		if (state == ButtonState.DISABLED) {
-			g.setColor(1.0F, 1.0F, 1.0F, 0.55F);
-		}
-		g.blitSprite(icon, originX, originY + 1 + yOffset, TOOLBAR_ICON_WIDTH, TOOLBAR_ICON_WIDTH);
-		if (state == ButtonState.DISABLED) {
-			g.setColor(1.0F, 1.0F, 1.0F, 1.0F);
-		}
+		int iconColor = state == ButtonState.DISABLED ? 0x8CFFFFFF : 0xFFFFFFFF;
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, icon, originX, originY + 1 + yOffset,
+			TOOLBAR_ICON_WIDTH, TOOLBAR_ICON_WIDTH, iconColor);
 	}
 
 	/** Draws the toolbar chrome with a compact text mark when no sprite icon exists. */
-	public static void drawToolbarTextButton(GuiGraphics g, Font font, int x, int y, int width, int height,
+	public static void drawToolbarTextButton(GuiGraphicsExtractor g, Font font, int x, int y, int width, int height,
 	                                         String mark, ButtonState state) {
 		int yOffset = toolbarButtonOffset(state);
 		int originX = x + Math.max(0, (width - TOOLBAR_ICON_WIDTH) / 2);
 		int originY = y + Math.max(0, (height - TOOLBAR_BUTTON_HEIGHT) / 2);
-		g.blitSprite(toolbarButtonSprite(state),
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, toolbarButtonSprite(state),
 			originX - 1, originY + yOffset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
 		int color = buttonTextColor(state);
 		String clipped = font.plainSubstrByWidth(mark, TOOLBAR_ICON_WIDTH);
-		g.drawString(font, clipped, originX + Math.max(0, (TOOLBAR_ICON_WIDTH - font.width(clipped)) / 2),
+		g.text(font, clipped, originX + Math.max(0, (TOOLBAR_ICON_WIDTH - font.width(clipped)) / 2),
 			centeredTextY(font, originY, TOOLBAR_BUTTON_HEIGHT) + yOffset, color, false);
 	}
 
-	private static ResourceLocation buttonSprite(ButtonState state) {
+	private static Identifier buttonSprite(ButtonState state) {
 		return switch (state) {
 			case NORMAL -> BUTTON;
 			case HOVERED -> BUTTON_HOVER;
@@ -239,7 +236,7 @@ public final class OreUiRenderer {
 		};
 	}
 
-	private static ResourceLocation toolbarButtonSprite(ButtonState state) {
+	private static Identifier toolbarButtonSprite(ButtonState state) {
 		return switch (state) {
 			case DISABLED -> ICON_BUTTON_DISABLED;
 			case PRESSED, SELECTED_PRESSED -> ICON_BUTTON_PRESSED;
@@ -255,7 +252,7 @@ public final class OreUiRenderer {
 		};
 	}
 
-	private static void drawButtonFallback(GuiGraphics g, int x, int y, int width, int height, ButtonState state) {
+	private static void drawButtonFallback(GuiGraphicsExtractor g, int x, int y, int width, int height, ButtonState state) {
 		if (width <= 0 || height <= 0) {
 			return;
 		}
@@ -295,15 +292,15 @@ public final class OreUiRenderer {
 		};
 	}
 
-	public static void drawSwitch(GuiGraphics g, int x, int y, int width, int height,
+	public static void drawSwitch(GuiGraphicsExtractor g, int x, int y, int width, int height,
 	                              boolean on, boolean active, boolean hovered, boolean pressed) {
-		ResourceLocation sprite = switchSprite(on, active, hovered || pressed);
+		Identifier sprite = switchSprite(on, active, hovered || pressed);
 		int visualX = x + (width - SWITCH_VISUAL_WIDTH) / 2;
 		int visualY = y + (height - SWITCH_VISUAL_HEIGHT) / 2;
-		g.blitSprite(sprite, visualX, visualY, SWITCH_VISUAL_WIDTH, SWITCH_VISUAL_HEIGHT);
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, visualX, visualY, SWITCH_VISUAL_WIDTH, SWITCH_VISUAL_HEIGHT);
 	}
 
-	private static ResourceLocation switchSprite(boolean on, boolean active, boolean hovered) {
+	private static Identifier switchSprite(boolean on, boolean active, boolean hovered) {
 		if (!active) {
 			return on ? SWITCH_ON_DISABLED : SWITCH_OFF_DISABLED;
 		}
@@ -313,7 +310,7 @@ public final class OreUiRenderer {
 		return on ? SWITCH_ON : SWITCH_OFF;
 	}
 
-	public static void drawScrollbarPixels(GuiGraphics g, int x, int y, int height,
+	public static void drawScrollbarPixels(GuiGraphicsExtractor g, int x, int y, int height,
 	                                       int visibleHeight, int contentHeight, int scrollOffset) {
 		g.fill(x + 2, y, x + 4, y + height, OreUiPalette.SCROLLBAR_TRACK_LINE);
 		if (contentHeight <= visibleHeight || contentHeight <= 0) {
@@ -322,10 +319,10 @@ public final class OreUiRenderer {
 		int thumbHeight = Math.max(14, height * visibleHeight / contentHeight);
 		int travel = height - thumbHeight;
 		int thumbY = y + travel * scrollOffset / Math.max(1, contentHeight - visibleHeight);
-		g.blitSprite(SCROLLBAR_THUMB, x, thumbY, 6, thumbHeight);
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLBAR_THUMB, x, thumbY, 6, thumbHeight);
 	}
 
-	public static void drawMiniScrollbar(GuiGraphics g, int x, int y, int height,
+	public static void drawMiniScrollbar(GuiGraphicsExtractor g, int x, int y, int height,
 	                                     int visibleRows, int totalRows, int rowOffset) {
 		g.fill(x + 2, y, x + 3, y + height, OreUiPalette.SCROLLBAR_TRACK_LINE);
 		if (totalRows <= visibleRows || totalRows <= 0) {
@@ -335,10 +332,10 @@ public final class OreUiRenderer {
 		int travel = height - thumbHeight;
 		int maxRow = Math.max(1, totalRows - visibleRows);
 		int thumbY = y + travel * rowOffset / maxRow;
-		g.blitSprite(SCROLLBAR_THUMB, x, thumbY, 5, thumbHeight);
+		g.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLBAR_THUMB, x, thumbY, 5, thumbHeight);
 	}
 
-	public static void drawSlot(GuiGraphics g, int x, int y, int size) {
+	public static void drawSlot(GuiGraphicsExtractor g, int x, int y, int size) {
 		g.fill(x, y, x + size, y + size, OreUiPalette.SURFACE_DARK);
 		drawOutline(g, x, y, size, size, OreUiPalette.OUTLINE_DARK);
 	}
@@ -382,7 +379,7 @@ public final class OreUiRenderer {
 	 * a 1px light inner ring on all four sides (12×10 region) + a 2px dark bottom
 	 * bevel (12×2) + the frame's 1px bottom edge = 14.
 	 */
-	public static EditorChrome.Rect drawSlider(GuiGraphics g, int x, int y, int width, int value, int max,
+	public static EditorChrome.Rect drawSlider(GuiGraphicsExtractor g, int x, int y, int width, int value, int max,
 	                                           boolean active, boolean hot) {
 		int trackY = y + (SLIDER_KNOB_HEIGHT - SLIDER_TRACK_HEIGHT) / 2;
 		int clamped = Math.max(0, Math.min(max, value));
@@ -418,7 +415,7 @@ public final class OreUiRenderer {
 	}
 
 	/** Draws a slot grid with shared 1px lines; {@code cellPitch} = cell interior + 1, total size = cols/rows * pitch + 1. */
-	public static void drawSlotGrid(GuiGraphics g, int x, int y, int cols, int rows, int cellPitch) {
+	public static void drawSlotGrid(GuiGraphicsExtractor g, int x, int y, int cols, int rows, int cellPitch) {
 		int width = cols * cellPitch + 1;
 		int height = rows * cellPitch + 1;
 		g.fill(x, y, x + width, y + height, OreUiPalette.SURFACE_DARK);
@@ -452,7 +449,7 @@ public final class OreUiRenderer {
 	 * @param y   top of the 16px icon region
 	 * @param size icon region size (typically 16)
 	 */
-	public static void drawOverlapMarker(GuiGraphics g, int x, int y, int size) {
+	public static void drawOverlapMarker(GuiGraphicsExtractor g, int x, int y, int size) {
 		drawOutline(g, x, y, size, size, OVERLAP_FRAME);
 		drawCornerMarker(g, x, y, size, OVERLAP_ACCENT);
 	}
@@ -473,7 +470,7 @@ public final class OreUiRenderer {
 	 * @param y    top of the icon region
 	 * @param size icon region size (typically 16)
 	 */
-	public static void drawSelectedMarker(GuiGraphics g, int x, int y, int size) {
+	public static void drawSelectedMarker(GuiGraphicsExtractor g, int x, int y, int size) {
 		drawOutline(g, x, y, size, size, SELECTED_FRAME);
 		drawCornerMarker(g, x, y, size, OreUiPalette.OUTLINE_SELECTED);
 	}
@@ -490,7 +487,7 @@ public final class OreUiRenderer {
 	 * @param size  icon region size (typically 16)
 	 * @param color ARGB colour of the tab
 	 */
-	public static void drawCornerMarker(GuiGraphics g, int x, int y, int size, int color) {
+	public static void drawCornerMarker(GuiGraphicsExtractor g, int x, int y, int size, int color) {
 		int right = x + size;
 		// Right-top triangle tab: rows shrink from the right edge inward.
 		for (int row = 0; row < CORNER_MARKER_SIZE; row++) {
@@ -516,7 +513,7 @@ public final class OreUiRenderer {
 	 * @param iconX left of the 16px icon region
 	 * @param iconY top of the 16px icon region
 	 */
-	public static void drawRemoveBadge(GuiGraphics g, int iconX, int iconY, boolean hovered) {
+	public static void drawRemoveBadge(GuiGraphicsExtractor g, int iconX, int iconY, boolean hovered) {
 		EditorChrome.Rect r = removeBadgeRect(iconX, iconY);
 		int bx = r.x();
 		int by = r.y();
@@ -547,7 +544,7 @@ public final class OreUiRenderer {
 		return new EditorChrome.Rect(bx, iconY, REMOVE_BADGE_SIZE, REMOVE_BADGE_SIZE);
 	}
 
-	public static void drawOutline(GuiGraphics g, int x, int y, int width, int height, int color) {
+	public static void drawOutline(GuiGraphicsExtractor g, int x, int y, int width, int height, int color) {
 		int right = x + width;
 		int bottom = y + height;
 		g.fill(x, y, right, y + 1, color);

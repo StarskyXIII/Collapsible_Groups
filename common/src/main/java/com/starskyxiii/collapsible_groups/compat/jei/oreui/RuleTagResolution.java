@@ -3,7 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.oreui;
 import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
 import org.jetbrains.annotations.Nullable;
 
@@ -30,7 +30,7 @@ public final class RuleTagResolution {
 
 	@FunctionalInterface
 	public interface TagExistenceLookup {
-		boolean tagExists(TagRegistryKind registry, ResourceLocation tagId);
+		boolean tagExists(TagRegistryKind registry, Identifier tagId);
 	}
 
 	private RuleTagResolution() {}
@@ -42,11 +42,11 @@ public final class RuleTagResolution {
 		private RegistryLookup() {}
 
 		@Override
-		public boolean tagExists(TagRegistryKind registry, ResourceLocation tagId) {
+		public boolean tagExists(TagRegistryKind registry, Identifier tagId) {
 			return switch (registry) {
-				case ITEM -> BuiltInRegistries.ITEM.getTag(TagKey.create(Registries.ITEM, tagId)).isPresent();
-				case FLUID -> BuiltInRegistries.FLUID.getTag(TagKey.create(Registries.FLUID, tagId)).isPresent();
-				case BLOCK -> BuiltInRegistries.BLOCK.getTag(TagKey.create(Registries.BLOCK, tagId)).isPresent();
+				case ITEM -> BuiltInRegistries.ITEM.getTags().anyMatch(tag -> tag.key().equals(TagKey.create(Registries.ITEM, tagId)));
+				case FLUID -> BuiltInRegistries.FLUID.getTags().anyMatch(tag -> tag.key().equals(TagKey.create(Registries.FLUID, tagId)));
+				case BLOCK -> BuiltInRegistries.BLOCK.getTags().anyMatch(tag -> tag.key().equals(TagKey.create(Registries.BLOCK, tagId)));
 			};
 		}
 	}
@@ -80,7 +80,7 @@ public final class RuleTagResolution {
 		if (raw.isEmpty()) {
 			return false;
 		}
-		ResourceLocation tagId = ResourceLocation.tryParse(raw);
+		Identifier tagId = Identifier.tryParse(raw);
 		if (tagId == null) {
 			return false;
 		}

@@ -8,7 +8,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.oreui.PreviewPaneModel;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
@@ -107,9 +107,9 @@ public record GroupManagerCard(
 
 	private static ItemStack resolveItemStack(String iconId) {
 		if (iconId == null || iconId.isBlank()) return ItemStack.EMPTY;
-		ResourceLocation loc = ResourceLocation.tryParse(iconId);
+		Identifier loc = Identifier.tryParse(iconId);
 		if (loc == null) return ItemStack.EMPTY;
-		Item item = BuiltInRegistries.ITEM.get(loc);
+		Item item = BuiltInRegistries.ITEM.getValue(loc);
 		return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
 	}
 

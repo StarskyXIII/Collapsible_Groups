@@ -10,7 +10,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -140,7 +140,7 @@ final class EditorRightPanel {
 	// Render
 	// -----------------------------------------------------------------------
 
-	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
+	void render(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout) {
 		hoveredItem = -1;
 		hoveredFluid = -1;
 		hoveredGeneric = -1;
@@ -167,7 +167,7 @@ final class EditorRightPanel {
 		}
 	}
 
-	private void renderItemRow(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
+	private void renderItemRow(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
 		EditorGridTraversal.forRowCells(groupItems.size(), row, layout.rightCols(), layout.rightGridX(), y, (idx, x, cellY) -> {
 			ItemStack stack = groupItems.get(idx);
 			boolean isExact = state.isExactSelected(stack);
@@ -177,7 +177,7 @@ final class EditorRightPanel {
 			int iconY = cellY + 1;
 			if (!explicit) g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x332266BB);
 			else if (isWhole) g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x2855BB77);
-			g.renderItem(stack, iconX, iconY);
+			g.item(stack, iconX, iconY);
 			if (EditorLayout.isMouseOverCell(mouseX, mouseY, x, cellY)) {
 				hoveredItem = idx;
 				g.fill(iconX, iconY, iconX + 16, iconY + 16, 0x1CFFFFFF);
@@ -188,7 +188,7 @@ final class EditorRightPanel {
 		});
 	}
 
-	private void renderGenericRow(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
+	private void renderGenericRow(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
 		EditorGridTraversal.forRowCells(groupGenericIngredients.size(), row, layout.rightCols(), layout.rightGridX(), y, (idx, x, cellY) -> {
 			GenericIngredientView entry = groupGenericIngredients.get(idx);
 			boolean selected = state.isGenericSelected(entry);
@@ -206,7 +206,7 @@ final class EditorRightPanel {
 		});
 	}
 
-	private void renderFluidRow(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
+	private void renderFluidRow(GuiGraphicsExtractor g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
 		EditorGridTraversal.forRowCells(groupFluids.size(), row, layout.rightCols(), layout.rightGridX(), y, (idx, x, cellY) -> {
 			EditorFluidIngredientView fluid = groupFluids.get(idx);
 			boolean selected = state.isFluidSelected(fluidIngredient(fluid));
@@ -230,12 +230,12 @@ final class EditorRightPanel {
 	 * of editable groups (read-only groups never render it). Drawn with z raised
 	 * above the ingredient depth (~150) so it covers the item/fluid texture.
 	 */
-	private void renderRemoveBadge(GuiGraphics g, int iconX, int iconY, int mouseX, int mouseY) {
+	private void renderRemoveBadge(GuiGraphicsExtractor g, int iconX, int iconY, int mouseX, int mouseY) {
 		boolean badgeHovered = OreUiRenderer.removeBadgeRect(iconX, iconY).contains(mouseX, mouseY);
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 160);
+		g.pose().pushMatrix();
+		g.nextStratum();
 		OreUiRenderer.drawRemoveBadge(g, iconX, iconY, badgeHovered);
-		g.pose().popPose();
+		g.pose().popMatrix();
 	}
 
 	/** Remove-× hot-zone for the cell at {@code idx}; clicks elsewhere in the cell do nothing. */
@@ -276,7 +276,7 @@ final class EditorRightPanel {
 				ItemStack stack = groupItems.get(idx);
 				boolean explicit = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
 				if (!explicit || !isOverRemoveBadge(layout, idx, y, mouseX, mouseY)) return true;
-				if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.removeAllSelectionsForItem(stack);
+				if (com.starskyxiii.collapsible_groups.compat.jei.ui.InputModifierHelper.controlDown()) state.removeAllSelectionsForItem(stack);
 				else state.removeSingleSelection(stack, allItems);
 				state.syncEditItems();
 				onChange.run();

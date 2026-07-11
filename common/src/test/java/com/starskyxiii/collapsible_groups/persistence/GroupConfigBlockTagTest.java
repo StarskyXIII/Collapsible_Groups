@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.*;
  *
  * <p>Validator assertions for block tags are intentionally not exercised here because
  * {@link com.starskyxiii.collapsible_groups.core.GroupFilterValidator} delegates to
- * {@code ResourceLocation.tryParse(...)}, which is unavailable on the pure-common
+ * {@code Identifier.tryParse(...)}, which is unavailable on the pure-common
  * unit-test runtime classpath.
  */
 class GroupConfigBlockTagTest {

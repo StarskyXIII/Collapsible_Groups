@@ -148,7 +148,7 @@ class RuleNodeUiContractTest {
 	/**
 	 * NAMESPACE is a deliberate exception to the "requiredRoles mirrors validator 1:1"
 	 * rule: {@code GroupFilterValidator}'s Namespace case only calls
-	 * {@code ResourceLocation.isValidNamespace(...)}, and that check is vacuously true
+	 * {@code Identifier.isValidNamespace(...)}, and that check is vacuously true
 	 * for an empty string (its char-by-char loop never runs), so the validator does not
 	 * currently flag a blank namespace. requiredRoles still marks PRIMARY_VALUE as
 	 * required here — an empty namespace field is a clear UX mistake even though the

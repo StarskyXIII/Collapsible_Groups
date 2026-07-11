@@ -44,7 +44,7 @@ class ItemPathCompiledFilterTest {
 	}
 
 	@Test
-	void itemPathFiltersDoNotMatchViewsWithoutResourceLocation() {
+	void itemPathFiltersDoNotMatchViewsWithoutIdentifier() {
 		CompiledFilter startsWith = CompiledFilter.compile(Filters.itemPathStartsWith("gutter_"));
 		CompiledFilter contains = CompiledFilter.compile(Filters.itemPathContains("_beam_"));
 		CompiledFilter endsWith = CompiledFilter.compile(Filters.itemPathEndsWith("_chair"));

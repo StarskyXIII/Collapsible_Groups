@@ -3,7 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.ui;
 import com.starskyxiii.collapsible_groups.core.GroupTheme;
 import com.starskyxiii.collapsible_groups.core.GroupThemeColors;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -111,7 +111,7 @@ public final class GroupSampleRenderer {
 	/**
 	 * @return the full preview layout for hit-testing page buttons and header toggles.
 	 */
-	public static Layout render(GuiGraphics g, Rect area, boolean expanded, int page, GroupTheme theme,
+	public static Layout render(GuiGraphicsExtractor g, Rect area, boolean expanded, int page, GroupTheme theme,
 	                            List<ItemStack> headerIcons, List<ItemStack> items,
 	                            Font font, Fallbacks fallbacks) {
 		List<ItemStack> nonEmpty = filterNonEmpty(items);
@@ -134,7 +134,7 @@ public final class GroupSampleRenderer {
 				}
 			} else {
 				g.fill(rect.x() - 1, rect.y() - 1, rect.x() + 17, rect.y() + 17, expandedGroupBg);
-				g.renderItem(nonEmpty.get(cell.itemIndex()), rect.x(), rect.y());
+				g.item(nonEmpty.get(cell.itemIndex()), rect.x(), rect.y());
 				borderPositions.add(new int[]{rect.x(), rect.y()});
 			}
 		}
@@ -153,7 +153,7 @@ public final class GroupSampleRenderer {
 			String counter = (layout.page() + 1) + "/" + layout.pageCount();
 			int counterX = (prev.right() + nxt.x()) / 2 - font.width(counter) / 2;
 			int counterY = prev.y() + Math.max(0, (prev.height() - font.lineHeight) / 2);
-			g.drawString(font, counter, counterX, counterY, OreUiPalette.TEXT_MUTED, false);
+			g.text(font, counter, counterX, counterY, OreUiPalette.TEXT_MUTED, false);
 		}
 		return layout;
 	}
@@ -162,26 +162,27 @@ public final class GroupSampleRenderer {
 	 * Draws up to two item icons stacked with a {@code +}/{@code -} indicator,
 	 * mirroring {@code GroupIconRenderer} (scale 0.9, offsets (2,0)/(0,2)).
 	 */
-	public static void renderStackedItemIcons(GuiGraphics g, List<ItemStack> items, int x, int y,
+	public static void renderStackedItemIcons(GuiGraphicsExtractor g, List<ItemStack> items, int x, int y,
 	                                          boolean expanded, Font font) {
 		List<ItemStack> nonEmpty = filterNonEmpty(items);
 		if (!nonEmpty.isEmpty()) {
-			g.pose().pushPose();
-			g.pose().translate(x, y, 0);
-			g.pose().scale(0.9f, 0.9f, 0.9f);
+			g.pose().pushMatrix();
+			g.pose().translate(x, y);
+			g.nextStratum();
+			g.pose().scale(0.9f, 0.9f);
 			if (nonEmpty.size() == 1) {
-				g.renderItem(nonEmpty.get(0), 1, 1);
+				g.item(nonEmpty.get(0), 1, 1);
 			} else {
-				g.renderItem(nonEmpty.get(1), 2, 0);
-				g.pose().translate(0, 0, 10);
-				g.renderItem(nonEmpty.get(0), 0, 2);
+				g.item(nonEmpty.get(1), 2, 0);
+				g.nextStratum();
+				g.item(nonEmpty.get(0), 0, 2);
 			}
-			g.pose().popPose();
+			g.pose().popMatrix();
 		}
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 200);
-		g.drawString(font, expanded ? "-" : "+", x + 10, y + 9, 0xFFFFFFFF, true);
-		g.pose().popPose();
+		g.pose().pushMatrix();
+		g.nextStratum();
+		g.text(font, expanded ? "-" : "+", x + 10, y + 9, 0xFFFFFFFF, true);
+		g.pose().popMatrix();
 	}
 
 	private static Rect cellRect(Rect area, int cols, int cellIndex) {
