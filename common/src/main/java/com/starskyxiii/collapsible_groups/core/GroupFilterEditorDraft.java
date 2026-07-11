@@ -31,6 +31,9 @@ public final class GroupFilterEditorDraft {
 	private final List<String> fluidTags;
 	private final List<GenericValue> genericIds;
 	private final List<GenericValue> genericTags;
+	// opaque advanced subtrees (rules the flat editor cannot author) kept
+	// verbatim so a hybrid Any(rules…, ids…) filter survives a contents-only edit.
+	private final List<GroupFilter> preservedSubtrees;
 
 	public record GenericValue(String ingredientType, String value) {}
 
@@ -66,16 +69,36 @@ public final class GroupFilterEditorDraft {
 	public record DecodeResult(
 		GroupFilterEditorDraft draft,
 		boolean structurallyEditable,
+		List<GroupFilter> preservedSubtrees,
 		Set<UnsupportedEditorNodeKind> unsupportedNodeKinds
 	) {
 		public DecodeResult {
 			Objects.requireNonNull(draft, "draft");
+			Objects.requireNonNull(preservedSubtrees, "preservedSubtrees");
 			Objects.requireNonNull(unsupportedNodeKinds, "unsupportedNodeKinds");
+			preservedSubtrees = List.copyOf(preservedSubtrees);
 			unsupportedNodeKinds = Set.copyOf(unsupportedNodeKinds);
 		}
 
 		public boolean hasUnsupportedNodeKinds() {
 			return !unsupportedNodeKinds.isEmpty();
+		}
+
+		/**
+		 * flat-index-safe predicate — decoupled from {@link #structurallyEditable}.
+		 *
+		 * <p>The indexed item preview ({@code GroupRegistry.resolveEditorDraftItems})
+		 * only understands the flat draft (explicit item selectors + item tags). It is a
+		 * faithful preview <em>only</em> when the decoded draft carries no preserved
+		 * subtree, because any preserved subtree is an advanced union member the flat
+		 * index cannot resolve. A hybrid {@code Any(rules…, ids…)} draft therefore stays
+		 * fully contents-editable ({@code structurallyEditable}) yet is <em>not</em>
+		 * flat-index safe: callers must fall through to the full
+		 * {@code GroupRegistry.resolveItems} pass so the preview and RULE_COVERED
+		 * coverage include the preserved subtree's matches.
+		 */
+		public boolean flatIndexSafe() {
+			return structurallyEditable && preservedSubtrees.isEmpty();
 		}
 	}
 
@@ -84,13 +107,15 @@ public final class GroupFilterEditorDraft {
 	                               List<String> fluidIds,
 	                               List<String> fluidTags,
 	                               List<GenericValue> genericIds,
-	                               List<GenericValue> genericTags) {
+	                               List<GenericValue> genericTags,
+	                               List<GroupFilter> preservedSubtrees) {
 		this.explicitItemSelectors = explicitItemSelectors;
 		this.itemTags = itemTags;
 		this.fluidIds = fluidIds;
 		this.fluidTags = fluidTags;
 		this.genericIds = genericIds;
 		this.genericTags = genericTags;
+		this.preservedSubtrees = preservedSubtrees;
 	}
 
 	public static GroupFilterEditorDraft empty() {
@@ -100,22 +125,63 @@ public final class GroupFilterEditorDraft {
 			new ArrayList<>(),
 			new ArrayList<>(),
 			new ArrayList<>(),
+			new ArrayList<>(),
 			new ArrayList<>()
 		);
 	}
 
+	/**
+	 * decode with preserved subtrees. Branches:
+	 * <ul>
+	 * <li>{@code null} → empty draft, {@code editable=false} (matches the legacy
+	 * empty-filter contract that {@code refreshContentsDraftFromRules} relies on).</li>
+	 * <li>root {@code Any} → supported flat leaves flow into the draft, every other
+	 * child subtree is preserved verbatim; {@code editable=true}.</li>
+	 * <li>root single supported leaf → flat draft, no preserved; {@code editable=true}.</li>
+	 * <li>root non-{@code Any}, non-supported-leaf → the whole tree is a single preserved
+	 * subtree, draft empty, {@code editable=true} (the "auto-wrap on first edit" case:
+	 * {@code toFilter} emits {@code Any(originalTree, newLeaves…)}).</li>
+	 * </ul>
+	 * {@code unsupportedNodeKinds} is now only a UI-text summary of the preserved kinds;
+	 * it never decides editability.
+	 */
 	public static DecodeResult decode(@Nullable GroupFilter filter) {
 		if (filter == null) {
-			return new DecodeResult(empty(), false, Set.of());
+			return new DecodeResult(empty(), false, List.of(), Set.of());
 		}
 
 		GroupFilter normalized = GroupFilterNormalizer.normalize(filter);
 		GroupFilterEditorDraft draft = empty();
 		EnumSet<UnsupportedEditorNodeKind> unsupportedNodeKinds = EnumSet.noneOf(UnsupportedEditorNodeKind.class);
-		if (!collectSupportedNodes(normalized, draft, unsupportedNodeKinds, 0, false) || draft.isEmpty()) {
-			return new DecodeResult(empty(), false, unsupportedNodeKinds);
+
+		if (normalized instanceof GroupFilter.Any any) {
+			if (any.children().isEmpty()) {
+				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.NESTED_STRUCTURE);
+				return new DecodeResult(empty(), false, List.of(), unsupportedNodeKinds);
+			}
+			for (GroupFilter child : any.children()) {
+				if (!tryAddFlatLeaf(child, draft)) {
+					draft.preservedSubtrees.add(child);
+					recordPreservedKinds(child, unsupportedNodeKinds);
+				}
+			}
+			return finishDecode(draft, unsupportedNodeKinds);
 		}
-		return new DecodeResult(draft, true, unsupportedNodeKinds);
+
+		if (tryAddFlatLeaf(normalized, draft)) {
+			return finishDecode(draft, unsupportedNodeKinds);
+		}
+
+		// Non-Any root that is not a single supported leaf: keep the whole tree opaque and
+		// let the first contents edit wrap it in an Any (per the decision).
+		draft.preservedSubtrees.add(normalized);
+		recordPreservedKinds(normalized, unsupportedNodeKinds);
+		return finishDecode(draft, unsupportedNodeKinds);
+	}
+
+	private static DecodeResult finishDecode(GroupFilterEditorDraft draft,
+	                                         Set<UnsupportedEditorNodeKind> unsupportedNodeKinds) {
+		return new DecodeResult(draft, true, List.copyOf(draft.preservedSubtrees), unsupportedNodeKinds);
 	}
 
 	/**
@@ -166,6 +232,20 @@ public final class GroupFilterEditorDraft {
 		return genericTags;
 	}
 
+	/**
+	 * Returns the live mutable list of preserved advanced subtrees owned by this draft.
+	 * Editor state objects intentionally mutate this collection in place so a hybrid
+	 * filter round-trips through a contents edit with its rules intact.
+	 */
+	public List<GroupFilter> preservedSubtrees() {
+		return preservedSubtrees;
+	}
+
+	public boolean hasPreservedSubtrees() {
+		return !preservedSubtrees.isEmpty();
+	}
+
+	/** True when the flat (contents-authorable) portion of the draft is empty. Ignores preserved subtrees. */
 	public boolean isEmpty() {
 		return explicitItemSelectors.isEmpty()
 			&& itemTags.isEmpty()
@@ -176,133 +256,112 @@ public final class GroupFilterEditorDraft {
 	}
 
 	public Optional<GroupFilter> toFilter() {
-		List<GroupFilter> nodes = new ArrayList<>();
+		List<GroupFilter> flat = new ArrayList<>();
 
 		for (String selector : explicitItemSelectors) {
 			if (selector.startsWith(STACK_PREFIX)) {
-				nodes.add(Filters.exactStack(selector.substring(STACK_PREFIX.length())));
+				flat.add(Filters.exactStack(selector.substring(STACK_PREFIX.length())));
 			} else {
-				nodes.add(Filters.itemId(selector));
+				flat.add(Filters.itemId(selector));
 			}
 		}
-		itemTags.forEach(tag -> nodes.add(Filters.itemTag(tag)));
-		fluidIds.forEach(id -> nodes.add(Filters.fluidId(id)));
-		fluidTags.forEach(tag -> nodes.add(Filters.fluidTag(tag)));
-		genericIds.forEach(entry -> nodes.add(Filters.genericId(entry.ingredientType(), entry.value())));
-		genericTags.forEach(entry -> nodes.add(Filters.genericTag(entry.ingredientType(), entry.value())));
+		itemTags.forEach(tag -> flat.add(Filters.itemTag(tag)));
+		fluidIds.forEach(id -> flat.add(Filters.fluidId(id)));
+		fluidTags.forEach(tag -> flat.add(Filters.fluidTag(tag)));
+		genericIds.forEach(entry -> flat.add(Filters.genericId(entry.ingredientType(), entry.value())));
+		genericTags.forEach(entry -> flat.add(Filters.genericTag(entry.ingredientType(), entry.value())));
 
-		if (nodes.isEmpty()) {
+		if (flat.isEmpty() && preservedSubtrees.isEmpty()) {
 			return Optional.empty();
 		}
+		// Untouched non-Any root: a lone preserved subtree round-trips as itself, with no
+		// superfluous Any wrap, so a rules-only filter is not structurally deformed by a
+		// no-op pass through the contents editor.
+		if (flat.isEmpty() && preservedSubtrees.size() == 1) {
+			return Optional.of(preservedSubtrees.getFirst());
+		}
+		// Stable order: preserved advanced subtrees first, then flat contents leaves.
+		List<GroupFilter> nodes = new ArrayList<>(preservedSubtrees.size() + flat.size());
+		nodes.addAll(preservedSubtrees);
+		nodes.addAll(flat);
 		if (nodes.size() == 1) {
 			return Optional.of(nodes.getFirst());
 		}
 		return Optional.of(Filters.any(nodes.toArray(GroupFilter[]::new)));
 	}
 
-	private static boolean collectSupportedNodes(GroupFilter filter,
-	                                             GroupFilterEditorDraft draft,
-	                                             Set<UnsupportedEditorNodeKind> unsupportedNodeKinds,
-	                                             int depth,
-	                                             boolean parentIsComposite) {
-		if (isComposite(filter) && parentIsComposite) {
-			unsupportedNodeKinds.add(UnsupportedEditorNodeKind.NESTED_STRUCTURE);
-		}
-
-		return switch (filter) {
-			case GroupFilter.Any any -> {
-				if (any.children().isEmpty()) {
-					unsupportedNodeKinds.add(UnsupportedEditorNodeKind.NESTED_STRUCTURE);
-					yield false;
-				}
-				if (depth > 0) {
-					unsupportedNodeKinds.add(UnsupportedEditorNodeKind.NESTED_STRUCTURE);
-				}
-				for (GroupFilter child : any.children()) {
-					if (!collectSupportedNodes(child, draft, unsupportedNodeKinds, depth + 1, true)) {
-						yield false;
-					}
-				}
-				yield true;
-			}
+	/**
+	 * Adds {@code filter} to the flat draft iff it is a supported contents leaf
+	 * (item/fluid/generic id, tag, or an exact item stack). Returns {@code false} without
+	 * mutating the draft for every composite or advanced node, so callers can preserve it.
+	 */
+	private static boolean tryAddFlatLeaf(GroupFilter filter, GroupFilterEditorDraft draft) {
+		switch (filter) {
 			case GroupFilter.Id id -> addIdNode(id, draft);
 			case GroupFilter.Tag tag -> addTagNode(tag, draft);
 			case GroupFilter.ExactStack stack -> draft.explicitItemSelectors.add(STACK_PREFIX + stack.encodedStack());
-			case GroupFilter.BlockTag ignored -> {
-				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.BLOCK_TAG);
-				yield false;
+			default -> {
+				return false;
 			}
-			case GroupFilter.ItemPathStartsWith ignored -> {
-				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.ITEM_PATH_STARTS_WITH);
-				yield false;
-			}
-			case GroupFilter.ItemPathContains ignored -> {
-				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.ITEM_PATH_CONTAINS);
-				yield false;
-			}
-			case GroupFilter.ItemPathEndsWith ignored -> {
-				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.ITEM_PATH_ENDS_WITH);
-				yield false;
+		}
+		return true;
+	}
+
+	/**
+	 * Walks a preserved subtree recording its {@link UnsupportedEditorNodeKind}s purely for
+	 * the UI summary ("N advanced rules"). Never affects editability.
+	 */
+	private static void recordPreservedKinds(GroupFilter filter, Set<UnsupportedEditorNodeKind> kinds) {
+		switch (filter) {
+			case GroupFilter.Any any -> {
+				kinds.add(UnsupportedEditorNodeKind.NESTED_STRUCTURE);
+				for (GroupFilter child : any.children()) {
+					recordPreservedKinds(child, kinds);
+				}
 			}
 			case GroupFilter.All all -> {
-				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.ALL);
-				if (all.children().stream().anyMatch(GroupFilterEditorDraft::isComposite)) {
-					unsupportedNodeKinds.add(UnsupportedEditorNodeKind.NESTED_STRUCTURE);
-				}
+				kinds.add(UnsupportedEditorNodeKind.ALL);
 				for (GroupFilter child : all.children()) {
-					collectSupportedNodes(child, draft, unsupportedNodeKinds, depth + 1, true);
+					recordPreservedKinds(child, kinds);
 				}
-				yield false;
 			}
 			case GroupFilter.Not not -> {
-				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.NOT);
-				if (isComposite(not.child())) {
-					unsupportedNodeKinds.add(UnsupportedEditorNodeKind.NESTED_STRUCTURE);
-				}
-				collectSupportedNodes(not.child(), draft, unsupportedNodeKinds, depth + 1, true);
-				yield false;
+				kinds.add(UnsupportedEditorNodeKind.NOT);
+				recordPreservedKinds(not.child(), kinds);
 			}
-			case GroupFilter.Namespace ignored -> {
-				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.NAMESPACE);
-				yield false;
-			}
-			case GroupFilter.HasComponent ignored -> {
-				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.HAS_COMPONENT);
-				yield false;
-			}
-			case GroupFilter.ComponentPath ignored -> {
-				unsupportedNodeKinds.add(UnsupportedEditorNodeKind.COMPONENT_PATH);
-				yield false;
-			}
-		};
+			case GroupFilter.BlockTag ignored -> kinds.add(UnsupportedEditorNodeKind.BLOCK_TAG);
+			case GroupFilter.ItemPathStartsWith ignored -> kinds.add(UnsupportedEditorNodeKind.ITEM_PATH_STARTS_WITH);
+			case GroupFilter.ItemPathContains ignored -> kinds.add(UnsupportedEditorNodeKind.ITEM_PATH_CONTAINS);
+			case GroupFilter.ItemPathEndsWith ignored -> kinds.add(UnsupportedEditorNodeKind.ITEM_PATH_ENDS_WITH);
+			case GroupFilter.Namespace ignored -> kinds.add(UnsupportedEditorNodeKind.NAMESPACE);
+			case GroupFilter.HasComponent ignored -> kinds.add(UnsupportedEditorNodeKind.HAS_COMPONENT);
+			case GroupFilter.ComponentPath ignored -> kinds.add(UnsupportedEditorNodeKind.COMPONENT_PATH);
+			// Supported leaves can appear inside a preserved composite; they contribute no kind.
+			case GroupFilter.Id ignored -> { }
+			case GroupFilter.Tag ignored -> { }
+			case GroupFilter.ExactStack ignored -> { }
+		}
 	}
 
-	private static boolean isComposite(GroupFilter filter) {
-		return filter instanceof GroupFilter.Any
-			|| filter instanceof GroupFilter.All
-			|| filter instanceof GroupFilter.Not;
-	}
-
-	private static boolean addIdNode(GroupFilter.Id id, GroupFilterEditorDraft draft) {
-		return switch (id.ingredientType()) {
+	private static void addIdNode(GroupFilter.Id id, GroupFilterEditorDraft draft) {
+		switch (id.ingredientType()) {
 			case ITEM_TYPE -> draft.explicitItemSelectors.add(id.id());
 			case FLUID_TYPE -> addUnique(draft.fluidIds, id.id());
 			default -> addUnique(draft.genericIds, new GenericValue(id.ingredientType(), id.id()));
-		};
+		}
 	}
 
-	private static boolean addTagNode(GroupFilter.Tag tag, GroupFilterEditorDraft draft) {
-		return switch (tag.ingredientType()) {
+	private static void addTagNode(GroupFilter.Tag tag, GroupFilterEditorDraft draft) {
+		switch (tag.ingredientType()) {
 			case ITEM_TYPE -> addUnique(draft.itemTags, tag.tag());
 			case FLUID_TYPE -> addUnique(draft.fluidTags, tag.tag());
 			default -> addUnique(draft.genericTags, new GenericValue(tag.ingredientType(), tag.tag()));
-		};
+		}
 	}
 
-	private static <T> boolean addUnique(List<T> list, T value) {
+	private static <T> void addUnique(List<T> list, T value) {
 		if (!list.contains(value)) {
 			list.add(value);
 		}
-		return true;
 	}
 }

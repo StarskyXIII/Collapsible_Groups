@@ -70,7 +70,12 @@ public final class GroupBorderRenderer {
 	// Border drawing
 	// -----------------------------------------------------------------------
 
-	private static void drawBorder(GuiGraphics g, List<int[]> positions, int color) {
+	/**
+	 * Draws the cell-connected border for a set of 16x16 slot positions using an
+	 * 18px slot pitch. Public so previews (e.g. the settings-mode group sample)
+	 * render byte-identical borders to the live JEI panel.
+	 */
+	public static void drawBorder(GuiGraphics g, List<int[]> positions, int color) {
 		if (positions.isEmpty()) return;
 
 		Set<Long> cellSet = new HashSet<>();

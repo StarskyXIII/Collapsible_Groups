@@ -11,38 +11,45 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class ItemPathEditorDraftTest {
 
 	@Test
-	void itemPathStartsWithMarksGroupAsNotStructurallyEditable() {
+	void itemPathStartsWithRootIsPreservedAndEditable() {
+		// preserved whole, editable, not flat-index safe.
 		GroupFilter filter = new GroupFilter.ItemPathStartsWith("gutter_");
 
 		GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
 
-		assertFalse(result.structurallyEditable());
+		assertTrue(result.structurallyEditable());
+		assertFalse(result.flatIndexSafe());
+		assertEquals(List.of(filter), result.preservedSubtrees());
 		assertTrue(result.hasUnsupportedNodeKinds());
 		assertTrue(result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.ITEM_PATH_STARTS_WITH));
 	}
 
 	@Test
-	void anyContainingSupportedItemTagAndItemPathEndsWithFallsBackToEmptyUnsupportedDraft() {
-		GroupFilter filter = new GroupFilter.Any(List.of(
-			new GroupFilter.Tag("item", "minecraft:planks"),
-			new GroupFilter.ItemPathEndsWith("_chair")
-		));
+	void anyContainingSupportedItemTagAndItemPathEndsWithIsHybridEditable() {
+		GroupFilter.Tag itemTag = new GroupFilter.Tag("item", "minecraft:planks");
+		GroupFilter.ItemPathEndsWith endsWith = new GroupFilter.ItemPathEndsWith("_chair");
+		GroupFilter filter = new GroupFilter.Any(List.of(itemTag, endsWith));
 
 		GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
 
-		assertFalse(result.structurallyEditable());
-		assertTrue(result.draft().isEmpty());
+		assertTrue(result.structurallyEditable());
+		assertFalse(result.flatIndexSafe());
+		assertFalse(result.draft().isEmpty());
+		assertEquals(List.of("minecraft:planks"), result.draft().itemTags());
+		assertEquals(List.of(endsWith), result.preservedSubtrees());
 		assertTrue(result.hasUnsupportedNodeKinds());
 		assertTrue(result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.ITEM_PATH_ENDS_WITH));
 	}
 
 	@Test
-	void itemPathContainsMarksGroupAsNotStructurallyEditable() {
+	void itemPathContainsRootIsPreservedAndEditable() {
 		GroupFilter filter = new GroupFilter.ItemPathContains("_beam_");
 
 		GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
 
-		assertFalse(result.structurallyEditable());
+		assertTrue(result.structurallyEditable());
+		assertFalse(result.flatIndexSafe());
+		assertEquals(List.of(filter), result.preservedSubtrees());
 		assertTrue(result.hasUnsupportedNodeKinds());
 		assertTrue(result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.ITEM_PATH_CONTAINS));
 	}

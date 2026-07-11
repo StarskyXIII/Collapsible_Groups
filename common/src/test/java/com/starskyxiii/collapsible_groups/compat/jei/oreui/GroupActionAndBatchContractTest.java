@@ -34,7 +34,7 @@ class GroupActionAndBatchContractTest {
 	}
 
 	@Test
-	void exposesReadonlyActionMatrixWithoutClaimingSwitchPersistenceIsImplemented() {
+	void exposesReadonlyActionMatrixWithEnabledOverridePersistence() {
 		for (GroupSource source : List.of(GroupSource.BUILTIN, GroupSource.KUBEJS)) {
 			GroupActionEligibility eligibility = GroupActionEligibility.forSource(source);
 
@@ -67,6 +67,26 @@ class GroupActionAndBatchContractTest {
 	}
 
 	@Test
+	void batchSelectionPrunesToCurrentVisibleIdsWithoutReordering() {
+		BatchSelectionState selection = new BatchSelectionState(List.of("alpha", "beta", "gamma", "delta"))
+			.pruneTo(List.of("delta", "alpha", "gamma"));
+
+		assertEquals(List.of("alpha", "gamma", "delta"), selection.selectedGroupIds());
+		assertEquals(List.of(), selection.pruneTo(List.of()).selectedGroupIds());
+	}
+
+	@Test
+	void batchSelectionSelectsAndClearsAllFilteredResults() {
+		BatchSelectionState mixed = new BatchSelectionState(List.of("outside", "alpha"));
+		BatchSelectionState all = mixed.selectAll(List.of("alpha", "beta", "gamma"));
+
+		assertEquals(List.of("outside", "alpha", "beta", "gamma"), all.selectedGroupIds());
+		assertTrue(all.containsAll(List.of("alpha", "beta", "gamma")));
+		assertFalse(all.containsAll(List.of()));
+		assertEquals(List.of("outside"), all.deselectAll(List.of("alpha", "beta", "gamma")).selectedGroupIds());
+	}
+
+	@Test
 	void batchActionCountsEnabledDisabledAndReadonlyDeletes() {
 		List<GroupCardViewModel> cards = List.of(
 			card("custom_a", true),
@@ -85,6 +105,45 @@ class GroupActionAndBatchContractTest {
 		assertTrue(eligibility.canEnable());
 		assertTrue(eligibility.canDisable());
 		assertTrue(eligibility.canDelete());
+	}
+
+	@Test
+	void batchActionDisablesDeleteForReadonlyOnlySelection() {
+		BatchActionEligibility eligibility = BatchActionEligibility.fromCards(List.of(
+			card("__default_food", false),
+			card("__kjs_scripted", true)
+		));
+
+		assertEquals(2, eligibility.selectedCount());
+		assertEquals(2, eligibility.switchRequestCandidateCount());
+		assertEquals(1, eligibility.enableCandidateCount());
+		assertEquals(1, eligibility.disableCandidateCount());
+		assertEquals(0, eligibility.deletableCount());
+		assertEquals(2, eligibility.readOnlyDeleteSkippedCount());
+		assertTrue(eligibility.canEnable());
+		assertTrue(eligibility.canDisable());
+		assertFalse(eligibility.canDelete());
+	}
+
+	@Test
+	void batchActionOnlyEnablesApplicableMixedStates() {
+		BatchActionEligibility allEnabled = BatchActionEligibility.fromCards(List.of(
+			card("custom_a", true),
+			card("__default_food", true)
+		));
+		assertFalse(allEnabled.canEnable());
+		assertTrue(allEnabled.canDisable());
+		assertEquals(0, allEnabled.enableCandidateCount());
+		assertEquals(2, allEnabled.disableCandidateCount());
+
+		BatchActionEligibility allDisabled = BatchActionEligibility.fromCards(List.of(
+			card("custom_a", false),
+			card("__default_food", false)
+		));
+		assertTrue(allDisabled.canEnable());
+		assertFalse(allDisabled.canDisable());
+		assertEquals(2, allDisabled.enableCandidateCount());
+		assertEquals(0, allDisabled.disableCandidateCount());
 	}
 
 	private static GroupCardViewModel card(String groupId, boolean enabled) {

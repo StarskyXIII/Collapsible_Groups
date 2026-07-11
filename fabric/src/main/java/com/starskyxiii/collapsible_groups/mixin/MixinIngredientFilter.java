@@ -177,7 +177,7 @@ public abstract class MixinIngredientFilter {
 					GroupDefinition firstMatch = null;
 					for (GroupDefinition group : fluidGroups) {
 						if (!GroupMatcher.matchesFluidIgnoringEnabled(group, fluid)) continue;
-						if (firstMatch == null) {
+						if (firstMatch == null && group.enabled()) {
 							firstMatch = group;
 							index.put(ingredient, group);
 							fluidsByGroup.computeIfAbsent(group.id(), k -> new ArrayList<>()).add(fluid);
@@ -229,7 +229,7 @@ public abstract class MixinIngredientFilter {
 			GroupDefinition firstMatch = null;
 			for (GroupDefinition group : genericGroups) {
 				if (!GroupMatcher.matchesGenericIgnoringEnabled(group, entry.getKey(), ingredient, helper)) continue;
-				if (firstMatch == null) {
+				if (firstMatch == null && group.enabled()) {
 					firstMatch = group;
 					index.put(typed, group);
 				}

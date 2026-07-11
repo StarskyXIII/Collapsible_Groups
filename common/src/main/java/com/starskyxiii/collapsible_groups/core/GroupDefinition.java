@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.core;
 
+import com.google.gson.JsonObject;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import net.minecraft.world.item.ItemStack;
 
@@ -8,7 +9,7 @@ import java.util.Objects;
 import java.util.function.Predicate;
 
 /**
- * Immutable definition of a collapsible ingredient group: ID, display name, enabled state, filter, icons, and theme.
+ * Immutable definition of a collapsible ingredient group: ID, display name, enabled state, filter, icons, theme, priority, and extra metadata.
  *
  * <p>{@link #displayName()} is the <b>authoritative</b> data source for persistence,
  * dump, and editor operations.  {@link #name()} is a convenience accessor that returns
@@ -21,6 +22,8 @@ public final class GroupDefinition {
 	private final GroupFilter filter;
 	private final List<String> iconIds;
 	private final GroupTheme theme;
+	private final int priority;
+	private final JsonObject extra;
 	private final CompiledFilter compiledFilter;
 
 	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter) {
@@ -32,13 +35,28 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter, List<String> iconIds, GroupTheme theme) {
+		this(id, name, enabled, filter, iconIds, theme, 0, new JsonObject());
+	}
+
+	public GroupDefinition(
+		String id,
+		String name,
+		boolean enabled,
+		GroupFilter filter,
+		List<String> iconIds,
+		GroupTheme theme,
+		int priority,
+		JsonObject extra
+	) {
 		this(
 			Objects.requireNonNull(id, "id"),
 			new GroupDisplayName.Localized(GroupTranslationHelper.keyForGroupId(id), Objects.requireNonNull(name, "name")),
 			enabled,
 			filter,
 			iconIds,
-			theme
+			theme,
+			priority,
+			extra
 		);
 	}
 
@@ -58,6 +76,19 @@ public final class GroupDefinition {
 		List<String> iconIds,
 		GroupTheme theme
 	) {
+		this(id, displayName, enabled, filter, iconIds, theme, 0, new JsonObject());
+	}
+
+	public GroupDefinition(
+		String id,
+		GroupDisplayName displayName,
+		boolean enabled,
+		GroupFilter filter,
+		List<String> iconIds,
+		GroupTheme theme,
+		int priority,
+		JsonObject extra
+	) {
 		this.id = Objects.requireNonNull(id, "id");
 		this.displayName = Objects.requireNonNull(displayName, "displayName");
 		this.enabled = enabled;
@@ -68,6 +99,8 @@ public final class GroupDefinition {
 		}
 		this.iconIds = List.copyOf(Objects.requireNonNull(iconIds, "iconIds"));
 		this.theme = Objects.requireNonNullElse(theme, GroupTheme.EMPTY);
+		this.priority = priority;
+		this.extra = copyExtra(extra);
 		this.compiledFilter = CompiledFilter.compile(this.filter);
 	}
 
@@ -112,6 +145,18 @@ public final class GroupDefinition {
 		return theme;
 	}
 
+	public int priority() {
+		return priority;
+	}
+
+	public JsonObject extra() {
+		return extra.deepCopy();
+	}
+
+	public boolean hasExtra() {
+		return extra.size() > 0;
+	}
+
 	public CompiledFilter compiledFilter() {
 		return compiledFilter;
 	}
@@ -140,7 +185,7 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition withEnabled(boolean enabled) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
 	}
 
 	/** Returns a copy with the given fallback name; the translation key is auto-generated from the group ID. */
@@ -152,19 +197,27 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition withDisplayName(GroupDisplayName displayName) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
 	}
 
 	public GroupDefinition withIconIds(List<String> iconIds) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
 	}
 
 	public GroupDefinition withFilter(GroupFilter filter) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
 	}
 
 	public GroupDefinition withTheme(GroupTheme theme) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+	}
+
+	public GroupDefinition withPriority(int priority) {
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+	}
+
+	public GroupDefinition withExtra(JsonObject extra) {
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
 	}
 
 	public boolean isStructurallyEditable() {
@@ -200,21 +253,27 @@ public final class GroupDefinition {
 		};
 	}
 
+	private static JsonObject copyExtra(JsonObject extra) {
+		return extra == null ? new JsonObject() : extra.deepCopy();
+	}
+
 	@Override
 	public boolean equals(Object obj) {
 		if (this == obj) return true;
 		if (!(obj instanceof GroupDefinition other)) return false;
 		return enabled == other.enabled
+			&& priority == other.priority
 			&& Objects.equals(id, other.id)
 			&& Objects.equals(displayName, other.displayName)
 			&& Objects.equals(filter, other.filter)
 			&& Objects.equals(iconIds, other.iconIds)
-			&& Objects.equals(theme, other.theme);
+			&& Objects.equals(theme, other.theme)
+			&& Objects.equals(extra, other.extra);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, displayName, enabled, filter, iconIds, theme);
+		return Objects.hash(id, displayName, enabled, filter, iconIds, theme, priority, extra);
 	}
 
 	@Override
@@ -224,6 +283,8 @@ public final class GroupDefinition {
 			+ ", enabled=" + enabled
 			+ ", filter=" + filter
 			+ ", iconIds=" + iconIds
-			+ ", theme=" + theme + ']';
+			+ ", theme=" + theme
+			+ ", priority=" + priority
+			+ ", extra=" + extra + ']';
 	}
 }

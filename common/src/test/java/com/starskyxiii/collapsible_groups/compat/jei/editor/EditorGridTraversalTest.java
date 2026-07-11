@@ -20,17 +20,17 @@ class EditorGridTraversalTest {
 
 	@Test
 	void findsValidHitUsingCellHitbox() {
-		assertEquals(4, EditorGridTraversal.findRowCellIndex(5, 1, 4, 10, 20, 10, 20));
-		assertEquals(1, EditorGridTraversal.findRowCellIndex(8, 0, 4, 10, 20, 28, 20));
+		assertEquals(4, EditorGridTraversal.findRowCellIndex(5, 1, 4, 10, 20, 11, 21));
+		assertEquals(1, EditorGridTraversal.findRowCellIndex(8, 0, 4, 10, 20, 28, 21));
 	}
 
 	@Test
 	void missesGutterBetweenCells() {
-		assertEquals(-1, EditorGridTraversal.findRowCellIndex(8, 0, 4, 10, 20, 26, 20));
+		assertEquals(-1, EditorGridTraversal.findRowCellIndex(8, 0, 4, 10, 20, 27, 21));
 	}
 
 	@Test
 	void missesNonExistingCellOnShortLastRow() {
-		assertEquals(-1, EditorGridTraversal.findRowCellIndex(5, 1, 4, 10, 20, 28, 20));
+		assertEquals(-1, EditorGridTraversal.findRowCellIndex(5, 1, 4, 10, 20, 28, 21));
 	}
 }

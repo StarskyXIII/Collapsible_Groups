@@ -199,7 +199,7 @@ public abstract class MixinIngredientFilter {
 
 	/**
 	 * Structure-only invalidation: clears Level-2+3 caches but preserves Level-1 index.
-	 * Called when only the enabled state changes (toggle), avoiding O(N?G) rebuild.
+	 * Use only when ownership cannot change; enabled toggles require a full rebuild.
 	 */
 	@Unique
 	private void cg$invalidateStructureAndNotify() {
@@ -262,7 +262,7 @@ public abstract class MixinIngredientFilter {
 				GroupDefinition firstMatch = null;
 				for (GroupDefinition group : fluidGroups) {
 					if (!GroupMatcher.matchesFluidIgnoringEnabled(group, fluid)) continue;
-					if (firstMatch == null) {
+					if (firstMatch == null && group.enabled()) {
 						firstMatch = group;
 						index.put(ingredient, group);
 						fluidsByGroup.computeIfAbsent(group.id(), k -> new ArrayList<>()).add(fluid);
@@ -330,7 +330,7 @@ public abstract class MixinIngredientFilter {
 			GroupDefinition firstMatch = null;
 			for (GroupDefinition group : genericGroups) {
 				if (!GroupMatcher.matchesGenericIgnoringEnabled(group, entry.getKey(), ingredient, helper)) continue;
-				if (firstMatch == null) {
+				if (firstMatch == null && group.enabled()) {
 					firstMatch = group;
 					index.put(typed, group);
 				}

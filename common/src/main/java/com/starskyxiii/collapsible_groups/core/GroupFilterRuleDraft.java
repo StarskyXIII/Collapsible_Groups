@@ -245,6 +245,97 @@ public final class GroupFilterRuleDraft {
 		return wrapper;
 	}
 
+	/**
+	 * Walks the parent chain of {@code node} to determine whether {@code maybeAncestor}
+	 * lies on it. A node is considered a descendant of itself.
+	 */
+	public static boolean isDescendantOf(@Nullable Node node, @Nullable Node maybeAncestor) {
+		if (node == null || maybeAncestor == null) {
+			return false;
+		}
+		for (Node cursor = node; cursor != null; cursor = cursor.parent) {
+			if (cursor == maybeAncestor) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Whether {@code node} may be moved to become a child of {@code targetParent}.
+	 *
+	 * <p>{@code targetParent} must be a compound node, {@code node} must not be the root
+	 * (a rootless move is meaningless), the target must not be {@code node} itself, and the
+	 * target must not sit inside {@code node}'s own subtree (which would form a cycle).
+	 *
+	 * <p>Capacity is only enforced when {@code node} is <em>joining</em> the target — a
+	 * same-parent reorder ({@code node.parent == targetParent}) is exempt because the move
+	 * detaches {@code node} first, so the child count never actually grows. The NOT
+	 * single-child cap is therefore still enforced for cross-parent moves via
+	 * {@link Node#canAcceptChild()}, while a NOT's lone child may still be reordered within
+	 * it (a no-op, but must not be flatly rejected).
+	 */
+	public boolean canMove(@Nullable Node node, @Nullable Node targetParent) {
+		if (node == null || targetParent == null) {
+			return false;
+		}
+		if (node == root) {
+			return false;
+		}
+		if (node == targetParent) {
+			return false;
+		}
+		if (!targetParent.kind().compound()) {
+			return false;
+		}
+		// Capacity only matters when actually joining a new parent; a same-parent reorder
+		// detaches first so the count never grows.
+		if (node.parent != targetParent && !targetParent.canAcceptChild()) {
+			return false;
+		}
+		// A target inside node's own subtree would create a cycle.
+		return !isDescendantOf(targetParent, node);
+	}
+
+	/**
+	 * Moves {@code node} to become a child of {@code targetParent} at {@code index}.
+	 *
+	 * <p><b>Coordinate contract:</b> {@code index} is interpreted in the caller's
+	 * <em>pre-detach</em> coordinate space — i.e. the child indices as they read <em>before</em>
+	 * {@code node} is removed from its current parent. For a same-parent reorder this matters:
+	 * removing {@code node} shifts every following sibling down by one, so a pre-detach target
+	 * that sat after {@code node} must be decremented to keep pointing at the same visual gap.
+	 * The order is fixed: first the same-parent {@code index--} adjustment, then a final clamp
+	 * to {@code [0, post-detach size]}.
+	 *
+	 * <p>Cross-parent moves use the pre-detach index verbatim (the sentinel {@code oldIndex}
+	 * for a foreign parent never matches, so the decrement never fires). Tail insertions passed
+	 * as {@code children().size()} remain equivalent to the old behaviour: for a cross-parent
+	 * move the clamp caps them at the new parent's size; for a same-parent tail move
+	 * {@code oldIndex < size} holds so the decrement lands them at {@code size-1} = post-detach
+	 * tail — identical to the prior clamp-only result.
+	 *
+	 * @return {@code true} when the move was applied.
+	 */
+	public boolean moveNode(Node node, Node targetParent, int index) {
+		if (!canMove(node, targetParent)) {
+			return false;
+		}
+		Node oldParent = node.parent;
+		int oldIndex = oldParent == null ? -1 : oldParent.children.indexOf(node);
+		if (oldParent != null) {
+			oldParent.children.remove(node);
+		}
+		// Pre-detach → post-detach: a same-parent target sitting after the removed node shifts
+		// down by one. Sentinel oldIndex (-1 / foreign parent) never satisfies this, so
+		// cross-parent moves keep the caller index verbatim.
+		int adjusted = (oldParent == targetParent && oldIndex >= 0 && oldIndex < index) ? index - 1 : index;
+		int clamped = Math.max(0, Math.min(adjusted, targetParent.children.size()));
+		targetParent.children.add(clamped, node);
+		node.parent = targetParent;
+		return true;
+	}
+
 	public @Nullable Node delete(Node node) {
 		Objects.requireNonNull(node, "node");
 		Node parent = node.parent();

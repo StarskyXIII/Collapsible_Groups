@@ -1,5 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
+import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
+import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import net.minecraft.network.chat.Component;
 import org.junit.jupiter.api.Test;
 
@@ -17,9 +20,12 @@ class EditorFluidIngredientHelperTest {
 		EditorFluidIngredientView lava = view("Lava", "minecraft:lava");
 		List<EditorFluidIngredientView> entries = List.of(water, lava);
 
-		assertEquals(entries, EditorFluidIngredientHelper.filterViews(entries, Map.of(), false, ""));
-		assertEquals(List.of(water), EditorFluidIngredientHelper.filterViews(entries, Map.of(), false, "water"));
-		assertEquals(List.of(lava), EditorFluidIngredientHelper.filterViews(entries, Map.of(), false, "minecraft:lava"));
+		assertEquals(entries, EditorFluidIngredientHelper.filterViews(entries, Map.of(), false, query("")));
+		assertEquals(List.of(water), EditorFluidIngredientHelper.filterViews(entries, Map.of(), false, query("water")));
+		assertEquals(List.of(lava), EditorFluidIngredientHelper.filterViews(entries, Map.of(), false, query("minecraft:lava")));
+		assertEquals(entries, EditorFluidIngredientHelper.filterViews(entries, Map.of(), false, query("@mine")));
+		assertEquals(List.of(), EditorFluidIngredientHelper.filterViews(entries, Map.of(), false, query("#c:water")));
+		assertEquals(List.of(), EditorFluidIngredientHelper.filterViews(entries, Map.of(), false, query("$water")));
 	}
 
 	@Test
@@ -28,7 +34,18 @@ class EditorFluidIngredientHelperTest {
 		EditorFluidIngredientView lava = view("Lava", "minecraft:lava");
 		Map<EditorFluidIngredientView, List<String>> ownership = Map.of(water, List.of("Existing Group"));
 
-		assertEquals(List.of(lava), EditorFluidIngredientHelper.filterViews(List.of(water, lava), ownership, true, ""));
+		assertEquals(List.of(lava), EditorFluidIngredientHelper.filterViews(
+			List.of(water, lava), ownership, true, query("")));
+	}
+
+	@Test
+	void genericTooltipSearchIsAlwaysEmpty() {
+		IngredientSearchDocument document = IngredientSearchDocument.of(
+			List.of("Example entry", "example:entry"), List.of("example"), Set.of("c:test"));
+		GenericIngredientView entry = new GenericIngredientView("example:type", null, new Object(), null, null,
+			Component.literal("Example entry"), "example:entry", Set.of("c:test"), document);
+		assertEquals(List.of(), EditorGenericIngredientHelper.filterViews(
+			List.of(entry), Map.of(), false, query("$example")));
 	}
 
 	@Test
@@ -64,7 +81,12 @@ class EditorFluidIngredientHelperTest {
 			new Object(),
 			Component.literal(name),
 			resourceId,
-			(name + "|" + resourceId).toLowerCase(java.util.Locale.ROOT),
+			IngredientSearchDocument.of(List.of(name, resourceId),
+				List.of(resourceId.substring(0, resourceId.indexOf(':'))), Set.of()),
 			null);
+	}
+
+	private static IngredientSearchQuery query(String value) {
+		return IngredientSearchQuery.parse(value);
 	}
 }

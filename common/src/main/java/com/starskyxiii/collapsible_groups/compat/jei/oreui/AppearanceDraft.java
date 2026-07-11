@@ -8,8 +8,8 @@ import java.util.List;
 import java.util.Objects;
 
 public record AppearanceDraft(
-	String bottomFrontIconId,
-	String topBackIconId,
+	String frontIconId,
+	String backIconId,
 	List<String> extraIconIds,
 	String nameColor,
 	String collapsedHeaderBackground,
@@ -18,13 +18,13 @@ public record AppearanceDraft(
 	String expandedGroupBorder
 ) {
 	public AppearanceDraft {
-		bottomFrontIconId = normalize(bottomFrontIconId);
-		topBackIconId = normalize(topBackIconId);
-		if (bottomFrontIconId == null && topBackIconId != null) {
-			bottomFrontIconId = topBackIconId;
-			topBackIconId = null;
-		}
+		frontIconId = normalize(frontIconId);
+		backIconId = normalize(backIconId);
 		extraIconIds = copyNormalized(extraIconIds);
+		if (frontIconId == null) {
+			backIconId = null;
+			extraIconIds = List.of();
+		}
 		nameColor = normalize(nameColor);
 		collapsedHeaderBackground = normalize(collapsedHeaderBackground);
 		expandedHeaderBackground = normalize(expandedHeaderBackground);
@@ -40,12 +40,12 @@ public record AppearanceDraft(
 	public static AppearanceDraft fromIconIds(List<String> iconIds, GroupTheme theme) {
 		Objects.requireNonNull(iconIds, "iconIds");
 		GroupTheme resolvedTheme = theme != null ? theme : GroupTheme.EMPTY;
-		String bottomFrontIconId = iconIds.isEmpty() ? null : iconIds.get(0);
-		String topBackIconId = iconIds.size() < 2 ? null : iconIds.get(1);
+		String frontIconId = iconIds.isEmpty() ? null : iconIds.get(0);
+		String backIconId = iconIds.size() < 2 ? null : iconIds.get(1);
 		List<String> extraIconIds = iconIds.size() < 3 ? List.of() : iconIds.subList(2, iconIds.size());
 		return new AppearanceDraft(
-			bottomFrontIconId,
-			topBackIconId,
+			frontIconId,
+			backIconId,
 			extraIconIds,
 			resolvedTheme.nameColor(),
 			resolvedTheme.collapsedHeaderBackground(),
@@ -57,17 +57,24 @@ public record AppearanceDraft(
 
 	public List<String> toIconIds() {
 		List<String> out = new ArrayList<>();
-		if (bottomFrontIconId != null) {
-			out.add(bottomFrontIconId);
+		if (frontIconId != null) {
+			out.add(frontIconId);
 		}
-		if (topBackIconId != null) {
-			out.add(topBackIconId);
+		if (backIconId != null) {
+			out.add(backIconId);
 		}
 		out.addAll(extraIconIds);
 		return List.copyOf(out);
 	}
 
 	public GroupTheme toTheme() {
+		if (nameColor == null
+			&& collapsedHeaderBackground == null
+			&& expandedHeaderBackground == null
+			&& expandedGroupBackground == null
+			&& expandedGroupBorder == null) {
+			return GroupTheme.EMPTY;
+		}
 		return new GroupTheme(
 			nameColor,
 			collapsedHeaderBackground,
@@ -77,45 +84,47 @@ public record AppearanceDraft(
 		);
 	}
 
-	public AppearanceDraft withBottomFrontIconId(String iconId) {
+	public AppearanceDraft withFrontIconId(String iconId) {
 		String normalized = normalize(iconId);
 		if (normalized == null) {
-			return clearBottomFrontIcon();
+			return clearFrontIcon();
 		}
-		return copy(normalized, topBackIconId, extraIconIds);
+		return copy(normalized, backIconId, extraIconIds);
 	}
 
-	public AppearanceDraft withTopBackIconId(String iconId) {
+	public AppearanceDraft withBackIconId(String iconId) {
 		String normalized = normalize(iconId);
 		if (normalized == null) {
-			return clearTopBackIcon();
+			return clearBackIcon();
 		}
-		if (bottomFrontIconId == null) {
-			return copy(normalized, null, extraIconIds);
+		if (frontIconId == null) {
+			return this;
 		}
-		return copy(bottomFrontIconId, normalized, extraIconIds);
+		return copy(frontIconId, normalized, extraIconIds);
 	}
 
-	public AppearanceDraft clearBottomFrontIcon() {
-		if (topBackIconId != null) {
-			return copy(topBackIconId, null, extraIconIds);
-		}
-		return copy(null, null, extraIconIds);
+	public AppearanceDraft clearFrontIcon() {
+		return copy(null, null, List.of());
 	}
 
-	public AppearanceDraft clearTopBackIcon() {
-		return topBackIconId == null ? this : copy(bottomFrontIconId, null, extraIconIds);
+	public AppearanceDraft clearBackIcon() {
+		return backIconId == null ? this : copy(frontIconId, null, extraIconIds);
 	}
 
 	public AppearanceDraft swapIcons() {
-		if (bottomFrontIconId == null || topBackIconId == null) {
+		if (frontIconId == null || backIconId == null) {
 			return this;
 		}
-		return copy(topBackIconId, bottomFrontIconId, extraIconIds);
+		return copy(backIconId, frontIconId, extraIconIds);
 	}
 
 	public AppearanceDraft withExtraIconIds(List<String> iconIds) {
-		return copy(bottomFrontIconId, topBackIconId, iconIds);
+		return copy(frontIconId, backIconId, iconIds);
+	}
+
+	/** Back/secondary icons require a front icon because the JSON array has no sparse slot representation. */
+	public boolean canEditBackIcon() {
+		return frontIconId != null;
 	}
 
 	public AppearanceDraft withNameColor(String color) {
@@ -138,10 +147,10 @@ public record AppearanceDraft(
 		return copyColors(nameColor, collapsedHeaderBackground, expandedHeaderBackground, expandedGroupBackground, color);
 	}
 
-	private AppearanceDraft copy(String bottomFrontIconId, String topBackIconId, List<String> extraIconIds) {
+	private AppearanceDraft copy(String frontIconId, String backIconId, List<String> extraIconIds) {
 		return new AppearanceDraft(
-			bottomFrontIconId,
-			topBackIconId,
+			frontIconId,
+			backIconId,
 			extraIconIds,
 			nameColor,
 			collapsedHeaderBackground,
@@ -159,8 +168,8 @@ public record AppearanceDraft(
 		String expandedGroupBorder
 	) {
 		return new AppearanceDraft(
-			bottomFrontIconId,
-			topBackIconId,
+			frontIconId,
+			backIconId,
 			extraIconIds,
 			nameColor,
 			collapsedHeaderBackground,

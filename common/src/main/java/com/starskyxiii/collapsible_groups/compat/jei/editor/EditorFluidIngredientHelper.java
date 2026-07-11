@@ -4,6 +4,8 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
+import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -13,9 +15,7 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
-import java.util.IdentityHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -29,12 +29,14 @@ final class EditorFluidIngredientHelper {
 		for (Object fluid : fluids) {
 			String resourceId = Services.PLATFORM.getFluidId(fluid);
 			Component displayName = Services.PLATFORM.getFluidDisplayName(fluid);
-			String searchKey = (displayName.getString() + "|" + resourceId).toLowerCase(Locale.ROOT);
+			String namespace = resourceId.contains(":") ? resourceId.substring(0, resourceId.indexOf(':')) : resourceId;
+			IngredientSearchDocument searchDocument = IngredientSearchDocument.of(
+				List.of(displayName.getString(), resourceId), List.of(namespace), Set.of());
 			result.add(new EditorFluidIngredientView(
 				fluid,
 				displayName,
 				resourceId,
-				searchKey,
+				searchDocument,
 				Services.PLATFORM.getFluidFallbackBucket(fluid)));
 		}
 		List<EditorFluidIngredientView> copy = List.copyOf(result);
@@ -49,11 +51,11 @@ final class EditorFluidIngredientHelper {
 		List<EditorFluidIngredientView> entries,
 		Map<EditorFluidIngredientView, List<String>> ownership,
 		boolean hideUsed,
-		String normalizedQuery
+		IngredientSearchQuery query
 	) {
 		return entries.stream().filter(entry -> {
 			if (hideUsed && !ownership.getOrDefault(entry, List.of()).isEmpty()) return false;
-			return normalizedQuery.isBlank() || entry.searchKey().contains(normalizedQuery);
+			return query.matches(entry.searchDocument());
 		}).toList();
 	}
 
@@ -63,29 +65,13 @@ final class EditorFluidIngredientHelper {
 		List<GroupDefinition> otherGroups,
 		Map<String, Set<String>> fluidReverseIndex
 	) {
-		Map<EditorFluidIngredientView, List<String>> ownership = new IdentityHashMap<>();
-		if (fluidReverseIndex != null) {
-			for (EditorFluidIngredientView entry : entries) {
-				Set<String> groupIds = fluidReverseIndex.getOrDefault(entry.resourceId(), Set.of());
-				List<String> names = new ArrayList<>();
-				for (String groupId : groupIds) {
-					String name = groupNames.get(groupId);
-					if (name != null) names.add(name);
-				}
-				if (!names.isEmpty()) ownership.put(entry, List.copyOf(names));
-			}
-			return ownership;
-		}
-
-		for (GroupDefinition other : otherGroups) {
-			String name = EditorGroupOwnershipHelper.displayName(other);
-			for (EditorFluidIngredientView entry : entries) {
-				if (GroupMatcher.matchesFluid(other, entry.ingredient())) {
-					ownership.computeIfAbsent(entry, k -> new ArrayList<>()).add(name);
-				}
-			}
-		}
-		return ownership;
+		// Winner semantics via EditorGroupOwnershipHelper.buildOwnership: both
+		// branches key to the single JEI winner (reverseIndex is deduped;
+		// otherGroups is priority-ordered so first-match is the winner).
+		return EditorGroupOwnershipHelper.buildOwnership(entries, groupNames, otherGroups, fluidReverseIndex,
+			EditorFluidIngredientView::resourceId,
+			(group, entry) -> GroupMatcher.matchesFluid(group, entry.ingredient()),
+			EditorGroupOwnershipHelper::displayName);
 	}
 
 	static List<Component> tooltipLines(EditorFluidIngredientView entry) {

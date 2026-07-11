@@ -13,7 +13,8 @@ import static org.junit.jupiter.api.Assertions.*;
 class ComponentPathEditorDraftTest {
 
     @Test
-    void componentPathMarksGroupAsNotStructurallyEditable() {
+    void componentPathRootIsPreservedAndEditable() {
+        // the ComponentPath tree is preserved whole and stays editable; not flat-index safe.
         GroupFilter filter = new GroupFilter.ComponentPath(
             "irons_spellbooks:spell_container",
             "data[0].id",
@@ -21,8 +22,11 @@ class ComponentPathEditorDraftTest {
         );
         GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
 
-        assertFalse(result.structurallyEditable(),
-            "A group containing ComponentPath must not be structurally editable");
+        assertTrue(result.structurallyEditable(),
+            "A preserved ComponentPath root is still contents-editable");
+        assertFalse(result.flatIndexSafe(),
+            "A preserved advanced subtree is not flat-index safe");
+        assertEquals(java.util.List.of(filter), result.preservedSubtrees());
         assertTrue(result.hasUnsupportedNodeKinds(),
             "A group containing ComponentPath must have unsupported node kinds");
         assertTrue(
@@ -32,14 +36,16 @@ class ComponentPathEditorDraftTest {
     }
 
     @Test
-    void hasComponentStillMarksGroupAsNotStructurallyEditable() {
+    void hasComponentRootIsPreservedAndEditable() {
         GroupFilter filter = new GroupFilter.HasComponent(
             "apotheosis:gem", "apotheosis:core/ballast"
         );
         GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
 
-        assertFalse(result.structurallyEditable(),
-            "HasComponent backward compat: must still be non-editable");
+        assertTrue(result.structurallyEditable(),
+            "A preserved HasComponent root is still contents-editable");
+        assertFalse(result.flatIndexSafe());
+        assertEquals(java.util.List.of(filter), result.preservedSubtrees());
         assertTrue(
             result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.HAS_COMPONENT),
             "Must still report HAS_COMPONENT"
@@ -66,16 +72,34 @@ class ComponentPathEditorDraftTest {
     }
 
     @Test
-    void componentPathInsideAllIsUnsupported() {
-        // all(componentPath) — the All node itself marks unsupported, ComponentPath inside
-        // is also detected. Group must be non-editable.
+    void componentPathInsideAllIsPreservedAndEditable() {
+        // all(componentPath) normalizes to the bare ComponentPath (single-child All
+        // collapses), which is preserved whole. Editable (auto-wrap on edit), not flat-index safe.
+        GroupFilter componentPath = new GroupFilter.ComponentPath("comp", "path", "val");
+        GroupFilter filter = new GroupFilter.All(java.util.List.of(componentPath));
+        GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
+
+        assertTrue(result.structurallyEditable());
+        assertFalse(result.flatIndexSafe());
+        assertEquals(java.util.List.of(componentPath), result.preservedSubtrees());
+        assertTrue(result.hasUnsupportedNodeKinds());
+        assertTrue(result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.COMPONENT_PATH));
+    }
+
+    @Test
+    void componentPathInsideMultiChildAllIsPreservedWithAllKind() {
+        // A genuine multi-child All survives normalization and reports the ALL kind too.
         GroupFilter filter = new GroupFilter.All(java.util.List.of(
+            new GroupFilter.Tag("item", "c:ingots"),
             new GroupFilter.ComponentPath("comp", "path", "val")
         ));
         GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
 
-        assertFalse(result.structurallyEditable());
-        assertTrue(result.hasUnsupportedNodeKinds());
+        assertTrue(result.structurallyEditable());
+        assertFalse(result.flatIndexSafe());
+        assertEquals(java.util.List.of(filter), result.preservedSubtrees());
+        assertTrue(result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.ALL));
+        assertTrue(result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.COMPONENT_PATH));
     }
 
     @Test
