@@ -80,7 +80,7 @@ public abstract class MixinIngredientFilter {
 	@Unique private static final ExecutorService REBUILD_EXECUTOR =
 		Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "CG-IndexRebuild"); t.setDaemon(true); return t; });
 
-	@Inject(method = "<init>", at = @At("TAIL"))
+	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
 		GroupRegistry.jeiInvalidateCallback = this::cg$invalidateAndNotify;
 		GroupRegistry.jeiStructureInvalidateCallback = this::cg$invalidateStructureAndNotify;
@@ -90,7 +90,7 @@ public abstract class MixinIngredientFilter {
 		this.cg$cachedFullList = null;
 	}
 
-	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true, require = 0)
 	private void cg$onGetElements(CallbackInfoReturnable<List<IElement<?>>> cir) {
 		if (this.ingredientListCached == null) {
 			String rawFilterText = this.filterTextSource.getFilterText();

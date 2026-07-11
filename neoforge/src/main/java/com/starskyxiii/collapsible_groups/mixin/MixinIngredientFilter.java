@@ -130,7 +130,7 @@ public abstract class MixinIngredientFilter {
 	// JEI initialisation hook
 	// -----------------------------------------------------------------
 
-	@Inject(method = "<init>", at = @At("TAIL"))
+	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
 		GroupRegistry.jeiInvalidateCallback = this::cg$invalidateAndNotify;
 		GroupRegistry.jeiStructureInvalidateCallback = this::cg$invalidateStructureAndNotify;
@@ -144,7 +144,7 @@ public abstract class MixinIngredientFilter {
 	// getElements override
 	// -----------------------------------------------------------------
 
-	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true, require = 0)
 	private void cg$onGetElements(CallbackInfoReturnable<List<IElement<?>>> cir) {
 		if (this.ingredientListCached == null) {
 			String rawFilterText = this.filterTextSource.getFilterText();
