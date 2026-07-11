@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei;
 
+import com.starskyxiii.collapsible_groups.core.GroupSortMode;
 import com.starskyxiii.collapsible_groups.persistence.GroupConfig;
 
 import java.util.concurrent.ExecutorService;
@@ -42,6 +43,7 @@ public final class GroupUiState {
 	private static boolean showKubeJs = true;
 	private static boolean hideUsed = false;
 	private static ManagerSourceFilter managerSourceFilter = ManagerSourceFilter.ALL;
+	private static GroupSortMode managerSortMode = GroupSortMode.PRIORITY;
 	private static boolean loaded = false;
 
 	private static final ExecutorService PERSIST_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
@@ -103,6 +105,17 @@ public final class GroupUiState {
 		persist();
 	}
 
+	public static GroupSortMode managerSortMode() {
+		ensureLoaded();
+		return managerSortMode;
+	}
+
+	public static void setManagerSortMode(GroupSortMode value) {
+		ensureLoaded();
+		managerSortMode = value == null ? GroupSortMode.PRIORITY : value;
+		persist();
+	}
+
 	private static synchronized void ensureLoaded() {
 		if (loaded) {
 			return;
@@ -112,6 +125,7 @@ public final class GroupUiState {
 		showKubeJs = state.showKubeJs();
 		hideUsed = state.hideUsed();
 		managerSourceFilter = ManagerSourceFilter.fromId(state.managerSourceFilter());
+		managerSortMode = GroupSortMode.fromId(state.managerSortMode());
 		loaded = true;
 	}
 
@@ -120,8 +134,10 @@ public final class GroupUiState {
 		boolean kubeJsSnapshot = showKubeJs;
 		boolean hideUsedSnapshot = hideUsed;
 		String sourceFilterSnapshot = managerSourceFilter.id();
+		String sortModeSnapshot = managerSortMode.id();
 		PERSIST_EXECUTOR.submit(() ->
-			GroupConfig.saveUiState(builtinSnapshot, kubeJsSnapshot, hideUsedSnapshot, sourceFilterSnapshot));
+			GroupConfig.saveUiState(builtinSnapshot, kubeJsSnapshot, hideUsedSnapshot,
+				sourceFilterSnapshot, sortModeSnapshot));
 	}
 
 	private static void shutdownPersistExecutor() {

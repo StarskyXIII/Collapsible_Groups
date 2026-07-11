@@ -24,8 +24,10 @@ import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -44,6 +46,10 @@ public final class GroupConfig {
 
 	private static Path getUiStateFile() {
 		return Services.PLATFORM.getConfigDir().resolve("collapsiblegroups/ui_state.json");
+	}
+
+	private static Path getEnabledOverridesFile() {
+		return Services.PLATFORM.getConfigDir().resolve("collapsiblegroups/enabled_overrides.json");
 	}
 
 	/** Loads the set of expanded group IDs from disk. Returns an empty set if missing. */
@@ -81,7 +87,8 @@ public final class GroupConfig {
 
 	public static UiState loadUiState() {
 		Path file = getUiStateFile();
-		if (!Files.exists(file)) return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT);
+		if (!Files.exists(file)) return new UiState(true, true, false,
+			UiState.SOURCE_FILTER_DEFAULT, UiState.SORT_MODE_DEFAULT);
 		return readUiStateFile(file, "UI state");
 	}
 
@@ -93,19 +100,26 @@ public final class GroupConfig {
 			boolean showKubeJs = !obj.has("show_kubejs") || obj.get("show_kubejs").getAsBoolean();
 			boolean hideUsed = obj.has("hide_used") && obj.get("hide_used").getAsBoolean();
 			String managerSourceFilter = UiState.SOURCE_FILTER_DEFAULT;
+			String managerSortMode = UiState.SORT_MODE_DEFAULT;
 			if (obj.has("manager_source_filter")
 				&& obj.get("manager_source_filter").isJsonPrimitive()
 				&& obj.get("manager_source_filter").getAsJsonPrimitive().isString()) {
 				managerSourceFilter = obj.get("manager_source_filter").getAsString();
 			}
-			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter);
+			if (obj.has("manager_sort_mode")
+				&& obj.get("manager_sort_mode").isJsonPrimitive()
+				&& obj.get("manager_sort_mode").getAsJsonPrimitive().isString()) {
+				managerSortMode = obj.get("manager_sort_mode").getAsString();
+			}
+			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode);
 		} catch (Exception e) {
 			Constants.LOG.warn("Failed to load {}, using defaults: {}", label, e.getMessage());
-			return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT);
+			return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT, UiState.SORT_MODE_DEFAULT);
 		}
 	}
 
-	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String managerSourceFilter) {
+	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+	                               String managerSourceFilter, String managerSortMode) {
 		Path file = getUiStateFile();
 		try {
 			Files.createDirectories(file.getParent());
@@ -114,10 +128,68 @@ public final class GroupConfig {
 			obj.addProperty("show_kubejs", showKubeJs);
 			obj.addProperty("hide_used", hideUsed);
 			obj.addProperty("manager_source_filter", managerSourceFilter);
+			obj.addProperty("manager_sort_mode", managerSortMode);
 			writeAtomically(file, GSON.toJson(obj));
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save UI state", e);
 		}
+	}
+
+	public static Map<String, Boolean> loadEnabledOverrides() {
+		Path file = getEnabledOverridesFile();
+		if (!Files.exists(file)) return Map.of();
+		try {
+			String json = Files.readString(file, StandardCharsets.UTF_8);
+			return parseEnabledOverrides(json);
+		} catch (Exception e) {
+			Constants.LOG.warn("Failed to load enabled overrides, using none: {}", e.getMessage());
+			return Map.of();
+		}
+	}
+
+	public static void saveEnabledOverrides(Map<String, Boolean> overrides) {
+		Path file = getEnabledOverridesFile();
+		try {
+			Files.createDirectories(file.getParent());
+			writeAtomically(file, serializeEnabledOverrides(overrides));
+		} catch (IOException e) {
+			Constants.LOG.error("Failed to save enabled overrides", e);
+		}
+	}
+
+	static Map<String, Boolean> parseEnabledOverrides(String json) {
+		try {
+			JsonElement root = JsonParser.parseString(json);
+			if (!root.isJsonObject()) return Map.of();
+			JsonElement overridesElement = root.getAsJsonObject().get("overrides");
+			if (overridesElement == null || !overridesElement.isJsonObject()) return Map.of();
+
+			Map<String, Boolean> overrides = new LinkedHashMap<>();
+			for (var entry : overridesElement.getAsJsonObject().entrySet()) {
+				String id = entry.getKey();
+				JsonElement value = entry.getValue();
+				if (id == null || id.isBlank() || value == null || !value.isJsonPrimitive()) continue;
+				var primitive = value.getAsJsonPrimitive();
+				if (!primitive.isBoolean()) continue;
+				overrides.put(id, primitive.getAsBoolean());
+			}
+			return Map.copyOf(overrides);
+		} catch (Exception e) {
+			return Map.of();
+		}
+	}
+
+	static String serializeEnabledOverrides(Map<String, Boolean> overrides) {
+		JsonObject root = new JsonObject();
+		JsonObject values = new JsonObject();
+		if (overrides != null) {
+			overrides.entrySet().stream()
+				.filter(entry -> entry.getKey() != null && !entry.getKey().isBlank() && entry.getValue() != null)
+				.sorted(Map.Entry.comparingByKey())
+				.forEach(entry -> values.addProperty(entry.getKey(), entry.getValue()));
+		}
+		root.add("overrides", values);
+		return GSON.toJson(root);
 	}
 
 	/** Loads all group definition JSON files from the config directory (both user-created and customised built-in groups). */
@@ -201,7 +273,9 @@ public final class GroupConfig {
 				parsed.enabled(),
 				parsed.filter(),
 				parsed.iconIds(),
-				parsed.theme()
+				parsed.theme(),
+				parsed.priority(),
+				parsed.extra()
 			);
 		} catch (IllegalArgumentException e) {
 			Constants.LOG.error("Group '{}': {}", id, e.getMessage());
@@ -238,7 +312,36 @@ public final class GroupConfig {
 
 		GroupFilter filter = parseFilter(obj.getAsJsonObject("filter"));
 		GroupTheme theme = parseTheme(id, obj.get("theme"));
-		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme);
+		int priority = parsePriority(id, obj.get("priority"));
+		JsonObject extra = parseExtra(id, obj.get("extra"));
+		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme, priority, extra);
+	}
+
+	private static int parsePriority(String groupId, JsonElement priorityElement) {
+		if (priorityElement == null || priorityElement.isJsonNull()) {
+			return 0;
+		}
+		if (!priorityElement.isJsonPrimitive() || !priorityElement.getAsJsonPrimitive().isNumber()) {
+			Constants.LOG.warn("Group '{}': Ignoring non-number 'priority' field.", groupId);
+			return 0;
+		}
+		try {
+			return priorityElement.getAsInt();
+		} catch (Exception e) {
+			Constants.LOG.warn("Group '{}': Ignoring unreadable 'priority' field.", groupId);
+			return 0;
+		}
+	}
+
+	private static JsonObject parseExtra(String groupId, JsonElement extraElement) {
+		if (extraElement == null || extraElement.isJsonNull()) {
+			return new JsonObject();
+		}
+		if (!extraElement.isJsonObject()) {
+			Constants.LOG.warn("Group '{}': Ignoring non-object 'extra' field.", groupId);
+			return new JsonObject();
+		}
+		return extraElement.getAsJsonObject().deepCopy();
 	}
 
 	private static GroupTheme parseTheme(String groupId, JsonElement themeElement) {
@@ -339,6 +442,10 @@ public final class GroupConfig {
 
 		obj.addProperty("enabled", group.enabled());
 
+		if (group.priority() != 0) {
+			obj.addProperty("priority", group.priority());
+		}
+
 		if (!group.iconIds().isEmpty()) {
 			if (group.iconIds().size() == 1) {
 				obj.addProperty("icon", group.iconIds().getFirst());
@@ -351,6 +458,10 @@ public final class GroupConfig {
 
 		if (!group.theme().isEmpty()) {
 			obj.add("theme", serializeTheme(group.theme()));
+		}
+
+		if (group.hasExtra()) {
+			obj.add("extra", group.extra());
 		}
 
 		obj.add("filter", serializeFilter(group.filter()));
@@ -552,10 +663,14 @@ public final class GroupConfig {
 		boolean enabled,
 		GroupFilter filter,
 		List<String> iconIds,
-		GroupTheme theme
+		GroupTheme theme,
+		int priority,
+		JsonObject extra
 	) {}
 
-	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String managerSourceFilter) {
+	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+	                      String managerSourceFilter, String managerSortMode) {
 		public static final String SOURCE_FILTER_DEFAULT = "all";
+		public static final String SORT_MODE_DEFAULT = "priority";
 	}
 }

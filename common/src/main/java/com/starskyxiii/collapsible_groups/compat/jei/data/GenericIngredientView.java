@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.data;
 
+import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -20,5 +21,5 @@ public record GenericIngredientView(
 	Component displayName,
 	String resourceId,
 	Set<String> tagIds,
-	String searchKey
+	IngredientSearchDocument searchDocument
 ) {}

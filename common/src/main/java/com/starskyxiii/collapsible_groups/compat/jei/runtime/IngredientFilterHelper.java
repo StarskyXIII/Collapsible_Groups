@@ -17,6 +17,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Shared helpers for the IngredientFilter mixin across all loaders.
@@ -34,7 +35,7 @@ public final class IngredientFilterHelper {
 
 	/**
 	 * Scans {@code all} JEI ingredients and maps each item ingredient to its
-	 * {@link GroupDefinition} (first match, ignoring enabled state).
+	 * first enabled matching {@link GroupDefinition}.
 	 *
 	 * <p>Also updates {@link GroupRegistry#setResolvedItemsByGroup} so the
 	 * editor/manager can do O(1) group-member lookups.
@@ -86,7 +87,7 @@ public final class IngredientFilterHelper {
 		return optimizedResult.ingredientGroupIndex();
 	}
 
-	private static ItemOwnershipBuildResult buildReferenceItemOwnershipResult(
+	static ItemOwnershipBuildResult buildReferenceItemOwnershipResult(
 		List<IngredientFilterItemIndex.ItemEntry> orderedEntries,
 		List<GroupDefinition> allGroups
 	) {
@@ -99,22 +100,23 @@ public final class IngredientFilterHelper {
 			.toList();
 
 		for (IngredientFilterItemIndex.ItemEntry entry : orderedEntries) {
-			GroupDefinition firstMatch = null;
 			for (GroupDefinition group : itemGroups) {
 				if (!group.matchesIgnoringEnabled(entry.stack())) continue;
-				if (firstMatch == null) {
-					firstMatch = group;
-					ingredientGroupIndex.put(entry.typed(), group);
-					resolvedEntriesByGroup.get(group.id()).add(entry);
-				}
 				fullMatchEntriesByGroup.get(group.id()).add(entry);
 			}
 		}
 
+		assignFirstEnabledOwners(
+			allGroups,
+			fullMatchEntriesByGroup,
+			resolvedEntriesByGroup,
+			ingredientGroupIndex,
+			IngredientFilterItemIndex.ItemEntry::typed
+		);
 		return finalizeBuildResult(ingredientGroupIndex, fullMatchEntriesByGroup, resolvedEntriesByGroup);
 	}
 
-	private static ItemOwnershipBuildResult buildOptimizedItemOwnershipResult(
+	static ItemOwnershipBuildResult buildOptimizedItemOwnershipResult(
 		IngredientFilterItemIndex itemIndex,
 		List<GroupDefinition> allGroups
 	) {
@@ -147,20 +149,46 @@ public final class IngredientFilterHelper {
 
 		IdentityHashMap<ITypedIngredient<?>, GroupDefinition> ingredientGroupIndex =
 			new IdentityHashMap<>(Math.max(16, itemIndex.orderedEntries().size() * 2));
+		assignFirstEnabledOwners(
+			allGroups,
+			fullMatchEntriesByGroup,
+			resolvedEntriesByGroup,
+			ingredientGroupIndex,
+			IngredientFilterItemIndex.ItemEntry::typed
+		);
+
+		return finalizeBuildResult(ingredientGroupIndex, fullMatchEntriesByGroup, resolvedEntriesByGroup);
+	}
+
+	static <T> void assignFirstEnabledOwners(
+		List<GroupDefinition> allGroups,
+		Map<String, List<T>> fullMatchEntriesByGroup,
+		Map<String, List<T>> resolvedEntriesByGroup,
+		IdentityHashMap<ITypedIngredient<?>, GroupDefinition> ingredientGroupIndex,
+		Function<T, ITypedIngredient<?>> typedIngredientGetter
+	) {
 		IdentityHashMap<ITypedIngredient<?>, Boolean> owned =
-			new IdentityHashMap<>(Math.max(16, itemIndex.orderedEntries().size() * 2));
+			new IdentityHashMap<>(Math.max(16, fullMatchEntriesByGroup.size() * 2));
 
 		for (GroupDefinition group : allGroups) {
-			List<IngredientFilterItemIndex.ItemEntry> fullMatchEntries = fullMatchEntriesByGroup.get(group.id());
-			List<IngredientFilterItemIndex.ItemEntry> resolvedEntries = resolvedEntriesByGroup.get(group.id());
-			for (IngredientFilterItemIndex.ItemEntry entry : fullMatchEntries) {
-				if (owned.put(entry.typed(), Boolean.TRUE) != null) continue;
-				ingredientGroupIndex.put(entry.typed(), group);
+			if (!group.enabled()) {
+				continue;
+			}
+			List<T> fullMatchEntries = fullMatchEntriesByGroup.get(group.id());
+			if (fullMatchEntries == null || fullMatchEntries.isEmpty()) {
+				continue;
+			}
+			List<T> resolvedEntries = resolvedEntriesByGroup.get(group.id());
+			if (resolvedEntries == null) {
+				continue;
+			}
+			for (T entry : fullMatchEntries) {
+				ITypedIngredient<?> typed = typedIngredientGetter.apply(entry);
+				if (owned.put(typed, Boolean.TRUE) != null) continue;
+				ingredientGroupIndex.put(typed, group);
 				resolvedEntries.add(entry);
 			}
 		}
-
-		return finalizeBuildResult(ingredientGroupIndex, fullMatchEntriesByGroup, resolvedEntriesByGroup);
 	}
 
 	private static ItemOwnershipBuildResult finalizeBuildResult(

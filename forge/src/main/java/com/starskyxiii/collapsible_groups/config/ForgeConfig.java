@@ -8,6 +8,10 @@ import net.minecraftforge.common.ForgeConfigSpec;
  * {@code config/collapsiblegroups/collapsiblegroups.toml} via {@link ForgeConfigSpec}.
  */
 public final class ForgeConfig implements IConfigProvider {
+	private static final int COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT = 0x24FFFFFF;
+	private static final int EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT  = 0x24FFFFFF;
+	private static final int GROUP_NAME_COLOR_DEFAULT                 = 0x00FFAA00;
+	private static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
 
 	private static final String[] MACAWS_SERIES_MODS = {
 		"mcwwindows",
@@ -39,6 +43,21 @@ public final class ForgeConfig implements IConfigProvider {
 			&& isAnyMacawsSeriesLoaded();
 	}
 	@Override public boolean showManagerButton()                   { return SHOW_MANAGER_BUTTON.get(); }
+	@Override public boolean showGroupBackgrounds()                { return SHOW_GROUP_BACKGROUNDS.get(); }
+	@Override public boolean searchUngroupSmallGroups()            { return SEARCH_UNGROUP_SMALL_GROUPS.get(); }
+	@Override public int searchUngroupThreshold()                  { return SEARCH_UNGROUP_THRESHOLD.get(); }
+	@Override public int collapsedGroupBackgroundColor() {
+		return ColorConfigParser.parseArgb(COLLAPSED_GROUP_BACKGROUND_COLOR.get(), COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
+	@Override public int expandedGroupBackgroundColor() {
+		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BACKGROUND_COLOR.get(), EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT);
+	}
+	@Override public int groupNameColor() {
+		return ColorConfigParser.parseRgb(GROUP_NAME_COLOR.get(), GROUP_NAME_COLOR_DEFAULT);
+	}
+	@Override public int expandedGroupBorderColor() {
+		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BORDER_COLOR.get(), EXPANDED_GROUP_BORDER_COLOR_DEFAULT);
+	}
 	@Override public boolean debugTimingEnabled()                  { return DEBUG_TIMING_LOGS.get(); }
 	@Override public boolean debugStartupIndexVerificationEnabled() { return DEBUG_STARTUP_INDEX_VERIFY.get(); }
 	@Override public boolean debugEditorIndexVerificationEnabled() { return DEBUG_EDITOR_INDEX_VERIFY.get(); }
@@ -75,6 +94,27 @@ public final class ForgeConfig implements IConfigProvider {
 
 	/** Whether to show the group manager button in the JEI overlay. */
 	public static final ForgeConfigSpec.BooleanValue SHOW_MANAGER_BUTTON;
+
+	/** Whether grouped slots draw a semi-transparent background tint. */
+	public static final ForgeConfigSpec.BooleanValue SHOW_GROUP_BACKGROUNDS;
+
+	/** Whether small matching groups are shown as regular entries while filtering JEI search results. */
+	public static final ForgeConfigSpec.BooleanValue SEARCH_UNGROUP_SMALL_GROUPS;
+
+	/** Filtered group child count must be lower than this value before search leaves it ungrouped. */
+	public static final ForgeConfigSpec.IntValue SEARCH_UNGROUP_THRESHOLD;
+
+	/** ARGB background color for collapsed group headers. */
+	public static final ForgeConfigSpec.ConfigValue<String> COLLAPSED_GROUP_BACKGROUND_COLOR;
+
+	/** ARGB background color for expanded group headers and children. */
+	public static final ForgeConfigSpec.ConfigValue<String> EXPANDED_GROUP_BACKGROUND_COLOR;
+
+	/** RGB color for group display names. */
+	public static final ForgeConfigSpec.ConfigValue<String> GROUP_NAME_COLOR;
+
+	/** ARGB color for the connected border around expanded groups. */
+	public static final ForgeConfigSpec.ConfigValue<String> EXPANDED_GROUP_BORDER_COLOR;
 
 	// debug
 
@@ -137,6 +177,48 @@ public final class ForgeConfig implements IConfigProvider {
 		SHOW_MANAGER_BUTTON = builder
 			.comment("Whether to show the group manager button in the JEI ingredient list overlay.")
 			.define("showManagerButton", true);
+		SHOW_GROUP_BACKGROUNDS = builder
+			.comment(
+				"Whether grouped JEI slots draw a semi-transparent background tint.",
+				"Set to false to keep group backgrounds fully transparent while preserving the +/- indicator and borders."
+			)
+			.define("showGroupBackgrounds", true);
+		SEARCH_UNGROUP_SMALL_GROUPS = builder
+			.comment(
+				"Whether small matching groups should be shown as regular entries while filtering JEI search results.",
+				"This avoids showing a group header when only a few children match the search."
+			)
+			.define("searchUngroupSmallGroups", true);
+		SEARCH_UNGROUP_THRESHOLD = builder
+			.comment(
+				"Filtered group child count must be lower than this value before search leaves it ungrouped.",
+				"For example, 5 leaves groups with 2-4 matching entries ungrouped; 0 disables this behavior."
+			)
+			.defineInRange("searchUngroupThreshold", 5, 0, Integer.MAX_VALUE);
+		COLLAPSED_GROUP_BACKGROUND_COLOR = builder
+			.comment(
+				"ARGB background color for collapsed group headers.",
+				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
+			)
+			.define("collapsedGroupBackgroundColor", "#24FFFFFF");
+		EXPANDED_GROUP_BACKGROUND_COLOR = builder
+			.comment(
+				"ARGB background color for expanded group headers and children.",
+				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
+			)
+			.define("expandedGroupBackgroundColor", "#24FFFFFF");
+		GROUP_NAME_COLOR = builder
+			.comment(
+				"RGB color for group display names. Alpha is ignored if an ARGB value is provided.",
+				"Accepted formats: #RRGGBB, 0xRRGGBB, RRGGBB, or ARGB variants with ignored alpha."
+			)
+			.define("groupNameColor", "#FFAA00");
+		EXPANDED_GROUP_BORDER_COLOR = builder
+			.comment(
+				"ARGB color for the connected border around expanded groups.",
+				"Accepted formats: #AARRGGBB, 0xAARRGGBB, AARRGGBB, or RGB variants that keep the default alpha."
+			)
+			.define("expandedGroupBorderColor", "#66FFFFFF");
 		builder.pop(); // ui
 
 		// [debug]

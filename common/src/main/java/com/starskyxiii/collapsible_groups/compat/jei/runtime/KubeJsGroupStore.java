@@ -2,7 +2,9 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 /**
  * Holds all ephemeral KubeJS group data for the current JEI session.
@@ -20,6 +22,25 @@ final class KubeJsGroupStore {
 
 	static void setGroups(List<GroupDefinition> incoming) {
 		groups = List.copyOf(incoming);
+	}
+
+	static boolean updateGroup(String id, UnaryOperator<GroupDefinition> updater) {
+		if (id == null || id.isBlank()) return false;
+		List<GroupDefinition> snapshot = groups;
+		List<GroupDefinition> updated = new ArrayList<>(snapshot.size());
+		boolean changed = false;
+		for (GroupDefinition group : snapshot) {
+			if (id.equals(group.id())) {
+				GroupDefinition next = updater.apply(group);
+				updated.add(next);
+				changed = true;
+			} else {
+				updated.add(group);
+			}
+		}
+		if (!changed) return false;
+		groups = List.copyOf(updated);
+		return true;
 	}
 
 	static List<GroupDefinition> getGroups() {

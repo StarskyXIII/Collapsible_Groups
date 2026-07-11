@@ -6,6 +6,8 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
+import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -19,7 +21,6 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -46,10 +47,12 @@ final class EditorGenericIngredientHelper {
 			Set<String> tagIds = helper.getTagStream(ref.ingredient())
 				.map(Object::toString)
 				.collect(Collectors.toCollection(LinkedHashSet::new));
-			String searchKey = (displayName.getString() + "|" + resourceId + "|" + ref.typeId())
-				.toLowerCase(Locale.ROOT);
+			String namespace = resourceLocation != null ? resourceLocation.getNamespace()
+				: resourceId.contains(":") ? resourceId.substring(0, resourceId.indexOf(':')) : resourceId;
+			IngredientSearchDocument searchDocument = IngredientSearchDocument.of(
+				List.of(displayName.getString(), resourceId, ref.typeId()), List.of(namespace), tagIds);
 			result.add(new GenericIngredientView(ref.typeId(), type, ref.ingredient(), helper, renderer,
-				displayName, resourceId, Set.copyOf(tagIds), searchKey));
+				displayName, resourceId, Set.copyOf(tagIds), searchDocument));
 		}
 		List<GenericIngredientView> copy = List.copyOf(result);
 		if (traceName != null && !traceName.isBlank()) {
@@ -63,11 +66,11 @@ final class EditorGenericIngredientHelper {
 		List<GenericIngredientView> entries,
 		Map<GenericIngredientView, List<String>> ownership,
 		boolean hideUsed,
-		String normalizedQuery
+		IngredientSearchQuery query
 	) {
 		return entries.stream().filter(entry -> {
 			if (hideUsed && !ownership.getOrDefault(entry, List.of()).isEmpty()) return false;
-			return normalizedQuery.isBlank() || entry.searchKey().contains(normalizedQuery);
+			return query.matches(entry.searchDocument());
 		}).toList();
 	}
 
@@ -102,13 +105,14 @@ final class EditorGenericIngredientHelper {
 		return entry.typeId() + "|" + entry.resourceId();
 	}
 
+	// Winner semantics: groups are priority-ordered, so the first match is the JEI
+	// winner; the returned single-element list names it for the overlap tab/tooltip.
 	private static List<String> matchingGroupNames(List<GroupDefinition> groups, GenericIngredientView entry) {
-		Set<String> names = new LinkedHashSet<>();
 		for (GroupDefinition group : groups) {
 			if (GroupMatcher.matchesGeneric(group, entry.typeId(), entry.ingredient(), entry.helper())) {
-				names.add(EditorGroupOwnershipHelper.displayName(group));
+				return List.of(EditorGroupOwnershipHelper.displayName(group));
 			}
 		}
-		return List.copyOf(names);
+		return List.of();
 	}
 }

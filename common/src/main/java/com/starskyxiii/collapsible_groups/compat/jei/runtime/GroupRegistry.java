@@ -1,10 +1,13 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
+import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
+import com.starskyxiii.collapsible_groups.compat.jei.oreui.GroupSource;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider;
 import com.starskyxiii.collapsible_groups.persistence.GroupConfig;
 import com.starskyxiii.collapsible_groups.persistence.GroupExpandState;
@@ -18,7 +21,7 @@ import net.minecraft.world.item.ItemStack;
 
 import java.text.Normalizer;
 import java.util.ArrayList;
-import java.util.Collections;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -53,11 +56,12 @@ public final class GroupRegistry {
 	public record FullMatchLookup<T>(List<T> values, boolean cacheHit, String fallbackReason) {}
 
 	/**
-	 * Copy-on-write group list. Always an unmodifiable snapshot.
+	 * Copy-on-write group list in raw registration order. Always an unmodifiable snapshot.
 	 * Writers must replace the entire reference; never mutate in place.
 	 * Volatile guarantees visibility across threads.
 	 */
 	private static volatile List<GroupDefinition> groups = List.of();
+	private static volatile List<GroupDefinition> orderedGroups = List.of();
 	private static volatile Map<String, GroupDefinition> groupsById = Map.of();
 
 	/** Set by MixinIngredientFilter. Triggers a full JEI rebuild, including the ingredient-to-group ownership index. */
@@ -105,6 +109,7 @@ public final class GroupRegistry {
 	 * @param providers built-in default group providers; pass an empty list for none
 	 */
 	public static void load(List<DefaultGroupProvider> providers) {
+		Map<String, Boolean> enabledOverrides = GroupConfig.loadEnabledOverrides();
 		// 1. Collect provider defaults (insertion order preserved)
 		Map<String, GroupDefinition> merged = new LinkedHashMap<>();
 		for (DefaultGroupProvider provider : providers) {
@@ -118,8 +123,7 @@ public final class GroupRegistry {
 			if (!g.id().startsWith("__default_")) merged.put(g.id(), g);
 		}
 
-		groups = List.copyOf(merged.values());
-		groupsById = buildGroupsById(groups);
+		publishGroups(applyEnabledOverridesToManagedSources(List.copyOf(merged.values()), enabledOverrides));
 		GroupExpandState.load(GroupConfig.loadExpandState());
 
 		long itemGroups  = groups.stream().filter(GroupDefinition::hasItemFilters).count();
@@ -138,7 +142,7 @@ public final class GroupRegistry {
 
 	/** Returns all JSON-persisted groups. */
 	public static List<GroupDefinition> getAll() {
-		return groups;
+		return orderedGroups;
 	}
 
 	/** Finds a group by ID, checking persisted/provider groups before ephemeral KubeJS groups. */
@@ -159,32 +163,33 @@ public final class GroupRegistry {
 	public static List<GroupDefinition> getAllIncludingKubeJs() {
 		List<GroupDefinition> kjs = KubeJsGroupStore.getGroups();
 		List<GroupDefinition> snapshot = groups;
-		if (kjs.isEmpty()) return snapshot;
-		List<GroupDefinition> combined = new ArrayList<>(snapshot);
+		if (kjs.isEmpty()) return orderedGroups;
+		List<GroupDefinition> combined = new ArrayList<>(snapshot.size() + kjs.size());
+		combined.addAll(snapshot);
 		combined.addAll(kjs);
-		return Collections.unmodifiableList(combined);
+		return orderByPriority(combined);
 	}
 
 	/**
 	 * Finds the first group (JSON-persisted or KubeJS ephemeral) that matches the given item.
-	 * JSON groups are checked before KubeJS groups.
+	 * Higher priority groups are checked first; ties preserve registration order.
 	 */
 	public static Optional<GroupDefinition> findGroup(ItemStack stack) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)                    if (group.matches(stack)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups()) if (group.matches(stack)) return Optional.of(group);
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
+			if (group.matches(stack)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
 	/**
 	 * Finds the first group (JSON-persisted or KubeJS ephemeral) that matches the given fluid.
 	 * The fluid is a loader-specific type (e.g. NeoForge {@code FluidStack}) passed as {@code Object}.
-	 * JSON groups are checked before KubeJS groups.
+	 * Higher priority groups are checked first; ties preserve registration order.
 	 */
 	public static Optional<GroupDefinition> findFluidGroup(Object stack) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)                    if (GroupMatcher.matchesFluid(group, stack)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups()) if (GroupMatcher.matchesFluid(group, stack)) return Optional.of(group);
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
+			if (GroupMatcher.matchesFluid(group, stack)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
@@ -196,38 +201,34 @@ public final class GroupRegistry {
 	public static <T> Optional<GroupDefinition> findGenericGroup(
 		String typeId, T ingredient, IIngredientHelper<T> helper
 	) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
 			if (GroupMatcher.matchesGeneric(group, typeId, ingredient, helper)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups())
-			if (GroupMatcher.matchesGeneric(group, typeId, ingredient, helper)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
-	// --- Enable-agnostic finders (for Level-1 index that includes disabled groups) ---
+	// --- Enable-agnostic finders (for full-match previews and editor diagnostics) ---
 
 	public static Optional<GroupDefinition> findGroupIgnoringEnabled(ItemStack stack) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)                    if (group.matchesIgnoringEnabled(stack)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups()) if (group.matchesIgnoringEnabled(stack)) return Optional.of(group);
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
+			if (group.matchesIgnoringEnabled(stack)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
 	public static Optional<GroupDefinition> findFluidGroupIgnoringEnabled(Object stack) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)                    if (GroupMatcher.matchesFluidIgnoringEnabled(group, stack)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups()) if (GroupMatcher.matchesFluidIgnoringEnabled(group, stack)) return Optional.of(group);
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
+			if (GroupMatcher.matchesFluidIgnoringEnabled(group, stack)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
 	public static <T> Optional<GroupDefinition> findGenericGroupIgnoringEnabled(
 		String typeId, T ingredient, IIngredientHelper<T> helper
 	) {
-		List<GroupDefinition> snapshot = groups;
-		for (GroupDefinition group : snapshot)
+		for (GroupDefinition group : getAllIncludingKubeJs()) {
 			if (GroupMatcher.matchesGenericIgnoringEnabled(group, typeId, ingredient, helper)) return Optional.of(group);
-		for (GroupDefinition group : KubeJsGroupStore.getGroups())
-			if (GroupMatcher.matchesGenericIgnoringEnabled(group, typeId, ingredient, helper)) return Optional.of(group);
+		}
 		return Optional.empty();
 	}
 
@@ -280,7 +281,8 @@ public final class GroupRegistry {
 	/**
 	 * Returns the pre-resolved item list for a group ID from the fast cache, or
 	 * {@code null} if the cache is not yet populated.
-	 * The cache includes both enabled and disabled groups (enable-agnostic index).
+	 * The cache has keys for all groups, but only enabled groups receive
+	 * first-match members. Disabled groups still appear in full-match previews.
 	 * <p>Use this in the manager screen's {@code rebuildCards()} for O(1) access.
 	 * Never use this in the editor ??the editor needs live resolution so that
 	 * in-progress edits are reflected immediately.
@@ -433,6 +435,45 @@ public final class GroupRegistry {
 		return getOrCreateEditorItemIndex().resolveDraft(draft);
 	}
 
+	/**
+	 * item preview for a <em>hybrid</em> draft (flat contents leaves + preserved advanced
+	 * subtrees). The flat part is resolved from the item index; the preserved part is full-scanned
+	 * once and memoised in the index's single-slot cache. The two are unioned (identity-dedup,
+	 * ordinal order) so the result is item-for-item, order-for-order identical to the previous
+	 * {@code resolveItems(buildPreviewDefinition())} full scan — the hot-path fix for hybrids
+	 * that re-scanned every {@code onGroupChanged} tick.
+	 *
+	 * <p>Returns empty for a disabled group, mirroring {@code GroupDefinition.matches}
+	 * ({@code enabled && …}) so the union stays equivalent to the full scan in that case too.
+	 */
+	public static List<ItemStack> resolveHybridEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled) {
+		if (!enabled) return List.of();
+		populateJeiCachesIfEmpty();
+		return getOrCreateEditorItemIndex().resolveHybridDraft(draft, GroupRegistry::resolveItemsForPreserved);
+	}
+
+	/**
+	 * full-scan the JEI item cache for the union ({@code Any(...)}) of a hybrid draft's
+	 * preserved advanced subtrees, wrapped as a throwaway preview definition so the existing
+	 * {@link #resolveItems} machinery is reused verbatim. Called only on a preserved-fingerprint
+	 * cache miss (rule edit / first entry).
+	 */
+	public static List<ItemStack> resolveItemsForPreserved(List<GroupFilter> preserved) {
+		if (preserved.isEmpty()) return List.of();
+		GroupFilter combined = preserved.size() == 1
+			? preserved.get(0)
+			: Filters.any(preserved.toArray(GroupFilter[]::new));
+		try {
+			return resolveItems(new GroupDefinition("__cg_preserved_preview__", "", true, combined));
+		} catch (IllegalArgumentException e) {
+			// A mid-edit rules draft can contain a not-yet-valid node (e.g. a pending
+			// HAS_COMPONENT with empty fields). An invalid preserved tree matches nothing
+			// until it validates; the fingerprint changes again once the node is completed,
+			// so the cached empty result cannot go stale.
+			return List.of();
+		}
+	}
+
 	// -----------------------------------------------------------------------
 	// Resolved-items cache  (pre-built by MixinIngredientFilter)
 	// -----------------------------------------------------------------------
@@ -511,7 +552,7 @@ public final class GroupRegistry {
 	// -----------------------------------------------------------------------
 
 	public static void setKubeJsGroups(List<GroupDefinition> incoming) {
-		KubeJsGroupStore.setGroups(incoming);
+		KubeJsGroupStore.setGroups(applyEnabledOverridesToManagedSources(incoming, GroupConfig.loadEnabledOverrides()));
 		clearManagerPreviewCaches();
 	}
 	public static boolean isKubeJsGroupsEmpty()                        { return KubeJsGroupStore.isGroupsEmpty(); }
@@ -565,6 +606,61 @@ public final class GroupRegistry {
 		GroupConfig.save(group);
 	}
 
+	public static Optional<GroupDefinition> copyAsCustomQuietly(String sourceId, String copiedDisplayName) {
+		Optional<GroupDefinition> copied = createCustomCopyDraft(sourceId, copiedDisplayName);
+		copied.ifPresent(GroupRegistry::saveQuietly);
+		return copied;
+	}
+
+	public static Optional<GroupDefinition> createCustomCopyDraft(String sourceId, String copiedDisplayName) {
+		if (sourceId == null || sourceId.isBlank()) return Optional.empty();
+		Optional<GroupDefinition> source = findById(sourceId);
+		if (source.isEmpty()) return Optional.empty();
+		return createCustomCopy(
+			source.get(),
+			copiedDisplayName,
+			getAllIncludingKubeJs().stream().map(GroupDefinition::id).toList()
+		);
+	}
+
+	/**
+	 * Updates enabled state without triggering JEI invalidation.
+	 *
+	 * <p>User groups are persisted through their normal group JSON. Built-in and
+	 * KubeJS groups are persisted through the enabled override store so provider
+	 * definitions and ephemeral KubeJS definitions are never written as group JSON.
+	 *
+	 * @return {@code false} only when the id is blank or no current group exists.
+	 */
+	public static boolean setEnabledQuietly(String id, boolean enabled) {
+		if (id == null || id.isBlank()) return false;
+
+		GroupDefinition existing = groupsById.get(id);
+		if (existing != null) {
+			if (existing.enabled() == enabled) return true;
+			if (isEnabledOverrideManagedSource(id)) {
+				replaceGroups(snapshot -> replaceEnabled(snapshot, id, enabled));
+				saveEnabledOverride(id, enabled);
+			} else {
+				saveQuietly(existing.withEnabled(enabled));
+			}
+			return true;
+		}
+
+		for (GroupDefinition group : KubeJsGroupStore.getGroups()) {
+			if (!id.equals(group.id())) continue;
+			if (group.enabled() == enabled) return true;
+			boolean updated = KubeJsGroupStore.updateGroup(id, current -> current.withEnabled(enabled));
+			if (updated) {
+				invalidateFirstMatchCache(id);
+				saveEnabledOverride(id, enabled);
+			}
+			return updated;
+		}
+
+		return false;
+	}
+
 	/** Removes a group by ID, deletes its file, and refreshes JEI. */
 	public static void delete(String id) {
 		deleteQuietly(id);
@@ -607,6 +703,44 @@ public final class GroupRegistry {
 		return baseId + "_" + System.currentTimeMillis();
 	}
 
+	/** Generates a unique group ID that avoids both persisted/provider groups and ephemeral KubeJS groups. */
+	public static String generateUniqueIdIncludingKubeJs(String base) {
+		String id = sanitizeGeneratedIdBase(base);
+		if (id.isEmpty()) {
+			id = fallbackGeneratedIdBase(base);
+		}
+		List<String> existingIds = getAllIncludingKubeJs().stream().map(GroupDefinition::id).toList();
+		final String baseId = id;
+		if (existingIds.stream().noneMatch(existingId -> existingId.equals(baseId))) return baseId;
+		for (int i = 2; i < 1000; i++) {
+			String candidate = baseId + "_" + i;
+			if (existingIds.stream().noneMatch(existingId -> existingId.equals(candidate))) return candidate;
+		}
+		return baseId + "_" + System.currentTimeMillis();
+	}
+
+	static Optional<GroupDefinition> createCustomCopy(
+		GroupDefinition source,
+		String copiedDisplayName,
+		List<String> existingGroupIds
+	) {
+		if (source == null || GroupSource.fromGroupId(source.id()) == GroupSource.USER) {
+			return Optional.empty();
+		}
+		String fallbackName = normalizedCopyName(copiedDisplayName, source);
+		String id = generateUniqueCustomCopyId(copyBaseId(source.id(), fallbackName), existingGroupIds);
+		return Optional.of(new GroupDefinition(
+			id,
+			fallbackName,
+			source.enabled(),
+			source.filter(),
+			source.iconIds(),
+			source.theme(),
+			source.priority(),
+			source.extra()
+		));
+	}
+
 	/**
 	 * Normalizes a user-facing group name into a filesystem-safe ASCII ID base.
 	 * Repeated separators are collapsed and leading/trailing underscores are trimmed.
@@ -623,6 +757,50 @@ public final class GroupRegistry {
 			.replaceAll("^_+|_+$", "");
 
 		return normalized;
+	}
+
+	private static String normalizedCopyName(String copiedDisplayName, GroupDefinition source) {
+		if (copiedDisplayName != null && !copiedDisplayName.isBlank()) {
+			return copiedDisplayName.trim();
+		}
+		String fallback = source.displayName().fallback();
+		return fallback == null || fallback.isBlank() ? source.id() : fallback;
+	}
+
+	private static String copyBaseId(String sourceId, String copiedDisplayName) {
+		String stripped = stripReservedSourcePrefix(sourceId);
+		if (!stripped.isBlank()) {
+			return stripped + "_copy";
+		}
+		return copiedDisplayName + "_copy";
+	}
+
+	private static String stripReservedSourcePrefix(String id) {
+		if (id == null) return "";
+		if (id.startsWith("__default_")) return id.substring("__default_".length());
+		if (id.startsWith("__kjs_")) return id.substring("__kjs_".length());
+		return id;
+	}
+
+	private static String generateUniqueCustomCopyId(String base, List<String> existingGroupIds) {
+		String id = sanitizeGeneratedIdBase(base);
+		if (id.isEmpty()) {
+			id = fallbackGeneratedIdBase(base);
+		}
+		if (id.startsWith("__default_") || id.startsWith("__kjs_")) {
+			id = sanitizeGeneratedIdBase(stripReservedSourcePrefix(id));
+			if (id.isEmpty()) {
+				id = "group";
+			}
+		}
+		List<String> existing = existingGroupIds == null ? List.of() : List.copyOf(existingGroupIds);
+		final String baseId = id;
+		if (existing.stream().noneMatch(existingId -> existingId.equals(baseId))) return baseId;
+		for (int i = 2; i < 1000; i++) {
+			String candidate = baseId + "_" + i;
+			if (existing.stream().noneMatch(existingId -> existingId.equals(candidate))) return candidate;
+		}
+		return baseId + "_" + System.currentTimeMillis();
 	}
 
 	private static String fallbackGeneratedIdBase(String base) {
@@ -680,7 +858,10 @@ public final class GroupRegistry {
 		GroupDefinition previewDefinition = managerPreviewDefinition(saved);
 		List<ItemStack> items;
 		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(saved.filter());
-		if (decoded.structurallyEditable()) {
+		// Gate the flat-index fast path on the flat-index-safe predicate,
+		// not on editability. A hybrid draft with preserved advanced subtrees is editable but
+		// its item membership cannot be resolved from the flat index alone — resolve fully.
+		if (decoded.flatIndexSafe()) {
 			populateJeiCachesIfEmpty();
 			items = getOrCreateEditorItemIndex().resolveDraft(decoded.draft());
 		} else {
@@ -733,9 +914,61 @@ public final class GroupRegistry {
 	private static void replaceGroups(UnaryOperator<List<GroupDefinition>> updater) {
 		synchronized (GroupRegistry.class) {
 			List<GroupDefinition> updated = updater.apply(groups);
-			groups = updated;
-			groupsById = buildGroupsById(updated);
+			publishGroups(updated);
 		}
+	}
+
+	private static void publishGroups(List<GroupDefinition> registrationOrder) {
+		groups = registrationOrder == null ? List.of() : List.copyOf(registrationOrder);
+		orderedGroups = orderByPriority(groups);
+		groupsById = buildGroupsById(groups);
+	}
+
+	static List<GroupDefinition> orderByPriority(List<GroupDefinition> source) {
+		if (source == null || source.isEmpty()) return List.of();
+		return source.stream()
+			.sorted(Comparator.comparingInt(GroupDefinition::priority).reversed())
+			.toList();
+	}
+
+	static List<GroupDefinition> applyEnabledOverridesToManagedSources(
+		List<GroupDefinition> source,
+		Map<String, Boolean> overrides
+	) {
+		if (source == null || source.isEmpty() || overrides == null || overrides.isEmpty()) {
+			return source == null ? List.of() : List.copyOf(source);
+		}
+		List<GroupDefinition> updated = new ArrayList<>(source.size());
+		boolean changed = false;
+		for (GroupDefinition group : source) {
+			Boolean override = isEnabledOverrideManagedSource(group.id()) ? overrides.get(group.id()) : null;
+			if (override != null && group.enabled() != override) {
+				updated.add(group.withEnabled(override));
+				changed = true;
+			} else {
+				updated.add(group);
+			}
+		}
+		return changed ? List.copyOf(updated) : List.copyOf(source);
+	}
+
+	private static boolean isEnabledOverrideManagedSource(String id) {
+		return id != null && (id.startsWith("__default_") || id.startsWith("__kjs_"));
+	}
+
+	private static List<GroupDefinition> replaceEnabled(List<GroupDefinition> snapshot, String id, boolean enabled) {
+		List<GroupDefinition> copy = new ArrayList<>(snapshot.size());
+		for (GroupDefinition group : snapshot) {
+			copy.add(id.equals(group.id()) ? group.withEnabled(enabled) : group);
+		}
+		invalidateFirstMatchCache(id);
+		return List.copyOf(copy);
+	}
+
+	private static void saveEnabledOverride(String id, boolean enabled) {
+		Map<String, Boolean> overrides = new LinkedHashMap<>(GroupConfig.loadEnabledOverrides());
+		overrides.put(id, enabled);
+		GroupConfig.saveEnabledOverrides(overrides);
 	}
 
 	private static Map<String, GroupDefinition> buildGroupsById(List<GroupDefinition> source) {

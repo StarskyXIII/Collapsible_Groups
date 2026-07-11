@@ -31,24 +31,46 @@ final class EditorItemSelectionHelper {
 		return cachedExactSelector(stack).map(explicitSet::contains).orElse(false);
 	}
 
+	/**
+	 * the selector stored for a plain single-click. Component-less items store the cheap,
+	 * broad whole-item id (so common vanilla items never bloat into exact-stack rules); items that
+	 * carry a component patch keep the exact-stack selector. Plain-clicking therefore toggles the
+	 * whole-item selection on/off for component-less items (a second click removes, it no longer
+	 * switches to an exact variant), while items with components keep their prior exact behavior.
+	 */
+	private String preferredSelector(ItemStack stack) {
+		return stack.getComponentsPatch().isEmpty()
+			? GroupItemSelector.wholeItemSelector(stack)
+			: GroupItemSelector.exactSelector(stack);
+	}
+
 	void toggleSingleSelection(ItemStack stack) {
-		String exactSelector = GroupItemSelector.exactSelector(stack);
-		if (explicitSet.remove(exactSelector)) {
+		String preferredSelector = preferredSelector(stack);
+		if (explicitSet.remove(preferredSelector)) {
 			onContentsDraftChanged.run();
 			return;
 		}
-		explicitSet.remove(GroupItemSelector.wholeItemSelector(stack));
-		explicitSet.add(exactSelector);
+		if (GroupItemSelector.isExactSelector(preferredSelector)) {
+			explicitSet.remove(GroupItemSelector.wholeItemSelector(stack));
+		} else {
+			removeExactSelectionsForItem(stack);
+		}
+		explicitSet.add(preferredSelector);
 		onContentsDraftChanged.run();
 	}
 
 	boolean addSingleSelectionIfAbsent(ItemStack stack) {
-		String exactSelector = GroupItemSelector.exactSelector(stack);
-		if (explicitSet.contains(exactSelector)) {
+		String preferredSelector = preferredSelector(stack);
+		if (explicitSet.contains(preferredSelector)) {
 			return false;
 		}
-		boolean changed = explicitSet.remove(GroupItemSelector.wholeItemSelector(stack));
-		changed |= explicitSet.add(exactSelector);
+		boolean changed;
+		if (GroupItemSelector.isExactSelector(preferredSelector)) {
+			changed = explicitSet.remove(GroupItemSelector.wholeItemSelector(stack));
+		} else {
+			changed = removeExactSelectionsForItem(stack);
+		}
+		changed |= explicitSet.add(preferredSelector);
 		if (changed) {
 			onContentsDraftChanged.run();
 		}
@@ -87,12 +109,12 @@ final class EditorItemSelectionHelper {
 		onContentsDraftChanged.run();
 	}
 
-	private void removeExactSelectionsForItem(ItemStack stack) {
+	private boolean removeExactSelectionsForItem(ItemStack stack) {
 		Set<String> selectors = explicitSet.stream()
 			.filter(GroupItemSelector::isExactSelector)
 			.filter(selector -> GroupItemSelector.isSelectorForSameItem(selector, stack))
 			.collect(Collectors.toSet());
-		explicitSet.removeAll(selectors);
+		return explicitSet.removeAll(selectors);
 	}
 
 	private void addAllSiblingVariantsExcept(ItemStack excludedStack, List<ItemStack> allItems) {

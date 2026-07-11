@@ -9,27 +9,35 @@ import static org.junit.jupiter.api.Assertions.*;
 class BlockTagEditorDraftTest {
 
 	@Test
-	void blockTagMarksGroupAsNotStructurallyEditable() {
+	void blockTagRootIsPreservedAndEditable() {
+		// a non-Any, non-supported-leaf root is preserved whole and stays editable
+		// (auto-wrap on first edit). It is not flat-index safe.
 		GroupFilter filter = new GroupFilter.BlockTag("minecraft:logs");
 
 		GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
 
-		assertFalse(result.structurallyEditable());
+		assertTrue(result.structurallyEditable());
+		assertFalse(result.flatIndexSafe());
+		assertTrue(result.draft().isEmpty());
+		assertEquals(List.of(filter), result.preservedSubtrees());
 		assertTrue(result.hasUnsupportedNodeKinds());
 		assertTrue(result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.BLOCK_TAG));
 	}
 
 	@Test
-	void anyContainingSupportedItemTagAndBlockTagFallsBackToEmptyUnsupportedDraft() {
-		GroupFilter filter = new GroupFilter.Any(List.of(
-			new GroupFilter.Tag("item", "minecraft:logs"),
-			new GroupFilter.BlockTag("minecraft:mineable/axe")
-		));
+	void anyContainingSupportedItemTagAndBlockTagIsHybridEditable() {
+		// root Any splits into flat item tag (contents) + preserved block tag.
+		GroupFilter.Tag itemTag = new GroupFilter.Tag("item", "minecraft:logs");
+		GroupFilter.BlockTag blockTag = new GroupFilter.BlockTag("minecraft:mineable/axe");
+		GroupFilter filter = new GroupFilter.Any(List.of(itemTag, blockTag));
 
 		GroupFilterEditorDraft.DecodeResult result = GroupFilterEditorDraft.decode(filter);
 
-		assertFalse(result.structurallyEditable());
-		assertTrue(result.draft().isEmpty());
+		assertTrue(result.structurallyEditable());
+		assertFalse(result.flatIndexSafe());
+		assertFalse(result.draft().isEmpty());
+		assertEquals(List.of("minecraft:logs"), result.draft().itemTags());
+		assertEquals(List.of(blockTag), result.preservedSubtrees());
 		assertTrue(result.hasUnsupportedNodeKinds());
 		assertTrue(result.unsupportedNodeKinds().contains(GroupFilterEditorDraft.UnsupportedEditorNodeKind.BLOCK_TAG));
 	}

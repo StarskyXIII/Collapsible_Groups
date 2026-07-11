@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.manager;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.EnabledPersistenceKind;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.GroupSource;
+import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.core.Filters;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -15,6 +16,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotSame;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -115,5 +117,44 @@ class GroupManagerCardTest {
 		assertEquals("New Name", updated.viewModel().groupName());
 		assertFalse(updated.viewModel().enabled());
 		assertEquals(1, updated.viewModel().preview().genericCount());
+	}
+
+	// header source resolution. The item-resolution branch
+	// (valid icon ids) needs a bootstrapped item registry and is only exercisable
+	// in-game; these cover the registry-free fallback branches.
+
+	@Test
+	void headerSourceFallsBackToPreviewEntriesWhenNoIconIds() {
+		GroupDefinition group = new GroupDefinition(
+			"custom_group", "Custom Group", true, Filters.itemId("minecraft:stone"));
+		GroupPreviewEntry a = GroupPreviewEntry.ofFluid(new Object());
+		GroupPreviewEntry b = GroupPreviewEntry.ofFluid(new Object());
+		GroupManagerCard card = GroupManagerCard.create(
+			group, List.of(), List.of(), List.of(), List.of(a, b));
+
+		List<GroupPreviewEntry> header = card.headerSource();
+		assertEquals(2, header.size());
+		assertSame(a, header.get(0));
+		assertSame(b, header.get(1));
+	}
+
+	// Note: the "icon ids present but unresolvable → fallback" branch reaches
+	// ItemStack.EMPTY, which cannot statically initialize without a bootstrapped
+	// game; that branch is left to in-game QA.
+
+	@Test
+	void headerSourceTruncatesFallbackToFirstTwoPreviewEntries() {
+		GroupDefinition group = new GroupDefinition(
+			"custom_group", "Custom Group", true, Filters.itemId("minecraft:stone"));
+		GroupPreviewEntry a = GroupPreviewEntry.ofFluid(new Object());
+		GroupPreviewEntry b = GroupPreviewEntry.ofFluid(new Object());
+		GroupPreviewEntry c = GroupPreviewEntry.ofFluid(new Object());
+		GroupManagerCard card = GroupManagerCard.create(
+			group, List.of(), List.of(), List.of(), List.of(a, b, c));
+
+		List<GroupPreviewEntry> header = card.headerSource();
+		assertEquals(2, header.size());
+		assertSame(a, header.get(0));
+		assertSame(b, header.get(1));
 	}
 }

@@ -2,13 +2,11 @@ package com.starskyxiii.collapsible_groups.core;
 
 import com.starskyxiii.collapsible_groups.Constants;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.mojang.serialization.JsonOps;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.RegistryAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.Identifier;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
 
@@ -61,20 +59,49 @@ public final class GroupItemSelector {
 
 	public static Optional<String> tryExactSelector(ItemStack stack) {
 		ItemStack normalized = normalizedCopy(stack);
-		return ItemStack.CODEC
+		return ItemStack.STRICT_SINGLE_ITEM_CODEC
 			.encodeStart(serializationContext(), normalized)
 			.resultOrPartial(error -> Constants.LOG.warn("Failed to encode exact group selector for {}: {}", normalized, error))
 			.map(encoded -> STACK_PREFIX + encoded);
 	}
 
 	public static Optional<ItemStack> decodeExactSelector(String selector) {
+		return decodeExactSelector(selector, exactDecodeContext());
+	}
+
+	/**
+	 * a single registry-resolution snapshot for a batch of exact-selector decodes.
+	 * {@link #liveRegistry()} reports whether this snapshot resolved a live client registry
+	 * (world/connection/player) or fell back to the built-in registries. Callers that cache decode
+	 * results must base their "was the registry ready?" decision on the snapshot that actually
+	 * performed the decodes — not on a separate, later observation of {@code Minecraft} state —
+	 * otherwise the game state can change between decode and decision (TOCTOU) and an all-failed
+	 * fallback decode could be cached permanently.
+	 */
+	public record ExactDecodeContext(RegistryOps<JsonElement> ops, boolean liveRegistry) {}
+
+	/** captures the current registry resolution once, for use across a batch of decodes. */
+	public static ExactDecodeContext exactDecodeContext() {
+		RegistryAccess live = liveRegistryAccess();
+		if (live != null) {
+			return new ExactDecodeContext(live.createSerializationContext(JsonOps.INSTANCE), true);
+		}
+		warnFallbackOnce();
+		return new ExactDecodeContext(FALLBACK_REGISTRY_ACCESS.createSerializationContext(JsonOps.INSTANCE), false);
+	}
+
+	/**
+	 * decodes against a caller-held {@link ExactDecodeContext} snapshot, so every decode in
+	 * a batch uses the same registry resolution that the caller's caching decision will inspect.
+	 */
+	public static Optional<ItemStack> decodeExactSelector(String selector, ExactDecodeContext context) {
 		if (!isExactSelector(selector)) {
 			return Optional.empty();
 		}
 
 		try {
 			JsonElement encoded = JsonParser.parseString(selector.substring(STACK_PREFIX.length()));
-			return ItemStack.CODEC.parse(serializationContext(), encoded)
+			return ItemStack.STRICT_SINGLE_ITEM_CODEC.parse(context.ops(), encoded)
 				.resultOrPartial(error -> Constants.LOG.warn("Failed to decode exact group selector '{}': {}", selector, error))
 				.map(GroupItemSelector::normalizedCopy);
 		} catch (RuntimeException e) {
@@ -83,46 +110,16 @@ public final class GroupItemSelector {
 		}
 	}
 
-	public static boolean hasStructurallyValidExactPayload(String encodedPayload) {
-		return extractExactPayloadItemId(encodedPayload).isPresent();
-	}
-
-	public static Optional<Identifier> extractExactPayloadItemId(String encodedPayload) {
-		try {
-			JsonElement encoded = JsonParser.parseString(encodedPayload);
-			if (!(encoded instanceof JsonObject obj)) {
-				return Optional.empty();
-			}
-			if (!obj.has("id")) {
-				return Optional.empty();
-			}
-
-			Identifier itemId = Identifier.tryParse(obj.get("id").getAsString());
-			if (itemId == null) {
-				return Optional.empty();
-			}
-
-			if (obj.has("count")) {
-				JsonElement countNode = obj.get("count");
-				if (!countNode.isJsonPrimitive() || !countNode.getAsJsonPrimitive().isNumber()) {
-					return Optional.empty();
-				}
-				if (countNode.getAsInt() <= 0) {
-					return Optional.empty();
-				}
-			}
-
-			return Optional.of(itemId);
-		} catch (RuntimeException e) {
-			return Optional.empty();
-		}
-	}
-
 	static RegistryOps<JsonElement> serializationContext() {
-		return registryAccess().createSerializationContext(JsonOps.INSTANCE);
+		RegistryAccess live = liveRegistryAccess();
+		if (live != null) {
+			return live.createSerializationContext(JsonOps.INSTANCE);
+		}
+		warnFallbackOnce();
+		return FALLBACK_REGISTRY_ACCESS.createSerializationContext(JsonOps.INSTANCE);
 	}
 
-	private static RegistryAccess registryAccess() {
+	private static RegistryAccess liveRegistryAccess() {
 		Minecraft minecraft = Minecraft.getInstance();
 		if (minecraft.level != null) {
 			return minecraft.level.registryAccess();
@@ -133,11 +130,14 @@ public final class GroupItemSelector {
 		if (minecraft.player != null) {
 			return minecraft.player.registryAccess();
 		}
+		return null;
+	}
+
+	private static void warnFallbackOnce() {
 		if (FALLBACK_WARNING_LOGGED.compareAndSet(false, true)) {
 			Constants.LOG.warn(
 				"Exact group selector serialization is using built-in fallback registries before a live client registry is available."
 			);
 		}
-		return FALLBACK_REGISTRY_ACCESS;
 	}
 }
