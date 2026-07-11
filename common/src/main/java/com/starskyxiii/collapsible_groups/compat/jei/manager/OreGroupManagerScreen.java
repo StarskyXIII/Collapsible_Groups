@@ -17,6 +17,8 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.OreConfirmDialog;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.core.GroupSortMode;
+import com.starskyxiii.collapsible_groups.core.SavedGroupContext;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.ChatFormatting;
@@ -74,7 +76,6 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	private static final int NEW_BTN_W = 110;
 	private static final int NEW_BTN_H = 20;
 	private static final int BATCH_ACTION_BTN_W = 72;
-	private static final int BATCH_ACTION_BTN_MIN_W = 44;
 	private static final int BATCH_ACTION_BTN_H = 20;
 	private static final int BATCH_ACTION_GAP = 6;
 	private static final int SEGMENT_X = 6;
@@ -89,7 +90,12 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	private static final int SEARCH_FIELD_Y = 53;
 	private static final int SEARCH_FIELD_HEIGHT = 18;
 	private static final int SEARCH_FIELD_TEXT_PAD = 5;
-	private static final int BATCH_SELECTED_STATUS_W = 112;
+	private static final int SORT_BUTTON_SIZE = 20;
+	private static final int SORT_BUTTON_GAP = 4;
+	private static final int SORT_MENU_WIDTH = 82;
+	private static final int SORT_MENU_ROW_HEIGHT = 18;
+	private static final long SAVED_CARD_HIGHLIGHT_MS = 1200L;
+	private static final int BATCH_SELECTED_STATUS_W = 174;
 	private static final int MINI_SCROLLBAR_GAP = 4;
 	private static final int MINI_SCROLLBAR_WIDTH = 5;
 	private static final int BATCH_SELECTED_OVERLAY = 0x3340B96A;
@@ -103,6 +109,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	private int scrollPixelOffset = 0;
 
 	private GroupUiState.ManagerSourceFilter sourceFilter = GroupUiState.managerSourceFilter();
+	private GroupSortMode sortMode = GroupUiState.managerSortMode();
 	private EditBox searchField;
 	private String searchQuery = "";
 	private boolean backButtonHeld = false;
@@ -112,6 +119,9 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	private BatchSelectionState batchSelection = BatchSelectionState.empty();
 	private BatchToolbarAction heldBatchToolbarAction = null;
 	private boolean newGroupButtonHeld = false;
+	private boolean sortButtonHeld = false;
+	private boolean sortMenuOpen = false;
+	private GroupSortMode heldSortMode = null;
 	private boolean isDraggingScrollbar = false;
 	private String heldSwitchGroupId = null;
 	private String suppressedSwitchHoverGroupId = null;
@@ -120,6 +130,8 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	private Component pendingTooltip;
 	private PendingDelete pendingDelete = null;
 	private PendingBatchDelete pendingBatchDelete = null;
+	private String highlightedSavedGroupId = null;
+	private long highlightedSavedUntil = 0L;
 
 	public OreGroupManagerScreen(Screen previousScreen) {
 		super(Component.translatable(ModTranslationKeys.SCREEN_TITLE));
@@ -137,6 +149,12 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		rebuildCards();
 		calcLayout();
 		createSearchField();
+		if (!searchFieldLayout().visible()) {
+			sortMenuOpen = false;
+			sortButtonHeld = false;
+			heldSortMode = null;
+		}
+		if (highlightedSavedGroupId != null) ensureCardVisible(highlightedSavedGroupId);
 	}
 
 	private void rebuildCards() {
@@ -185,7 +203,9 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	private void rebuildFilteredCards() {
-		filteredCards = allCards.stream().filter(this::matchesCurrentFilters).toList();
+		List<GroupManagerCard> matched = allCards.stream().filter(this::matchesCurrentFilters).toList();
+		filteredCards = GroupManagerSort.apply(matched, sortMode,
+			card -> localizedDisplayName(card).getString(), GroupManagerCard::id);
 		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
 		pruneBatchSelectionToFilteredCards();
 	}
@@ -245,12 +265,18 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	private SearchFieldLayout searchFieldLayout() {
-		int right = batchSelectedStatusX() - SEARCH_FIELD_GAP;
-		int width = Math.min(SEARCH_FIELD_MAX_WIDTH, right - SEGMENT_X);
+		int controlsRight = batchMode ? batchSelectedStatusX() - SEARCH_FIELD_GAP : this.width - CARD_PADDING;
+		int width = Math.min(SEARCH_FIELD_MAX_WIDTH,
+			controlsRight - SEGMENT_X - SORT_BUTTON_GAP - SORT_BUTTON_SIZE);
 		if (width >= SEARCH_FIELD_MIN_WIDTH) {
 			return new SearchFieldLayout(SEGMENT_X, SEARCH_FIELD_Y, width, SEARCH_FIELD_HEIGHT, true, false);
 		}
 		return SearchFieldLayout.hidden();
+	}
+
+	private int sortButtonX() {
+		SearchFieldLayout layout = searchFieldLayout();
+		return layout.x() + layout.width() + SORT_BUTTON_GAP;
 	}
 
 	private void renderSearchFieldChrome(GuiGraphics g, int mouseX, int mouseY) {
@@ -344,6 +370,10 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 				renderable.render(g, mouseX, mouseY, partialTicks);
 			}
 		}
+		if (sortMenuOpen && searchFieldLayout().visible() && !hasPendingDialog()) {
+			pendingTooltip = null;
+			renderSortMenu(g, mouseX, mouseY);
+		}
 		if (hasPendingDialog()) {
 			pendingTooltip = null;
 			renderPendingDialog(g, mouseX, mouseY);
@@ -359,6 +389,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 		renderSegmentedFilter(g, mouseX, mouseY);
 		renderSearchFieldChrome(g, mouseX, mouseY);
+		renderSortButton(g, mouseX, mouseY);
 		if (batchMode) {
 			renderBatchToolbar(g, mouseX, mouseY);
 			renderBatchSelectedStatus(g);
@@ -381,9 +412,68 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	private void renderBatchToolbar(GuiGraphics g, int mouseX, int mouseY) {
 		BatchActionEligibility eligibility = currentBatchEligibility();
+		renderBatchToolbarButton(g, BatchToolbarAction.SELECT_ALL_RESULTS, eligibility, mouseX, mouseY);
 		renderBatchToolbarButton(g, BatchToolbarAction.ENABLE, eligibility, mouseX, mouseY);
 		renderBatchToolbarButton(g, BatchToolbarAction.DISABLE, eligibility, mouseX, mouseY);
 		renderBatchToolbarButton(g, BatchToolbarAction.DELETE, eligibility, mouseX, mouseY);
+	}
+
+	private void renderSortButton(GuiGraphics g, int mouseX, int mouseY) {
+		SearchFieldLayout layout = searchFieldLayout();
+		if (!layout.visible()) return;
+		int x = sortButtonX();
+		boolean hovered = isMouseOver(mouseX, mouseY, x, SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE);
+		OreUiRenderer.ButtonState state = sortMenuOpen
+			? sortButtonHeld && hovered ? OreUiRenderer.ButtonState.SELECTED_PRESSED
+			: hovered ? OreUiRenderer.ButtonState.SELECTED_HOVERED : OreUiRenderer.ButtonState.SELECTED
+			: sortButtonHeld && hovered ? OreUiRenderer.ButtonState.PRESSED
+			: hovered ? OreUiRenderer.ButtonState.HOVERED : OreUiRenderer.ButtonState.NORMAL;
+		OreUiRenderer.drawToolbarIconButton(g, x, SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE,
+			OreUiRenderer.ICON_SORT, state);
+		if (hovered && !sortMenuOpen) {
+			pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_SORT_TOOLTIP,
+				Component.translatable(sortLabelKey(sortMode)));
+		}
+	}
+
+	private void renderSortMenu(GuiGraphics g, int mouseX, int mouseY) {
+		int x = sortMenuX();
+		int y = sortMenuY();
+		g.pose().pushPose();
+		g.pose().translate(0, 0, 350);
+		g.fill(x - 1, y - 1, x + SORT_MENU_WIDTH + 1,
+			y + GroupSortMode.values().length * SORT_MENU_ROW_HEIGHT + 1, OreUiPalette.SURFACE_DARK);
+		for (int i = 0; i < GroupSortMode.values().length; i++) {
+			GroupSortMode mode = GroupSortMode.values()[i];
+			int rowY = y + i * SORT_MENU_ROW_HEIGHT;
+			boolean hovered = isMouseOver(mouseX, mouseY, x, rowY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT);
+			boolean selected = sortMode == mode;
+			boolean pressed = heldSortMode == mode && hovered;
+			OreUiRenderer.ButtonState state = selected
+				? pressed ? OreUiRenderer.ButtonState.SELECTED_PRESSED
+				: hovered ? OreUiRenderer.ButtonState.SELECTED_HOVERED : OreUiRenderer.ButtonState.SELECTED
+				: pressed ? OreUiRenderer.ButtonState.PRESSED
+				: hovered ? OreUiRenderer.ButtonState.HOVERED : OreUiRenderer.ButtonState.NORMAL;
+			OreUiRenderer.drawSegment(g, font, x, rowY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT,
+				Component.translatable(sortLabelKey(mode)).getString(), state);
+		}
+		g.pose().popPose();
+	}
+
+	private static String sortLabelKey(GroupSortMode mode) {
+		return switch (mode) {
+			case PRIORITY -> ModTranslationKeys.MANAGER_SORT_PRIORITY;
+			case NAME_ASC -> ModTranslationKeys.MANAGER_SORT_NAME_ASC;
+			case NAME_DESC -> ModTranslationKeys.MANAGER_SORT_NAME_DESC;
+		};
+	}
+
+	private int sortMenuX() {
+		return sortButtonX() + SORT_BUTTON_SIZE - SORT_MENU_WIDTH;
+	}
+
+	private int sortMenuY() {
+		return SEARCH_FIELD_Y + SORT_BUTTON_SIZE;
 	}
 
 	private void renderBatchToolbarButton(GuiGraphics g, BatchToolbarAction action,
@@ -398,12 +488,16 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	private void renderBatchSelectedStatus(GuiGraphics g) {
-		int x = batchSelectedStatusX();
 		int y = SEARCH_FIELD_Y;
 		Component selected = Component.translatable(ModTranslationKeys.MANAGER_BATCH_SELECTED_COUNT, batchSelection.selectedCount());
-		String selectedText = font.plainSubstrByWidth(selected.getString(), BATCH_SELECTED_STATUS_W);
-		g.drawString(font, selectedText, x + BATCH_SELECTED_STATUS_W - font.width(selectedText),
-			OreUiRenderer.textFieldTextY(font, y, SEARCH_FIELD_HEIGHT), OreUiPalette.TEXT_HINT, false);
+		int textY = OreUiRenderer.textFieldTextY(font, y, SEARCH_FIELD_HEIGHT);
+		int barY = textY - 2;
+		// Right-aligned: the text hugs the right card edge and
+		// the accent bar sits immediately to its left, so short strings leave no dead gap.
+		String selectedText = font.plainSubstrByWidth(selected.getString(), BATCH_SELECTED_STATUS_W - 8);
+		int textX = this.width - CARD_PADDING - font.width(selectedText);
+		g.fill(textX - 6, barY, textX - 4, barY + font.lineHeight + 4, OreUiPalette.OUTLINE_SELECTED);
+		g.drawString(font, selectedText, textX, textY, OreUiPalette.TEXT_PRIMARY, false);
 	}
 
 	private void renderEmptyState(GuiGraphics g, int viewportTop, int viewportBottom) {
@@ -516,7 +610,10 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 		boolean cardHover = isMouseOver(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
 		boolean batchSelected = batchMode && batchSelection.isSelected(card.id());
-		int outlineColor = batchSelected ? OreUiPalette.OUTLINE_SELECTED
+		boolean savedHighlight = card.id().equals(highlightedSavedGroupId)
+			&& System.currentTimeMillis() < highlightedSavedUntil;
+		if (!savedHighlight && card.id().equals(highlightedSavedGroupId)) highlightedSavedGroupId = null;
+		int outlineColor = batchSelected || savedHighlight ? OreUiPalette.OUTLINE_SELECTED
 			: cardHover ? OreUiPalette.OUTLINE_HOVER : OreUiPalette.OUTLINE_DARK;
 		OreUiRenderer.drawCard(g, x, y, CARD_WIDTH, CARD_HEIGHT, cardHover, outlineColor);
 
@@ -742,6 +839,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	private boolean batchActionActive(BatchToolbarAction action, BatchActionEligibility eligibility) {
 		return switch (action) {
+			case SELECT_ALL_RESULTS -> !selectableResultIds().isEmpty();
 			case ENABLE -> eligibility.canEnable();
 			case DISABLE -> eligibility.canDisable();
 			case DELETE -> eligibility.canDelete();
@@ -750,6 +848,9 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 
 	private String batchActionLabel(BatchToolbarAction action) {
 		String key = switch (action) {
+			case SELECT_ALL_RESULTS -> allResultsSelected()
+				? ModTranslationKeys.MANAGER_BATCH_CLEAR_RESULTS
+				: ModTranslationKeys.MANAGER_BATCH_SELECT_RESULTS;
 			case ENABLE -> ModTranslationKeys.MANAGER_BATCH_ENABLE;
 			case DISABLE -> ModTranslationKeys.MANAGER_BATCH_DISABLE;
 			case DELETE -> ModTranslationKeys.MANAGER_BATCH_DELETE;
@@ -780,13 +881,33 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			case DELETE -> deleteX;
 			case DISABLE -> deleteX - buttonWidth - BATCH_ACTION_GAP;
 			case ENABLE -> deleteX - (buttonWidth + BATCH_ACTION_GAP) * 2;
+			case SELECT_ALL_RESULTS -> deleteX - (buttonWidth + BATCH_ACTION_GAP) * 3;
 		};
 	}
 
 	private int batchActionButtonWidth() {
 		int right = this.width - CARD_PADDING;
-		int available = right - segmentRight(segmentFilters()) - SEARCH_FIELD_GAP - BATCH_ACTION_GAP * 2;
-		return clamp(available / 3, BATCH_ACTION_BTN_MIN_W, BATCH_ACTION_BTN_W);
+		int available = right - segmentRight(segmentFilters()) - SEARCH_FIELD_GAP - BATCH_ACTION_GAP * 3;
+		return Math.max(1, Math.min(BATCH_ACTION_BTN_W, available / 4));
+	}
+
+	private List<String> selectableResultIds() {
+		return filteredCards.stream()
+			.filter(card -> card.actionEligibility().canRequest(GroupAction.BATCH_SELECT))
+			.map(GroupManagerCard::id)
+			.toList();
+	}
+
+	private boolean allResultsSelected() {
+		return batchSelection.containsAll(selectableResultIds());
+	}
+
+	private void toggleSelectAllResults() {
+		List<String> ids = selectableResultIds();
+		if (ids.isEmpty()) return;
+		batchSelection = batchSelection.containsAll(ids)
+			? batchSelection.deselectAll(ids)
+			: batchSelection.selectAll(ids);
 	}
 
 	private int batchSelectedStatusX() {
@@ -867,6 +988,24 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		if (hasPendingDialog()) {
 			return handlePendingDialogClick(mouseX, mouseY, button);
+		}
+		if (button == 0 && sortMenuOpen) {
+			GroupSortMode hovered = hoveredSortMode(mouseX, mouseY);
+			if (hovered != null) {
+				heldSortMode = hovered;
+				return true;
+			}
+			if (!isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
+				sortMenuOpen = false;
+				heldSortMode = null;
+				return true;
+			}
+		}
+		if (button == 0 && searchFieldLayout().visible()
+			&& isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
+			sortButtonHeld = true;
+			blurSearchField();
+			return true;
 		}
 		if (button == 0 && handleSearchFieldClick(mouseX, mouseY, button)) {
 			return true;
@@ -1138,6 +1277,9 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		batchToggleButtonHeld = false;
 		heldBatchToolbarAction = null;
 		newGroupButtonHeld = false;
+		sortButtonHeld = false;
+		heldSortMode = null;
+		sortMenuOpen = false;
 		isDraggingScrollbar = false;
 		heldSwitchGroupId = null;
 		suppressedSwitchHoverGroupId = null;
@@ -1196,6 +1338,24 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		if (button == 0) {
 			heldSwitchGroupId = null;
 		}
+		if (button == 0 && heldSortMode != null) {
+			GroupSortMode chosen = heldSortMode;
+			heldSortMode = null;
+			if (hoveredSortMode(mouseX, mouseY) == chosen) {
+				sortMode = chosen;
+				GroupUiState.setManagerSortMode(sortMode);
+				sortMenuOpen = false;
+				rebuildFilteredCards();
+			}
+			return true;
+		}
+		if (button == 0 && sortButtonHeld) {
+			sortButtonHeld = false;
+			if (isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
+				sortMenuOpen = !sortMenuOpen;
+			}
+			return true;
+		}
 		if (button == 0 && backButtonHeld) {
 			backButtonHeld = false;
 			if (isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) {
@@ -1241,6 +1401,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 					batchActionButtonWidth(), BATCH_ACTION_BTN_H)
 				&& batchActionActive(action, currentBatchEligibility())) {
 				switch (action) {
+					case SELECT_ALL_RESULTS -> toggleSelectAllResults();
 					case ENABLE -> executeBatchSetEnabled(true);
 					case DISABLE -> executeBatchSetEnabled(false);
 					case DELETE -> openBatchDeleteDialog();
@@ -1255,6 +1416,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
 		if (hasPendingDialog()) return true;
+		if (sortMenuOpen) return true;
 		suppressedSwitchHoverGroupId = null;
 		if (scrollHoveredPreview(mouseX, mouseY, deltaY)) return true;
 		if (isInsideCardViewport(mouseX, mouseY)) {
@@ -1271,6 +1433,12 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			return true;
 		}
 		if (hasPendingDialog()) return true;
+		if (sortMenuOpen && keyCode == GLFW.GLFW_KEY_ESCAPE) {
+			sortMenuOpen = false;
+			heldSortMode = null;
+			sortButtonHeld = false;
+			return true;
+		}
 		if (searchField != null && searchField.isFocused()) {
 			if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
 				if (!searchQuery.isEmpty()) {
@@ -1283,6 +1451,17 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			if (searchField.keyPressed(keyCode, scanCode, modifiers)) return true;
 		}
 		return super.keyPressed(keyCode, scanCode, modifiers);
+	}
+
+	private GroupSortMode hoveredSortMode(double mouseX, double mouseY) {
+		if (!sortMenuOpen) return null;
+		for (int i = 0; i < GroupSortMode.values().length; i++) {
+			if (isMouseOver(mouseX, mouseY, sortMenuX(), sortMenuY() + i * SORT_MENU_ROW_HEIGHT,
+				SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT)) {
+				return GroupSortMode.values()[i];
+			}
+		}
+		return null;
 	}
 
 	@Override
@@ -1337,8 +1516,45 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	@Override
-	public void onGroupSaved() {
+	public void onGroupSaved(SavedGroupContext context) {
 		rebuildCards();
+		if (!context.shouldReveal()) {
+			scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
+			return;
+		}
+		GroupManagerCard savedCard = findCurrentCard(context.groupId());
+		if (savedCard == null) return;
+		if (!GroupManagerSearchMatcher.matchesSource(sourceFilter, GroupSource.USER)) {
+			sourceFilter = GroupUiState.ManagerSourceFilter.USER;
+			GroupUiState.setManagerSourceFilter(sourceFilter);
+		}
+		if (!GroupManagerSearchMatcher.matchesQuery(searchQuery, searchFields(savedCard))) {
+			searchQuery = "";
+			if (searchField != null) searchField.setValue("");
+		}
+		rebuildFilteredCards();
+		ensureCardVisible(context.groupId());
+		highlightedSavedGroupId = context.groupId();
+		highlightedSavedUntil = System.currentTimeMillis() + SAVED_CARD_HIGHLIGHT_MS;
+	}
+
+	private void ensureCardVisible(String groupId) {
+		int index = -1;
+		for (int i = 0; i < filteredCards.size(); i++) {
+			if (groupId.equals(filteredCards.get(i).id())) {
+				index = i;
+				break;
+			}
+		}
+		if (index < 0) return;
+		int y = cardPos(index)[1];
+		int top = headerHeight() + CARD_PADDING;
+		int bottom = this.height - FOOTER_HEIGHT;
+		if (y < top) {
+			scrollPixelOffset -= top - y;
+		} else if (y + CARD_HEIGHT > bottom) {
+			scrollPixelOffset += y + CARD_HEIGHT - bottom;
+		}
 		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
 	}
 
@@ -1437,6 +1653,7 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 	}
 
 	private enum BatchToolbarAction {
+		SELECT_ALL_RESULTS,
 		ENABLE,
 		DISABLE,
 		DELETE

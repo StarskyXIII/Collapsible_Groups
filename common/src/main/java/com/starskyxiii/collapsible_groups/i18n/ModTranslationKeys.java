@@ -364,6 +364,7 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_SAVE_ERROR = "collapsible_groups.editor.save_error";
 
 	public static final String EDITOR_SEARCH_HINT = "collapsible_groups.editor.search_hint";
+	public static final String EDITOR_SEARCH_SYNTAX_TOOLTIP = "collapsible_groups.editor.search_syntax_tooltip";
 
 	public static final String EDITOR_SEARCH_LABEL = "collapsible_groups.editor.search_label";
 
@@ -572,6 +573,10 @@ public final class ModTranslationKeys {
 
 	public static final String MANAGER_BATCH_DELETE = "collapsible_groups.manager.batch.delete";
 
+	public static final String MANAGER_BATCH_SELECT_RESULTS = "collapsible_groups.manager.batch.select_results";
+
+	public static final String MANAGER_BATCH_CLEAR_RESULTS = "collapsible_groups.manager.batch.clear_results";
+
 	/** Args: deletable count (%s) */
 	public static final String MANAGER_BATCH_DELETE_DIALOG_TITLE = "collapsible_groups.manager.batch.delete_dialog.title";
 
@@ -602,6 +607,13 @@ public final class ModTranslationKeys {
 	public static final String MANAGER_SEARCH_LABEL = "collapsible_groups.manager.search_label";
 
 	public static final String MANAGER_SEARCH_HINT = "collapsible_groups.manager.search_hint";
+
+	public static final String MANAGER_SORT_PRIORITY = "collapsible_groups.manager.sort.priority";
+
+	public static final String MANAGER_SORT_NAME_ASC = "collapsible_groups.manager.sort.name_asc";
+
+	public static final String MANAGER_SORT_NAME_DESC = "collapsible_groups.manager.sort.name_desc";
+	public static final String MANAGER_SORT_TOOLTIP = "collapsible_groups.manager.sort.tooltip";
 
 	public static final String MANAGER_EMPTY_SEARCH = "collapsible_groups.manager.empty_search";
 

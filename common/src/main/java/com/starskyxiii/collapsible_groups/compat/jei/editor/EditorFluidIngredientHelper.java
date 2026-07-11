@@ -4,6 +4,8 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
+import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -14,7 +16,6 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -28,12 +29,14 @@ final class EditorFluidIngredientHelper {
 		for (Object fluid : fluids) {
 			String resourceId = Services.PLATFORM.getFluidId(fluid);
 			Component displayName = Services.PLATFORM.getFluidDisplayName(fluid);
-			String searchKey = (displayName.getString() + "|" + resourceId).toLowerCase(Locale.ROOT);
+			String namespace = resourceId.contains(":") ? resourceId.substring(0, resourceId.indexOf(':')) : resourceId;
+			IngredientSearchDocument searchDocument = IngredientSearchDocument.of(
+				List.of(displayName.getString(), resourceId), List.of(namespace), Set.of());
 			result.add(new EditorFluidIngredientView(
 				fluid,
 				displayName,
 				resourceId,
-				searchKey,
+				searchDocument,
 				Services.PLATFORM.getFluidFallbackBucket(fluid)));
 		}
 		List<EditorFluidIngredientView> copy = List.copyOf(result);
@@ -48,11 +51,11 @@ final class EditorFluidIngredientHelper {
 		List<EditorFluidIngredientView> entries,
 		Map<EditorFluidIngredientView, List<String>> ownership,
 		boolean hideUsed,
-		String normalizedQuery
+		IngredientSearchQuery query
 	) {
 		return entries.stream().filter(entry -> {
 			if (hideUsed && !ownership.getOrDefault(entry, List.of()).isEmpty()) return false;
-			return normalizedQuery.isBlank() || entry.searchKey().contains(normalizedQuery);
+			return query.matches(entry.searchDocument());
 		}).toList();
 	}
 

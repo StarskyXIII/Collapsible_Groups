@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreEditorShellLayout;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
@@ -22,7 +23,11 @@ final class GroupEditorTooltipHelper {
 
 	static void render(GuiGraphics g, int mouseX, int mouseY,
 	                   EditorLeftPanel left, EditorRightPanel right,
-	                   GroupEditorState state, Font font) {
+	                   GroupEditorState state, Font font, OreEditorShellLayout shell) {
+		if (shell.searchField().contains(mouseX, mouseY)) {
+			g.renderComponentTooltip(font, searchSyntaxLines(), mouseX, mouseY);
+			return;
+		}
 
 		// --- Left panel ---
 		if (left.hoveredItem >= 0 && left.hoveredItem < left.filteredItems().size()) {
@@ -107,6 +112,11 @@ final class GroupEditorTooltipHelper {
 			else if (state.isGenericTagMatched(entry)) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 		}
+	}
+
+	static List<Component> searchSyntaxLines() {
+		return java.util.Arrays.stream(Component.translatable(ModTranslationKeys.EDITOR_SEARCH_SYNTAX_TOOLTIP)
+			.getString().split("\\n", -1)).<Component>map(Component::literal).toList();
 	}
 
 	private static void appendItemHint(List<Component> lines, GroupEditorState state, ItemStack stack) {

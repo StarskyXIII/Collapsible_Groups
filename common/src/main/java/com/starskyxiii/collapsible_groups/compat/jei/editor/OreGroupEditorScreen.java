@@ -19,6 +19,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.OreEditorShellLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.core.SavedGroupContext;
 import com.starskyxiii.collapsible_groups.core.GroupThemeColors;
 import com.starskyxiii.collapsible_groups.core.ItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
@@ -65,8 +66,11 @@ public class OreGroupEditorScreen extends Screen {
 	};
 
 	private final GroupManagerParent parent;
+	private final SavedGroupContext.SaveKind saveKind;
 	private final GroupEditorState state;
 	private final ItemUniverseProvider itemUniverseProvider = EditorItemUniverseProvider.INSTANCE;
+	private final EditorItemSearchSession itemSearchSession = new EditorItemSearchSession();
+	private List<ItemStack> editorItemUniverse = List.of();
 	private final Component nameFieldHint = Component.translatable(ModTranslationKeys.EDITOR_NAME_HINT);
 	private final Component searchFieldHint = Component.translatable(ModTranslationKeys.EDITOR_SEARCH_HINT);
 
@@ -118,6 +122,9 @@ public class OreGroupEditorScreen extends Screen {
 	) {
 		super(screenTitle(existing, copyDraft, sourceGroupId));
 		this.parent = parent;
+		this.saveKind = copyDraft
+			? SavedGroupContext.SaveKind.COPIED
+			: existing == null ? SavedGroupContext.SaveKind.CREATED : SavedGroupContext.SaveKind.UPDATED;
 		this.state = new GroupEditorState(existing, copyDraft, sourceGroupId);
 		this.disableSourceAfterCopy = this.state.isCopyDraft() && this.state.sourceGroupId() != null;
 	}
@@ -147,9 +154,9 @@ public class OreGroupEditorScreen extends Screen {
 	protected void init() {
 		shell = computeShellLayout();
 		layout = shell.panelLayout();
-		leftPanel = new EditorLeftPanel(state, this::onGroupChanged);
+		leftPanel = new EditorLeftPanel(state, this::onGroupChanged, itemSearchSession);
 		rightPanel = new EditorRightPanel(state, this::onGroupChanged);
-		rulesPanel = new EditorRulesPanel(state, font, this::onGroupChanged, itemUniverseProvider);
+		rulesPanel = new EditorRulesPanel(state, font, this::onGroupChanged, this::editorItems, itemSearchSession);
 		settingsPanel = new EditorSettingsPanel(state, font, this::onGroupChanged,
 			() -> rightPanel.groupItems());
 		settingsPanel.setDirtyGate(() -> dirty, value -> dirty = value);
@@ -171,7 +178,8 @@ public class OreGroupEditorScreen extends Screen {
 	}
 
 	private List<ItemStack> editorItems() {
-		return itemUniverseProvider.allStacks();
+		if (editorItemUniverse.isEmpty()) editorItemUniverse = List.copyOf(itemUniverseProvider.allStacks());
+		return editorItemUniverse;
 	}
 
 	private OreEditorShellLayout computeShellLayout() {
@@ -318,11 +326,11 @@ public class OreGroupEditorScreen extends Screen {
 			g.renderComponentTooltip(font,
 				List.of(Component.translatable(ModTranslationKeys.EDITOR_CHIP_HIDE_USED)), mouseX, mouseY);
 		} else if (!disableSourceTooltip && activeMode == OreEditorShellMode.CONTENTS) {
-			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font);
+			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font, shell);
 		} else if (!disableSourceTooltip
 			&& (activeMode != OreEditorShellMode.RULES || !rulesPanel.isModalOpen())) {
 			leftPanel.clearHover();
-			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font);
+			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font, shell);
 		}
 		if (shell.saveButton().contains(mouseX, mouseY) && !canSaveNow()) {
 			g.renderComponentTooltip(font, saveDisabledTooltip(), mouseX, mouseY);
@@ -1305,7 +1313,7 @@ public class OreGroupEditorScreen extends Screen {
 		GroupRegistry.invalidateFullMatchCache(saved.id());
 		GroupRegistry.populateFullMatchCacheFromSaved(saved);
 		disableSourceAfterCopyIfRequested();
-		parent.onGroupSaved();
+		parent.onGroupSaved(new SavedGroupContext(saved.id(), saveKind));
 		GroupRegistry.notifyJei();
 		Minecraft.getInstance().setScreen(parent.asScreen());
 	}

@@ -14,7 +14,7 @@ import com.starskyxiii.collapsible_groups.core.ComponentReferenceExtractor;
 import com.starskyxiii.collapsible_groups.core.EncodedValueNormalizer;
 import com.starskyxiii.collapsible_groups.core.GroupFilterRuleDraft;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
-import com.starskyxiii.collapsible_groups.core.ItemPickerSearchQuery;
+import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
 import com.starskyxiii.collapsible_groups.core.ItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.client.gui.Font;
@@ -202,6 +202,7 @@ final class EditorRulesPanel {
 	private final Font font;
 	private final Runnable onChanged;
 	private final ItemUniverseProvider itemUniverseProvider;
+	private final EditorItemSearchSession itemSearchSession;
 
 	// ── Body rect ─────────────────────────────────────────────────────────
 	private int bodyX, bodyY, bodyW, bodyH;
@@ -306,12 +307,14 @@ final class EditorRulesPanel {
 		EditorRulesState state,
 		Font font,
 		Runnable onChanged,
-		ItemUniverseProvider itemUniverseProvider
+		ItemUniverseProvider itemUniverseProvider,
+		EditorItemSearchSession itemSearchSession
 	) {
 		this.state = state;
 		this.font = font;
 		this.onChanged = onChanged;
 		this.itemUniverseProvider = itemUniverseProvider;
+		this.itemSearchSession = itemSearchSession;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -1421,10 +1424,10 @@ final class EditorRulesPanel {
 			: referencePickerSearch.getValue().trim();
 		String lowerQuery = query.toLowerCase(Locale.ROOT);
 		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
-			ItemPickerSearchQuery parsed = ItemPickerSearchQuery.parse(query);
+			IngredientSearchQuery parsed = IngredientSearchQuery.parse(query);
 			referenceFilteredItems = parsed.isEmpty()
 				? referenceItems
-				: referenceItems.stream().filter(parsed::matches).toList();
+				: referenceItems.stream().filter(stack -> itemSearchSession.matches(stack, parsed)).toList();
 			referencePickerSelected = -1;
 		} else if (referencePickerMode == ReferencePickerMode.REFERENCE_COMPONENT) {
 			referenceFilteredComponents = referenceComponents.stream()
@@ -1565,6 +1568,9 @@ final class EditorRulesPanel {
 		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
 			ItemStack hovered = referenceItemAt(list, mouseX, mouseY);
 			if (hovered != null) g.renderTooltip(font, hovered, mouseX, mouseY);
+			else if (search.contains(mouseX, mouseY)) {
+				g.renderComponentTooltip(font, GroupEditorTooltipHelper.searchSyntaxLines(), mouseX, mouseY);
+			}
 		}
 	}
 

@@ -9,6 +9,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.client.gui.Font;
@@ -36,7 +37,7 @@ final class EditorLeftPanel {
 	private List<GenericIngredientView> allGenericIngredients = List.of();
 	private List<GenericIngredientView> filteredGenericIngredients = List.of();
 
-	private List<String> allItemsSearchKeys = List.of();
+	private final EditorItemSearchSession itemSearchSession;
 	private final Map<ItemStack, List<String>> otherItemGroupsCache = new IdentityHashMap<>();
 	private final Map<EditorFluidIngredientView, List<String>> otherFluidGroupsCache = new IdentityHashMap<>();
 	private final Map<GenericIngredientView, List<String>> otherGenericGroupsCache = new IdentityHashMap<>();
@@ -76,9 +77,10 @@ final class EditorLeftPanel {
 	private final GroupEditorState state;
 	private final Runnable onChange;
 
-	EditorLeftPanel(GroupEditorState state, Runnable onChange) {
+	EditorLeftPanel(GroupEditorState state, Runnable onChange, EditorItemSearchSession itemSearchSession) {
 		this.state = state;
 		this.onChange = onChange;
+		this.itemSearchSession = itemSearchSession;
 	}
 
 	void init(List<ItemStack> allItems, List<?> allFluids,
@@ -87,7 +89,6 @@ final class EditorLeftPanel {
 		this.allFluids = EditorFluidIngredientHelper.buildViews(allFluids, "EditorLeftPanel.buildFluidViews");
 		this.allGenericIngredients = EditorGenericIngredientHelper.buildViews(allGenericRefs,
 			"EditorLeftPanel.buildGenericViews");
-		buildSearchKeys();
 		buildOtherGroupCaches();
 	}
 
@@ -117,29 +118,29 @@ final class EditorLeftPanel {
 	}
 
 	void rebuildFilter(String rawQuery) {
-		String q = EditorItemSearchHelper.normalizeQuery(rawQuery);
+		IngredientSearchQuery query = IngredientSearchQuery.parse(rawQuery);
 		scrollRow = 0;
 		if (isShowingFluids()) {
-			rebuildFluidFilter(q);
+			rebuildFluidFilter(query);
 		} else if (isShowingGeneric()) {
-			rebuildGenericFilter(q);
+			rebuildGenericFilter(query);
 		} else {
-			rebuildItemFilter(q);
+			rebuildItemFilter(query);
 		}
 	}
 
-	private void rebuildItemFilter(String q) {
-		filteredItems = EditorItemSearchHelper.filterItems(allItems, allItemsSearchKeys,
-			otherItemGroupsCache, hideUsed, q);
+	private void rebuildItemFilter(IngredientSearchQuery query) {
+		filteredItems = EditorItemSearchHelper.filterItems(allItems, itemSearchSession,
+			otherItemGroupsCache, hideUsed, query);
 	}
 
-	private void rebuildFluidFilter(String q) {
-		filteredFluids = EditorFluidIngredientHelper.filterViews(allFluids, otherFluidGroupsCache, hideUsed, q);
+	private void rebuildFluidFilter(IngredientSearchQuery query) {
+		filteredFluids = EditorFluidIngredientHelper.filterViews(allFluids, otherFluidGroupsCache, hideUsed, query);
 	}
 
-	private void rebuildGenericFilter(String q) {
+	private void rebuildGenericFilter(IngredientSearchQuery query) {
 		filteredGenericIngredients = EditorGenericIngredientHelper.filterViews(allGenericIngredients,
-			otherGenericGroupsCache, hideUsed, q);
+			otherGenericGroupsCache, hideUsed, query);
 	}
 
 	void render(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout) {
@@ -540,10 +541,6 @@ final class EditorLeftPanel {
 		if (isShowingFluids()) return filteredFluids;
 		if (isShowingGeneric()) return filteredGenericIngredients;
 		return filteredItems;
-	}
-
-	private void buildSearchKeys() {
-		allItemsSearchKeys = EditorItemSearchHelper.buildSearchKeys(allItems);
 	}
 
 	private String dragAddKey(ItemStack stack) {

@@ -87,7 +87,8 @@ public final class GroupConfig {
 
 	public static UiState loadUiState() {
 		Path file = getUiStateFile();
-		if (!Files.exists(file)) return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT);
+		if (!Files.exists(file)) return new UiState(true, true, false,
+			UiState.SOURCE_FILTER_DEFAULT, UiState.SORT_MODE_DEFAULT);
 		return readUiStateFile(file, "UI state");
 	}
 
@@ -99,19 +100,26 @@ public final class GroupConfig {
 			boolean showKubeJs = !obj.has("show_kubejs") || obj.get("show_kubejs").getAsBoolean();
 			boolean hideUsed = obj.has("hide_used") && obj.get("hide_used").getAsBoolean();
 			String managerSourceFilter = UiState.SOURCE_FILTER_DEFAULT;
+			String managerSortMode = UiState.SORT_MODE_DEFAULT;
 			if (obj.has("manager_source_filter")
 				&& obj.get("manager_source_filter").isJsonPrimitive()
 				&& obj.get("manager_source_filter").getAsJsonPrimitive().isString()) {
 				managerSourceFilter = obj.get("manager_source_filter").getAsString();
 			}
-			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter);
+			if (obj.has("manager_sort_mode")
+				&& obj.get("manager_sort_mode").isJsonPrimitive()
+				&& obj.get("manager_sort_mode").getAsJsonPrimitive().isString()) {
+				managerSortMode = obj.get("manager_sort_mode").getAsString();
+			}
+			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode);
 		} catch (Exception e) {
 			Constants.LOG.warn("Failed to load {}, using defaults: {}", label, e.getMessage());
-			return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT);
+			return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT, UiState.SORT_MODE_DEFAULT);
 		}
 	}
 
-	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String managerSourceFilter) {
+	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+	                               String managerSourceFilter, String managerSortMode) {
 		Path file = getUiStateFile();
 		try {
 			Files.createDirectories(file.getParent());
@@ -120,6 +128,7 @@ public final class GroupConfig {
 			obj.addProperty("show_kubejs", showKubeJs);
 			obj.addProperty("hide_used", hideUsed);
 			obj.addProperty("manager_source_filter", managerSourceFilter);
+			obj.addProperty("manager_sort_mode", managerSortMode);
 			writeAtomically(file, GSON.toJson(obj));
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save UI state", e);
@@ -659,7 +668,9 @@ public final class GroupConfig {
 		JsonObject extra
 	) {}
 
-	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String managerSourceFilter) {
+	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+	                      String managerSourceFilter, String managerSortMode) {
 		public static final String SOURCE_FILTER_DEFAULT = "all";
+		public static final String SORT_MODE_DEFAULT = "priority";
 	}
 }

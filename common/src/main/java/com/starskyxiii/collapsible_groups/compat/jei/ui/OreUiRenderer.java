@@ -38,6 +38,7 @@ public final class OreUiRenderer {
 	private static final ResourceLocation SCROLLBAR_THUMB = sprite("ore_scrollbar_thumb");
 	public static final ResourceLocation ICON_EDIT = sprite("ore_icon_edit");
 	public static final ResourceLocation ICON_DELETE = sprite("ore_icon_delete");
+	public static final ResourceLocation ICON_SORT = sprite("ore_icon_sort");
 	private static final int CONTROL_EDGE_DARK = 0xFF413F54;
 	private static final int TOOLBAR_ICON_WIDTH = 16;
 	private static final int TOOLBAR_BUTTON_WIDTH = 18;
@@ -210,6 +211,20 @@ public final class OreUiRenderer {
 		if (state == ButtonState.DISABLED) {
 			g.setColor(1.0F, 1.0F, 1.0F, 1.0F);
 		}
+	}
+
+	/** Draws the toolbar chrome with a compact text mark when no sprite icon exists. */
+	public static void drawToolbarTextButton(GuiGraphics g, Font font, int x, int y, int width, int height,
+	                                         String mark, ButtonState state) {
+		int yOffset = toolbarButtonOffset(state);
+		int originX = x + Math.max(0, (width - TOOLBAR_ICON_WIDTH) / 2);
+		int originY = y + Math.max(0, (height - TOOLBAR_BUTTON_HEIGHT) / 2);
+		g.blitSprite(toolbarButtonSprite(state),
+			originX - 1, originY + yOffset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
+		int color = buttonTextColor(state);
+		String clipped = font.plainSubstrByWidth(mark, TOOLBAR_ICON_WIDTH);
+		g.drawString(font, clipped, originX + Math.max(0, (TOOLBAR_ICON_WIDTH - font.width(clipped)) / 2),
+			centeredTextY(font, originY, TOOLBAR_BUTTON_HEIGHT) + yOffset, color, false);
 	}
 
 	private static ResourceLocation buttonSprite(ButtonState state) {

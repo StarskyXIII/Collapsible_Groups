@@ -53,6 +53,28 @@ public record BatchSelectionState(List<String> selectedGroupIds) {
 		return selectedGroupIds.isEmpty() ? this : empty();
 	}
 
+	public BatchSelectionState selectAll(Collection<String> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds");
+		List<String> next = new ArrayList<>(selectedGroupIds);
+		for (String groupId : groupIds) {
+			if (!next.contains(Objects.requireNonNull(groupId, "groupId"))) next.add(groupId);
+		}
+		return next.equals(selectedGroupIds) ? this : new BatchSelectionState(next);
+	}
+
+	public BatchSelectionState deselectAll(Collection<String> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds");
+		if (selectedGroupIds.isEmpty() || groupIds.isEmpty()) return this;
+		Set<String> removed = new HashSet<>(groupIds);
+		List<String> next = selectedGroupIds.stream().filter(id -> !removed.contains(id)).toList();
+		return next.size() == selectedGroupIds.size() ? this : new BatchSelectionState(next);
+	}
+
+	public boolean containsAll(Collection<String> groupIds) {
+		Objects.requireNonNull(groupIds, "groupIds");
+		return !groupIds.isEmpty() && selectedGroupIds.containsAll(groupIds);
+	}
+
 	public BatchSelectionState pruneTo(Collection<String> allowedGroupIds) {
 		Objects.requireNonNull(allowedGroupIds, "allowedGroupIds");
 		if (selectedGroupIds.isEmpty()) {

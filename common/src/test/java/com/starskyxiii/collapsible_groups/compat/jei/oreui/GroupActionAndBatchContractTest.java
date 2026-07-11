@@ -76,6 +76,17 @@ class GroupActionAndBatchContractTest {
 	}
 
 	@Test
+	void batchSelectionSelectsAndClearsAllFilteredResults() {
+		BatchSelectionState mixed = new BatchSelectionState(List.of("outside", "alpha"));
+		BatchSelectionState all = mixed.selectAll(List.of("alpha", "beta", "gamma"));
+
+		assertEquals(List.of("outside", "alpha", "beta", "gamma"), all.selectedGroupIds());
+		assertTrue(all.containsAll(List.of("alpha", "beta", "gamma")));
+		assertFalse(all.containsAll(List.of()));
+		assertEquals(List.of("outside"), all.deselectAll(List.of("alpha", "beta", "gamma")).selectedGroupIds());
+	}
+
+	@Test
 	void batchActionCountsEnabledDisabledAndReadonlyDeletes() {
 		List<GroupCardViewModel> cards = List.of(
 			card("custom_a", true),
