@@ -367,13 +367,11 @@ public abstract class MixinIngredientFilter {
 			this.cg$cachedFullList = all;
 		}
 
-		// KubeJS integration deferred until a 26.1.2-compatible build is available
-		// TODO: re-enable KubeJS block when KubeJS publishes a 26.1.2 build
-		if (false && !GroupRegistry.isKubeJsApplied() && ModList.get().isLoaded("kubejs")) {
+		if (!GroupRegistry.isKubeJsApplied() && ModList.get().isLoaded("kubejs")) {
 			@SuppressWarnings("unchecked")
 			List<FluidStack> fluidsForKjs = (List<FluidStack>) (List<?>) GroupRegistry.getJeiAllFluids();
-			// com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge.applyGroups(
-			//     GroupRegistry.getJeiAllItems(), fluidsForKjs, this.ingredientManager);
+			com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge.applyGroups(
+				GroupRegistry.getJeiAllItems(), fluidsForKjs, this.ingredientManager);
 			GroupRegistry.markKubeJsApplied();
 			// KubeJS added new groups — the existing index (if any) is stale.
 			// KubeJS added new groups - the existing index (if any) is stale.

@@ -37,13 +37,11 @@ public class CollapsibleGroups {
 		eventBus.addListener(this::onRegisterReloadListeners);
 		NeoForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
 
-		// KubeJS integration deferred until a 26.1.2-compatible build is available
-		// TODO: re-enable when KubeJS publishes a 26.1.2 build
-		// if (ModList.get().isLoaded("kubejs")) {
-		//     NeoForge.EVENT_BUS.register(
-		//         com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSRemoteListener.class
-		//     );
-		// }
+		if (ModList.get().isLoaded("kubejs")) {
+			NeoForge.EVENT_BUS.register(
+				com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSRemoteListener.class
+			);
+		}
 
 		// Register curated ingredient types for known mods via reflection so we
 		// have no compile-time dependency on them.

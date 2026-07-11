@@ -8,9 +8,6 @@ import dev.latvian.mods.kubejs.fluid.FluidWrapper;
 import dev.latvian.mods.kubejs.fluid.NamespaceFluidIngredient;
 import dev.latvian.mods.kubejs.fluid.RegExFluidIngredient;
 import dev.latvian.mods.kubejs.ingredient.CreativeTabIngredient;
-import dev.latvian.mods.kubejs.ingredient.NamespaceIngredient;
-import dev.latvian.mods.kubejs.ingredient.RegExIngredient;
-import dev.latvian.mods.kubejs.ingredient.WildcardIngredient;
 import dev.latvian.mods.kubejs.plugin.builtin.wrapper.IngredientWrapper;
 import dev.latvian.mods.kubejs.util.ListJS;
 import dev.latvian.mods.rhino.BaseFunction;
@@ -37,8 +34,7 @@ import net.neoforged.neoforge.fluids.crafting.DataComponentFluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.DifferenceFluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.FluidIngredient;
 import net.neoforged.neoforge.fluids.crafting.IntersectionFluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.SingleFluidIngredient;
-import net.neoforged.neoforge.fluids.crafting.TagFluidIngredient;
+import net.neoforged.neoforge.fluids.crafting.SimpleFluidIngredient;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -97,20 +93,12 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 
-		if (ingredient.isCustom()) {
-			return compileCustomItemIngredient(ingredient.getCustomIngredient());
-		}
-
 		TagKey<Item> tag = IngredientWrapper.tagKeyOf(ingredient);
 		if (tag != null) {
 			return Filters.itemTag(tag.location().toString());
 		}
 
-		if (IngredientWrapper.containsAnyTag(ingredient)) {
-			return null;
-		}
-
-		return lowerExplicitItemStacks(List.of(ingredient.getItems()));
+		return lowerExplicitItemStacks(ingredient.items().map(ItemStack::new).toList());
 	}
 
 	public static @Nullable GroupFilter compileFluidFilter(Context cx, Object filter) {
@@ -147,7 +135,7 @@ public final class KubeJsFilterCompiler {
 	}
 
 	public static @Nullable GroupFilter compileFluidFilter(FluidIngredient ingredient) {
-		if (ingredient.isEmpty()) {
+		if (ingredient.fluids().isEmpty()) {
 			return null;
 		}
 
@@ -155,9 +143,10 @@ public final class KubeJsFilterCompiler {
 			case CompoundFluidIngredient compound -> compileFluidChildren(compound.children(), true);
 			case IntersectionFluidIngredient intersection -> compileFluidChildren(intersection.children(), false);
 			case DifferenceFluidIngredient difference -> compileDifferenceFluid(difference);
-			case TagFluidIngredient tag -> Filters.fluidTag(tag.tag().location().toString());
 			case NamespaceFluidIngredient namespace -> Filters.fluidNamespace(namespace.namespace);
-			case SingleFluidIngredient single -> Filters.fluidId(BuiltInRegistries.FLUID.getKey(single.fluid().value()).toString());
+			case SimpleFluidIngredient simple -> simple.fluidSet().unwrapKey()
+				.map(tag -> Filters.fluidTag(tag.location().toString()))
+				.orElseGet(() -> lowerExplicitFluids(simple.fluids()));
 			case DataComponentFluidIngredient ignored -> null;
 			case RegExFluidIngredient ignored -> null;
 			default -> null;
@@ -274,22 +263,19 @@ public final class KubeJsFilterCompiler {
 			case CompoundIngredient compound -> compileItemChildren(compound.children(), true);
 			case IntersectionIngredient intersection -> compileItemChildren(intersection.children(), false);
 			case DifferenceIngredient difference -> compileDifferenceItem(difference);
-			case NamespaceIngredient namespace -> Filters.itemNamespace(namespace.namespace());
 			case DataComponentIngredient data -> compileDataComponentIngredient(data);
-			case RegExIngredient ignored -> null;
 			case CreativeTabIngredient ignored -> null;
-			case WildcardIngredient ignored -> null;
 			default -> null;
 		};
 	}
 
 	private static @Nullable GroupFilter compileDataComponentIngredient(DataComponentIngredient data) {
-		List<Holder<Item>> items = data.items().stream().toList();
+		List<Holder<Item>> items = data.items().toList();
 		if (items.size() != 1) {
 			return null;
 		}
 
-		ItemStack stack = new ItemStack(items.getFirst(), 1, data.components().asPatch());
+		ItemStack stack = new ItemStack(items.getFirst(), 1, data.components());
 		return KubeJsItemFilterLowering.lowerResolvedStack(stack);
 	}
 
@@ -357,6 +343,16 @@ public final class KubeJsFilterCompiler {
 			}
 			children.add(KubeJsItemFilterLowering.lowerResolvedStack(stack));
 		}
+		return KubeJsFilterLowering.composeFallbackNodes(children);
+	}
+
+	private static @Nullable GroupFilter lowerExplicitFluids(List<Holder<Fluid>> fluids) {
+		List<GroupFilter> children = fluids.stream()
+			.map(Holder::value)
+			.map(BuiltInRegistries.FLUID::getKey)
+			.map(Identifier::toString)
+			.map(Filters::fluidId)
+			.toList();
 		return KubeJsFilterLowering.composeFallbackNodes(children);
 	}
 
