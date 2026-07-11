@@ -11,7 +11,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
 @Mixin(value = mezz.jei.gui.bookmarks.BookmarkList.class, remap = false)
 public class MixinBookmarkList {
-	@Inject(method = "onElementBookmarked", at = @At("HEAD"), cancellable = true)
+	@Inject(method = "onElementBookmarked", at = @At("HEAD"), cancellable = true, require = 0)
 	private <T> void cg$blockGroupHeaderBookmarks(
 		IElement<T> element,
 		UserInput input,

@@ -10,8 +10,7 @@
     "MixinIngredientFilter",
     "MixinIngredientListRenderer",
     "MixinIngredientListOverlay",
-    "MixinGuiTextFieldFilterAccessor",
-    "MixinIconButtonAccessor"
+    "MixinGuiTextFieldFilterAccessor"
   ],
   "server": [],
   "injectors": {
