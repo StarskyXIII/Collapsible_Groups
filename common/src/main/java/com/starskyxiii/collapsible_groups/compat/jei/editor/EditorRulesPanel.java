@@ -6,6 +6,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleNodeUiContract;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleFieldRole;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.RuleTagResolution;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorChrome;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiEditBoxStyle;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
@@ -1010,7 +1011,8 @@ final class EditorRulesPanel {
 			search.width() - 8, font.lineHeight + 2, Component.empty());
 		pickerSearch.setBordered(false);
 		pickerSearch.setMaxLength(256);
-		pickerSearch.setHint(Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH));
+		pickerSearch.setHint(OreUiEditBoxStyle.hint(
+			Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH)));
 		pickerSearch.setValue(pickerLastSearch.getOrDefault(pickerKind, ""));
 		pickerSearch.setResponder(value -> {
 			pickerLastSearch.put(pickerKind, value);
@@ -1398,10 +1400,10 @@ final class EditorRulesPanel {
 			search.width() - 8, font.lineHeight + 2, Component.empty());
 		referencePickerSearch.setBordered(false);
 		referencePickerSearch.setMaxLength(256);
-		referencePickerSearch.setHint(Component.translatable(
+		referencePickerSearch.setHint(OreUiEditBoxStyle.hint(Component.translatable(
 			referencePickerMode == ReferencePickerMode.REFERENCE_ITEM
 				? ModTranslationKeys.EDITOR_RULES_REFERENCE_ITEM_SEARCH
-				: ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH));
+				: ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH)));
 		referencePickerSearch.setValue(value);
 		referencePickerSearch.setResponder(query -> {
 			if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
@@ -2027,7 +2029,7 @@ final class EditorRulesPanel {
 			Component.empty());
 		box.setBordered(false);
 		box.setMaxLength(512);
-		box.setHint(hint);
+		box.setHint(OreUiEditBoxStyle.hint(hint));
 		box.setValue(value);
 		box.setResponder(text -> {
 			if (updatingFields) {

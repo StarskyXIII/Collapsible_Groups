@@ -16,6 +16,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupSampleRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreConfirmDialog;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreEditorShellLayout;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiEditBoxStyle;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
@@ -206,7 +207,7 @@ public class OreGroupEditorScreen extends Screen {
 		nameField.setBordered(false);
 		nameField.setTextColor(OreUiPalette.TEXT_PRIMARY);
 		nameField.setTextColorUneditable(OreUiPalette.TEXT_DISABLED);
-		nameField.setHint(nameFieldHint);
+		nameField.setHint(OreUiEditBoxStyle.hint(nameFieldHint));
 		positionField(nameField, shell.nameField());
 		nameField.setValue(state.editName);
 		nameField.setResponder(value -> {
@@ -222,7 +223,7 @@ public class OreGroupEditorScreen extends Screen {
 		searchField.setBordered(false);
 		searchField.setTextColor(OreUiPalette.TEXT_PRIMARY);
 		searchField.setTextColorUneditable(OreUiPalette.TEXT_DISABLED);
-		searchField.setHint(searchFieldHint);
+		searchField.setHint(OreUiEditBoxStyle.hint(searchFieldHint));
 		searchField.setResponder(value -> {
 			leftPanel.rebuildFilter(value);
 			leftPanel.clampScroll(layout);

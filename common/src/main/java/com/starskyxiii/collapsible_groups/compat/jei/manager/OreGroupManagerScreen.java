@@ -14,6 +14,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreConfirmDialog;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiEditBoxStyle;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
@@ -245,7 +246,8 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 		searchField.setBordered(false);
 		searchField.setTextColor(OreUiPalette.TEXT_PRIMARY);
 		searchField.setTextColorUneditable(OreUiPalette.TEXT_DISABLED);
-		searchField.setHint(Component.translatable(ModTranslationKeys.MANAGER_SEARCH_HINT));
+		searchField.setHint(OreUiEditBoxStyle.hint(
+			Component.translatable(ModTranslationKeys.MANAGER_SEARCH_HINT)));
 		searchField.setValue(searchQuery);
 		searchField.setResponder(this::applySearchQuery);
 		addRenderableWidget(searchField);

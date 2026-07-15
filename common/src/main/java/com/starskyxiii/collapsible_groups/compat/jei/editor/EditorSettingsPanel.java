@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 import com.starskyxiii.collapsible_groups.compat.jei.oreui.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.EditorChrome;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupSampleRenderer;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiEditBoxStyle;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiPalette;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.SettingsRowLayout;
@@ -1014,7 +1015,8 @@ public final class EditorSettingsPanel {
 		iconPickerSearch = new EditBox(font, 0, 0, 1, font.lineHeight + 2, Component.empty());
 		iconPickerSearch.setBordered(false);
 		iconPickerSearch.setMaxLength(64);
-		iconPickerSearch.setHint(Component.translatable(ModTranslationKeys.ORE_EDITOR_ICON_PICKER_SEARCH));
+		iconPickerSearch.setHint(OreUiEditBoxStyle.hint(
+			Component.translatable(ModTranslationKeys.ORE_EDITOR_ICON_PICKER_SEARCH)));
 		iconPickerSearch.setTextColor(OreUiPalette.TEXT_PRIMARY);
 		iconPickerSearch.setResponder(value -> iconPickerScrollOffset = clamp(iconPickerScrollOffset, 0, iconPickerMaxScroll()));
 		positionIconPickerSearch();
