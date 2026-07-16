@@ -1,10 +1,12 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.platform.TestPlatformHelper;
+import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -128,7 +130,7 @@ class GroupRegistryLifecycleTest {
 	}
 
 	@Test
-	void userEnabledChangeClearsFirstMatchCachesAndPublishesEnabledOnce() throws Exception {
+	void userEnabledChangeReresolvesFirstMatchCachesAndPublishesEnabledOnce() throws Exception {
 		GroupDefinition group = group("enabled_user_group", true);
 		replaceRegistrySnapshot(List.of(group));
 		seedCaches(group.id());
@@ -137,8 +139,8 @@ class GroupRegistryLifecycleTest {
 
 		assertEquals(List.of("enabled"), callbackOrder);
 		assertFalse(GroupRegistry.findById(group.id()).orElseThrow().enabled());
-		assertFalse(cacheContains("resolvedItemsByGroup", group.id()));
-		assertFalse(cacheContains("resolvedFluidsByGroup", group.id()));
+		assertTrue(cacheContains("resolvedItemsByGroup", group.id()));
+		assertTrue(cacheContains("resolvedFluidsByGroup", group.id()));
 		assertTrue(cacheContains("fullMatchItemsByGroup", group.id()));
 		assertTrue(cacheContains("fullMatchFluidsByGroup", group.id()));
 		assertTrue(cacheContains("fullMatchGenericByGroup", group.id()));
@@ -154,8 +156,8 @@ class GroupRegistryLifecycleTest {
 
 		assertEquals(List.of("enabled"), callbackOrder);
 		assertFalse(GroupRegistry.findById(group.id()).orElseThrow().enabled());
-		assertFalse(cacheContains("resolvedItemsByGroup", group.id()));
-		assertFalse(cacheContains("resolvedFluidsByGroup", group.id()));
+		assertTrue(cacheContains("resolvedItemsByGroup", group.id()));
+		assertTrue(cacheContains("resolvedFluidsByGroup", group.id()));
 		assertTrue(cacheContains("fullMatchItemsByGroup", group.id()));
 		assertTrue(cacheContains("fullMatchFluidsByGroup", group.id()));
 		assertTrue(cacheContains("fullMatchGenericByGroup", group.id()));
@@ -179,15 +181,15 @@ class GroupRegistryLifecycleTest {
 	}
 
 	@Test
-	void kubeJsReplacementClearsAllPreviewCachesButPreservesFirstMatchCaches() throws Exception {
+	void kubeJsReplacementClearsAllViewerCacheLayersBeforeAsyncRebuild() throws Exception {
 		String existingId = "existing_group";
 		seedCaches(existingId);
 
 		GroupRegistry.setKubeJsGroups(List.of(group("__kjs_replacement", true)));
 
 		assertTrue(callbackOrder.isEmpty());
-		assertTrue(cacheContains("resolvedItemsByGroup", existingId));
-		assertTrue(cacheContains("resolvedFluidsByGroup", existingId));
+		assertFalse(cacheContains("resolvedItemsByGroup", existingId));
+		assertFalse(cacheContains("resolvedFluidsByGroup", existingId));
 		assertNull(cache("fullMatchItemsByGroup"));
 		assertNull(cache("fullMatchFluidsByGroup"));
 		assertNull(cache("fullMatchGenericByGroup"));
@@ -219,6 +221,9 @@ class GroupRegistryLifecycleTest {
 	}
 
 	private static void seedCaches(String id) {
+		GroupDefinition indexed = group(id, true);
+		JeiViewerGroupIndex.instance().publishCandidateIndex(
+			new GroupCandidateIndex(Map.of(), Map.of(id, indexed), 0, 0, 0), List.of(indexed));
 		GroupRegistry.setResolvedItemsByGroup(Map.of(id, List.of()));
 		GroupRegistry.setResolvedFluidsByGroup(Map.of(id, List.of(new Object())));
 		GroupRegistry.setFullMatchItemsByGroup(Map.of(id, List.of()));
@@ -240,12 +245,13 @@ class GroupRegistryLifecycleTest {
 	}
 
 	private static Map<?, ?> cache(String fieldName) throws ReflectiveOperationException {
-		Field field = GroupRegistry.class.getDeclaredField(fieldName);
+		Field field = JeiViewerGroupIndex.class.getDeclaredField(fieldName);
 		field.setAccessible(true);
-		return (Map<?, ?>) field.get(null);
+		return (Map<?, ?>) field.get(JeiViewerGroupIndex.instance());
 	}
 
 	private static void resetRegistryState() throws Exception {
+		JeiViewerGroupIndex.instance().reset();
 		replaceRegistrySnapshot(List.of());
 		KubeJsGroupStore.clearAll();
 		GroupRegistry.clearJeiAllItems();

@@ -225,6 +225,7 @@
   "collapsible_groups.editor.save_blocked.readonly": "此篩選器為唯讀：%s。",
   "collapsible_groups.editor.save_error": "目前還無法儲存此群組。",
   "collapsible_groups.editor.search_hint": "搜尋...",
+  "collapsible_groups.editor.loading": "正在載入群組索引...",
   "collapsible_groups.editor.search_syntax_tooltip": "搜尋名稱或 ID\n使用 @ 搜尋模組\n使用 # 搜尋標籤\n使用 $ 搜尋提示文字",
   "collapsible_groups.editor.search_label": "搜尋",
   "collapsible_groups.editor.summary.fluids": "%s 種流體",

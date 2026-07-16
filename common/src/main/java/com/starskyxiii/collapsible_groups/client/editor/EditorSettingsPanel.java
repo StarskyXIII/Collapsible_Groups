@@ -10,6 +10,7 @@ import com.starskyxiii.collapsible_groups.client.widget.SettingsRowLayout;
 import com.starskyxiii.collapsible_groups.config.ColorConfigParser;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.client.Minecraft;
@@ -18,12 +19,8 @@ import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.Util;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import org.jetbrains.annotations.Nullable;
 import org.lwjgl.glfw.GLFW;
 
@@ -73,7 +70,7 @@ public final class EditorSettingsPanel {
 	private final EditorSettingsState state;
 	private final Font font;
 	private final Runnable onChanged;
-	private final Supplier<List<ItemStack>> groupItems;
+	private final Supplier<List<EditorRuntimeAccess.PreviewEntry>> groupItems;
 
 	// Dirty gate: lets the color picker restore the Screen's dirty flag on cancel
 	// (matching the pre-downsink behavior where markDirty is monotonic otherwise).
@@ -138,7 +135,7 @@ public final class EditorSettingsPanel {
 	}
 
 	public EditorSettingsPanel(EditorSettingsState state, Font font, Runnable onChanged,
-	                           Supplier<List<ItemStack>> groupItems) {
+	                           Supplier<List<EditorRuntimeAccess.PreviewEntry>> groupItems) {
 		this.state = state;
 		this.font = font;
 		this.onChanged = onChanged;
@@ -398,13 +395,13 @@ public final class EditorSettingsPanel {
 
 		SettingsRowLayout.Rect slot = row.slot();
 		UiSkinRenderer.drawSlot(g, slot.x(), slot.y(), slot.width());
-		String iconId = back ? state.appearanceDraft().backIconId() : state.appearanceDraft().frontIconId();
-		renderItemIconId(g, iconId, slot.x() + 2, slot.y() + 2);
+		GroupIconDefinition iconId = back ? state.appearanceDraft().backIconId() : state.appearanceDraft().frontIconId();
+		renderIcon(g, iconId, slot.x() + 2, slot.y() + 2);
 
 		int textX = slot.right() + 8;
 		g.drawString(font, font.plainSubstrByWidth(label, Math.max(0, row.changeBtn().x() - textX - 4)),
 			textX, rect.y() + 3, UiPalette.TEXT_PRIMARY, false);
-		String value = iconId == null ? desc : iconId;
+		String value = iconId == null ? desc : iconLabel(iconId);
 		g.drawString(font, font.plainSubstrByWidth(value, Math.max(0, row.changeBtn().x() - textX - 4)),
 			textX, rect.y() + 3 + font.lineHeight + 1,
 			iconId == null ? UiPalette.TEXT_HINT : UiPalette.TEXT_MUTED, false);
@@ -566,19 +563,21 @@ public final class EditorSettingsPanel {
 			: String.format(Locale.ROOT, "#%08X", argb);
 	}
 
-	private void renderItemIconId(GuiGraphics g, @Nullable String iconId, int x, int y) {
-		ItemStack stack = iconStack(iconId);
-		if (!stack.isEmpty()) {
-			g.renderItem(stack, x, y);
-		}
+	private void renderIcon(GuiGraphics g, @Nullable GroupIconDefinition iconId, int x, int y) {
+		if (iconId == null) return;
+		List<EditorRuntimeAccess.PreviewEntry> resolved = EditorRuntimeServices.get()
+			.resolveHeaderIcons(List.of(iconId), List.of());
+		if (!resolved.isEmpty()) renderPickerEntry(g, resolved.getFirst(), x, y);
 	}
 
-	private ItemStack iconStack(@Nullable String iconId) {
-		if (iconId == null || iconId.isBlank()) return ItemStack.EMPTY;
-		ResourceLocation loc = ResourceLocation.tryParse(iconId);
-		if (loc == null) return ItemStack.EMPTY;
-		Item item = BuiltInRegistries.ITEM.get(loc);
-		return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
+	private static String iconLabel(GroupIconDefinition icon) {
+		return icon.isItem() ? icon.valueId() : icon.ingredientType() + ": " + icon.valueId();
+	}
+
+	private static boolean sameIcon(GroupIconDefinition left, @Nullable GroupIconDefinition right) {
+		return right != null
+			&& left.valueId().equals(right.valueId())
+			&& left.canonicalIngredientType().equals(right.canonicalIngredientType());
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -994,7 +993,7 @@ public final class EditorSettingsPanel {
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
-	// Icon picker modal (item slot grid, data source = group items)
+	// Icon picker modal (typed ingredient grid, data source = group contents)
 	// ─────────────────────────────────────────────────────────────────────
 
 	private boolean isIconPickerOpen() {
@@ -1021,11 +1020,10 @@ public final class EditorSettingsPanel {
 		scrollIconPickerToSelection();
 	}
 
-	private void confirmIconPickerSelection(ItemStack stack) {
-		String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
+	private void confirmIconPickerSelection(EditorRuntimeAccess.PreviewEntry entry) {
 		state.setAppearanceDraft(iconPickerTargetBack
-			? state.appearanceDraft().withBackIconId(id)
-			: state.appearanceDraft().withFrontIconId(id));
+			? state.appearanceDraft().withBackIconId(entry.icon())
+			: state.appearanceDraft().withFrontIconId(entry.icon()));
 		onChanged.run();
 		closeIconPicker();
 	}
@@ -1036,7 +1034,7 @@ public final class EditorSettingsPanel {
 		iconPickerSearch = null;
 	}
 
-	private String selectedIconPickerId() {
+	private GroupIconDefinition selectedIconPickerId() {
 		return iconPickerTargetBack ? state.appearanceDraft().backIconId() : state.appearanceDraft().frontIconId();
 	}
 
@@ -1052,34 +1050,58 @@ public final class EditorSettingsPanel {
 	private List<PickerEntry> iconPickerEntries() {
 		List<PickerEntry> out = new ArrayList<>();
 		String query = iconPickerSearchText().trim().toLowerCase(Locale.ROOT);
-		String selectedId = selectedIconPickerId();
-		ItemStack pinned = iconStack(selectedId);
+		GroupIconDefinition selectedId = selectedIconPickerId();
+		List<EditorRuntimeAccess.PreviewEntry> pinned = selectedId == null ? List.of()
+			: EditorRuntimeServices.get().resolveHeaderIcons(List.of(selectedId), List.of());
 		boolean selectedInGroup = false;
 		List<PickerEntry> body = new ArrayList<>();
-		for (ItemStack stack : groupItems.get()) {
-			if (stack.isEmpty() || stack.getItem() == Items.AIR) continue;
-			String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-			if (id.equals(selectedId)) selectedInGroup = true;
-			if (!matchesQuery(stack, id, query)) continue;
-			body.add(new PickerEntry(stack, false));
+		for (EditorRuntimeAccess.PreviewEntry entry : groupItems.get()) {
+			if (sameIcon(entry.icon(), selectedId)) selectedInGroup = true;
+			if (!matchesQuery(entry, query)) continue;
+			body.add(new PickerEntry(entry, false));
 		}
 		if (!pinned.isEmpty() && !selectedInGroup) {
-			String id = BuiltInRegistries.ITEM.getKey(pinned.getItem()).toString();
-			if (matchesQuery(pinned, id, query)) {
-				out.add(new PickerEntry(pinned, true));
+			EditorRuntimeAccess.PreviewEntry entry = pinned.getFirst();
+			if (matchesQuery(entry, query)) {
+				out.add(new PickerEntry(entry, true));
 			}
 		}
 		out.addAll(body);
 		return out;
 	}
 
-	private boolean matchesQuery(ItemStack stack, String id, String query) {
+	private boolean matchesQuery(EditorRuntimeAccess.PreviewEntry entry, String query) {
 		if (query.isEmpty()) return true;
-		String name = stack.getHoverName().getString().toLowerCase(Locale.ROOT);
-		return id.toLowerCase(Locale.ROOT).contains(query) || name.contains(query);
+		String name = switch (entry.kind()) {
+			case ITEM -> ((ItemStack) entry.value()).getHoverName().getString();
+			case FLUID -> ((EditorFluidIngredientView) entry.value()).displayName().getString();
+			case GENERIC -> ((EditorGenericIngredientView) entry.value()).displayName().getString();
+		};
+		return iconLabel(entry.icon()).toLowerCase(Locale.ROOT).contains(query)
+			|| name.toLowerCase(Locale.ROOT).contains(query);
 	}
 
-	private record PickerEntry(ItemStack stack, boolean nonGroup) {}
+	private static void renderPickerEntry(GuiGraphics g, EditorRuntimeAccess.PreviewEntry entry, int x, int y) {
+		switch (entry.kind()) {
+			case ITEM -> g.renderItem((ItemStack) entry.value(), x, y);
+			case FLUID -> IngredientCellRenderer.renderFluid(
+				g, (EditorFluidIngredientView) entry.value(), x, y);
+			case GENERIC -> IngredientCellRenderer.renderGeneric(
+				g, (EditorGenericIngredientView) entry.value(), x, y);
+		}
+	}
+
+	private void renderPickerTooltip(GuiGraphics g, EditorRuntimeAccess.PreviewEntry entry, int x, int y) {
+		switch (entry.kind()) {
+			case ITEM -> g.renderTooltip(font, (ItemStack) entry.value(), x, y);
+			case FLUID -> g.renderTooltip(font, EditorRuntimeServices.get()
+				.fluidTooltip((EditorFluidIngredientView) entry.value()), java.util.Optional.empty(), x, y);
+			case GENERIC -> g.renderTooltip(font, EditorRuntimeServices.get()
+				.genericTooltip((EditorGenericIngredientView) entry.value()), java.util.Optional.empty(), x, y);
+		}
+	}
+
+	private record PickerEntry(EditorRuntimeAccess.PreviewEntry ingredient, boolean nonGroup) {}
 
 	private EditorChrome.Rect iconPickerModalRect() {
 		int inset = PANEL_INSET;
@@ -1125,7 +1147,7 @@ public final class EditorSettingsPanel {
 	}
 
 	private void scrollIconPickerToSelection() {
-		String selectedId = selectedIconPickerId();
+		GroupIconDefinition selectedId = selectedIconPickerId();
 		if (selectedId == null) {
 			iconPickerScrollOffset = 0;
 			return;
@@ -1133,7 +1155,7 @@ public final class EditorSettingsPanel {
 		List<PickerEntry> entries = iconPickerEntries();
 		int index = -1;
 		for (int i = 0; i < entries.size(); i++) {
-			if (BuiltInRegistries.ITEM.getKey(entries.get(i).stack().getItem()).toString().equals(selectedId)) {
+			if (sameIcon(entries.get(i).ingredient().icon(), selectedId)) {
 				index = i;
 				break;
 			}
@@ -1195,8 +1217,8 @@ public final class EditorSettingsPanel {
 		int totalGridRows = (entries.size() + ICON_PICKER_COLS - 1) / ICON_PICKER_COLS;
 		UiSkinRenderer.drawSlotGrid(g, grid.x(), grid.y() - iconPickerScrollOffset,
 			ICON_PICKER_COLS, totalGridRows, ICON_PICKER_SLOT);
-		ItemStack hovered = null;
-		String selectedId = selectedIconPickerId();
+		EditorRuntimeAccess.PreviewEntry hovered = null;
+		GroupIconDefinition selectedId = selectedIconPickerId();
 		for (int i = 0; i < entries.size(); i++) {
 			PickerEntry entry = entries.get(i);
 			int col = i % ICON_PICKER_COLS;
@@ -1204,19 +1226,18 @@ public final class EditorSettingsPanel {
 			int cx = grid.x() + col * ICON_PICKER_SLOT;
 			int cy = grid.y() + row * ICON_PICKER_SLOT - iconPickerScrollOffset;
 			if (cy + ICON_PICKER_SLOT < grid.y() || cy > grid.bottom()) continue;
-			g.renderItem(entry.stack(), cx + 1, cy + 1);
-			String itemId = BuiltInRegistries.ITEM.getKey(entry.stack().getItem()).toString();
+			renderPickerEntry(g, entry.ingredient(), cx + 1, cy + 1);
 			if (entry.nonGroup()) {
 				// Non-group item marker: amber corner tab (top-right) so the "data
 				// source = group contents" contract stays visible when pinned.
 				g.fill(cx + ICON_PICKER_SLOT - 4, cy + 1, cx + ICON_PICKER_SLOT - 1, cy + 4, 0xFFF2C744);
 			}
-			if (itemId.equals(selectedId)) {
+			if (sameIcon(entry.ingredient().icon(), selectedId)) {
 				UiSkinRenderer.drawOutline(g, cx, cy, ICON_PICKER_SLOT, ICON_PICKER_SLOT, UiPalette.OUTLINE_SELECTED);
 			}
 			if (contains(cx, cy, ICON_PICKER_SLOT, ICON_PICKER_SLOT, mouseX, mouseY)) {
 				g.fill(cx + 1, cy + 1, cx + ICON_PICKER_SLOT - 1, cy + ICON_PICKER_SLOT - 1, 0x40FFFFFF);
-				hovered = entry.stack();
+				hovered = entry.ingredient();
 			}
 		}
 		g.disableScissor();
@@ -1227,7 +1248,7 @@ public final class EditorSettingsPanel {
 				grid.height(), grid.height() + maxScroll, iconPickerScrollOffset);
 		}
 		if (hovered != null) {
-			g.renderTooltip(font, hovered, mouseX, mouseY);
+			renderPickerTooltip(g, hovered, mouseX, mouseY);
 		}
 	}
 
@@ -1257,7 +1278,7 @@ public final class EditorSettingsPanel {
 		if (col < 0 || col >= ICON_PICKER_COLS) return true;
 		int index = row * ICON_PICKER_COLS + col;
 		if (index >= 0 && index < entries.size()) {
-			confirmIconPickerSelection(entries.get(index).stack());
+			confirmIconPickerSelection(entries.get(index).ingredient());
 		}
 		return true;
 	}
@@ -1448,7 +1469,7 @@ public final class EditorSettingsPanel {
 			return;
 		}
 		if (row.clearBtn().contains(mouseX, mouseY)) {
-			String iconId = back ? state.appearanceDraft().backIconId() : state.appearanceDraft().frontIconId();
+			GroupIconDefinition iconId = back ? state.appearanceDraft().backIconId() : state.appearanceDraft().frontIconId();
 			if (iconId != null) {
 				state.setAppearanceDraft(back ? state.appearanceDraft().clearBackIcon() : state.appearanceDraft().clearFrontIcon());
 				onChanged.run();

@@ -1,0 +1,11 @@
+{
+  "id": "typed_icon_mixed",
+  "name": "Typed Icon Mixed",
+  "icon": [
+    "minecraft:diamond",
+    { "type": "fluid", "id": "minecraft:water" },
+    "minecraft:emerald",
+    { "type": "test:chemical", "id": "test:oxygen" }
+  ],
+  "filter": { "type": "item", "id": "minecraft:stone" }
+}

@@ -84,6 +84,8 @@ public class GroupEditorScreen extends Screen {
 	private EditorShellMode activeMode = EditorShellMode.CONTENTS;
 	private EditorContentFilter activeContentFilter = EditorContentFilter.ITEMS;
 	private boolean hasGenericIngredients = false;
+	private boolean editorDataLoading = true;
+	private int editorLoadGeneration = 0;
 	private boolean dirty = false;
 	private boolean saveButtonHeld = false;
 	private boolean cancelButtonHeld = false;
@@ -150,23 +152,19 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	protected void init() {
+		int loadGeneration = ++editorLoadGeneration;
 		shell = computeShellLayout();
 		layout = shell.panelLayout();
 		leftPanel = new EditorLeftPanel(state, this::onGroupChanged, itemSearchSession);
 		rightPanel = new EditorRightPanel(state, this::onGroupChanged);
 		rulesPanel = new EditorRulesPanel(state, font, this::onGroupChanged, this::editorItems, itemSearchSession);
 		settingsPanel = new EditorSettingsPanel(state, font, this::onGroupChanged,
-			() -> rightPanel.groupItems());
+			this::settingsPreviewEntries);
 		settingsPanel.setDirtyGate(() -> dirty, value -> dirty = value);
 
-		List<EditorFluidIngredientView> allFluids = EditorRuntimeServices.get().allFluids(
-			"EditorLeftPanel.buildFluidViews");
-		List<EditorGenericIngredientView> allGenericIngredients = EditorRuntimeServices.get().allGenericIngredients(
-			"EditorLeftPanel.buildGenericViews");
-		hasGenericIngredients = !allGenericIngredients.isEmpty();
-		leftPanel.init(editorItems(), allFluids, allGenericIngredients);
+		editorDataLoading = true;
+		leftPanel.init(List.of(), List.of(), List.of());
 		leftPanel.setHideUsed(GroupUiState.hideUsed());
-		rightPanel.rebuild();
 		initFields();
 		initRulesPanel();
 		initSettingsPanel();
@@ -174,6 +172,28 @@ public class GroupEditorScreen extends Screen {
 		leftPanel.clampScroll(layout);
 		rightPanel.clampScroll(previewLayout());
 		updateWidgetVisibility();
+		GroupDefinition entryDefinition = state.buildPreviewDefinition();
+		EditorRuntimeServices.get().prepareEditorEntry(entryDefinition).whenComplete((ignored, error) ->
+			minecraft.execute(() -> finishEditorEntryLoad(loadGeneration, error)));
+	}
+
+	private void finishEditorEntryLoad(int loadGeneration, Throwable error) {
+		if (loadGeneration != editorLoadGeneration || minecraft.screen != this) return;
+		if (error != null) {
+			editorDataLoading = false;
+			return;
+		}
+		List<EditorFluidIngredientView> allFluids = EditorRuntimeServices.get().allFluids(
+			"EditorLeftPanel.buildFluidViews");
+		List<EditorGenericIngredientView> allGenericIngredients = EditorRuntimeServices.get().allGenericIngredients(
+			"EditorLeftPanel.buildGenericViews");
+		hasGenericIngredients = !allGenericIngredients.isEmpty();
+		leftPanel.init(editorItems(), allFluids, allGenericIngredients);
+		rightPanel.rebuildFromPreparedCache();
+		applyContentFilter(activeContentFilter);
+		leftPanel.clampScroll(layout);
+		rightPanel.clampScroll(previewLayout());
+		editorDataLoading = false;
 	}
 
 	private List<ItemStack> editorItems() {
@@ -325,11 +345,13 @@ public class GroupEditorScreen extends Screen {
 			g.renderComponentTooltip(font,
 				List.of(Component.translatable(ModTranslationKeys.EDITOR_CHIP_HIDE_USED)), mouseX, mouseY);
 		} else if (!disableSourceTooltip && activeMode == EditorShellMode.CONTENTS) {
-			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font, shell);
+			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font, shell,
+				activeMode == EditorShellMode.CONTENTS && searchField != null && searchField.visible);
 		} else if (!disableSourceTooltip
 			&& (activeMode != EditorShellMode.RULES || !rulesPanel.isModalOpen())) {
 			leftPanel.clearHover();
-			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font, shell);
+			GroupEditorTooltipHelper.render(g, mouseX, mouseY, leftPanel, rightPanel, state, font, shell,
+				activeMode == EditorShellMode.CONTENTS && searchField != null && searchField.visible);
 		}
 		if (shell.saveButton().contains(mouseX, mouseY) && !canSaveNow()) {
 			g.renderComponentTooltip(font, saveDisabledTooltip(), mouseX, mouseY);
@@ -413,6 +435,13 @@ public class GroupEditorScreen extends Screen {
 			renderSettingsPanel(g, mouseX, mouseY);
 		}
 		renderPreviewPanel(g, mouseX, mouseY);
+		if (editorDataLoading) {
+			Component loading = Component.translatable(ModTranslationKeys.EDITOR_LOADING);
+			g.drawCenteredString(font, loading,
+				(shell.editorPanel().x() + shell.previewPanel().right()) / 2,
+				shell.editorPanel().y() + shell.editorPanel().height() / 2,
+				UiPalette.TEXT_HINT);
+		}
 	}
 
 	private void renderModeSegments(GuiGraphics g, int mouseX, int mouseY) {
@@ -542,8 +571,9 @@ public class GroupEditorScreen extends Screen {
 		}
 
 		EditorShellLayout.Rect area = settingsPreviewAreaRect();
+		List<EditorRuntimeAccess.PreviewEntry> entries = settingsPreviewEntries();
 		settingsPreviewLayout = EditorRuntimeServices.get().renderPreview(g, sampleRect(area), settingsPreviewExpanded,
-			settingsPreviewPage, state.appearanceDraft, settingsSampleHeaderIcons(), rightPanel.groupItems(),
+			settingsPreviewPage, state.appearanceDraft, settingsSampleHeaderIcons(entries), entries,
 			font, sampleFallbacks());
 		settingsPreviewPage = settingsPreviewLayout.page();
 		recordSettingsPreviewHover(mouseX, mouseY);
@@ -573,9 +603,9 @@ public class GroupEditorScreen extends Screen {
 				previewHoverLines = result.lines();
 				previewHoverVisual = result.visual();
 			} else {
-				List<ItemStack> items = settingsPreviewItems();
-				if (cell.itemIndex() >= 0 && cell.itemIndex() < items.size()) {
-					previewHoverItem = items.get(cell.itemIndex());
+				List<EditorRuntimeAccess.PreviewEntry> entries = settingsPreviewEntries();
+				if (cell.itemIndex() >= 0 && cell.itemIndex() < entries.size()) {
+					recordPreviewEntryTooltip(entries.get(cell.itemIndex()));
 				}
 			}
 			return;
@@ -583,14 +613,6 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	/** Non-empty group items — same filter GroupSampleRenderer uses for child cells. */
-	private List<ItemStack> settingsPreviewItems() {
-		List<ItemStack> out = new java.util.ArrayList<>();
-		for (ItemStack stack : rightPanel.groupItems()) {
-			if (stack != null && !stack.isEmpty()) out.add(stack);
-		}
-		return out;
-	}
-
 	/** Live-aligned preview entries for the collapsed header preview grid. */
 	private List<EditorRuntimeAccess.PreviewEntry> settingsPreviewEntries() {
 		List<EditorRuntimeAccess.PreviewEntry> entries = new java.util.ArrayList<>();
@@ -600,6 +622,16 @@ public class GroupEditorScreen extends Screen {
 			entries.add(EditorRuntimeAccess.PreviewEntry.generic(generic));
 		}
 		return entries;
+	}
+
+	private void recordPreviewEntryTooltip(EditorRuntimeAccess.PreviewEntry entry) {
+		switch (entry.kind()) {
+			case ITEM -> previewHoverItem = (ItemStack) entry.value();
+			case FLUID -> previewHoverLines = EditorRuntimeServices.get()
+				.fluidTooltip((EditorFluidIngredientView) entry.value());
+			case GENERIC -> previewHoverLines = EditorRuntimeServices.get()
+				.genericTooltip((EditorGenericIngredientView) entry.value());
+		}
 	}
 
 	private EditorRuntimeAccess.PreviewRect sampleRect(EditorShellLayout.Rect area) {
@@ -619,9 +651,11 @@ public class GroupEditorScreen extends Screen {
 	 * Header stack icons: honour the draft icon selection (front, back) when
 	 * present, else fall back to the group's own items (the live JEI source).
 	 */
-	private List<ItemStack> settingsSampleHeaderIcons() {
-		List<ItemStack> selected = draftHeaderIcons();
-		return selected.isEmpty() ? rightPanel.groupItems() : selected;
+	private List<EditorRuntimeAccess.PreviewEntry> settingsSampleHeaderIcons(
+		List<EditorRuntimeAccess.PreviewEntry> fallbackEntries
+	) {
+		return EditorRuntimeServices.get().resolveHeaderIcons(
+			state.appearanceDraft.toIconIds(), fallbackEntries);
 	}
 
 	private void renderPreviewEmptyState(GuiGraphics g) {
@@ -650,37 +684,20 @@ public class GroupEditorScreen extends Screen {
 			state.appearanceDraft.toTheme(), Services.CONFIG.collapsedGroupBackgroundColor());
 		g.fill(x, y, x + HEADER_PREVIEW_SIZE, y + HEADER_PREVIEW_SIZE, background);
 		UiSkinRenderer.drawOutline(g, x, y, HEADER_PREVIEW_SIZE, HEADER_PREVIEW_SIZE, UiPalette.OUTLINE_DARK);
-		List<ItemStack> draftIcons = draftHeaderIcons();
-		if (draftIcons.isEmpty()) {
-			renderStackedPreviewIcons(g, x, y);
-		} else {
-			renderStackedItemIcons(g, draftIcons, x, y);
-		}
+		renderStackedEditorIcons(g, settingsSampleHeaderIcons(settingsPreviewEntries()), x, y);
 	}
 
-	/** Draft front/back icons (non-empty), or empty when the draft carries none. */
-	private List<ItemStack> draftHeaderIcons() {
-		AppearanceDraft draft = state.appearanceDraft;
-		List<ItemStack> icons = new java.util.ArrayList<>();
-		ItemStack front = iconStack(draft.frontIconId());
-		ItemStack back = iconStack(draft.backIconId());
-		if (!front.isEmpty()) icons.add(front);
-		if (!back.isEmpty()) icons.add(back);
-		return icons;
-	}
-
-	/** Stacked item render mirroring {@link #renderStackedPreviewIcons}'s layout. */
-	private void renderStackedItemIcons(GuiGraphics g, List<ItemStack> icons, int x, int y) {
+	private void renderStackedEditorIcons(GuiGraphics g, List<EditorRuntimeAccess.PreviewEntry> icons, int x, int y) {
 		if (icons.isEmpty()) return;
 		g.pose().pushPose();
 		g.pose().translate(0, 0, 120);
 		if (icons.size() > 1) {
-			g.renderItem(icons.get(1), x + 4, y + 2);
+			renderPreviewEntry(g, icons.get(1), x + 4, y + 2);
 			g.pose().translate(0, 0, 8);
-			g.renderItem(icons.get(0), x + 2, y + 4);
+			renderPreviewEntry(g, icons.get(0), x + 2, y + 4);
 		} else {
 			int inset = (HEADER_PREVIEW_SIZE - PREVIEW_ICON_SIZE) / 2;
-			g.renderItem(icons.get(0), x + inset, y + inset);
+			renderPreviewEntry(g, icons.get(0), x + inset, y + inset);
 		}
 		g.pose().popPose();
 	}
@@ -731,14 +748,6 @@ public class GroupEditorScreen extends Screen {
 		g.pose().popPose();
 	}
 
-	private ItemStack iconStack(@Nullable String iconId) {
-		if (iconId == null || iconId.isBlank()) return ItemStack.EMPTY;
-		ResourceLocation loc = ResourceLocation.tryParse(iconId);
-		if (loc == null) return ItemStack.EMPTY;
-		Item item = BuiltInRegistries.ITEM.get(loc);
-		return item == Items.AIR ? ItemStack.EMPTY : new ItemStack(item);
-	}
-
 	/**
 	 * Settings-mode preview area: start just below the "JEI Preview" title
 	 * and its operation hint, not the Contents/Rules 22px stacked-icon header the
@@ -778,6 +787,16 @@ public class GroupEditorScreen extends Screen {
 		index -= fluidCount;
 		if (index < rightPanel.groupGeneric().size()) {
 			IngredientCellRenderer.renderGeneric(g, rightPanel.groupGeneric().get(index), x, y);
+		}
+	}
+
+	private void renderPreviewEntry(GuiGraphics g, EditorRuntimeAccess.PreviewEntry entry, int x, int y) {
+		switch (entry.kind()) {
+			case ITEM -> g.renderItem((ItemStack) entry.value(), x, y);
+			case FLUID -> IngredientCellRenderer.renderFluid(
+				g, (EditorFluidIngredientView) entry.value(), x, y);
+			case GENERIC -> IngredientCellRenderer.renderGeneric(
+				g, (EditorGenericIngredientView) entry.value(), x, y);
 		}
 	}
 
@@ -961,7 +980,7 @@ public class GroupEditorScreen extends Screen {
 		EditorRuntimeAccess.PreviewLayout layout = settingsPreviewLayout != null
 			? settingsPreviewLayout
 			: EditorRuntimeServices.get().layoutPreview(sampleRect(settingsPreviewAreaRect()), settingsPreviewExpanded,
-				rightPanel.groupItems().size(), settingsPreviewPage);
+				previewEntryCount(), settingsPreviewPage);
 		if (layout.previousPageButton() != null && layout.previousPageButton().contains(mouseX, mouseY)
 			&& layout.canPageBackward()) {
 			settingsPreviewPage = Math.max(0, layout.page() - 1);

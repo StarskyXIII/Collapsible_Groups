@@ -10,6 +10,7 @@ import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.config.ColorConfigParser;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
@@ -300,13 +301,13 @@ public final class GroupConfig {
 			throw new IllegalArgumentException("Missing required 'filter' field.");
 		}
 
-		List<String> iconIds = new ArrayList<>();
+		List<GroupIconDefinition> iconIds = new ArrayList<>();
 		if (obj.has("icon")) {
 			var iconElement = obj.get("icon");
 			if (iconElement.isJsonArray()) {
-				iconElement.getAsJsonArray().forEach(e -> iconIds.add(e.getAsString()));
+				iconElement.getAsJsonArray().forEach(e -> iconIds.add(parseIcon(e)));
 			} else {
-				iconIds.add(iconElement.getAsString());
+				iconIds.add(parseIcon(iconElement));
 			}
 		}
 
@@ -315,6 +316,20 @@ public final class GroupConfig {
 		int priority = parsePriority(id, obj.get("priority"));
 		JsonObject extra = parseExtra(id, obj.get("extra"));
 		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme, priority, extra);
+	}
+
+	private static GroupIconDefinition parseIcon(JsonElement element) {
+		if (element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isString()) {
+			return GroupIconDefinition.item(element.getAsString());
+		}
+		if (element != null && element.isJsonObject()) {
+			JsonObject icon = element.getAsJsonObject();
+			if (!icon.has("type") || !icon.has("id")) {
+				throw new IllegalArgumentException("Typed icon requires non-blank 'type' and 'id': " + icon);
+			}
+			return new GroupIconDefinition(icon.get("type").getAsString(), icon.get("id").getAsString());
+		}
+		throw new IllegalArgumentException("Icon must be a string or {type,id} object: " + element);
 	}
 
 	private static int parsePriority(String groupId, JsonElement priorityElement) {
@@ -448,10 +463,10 @@ public final class GroupConfig {
 
 		if (!group.iconIds().isEmpty()) {
 			if (group.iconIds().size() == 1) {
-				obj.addProperty("icon", group.iconIds().getFirst());
+				obj.add("icon", serializeIcon(group.iconIds().getFirst()));
 			} else {
 				JsonArray iconArr = new JsonArray();
-				group.iconIds().forEach(iconArr::add);
+				group.iconIds().forEach(icon -> iconArr.add(serializeIcon(icon)));
 				obj.add("icon", iconArr);
 			}
 		}
@@ -466,6 +481,14 @@ public final class GroupConfig {
 
 		obj.add("filter", serializeFilter(group.filter()));
 		return GSON.toJson(obj);
+	}
+
+	private static JsonElement serializeIcon(GroupIconDefinition icon) {
+		if (icon.isItem()) return GSON.toJsonTree(icon.valueId());
+		JsonObject object = new JsonObject();
+		object.addProperty("type", icon.ingredientType());
+		object.addProperty("id", icon.valueId());
+		return object;
 	}
 
 	private static JsonObject serializeTheme(GroupTheme theme) {
@@ -662,7 +685,7 @@ public final class GroupConfig {
 		GroupDisplayName displayName,
 		boolean enabled,
 		GroupFilter filter,
-		List<String> iconIds,
+		List<GroupIconDefinition> iconIds,
 		GroupTheme theme,
 		int priority,
 		JsonObject extra

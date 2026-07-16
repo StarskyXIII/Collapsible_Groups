@@ -12,6 +12,7 @@ public record EditorGenericIngredientView(
 	Object presentationData,
 	Component displayName,
 	String resourceId,
+	String identityValueId,
 	Set<String> tagIds,
 	IngredientSearchDocument searchDocument
 ) {}

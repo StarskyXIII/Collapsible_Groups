@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.client.editor;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
@@ -89,7 +90,8 @@ class EditorStateCoreTest {
 			8
 		);
 
-		assertEquals(List.of("minecraft:emerald", "minecraft:gold_ingot"), preview.iconIds());
+		assertEquals(List.of(GroupIconDefinition.item("minecraft:emerald"),
+			GroupIconDefinition.item("minecraft:gold_ingot")), preview.iconIds());
 		assertEquals(new GroupTheme("#112233", "#44112233", "#55223344", "#66334455", "#77445566"), preview.theme());
 		assertEquals(8, preview.priority());
 	}

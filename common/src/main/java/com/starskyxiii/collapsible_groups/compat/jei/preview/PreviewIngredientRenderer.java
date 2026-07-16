@@ -9,10 +9,10 @@ import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.item.ItemStack;
 
-final class PreviewIngredientRenderer {
+public final class PreviewIngredientRenderer {
 	private PreviewIngredientRenderer() {}
 
-	static Object getFluidIngredient(ITypedIngredient<?> typed) {
+	public static Object getFluidIngredient(ITypedIngredient<?> typed) {
 		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		if (fluidType == null) return null;
 		return getIngredient(typed, fluidType);

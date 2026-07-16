@@ -24,8 +24,9 @@ final class GroupEditorTooltipHelper {
 
 	static void render(GuiGraphics g, int mouseX, int mouseY,
 	                   EditorLeftPanel left, EditorRightPanel right,
-	                   GroupEditorState state, Font font, EditorShellLayout shell) {
-		if (shell.searchField().contains(mouseX, mouseY)) {
+	                   GroupEditorState state, Font font, EditorShellLayout shell,
+	                   boolean searchFieldVisible) {
+		if (shouldShowSearchSyntaxTooltip(searchFieldVisible, shell.searchField(), mouseX, mouseY)) {
 			g.renderComponentTooltip(font, searchSyntaxLines(), mouseX, mouseY);
 			return;
 		}
@@ -113,6 +114,11 @@ final class GroupEditorTooltipHelper {
 			else if (state.isGenericTagMatched(entry)) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 		}
+	}
+
+	static boolean shouldShowSearchSyntaxTooltip(boolean searchFieldVisible, EditorShellLayout.Rect bounds,
+		int mouseX, int mouseY) {
+		return searchFieldVisible && bounds.contains(mouseX, mouseY);
 	}
 
 	static List<Component> searchSyntaxLines() {

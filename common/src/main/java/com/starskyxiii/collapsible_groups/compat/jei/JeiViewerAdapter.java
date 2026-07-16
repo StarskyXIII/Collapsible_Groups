@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
@@ -39,11 +40,9 @@ import mezz.jei.api.ingredients.subtypes.UidContext;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.gui.GuiGraphics;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import org.jetbrains.annotations.Nullable;
 
@@ -89,6 +88,8 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 			runtimeRegistration = null;
 		}
 		INSTANCE.bootstrapContext.clear();
+		JeiIngredientTypeDiscovery.clearRuntimeTypes();
+		JeiHeaderIconResolver.clearWarnings();
 	}
 
 	@Override
@@ -136,7 +137,27 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	}
 
 	public void updateBootstrap(List<ITypedIngredient<?>> ingredients, IIngredientManager manager) {
+		JeiIngredientTypeDiscovery.discover(manager);
 		bootstrapContext.update(ingredients, manager);
+		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRegistry.getAllIncludingKubeJs());
+		JeiHeaderIconResolver.warnUnresolvedAfterBootstrap(
+			GroupRegistry.getAllIncludingKubeJs(), bootstrapContext.universe());
+	}
+
+	public List<ITypedIngredient<?>> assembleHeaderIcons(
+		List<GroupIconDefinition> iconIds,
+		List<ViewerIngredient<ITypedIngredient<?>>> fallback
+	) {
+		return JeiHeaderIconResolver.assemble(iconIds, fallback, bootstrapContext.universe());
+	}
+
+	public List<ITypedIngredient<?>> resolveHeaderIconIngredients(List<GroupIconDefinition> iconIds) {
+		return JeiHeaderIconResolver.resolve(iconIds, bootstrapContext.universe());
+	}
+
+	public void discoverRuntimeTypes(IIngredientManager manager) {
+		JeiIngredientTypeDiscovery.discover(manager);
+		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRegistry.getAllIncludingKubeJs());
 	}
 
 	public GroupCandidateIndex buildOwnershipIndex(
@@ -147,6 +168,8 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		long start = PerformanceTrace.begin();
 		updateBootstrap(ingredients, manager);
 		ViewerIngredientUniverse<ITypedIngredient<?>> universe = bootstrapContext.universe();
+		JeiHeaderIconResolver.warnUnresolvedAfterBootstrap(groups, universe);
+		JeiViewerGroupIndex.instance().updateUniverse(universe);
 		GroupCandidateIndex result = GroupProjectionEngine.buildCandidateIndex(universe, groups);
 		PerformanceTrace.logIfSlow("JeiViewerAdapter.buildOwnershipIndex", start, 0,
 			"candidateEdges=" + result.candidateEdges()
@@ -182,44 +205,9 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		List<GroupDefinition> projectionGroups = groups.stream()
 			.map(group -> indexedGroups.getOrDefault(group.id(), group).withEnabled(group.enabled()))
 			.toList();
-		refreshResolvedOwnershipCaches(ownershipIndex, groups);
 		return GroupProjectionEngine.project(
 			bootstrapContext.universe(), snapshot, projectionGroups, expansionState, ownershipIndex
 		);
-	}
-
-	private void refreshResolvedOwnershipCaches(GroupCandidateIndex index, List<GroupDefinition> groups) {
-		Map<ViewerIngredientIdentity, String> ownership = GroupProjectionEngine.resolveOwnership(index, groups);
-		Map<String, List<ItemStack>> items = new LinkedHashMap<>();
-		Map<String, List<Object>> fluids = new LinkedHashMap<>();
-		Map<String, Set<String>> itemIds = new LinkedHashMap<>();
-		Map<String, Set<String>> fluidIds = new LinkedHashMap<>();
-		for (GroupDefinition group : groups) {
-			items.put(group.id(), new ArrayList<>());
-			fluids.put(group.id(), new ArrayList<>());
-		}
-		for (ViewerIngredient<ITypedIngredient<?>> ingredient : bootstrapContext.universe().ordered()) {
-			String groupId = ownership.get(ingredient.identity());
-			if (groupId == null) continue;
-			switch (ingredient.kind()) {
-				case ITEM -> ingredient.entry().getItemStack().ifPresent(stack -> {
-					items.computeIfAbsent(groupId, ignored -> new ArrayList<>()).add(stack);
-					String id = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-					itemIds.computeIfAbsent(id, ignored -> new LinkedHashSet<>()).add(groupId);
-				});
-				case FLUID -> {
-					Object fluid = ingredient.entry().getIngredient();
-					fluids.computeIfAbsent(groupId, ignored -> new ArrayList<>()).add(fluid);
-					String id = Services.PLATFORM.getFluidId(fluid);
-					fluidIds.computeIfAbsent(id, ignored -> new LinkedHashSet<>()).add(groupId);
-				}
-				case GENERIC -> { }
-			}
-		}
-		GroupRegistry.setResolvedItemsByGroup(items);
-		GroupRegistry.setResolvedFluidsByGroup(fluids);
-		GroupRegistry.setItemIdToGroupIds(itemIds);
-		GroupRegistry.setFluidIdToGroupIds(fluidIds);
 	}
 
 	private ViewerIngredientUniverse<ITypedIngredient<?>> createUniverse(
@@ -326,31 +314,14 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		}
 
 		private GroupIcon createGroupIcon(ViewerProjection.GroupHeader<ITypedIngredient<?>> header) {
-			List<ITypedIngredient<?>> display = resolveIconIds(header.iconIds());
-			if (display.isEmpty()) {
-				display = header.fallbackIconIngredients().stream().map(ViewerIngredient::entry).toList();
-			}
+			List<ITypedIngredient<?>> display = assembleHeaderIcons(
+				header.iconIds(), header.fallbackIconIngredients());
 			return new GroupIcon(
 				header.group().id(),
 				header.group().displayName().key(),
 				header.group().displayName().fallback(),
 				display
 			);
-		}
-
-		private List<ITypedIngredient<?>> resolveIconIds(List<String> iconIds) {
-			IJeiRuntime runtime = JeiRuntimeHolder.get();
-			if (runtime == null || iconIds.isEmpty()) return List.of();
-			List<ITypedIngredient<?>> result = new ArrayList<>(iconIds.size());
-			for (String iconId : iconIds) {
-				ResourceLocation location = ResourceLocation.tryParse(iconId);
-				if (location == null) continue;
-				var item = BuiltInRegistries.ITEM.get(location);
-				if (item == Items.AIR) continue;
-				runtime.getIngredientManager().createTypedIngredient(VanillaTypes.ITEM_STACK, new ItemStack(item), false)
-					.ifPresent(result::add);
-			}
-			return List.copyOf(result);
 		}
 
 		private <T> void renderTyped(GuiGraphics graphics, ITypedIngredient<T> typed, int x, int y) {

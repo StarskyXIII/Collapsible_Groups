@@ -1,7 +1,6 @@
 package com.starskyxiii.collapsible_groups.group.filter;
 
 import com.google.gson.JsonParser;
-import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
@@ -11,9 +10,6 @@ import java.util.List;
 import java.util.regex.Pattern;
 
 public final class GroupFilterValidator {
-	private static final String ITEM_TYPE = "item";
-	private static final String FLUID_TYPE = "fluid";
-
 	/**
 	 * Restricted path grammar:
 	 * segment = [A-Za-z_][A-Za-z0-9_-]*(\[[0-9]+\])?
@@ -117,18 +113,7 @@ public final class GroupFilterValidator {
 	private static void validateType(String type, List<ValidationError> errors, String nodeName) {
 		if (type == null || type.isBlank()) {
 			addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_MISSING_TYPE, nodeName);
-			return;
 		}
-		if (ITEM_TYPE.equals(type) || FLUID_TYPE.equals(type)) {
-			return;
-		}
-		if (IngredientTypeIds.getCanonicalId(type) != null) {
-			return;
-		}
-		if (ResourceLocation.tryParse(type) != null) {
-			return;
-		}
-		addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_INVALID_TYPE, type);
 	}
 
 	private static void validateResourceLocation(String value, List<ValidationError> errors, String nodeName) {

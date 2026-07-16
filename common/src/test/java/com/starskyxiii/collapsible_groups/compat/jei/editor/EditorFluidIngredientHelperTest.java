@@ -44,7 +44,7 @@ class EditorFluidIngredientHelperTest {
 		IngredientSearchDocument document = IngredientSearchDocument.of(
 			List.of("Example entry", "example:entry"), List.of("example"), Set.of("c:test"));
 		EditorGenericIngredientView entry = new EditorGenericIngredientView("example:type", new Object(), new Object(),
-			Component.literal("Example entry"), "example:entry", Set.of("c:test"), document);
+			Component.literal("Example entry"), "example:entry", "example:uid", Set.of("c:test"), document);
 		assertEquals(List.of(), EditorGenericIngredientHelper.filterViews(
 			List.of(entry), Map.of(), false, query("$example")));
 	}

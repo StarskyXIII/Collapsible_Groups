@@ -12,6 +12,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 
+
 class GroupFilterValidatorTest {
 	@Test
 	void validateComponentsReturnsTranslatedMessagesForInvalidResourceLocation() {
@@ -21,6 +22,15 @@ class GroupFilterValidatorTest {
 		TranslatableContents contents = assertInstanceOf(TranslatableContents.class, errors.getFirst().getContents());
 		assertEquals("collapsible_groups.editor.rules.error.invalid_resource_location", contents.getKey());
 		assertEquals("not a rl", contents.getArgs()[0]);
+	}
+
+	@Test
+	void acceptsNonBlankUnknownTypeUidWithoutResourceLocationSyntax() {
+		List<Component> errors = GroupFilterValidator.validateComponents(
+			new GroupFilter.Id("com.ExampleMod$ChemicalType", "test:oxygen")
+		);
+
+		assertEquals(List.of(), errors);
 	}
 
 	@Test

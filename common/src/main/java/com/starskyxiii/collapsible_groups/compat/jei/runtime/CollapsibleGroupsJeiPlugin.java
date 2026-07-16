@@ -44,6 +44,7 @@ public class CollapsibleGroupsJeiPlugin implements IModPlugin {
 	@Override
 	public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
 		JeiRuntimeHolder.set(jeiRuntime);
+		JeiViewerAdapter.instance().discoverRuntimeTypes(jeiRuntime.getIngredientManager());
 		JeiViewerAdapter.registerRuntime();
 	}
 

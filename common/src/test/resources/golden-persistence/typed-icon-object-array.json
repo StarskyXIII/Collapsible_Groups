@@ -1,0 +1,9 @@
+{
+  "id": "typed_icon_objects",
+  "name": "Typed Icon Objects",
+  "icon": [
+    { "type": "fluid", "id": "minecraft:water" },
+    { "type": "test:chemical", "id": "test:oxygen" }
+  ],
+  "filter": { "type": "item", "id": "minecraft:stone" }
+}

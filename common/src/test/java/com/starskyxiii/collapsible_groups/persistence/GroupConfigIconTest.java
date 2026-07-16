@@ -5,6 +5,7 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -30,7 +31,7 @@ class GroupConfigIconTest {
 			""");
 
 		assertNotNull(group);
-		assertEquals(List.of("minecraft:diamond"), group.iconIds());
+		assertEquals(List.of(GroupIconDefinition.item("minecraft:diamond")), group.iconIds());
 	}
 
 	@Test
@@ -48,7 +49,47 @@ class GroupConfigIconTest {
 			""");
 
 		assertNotNull(group);
-		assertEquals(List.of("minecraft:diamond", "minecraft:emerald"), group.iconIds());
+		assertEquals(List.of(GroupIconDefinition.item("minecraft:diamond"),
+			GroupIconDefinition.item("minecraft:emerald")), group.iconIds());
+	}
+
+	@Test
+	void acceptsTypedRootObjectAndMixedArrayInOrder() {
+		GroupDefinition typed = GroupConfig.fromJson("""
+			{"id":"typed","name":"Typed","icon":{"type":"fluid","id":"minecraft:water"},
+			 "filter":{"type":"item","id":"minecraft:stone"}}
+			""");
+		GroupDefinition mixed = GroupConfig.fromJson("""
+			{"id":"mixed","name":"Mixed","icon":["minecraft:diamond",
+			 {"type":"fluid","id":"minecraft:water"},
+			 {"type":"test:chemical","id":"test:oxygen"}],
+			 "filter":{"type":"item","id":"minecraft:stone"}}
+			""");
+
+		assertNotNull(typed);
+		assertEquals(List.of(new GroupIconDefinition("fluid", "minecraft:water")), typed.iconIds());
+		assertNotNull(mixed);
+		assertEquals(List.of(
+			GroupIconDefinition.item("minecraft:diamond"),
+			new GroupIconDefinition("fluid", "minecraft:water"),
+			new GroupIconDefinition("test:chemical", "test:oxygen")
+		), mixed.iconIds());
+	}
+
+	@Test
+	void writerUsesStringsForEveryItemEntryAndObjectsForTypedEntries() {
+		GroupDefinition group = new GroupDefinition("mixed", "Mixed", true,
+			Filters.itemId("minecraft:stone"), List.of(
+				GroupIconDefinition.item("minecraft:diamond"),
+				new GroupIconDefinition("fluid", "minecraft:water"),
+				GroupIconDefinition.item("minecraft:emerald")));
+
+		JsonArray icons = JsonParser.parseString(GroupConfig.toJson(group)).getAsJsonObject()
+			.getAsJsonArray("icon");
+		assertEquals("minecraft:diamond", icons.get(0).getAsString());
+		assertEquals("fluid", icons.get(1).getAsJsonObject().get("type").getAsString());
+		assertEquals("minecraft:water", icons.get(1).getAsJsonObject().get("id").getAsString());
+		assertEquals("minecraft:emerald", icons.get(2).getAsString());
 	}
 
 	@Test

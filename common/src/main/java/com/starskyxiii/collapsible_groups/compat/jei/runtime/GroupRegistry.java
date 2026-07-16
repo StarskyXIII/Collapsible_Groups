@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider;
 import com.starskyxiii.collapsible_groups.group.GroupCatalog;
@@ -26,7 +27,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Central registry for all collapsible groups.
@@ -75,16 +75,7 @@ public final class GroupRegistry {
 	 * Partial entries are removed when a single group is saved/deleted;
 	 * the whole map is cleared when JEI ingredient caches are reset.
 	 */
-	private static volatile Map<String, List<ItemStack>> resolvedItemsByGroup  = null;
-	private static volatile Map<String, List<Object>>    resolvedFluidsByGroup = null;
-	private static volatile Map<String, List<ItemStack>> fullMatchItemsByGroup = null;
-	private static volatile Map<String, List<Object>>    fullMatchFluidsByGroup = null;
-	private static volatile Map<String, List<GenericIngredientRef>> fullMatchGenericByGroup = null;
-
-	/** Maps item registry ID -> group IDs that include that item (built by IngredientFilterHelper). */
-	private static volatile Map<String, Set<String>> itemIdToGroupIds = null;
-	/** Maps fluid registry ID -> group IDs that include that fluid (built by MixinIngredientFilter). */
-	private static volatile Map<String, Set<String>> fluidIdToGroupIds = null;
+	private static final JeiViewerGroupIndex VIEWER_INDEX = JeiViewerGroupIndex.instance();
 
 	private GroupRegistry() {}
 
@@ -269,16 +260,12 @@ public final class GroupRegistry {
 	 * in-progress edits are reflected immediately.
 	 */
 	public static List<ItemStack> getResolvedItems(String groupId) {
-		var cache = resolvedItemsByGroup;
-		if (cache == null) return null;
-		return cache.get(groupId);
+		return VIEWER_INDEX.resolvedItems(groupId);
 	}
 
 	/** Same as {@link #getResolvedItems} but for fluids. */
 	public static List<Object> getResolvedFluids(String groupId) {
-		var cache = resolvedFluidsByGroup;
-		if (cache == null) return null;
-		return cache.get(groupId);
+		return VIEWER_INDEX.resolvedFluids(groupId);
 	}
 
 	/**
@@ -291,7 +278,7 @@ public final class GroupRegistry {
 
 	public static FullMatchLookup<ItemStack> getFullMatchItemsLookup(GroupDefinition group) {
 		String groupId = group.id();
-		var cache = fullMatchItemsByGroup;
+		var cache = VIEWER_INDEX.fullMatchItems();
 		if (cache != null && cache.containsKey(groupId)) {
 			return new FullMatchLookup<>(cache.get(groupId), true, null);
 		}
@@ -308,7 +295,7 @@ public final class GroupRegistry {
 
 	public static FullMatchLookup<Object> getFullMatchFluidsLookup(GroupDefinition group) {
 		String groupId = group.id();
-		var cache = fullMatchFluidsByGroup;
+		var cache = VIEWER_INDEX.fullMatchFluids();
 		if (cache != null && cache.containsKey(groupId)) {
 			return new FullMatchLookup<>(cache.get(groupId), true, null);
 		}
@@ -323,9 +310,24 @@ public final class GroupRegistry {
 		return getFullMatchGenericIngredientsLookup(group).values();
 	}
 
+	public static List<ItemStack> getFullMatchItemsCached(String groupId) {
+		Map<String, List<ItemStack>> cache = VIEWER_INDEX.fullMatchItems();
+		return cache == null ? null : cache.get(groupId);
+	}
+
+	public static List<Object> getFullMatchFluidsCached(String groupId) {
+		Map<String, List<Object>> cache = VIEWER_INDEX.fullMatchFluids();
+		return cache == null ? null : cache.get(groupId);
+	}
+
+	public static List<GenericIngredientRef> getFullMatchGenericCached(String groupId) {
+		Map<String, List<GenericIngredientRef>> cache = VIEWER_INDEX.fullMatchGeneric();
+		return cache == null ? null : cache.get(groupId);
+	}
+
 	public static FullMatchLookup<GenericIngredientRef> getFullMatchGenericIngredientsLookup(GroupDefinition group) {
 		String groupId = group.id();
-		var cache = fullMatchGenericByGroup;
+		var cache = VIEWER_INDEX.fullMatchGeneric();
 		if (cache != null && cache.containsKey(groupId)) {
 			return new FullMatchLookup<>(cache.get(groupId), true, null);
 		}
@@ -398,6 +400,11 @@ public final class GroupRegistry {
 		}
 	}
 
+	public static void warmEditorItemIndex() {
+		populateJeiCachesIfEmpty();
+		getOrCreateEditorItemIndex();
+	}
+
 	/**
 	 * Resolves the item preview for a structurally editable editor draft using the
 	 * pre-built item index in O(selectorCount + matchedCandidates).
@@ -458,69 +465,53 @@ public final class GroupRegistry {
 	// -----------------------------------------------------------------------
 
 	public static void setResolvedItemsByGroup(Map<String, List<ItemStack>> map) {
-		resolvedItemsByGroup = freezeResolvedMap(map);
+		VIEWER_INDEX.setResolvedItemsByGroup(map);
 	}
 
 	public static void setResolvedFluidsByGroup(Map<String, List<Object>> map) {
-		resolvedFluidsByGroup = freezeResolvedMap(map);
+		VIEWER_INDEX.setResolvedFluidsByGroup(map);
 	}
 
 	public static void setFullMatchItemsByGroup(Map<String, List<ItemStack>> map) {
-		fullMatchItemsByGroup = freezeResolvedMap(map);
+		VIEWER_INDEX.setFullMatchItemsByGroup(map);
 	}
 
 	public static void setFullMatchFluidsByGroup(Map<String, List<Object>> map) {
-		fullMatchFluidsByGroup = freezeResolvedMap(map);
+		VIEWER_INDEX.setFullMatchFluidsByGroup(map);
 	}
 
 	public static void setFullMatchGenericByGroup(Map<String, List<GenericIngredientRef>> map) {
-		fullMatchGenericByGroup = freezeResolvedMap(map);
+		VIEWER_INDEX.setFullMatchGenericByGroup(map);
 	}
 
-	public static void setItemIdToGroupIds(Map<String, Set<String>> map)  { itemIdToGroupIds = map; }
-	public static void setFluidIdToGroupIds(Map<String, Set<String>> map) { fluidIdToGroupIds = map; }
-	public static Map<String, Set<String>> getItemIdToGroupIds()  { return itemIdToGroupIds; }
-	public static Map<String, Set<String>> getFluidIdToGroupIds() { return fluidIdToGroupIds; }
+	public static void setItemIdToGroupIds(Map<String, Set<String>> map)  { VIEWER_INDEX.setItemReverseIndex(map); }
+	public static void setFluidIdToGroupIds(Map<String, Set<String>> map) { VIEWER_INDEX.setFluidReverseIndex(map); }
+	public static Map<String, Set<String>> getItemIdToGroupIds()  { return VIEWER_INDEX.itemReverseIndex(); }
+	public static Map<String, Set<String>> getFluidIdToGroupIds() { return VIEWER_INDEX.fluidReverseIndex(); }
 
 	/** Drops the whole resolved cache (called when JEI re-initialises). */
 	public static void clearResolvedCaches() {
-		resolvedItemsByGroup  = null;
-		resolvedFluidsByGroup = null;
-		itemIdToGroupIds      = null;
-		fluidIdToGroupIds     = null;
+		VIEWER_INDEX.clearResolvedCaches();
 		clearManagerPreviewCaches();
 	}
 
 	public static void clearManagerPreviewCaches() {
-		fullMatchItemsByGroup = null;
-		fullMatchFluidsByGroup = null;
-		fullMatchGenericByGroup = null;
+		VIEWER_INDEX.clearPreviewCaches();
 	}
 
 	/** Removes the first-match ownership cache entry for the given group (built by MixinIngredientFilter). */
 	public static void invalidateFirstMatchCache(String groupId) {
-		var items = resolvedItemsByGroup;
-		if (items != null) items.remove(groupId);
-		var fluids = resolvedFluidsByGroup;
-		if (fluids != null) fluids.remove(groupId);
+		VIEWER_INDEX.invalidateFirstMatch(groupId);
 	}
 
 	/** Clears enabled-dependent ownership lookups while preserving full-match previews. */
 	public static void clearFirstMatchCaches() {
-		resolvedItemsByGroup = null;
-		resolvedFluidsByGroup = null;
-		itemIdToGroupIds = null;
-		fluidIdToGroupIds = null;
+		VIEWER_INDEX.clearResolvedCaches();
 	}
 
 	/** Invalidates manager full-match preview cache (enable-agnostic filter results). */
 	public static void invalidateFullMatchCache(String groupId) {
-		var fullItems = fullMatchItemsByGroup;
-		if (fullItems != null) fullItems.remove(groupId);
-		var fullFluids = fullMatchFluidsByGroup;
-		if (fullFluids != null) fullFluids.remove(groupId);
-		var fullGeneric = fullMatchGenericByGroup;
-		if (fullGeneric != null) fullGeneric.remove(groupId);
+		VIEWER_INDEX.invalidateFullMatch(groupId);
 	}
 
 	/**
@@ -538,7 +529,7 @@ public final class GroupRegistry {
 
 	public static void setKubeJsGroups(List<GroupDefinition> incoming) {
 		KubeJsGroupStore.setGroups(GroupCatalog.applyEnabledOverrides(incoming, STORE.loadEnabledOverrides()));
-		clearManagerPreviewCaches();
+		VIEWER_INDEX.onGroupChange(GroupChangeEvent.Kind.KUBEJS_REPLACE, getAllIncludingKubeJs());
 		GroupChangeEvent.publish(GroupChangeEvent.Kind.KUBEJS_REPLACE);
 	}
 	public static boolean isKubeJsGroupsEmpty()                        { return KubeJsGroupStore.isGroupsEmpty(); }
@@ -650,6 +641,7 @@ public final class GroupRegistry {
 
 	/** Publishes one coalesced enabled-state change. */
 	public static void notifyEnabledChanged() {
+		VIEWER_INDEX.onGroupChange(GroupChangeEvent.Kind.ENABLED, getAllIncludingKubeJs());
 		GroupChangeEvent.publish(GroupChangeEvent.Kind.ENABLED);
 	}
 
@@ -670,11 +662,13 @@ public final class GroupRegistry {
 
 	/** Triggers a full JEI rebuild. Called only by {@link #save} and {@link #delete}; the Quietly variants do not trigger this. */
 	public static void notifyJei() {
+		VIEWER_INDEX.onGroupChange(GroupChangeEvent.Kind.FULL, getAllIncludingKubeJs());
 		GroupChangeEvent.publish(GroupChangeEvent.Kind.FULL);
 	}
 
 	/** Lightweight refresh: only Level-2+3 caches (structure + display), preserving Level-1 index. */
 	public static void notifyJeiStructureOnly() {
+		VIEWER_INDEX.onGroupChange(GroupChangeEvent.Kind.STRUCTURE, getAllIncludingKubeJs());
 		GroupChangeEvent.publish(GroupChangeEvent.Kind.STRUCTURE);
 	}
 
@@ -773,38 +767,15 @@ public final class GroupRegistry {
 	}
 
 	private static Map<String, List<ItemStack>> ensureFullMatchItemsCache() {
-		var cache = fullMatchItemsByGroup;
-		if (cache != null) return cache;
-		synchronized (GroupRegistry.class) {
-			if (fullMatchItemsByGroup == null) fullMatchItemsByGroup = new ConcurrentHashMap<>();
-			return fullMatchItemsByGroup;
-		}
+		return VIEWER_INDEX.ensureFullMatchItems();
 	}
 
 	private static Map<String, List<Object>> ensureFullMatchFluidsCache() {
-		var cache = fullMatchFluidsByGroup;
-		if (cache != null) return cache;
-		synchronized (GroupRegistry.class) {
-			if (fullMatchFluidsByGroup == null) fullMatchFluidsByGroup = new ConcurrentHashMap<>();
-			return fullMatchFluidsByGroup;
-		}
+		return VIEWER_INDEX.ensureFullMatchFluids();
 	}
 
 	private static Map<String, List<GenericIngredientRef>> ensureFullMatchGenericCache() {
-		var cache = fullMatchGenericByGroup;
-		if (cache != null) return cache;
-		synchronized (GroupRegistry.class) {
-			if (fullMatchGenericByGroup == null) fullMatchGenericByGroup = new ConcurrentHashMap<>();
-			return fullMatchGenericByGroup;
-		}
-	}
-
-	private static <T> Map<String, List<T>> freezeResolvedMap(Map<String, List<T>> map) {
-		Map<String, List<T>> copy = new ConcurrentHashMap<>(Math.max(16, map.size() * 2));
-		for (var entry : map.entrySet()) {
-			copy.put(entry.getKey(), List.copyOf(entry.getValue()));
-		}
-		return copy;
+		return VIEWER_INDEX.ensureFullMatchGeneric();
 	}
 
 	private static void publishGroups(List<GroupDefinition> registrationOrder) {

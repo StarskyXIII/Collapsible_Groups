@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.client.editor.model;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -20,10 +21,10 @@ class AppearanceDraftContractTest {
 			theme
 		);
 
-		assertEquals("minecraft:stone", draft.frontIconId());
-		assertEquals("minecraft:diamond", draft.backIconId());
-		assertEquals(List.of("minecraft:emerald"), draft.extraIconIds());
-		assertEquals(List.of("minecraft:stone", "minecraft:diamond", "minecraft:emerald"), draft.toIconIds());
+		assertEquals(GroupIconDefinition.item("minecraft:stone"), draft.frontIconId());
+		assertEquals(GroupIconDefinition.item("minecraft:diamond"), draft.backIconId());
+		assertEquals(List.of(GroupIconDefinition.item("minecraft:emerald")), draft.extraIconIds());
+		assertEquals(items("minecraft:stone", "minecraft:diamond", "minecraft:emerald"), draft.toIconIds());
 		assertEquals(theme, draft.toTheme());
 	}
 
@@ -31,8 +32,8 @@ class AppearanceDraftContractTest {
 	void dropsBackAndExtraWhenFrontIsMissingBecauseJsonHasNoSparseSlot() {
 		AppearanceDraft draft = new AppearanceDraft(
 			null,
-			"minecraft:gold_ingot",
-			List.of("minecraft:emerald"),
+			GroupIconDefinition.item("minecraft:gold_ingot"),
+			List.of(GroupIconDefinition.item("minecraft:emerald")),
 			null,
 			null,
 			null,
@@ -62,7 +63,7 @@ class AppearanceDraftContractTest {
 		assertSame(cleared, cleared.swapIcons());
 
 		AppearanceDraft swapped = draft.swapIcons();
-		assertEquals(List.of("minecraft:diamond", "minecraft:stone", "minecraft:emerald"), swapped.toIconIds());
+		assertEquals(items("minecraft:diamond", "minecraft:stone", "minecraft:emerald"), swapped.toIconIds());
 	}
 
 	@Test
@@ -93,9 +94,25 @@ class AppearanceDraftContractTest {
 			GroupTheme.EMPTY
 		);
 
-		assertEquals(List.of("minecraft:lapis_lazuli", "minecraft:diamond", "minecraft:emerald"),
+		assertEquals(items("minecraft:lapis_lazuli", "minecraft:diamond", "minecraft:emerald"),
 			draft.withFrontIconId(" minecraft:lapis_lazuli ").toIconIds());
-		assertEquals(List.of("minecraft:stone", "minecraft:apple", "minecraft:emerald"),
+		assertEquals(items("minecraft:stone", "minecraft:apple", "minecraft:emerald"),
 			draft.withBackIconId(" minecraft:apple ").toIconIds());
+	}
+
+	@Test
+	void preservesTypedFrontBackAndExtraIcons() {
+		GroupIconDefinition fluid = new GroupIconDefinition("fluid", "minecraft:water");
+		GroupIconDefinition generic = new GroupIconDefinition("test:chemical", "test:oxygen");
+		AppearanceDraft draft = AppearanceDraft.fromIconIds(
+			List.of(fluid, generic, GroupIconDefinition.item("minecraft:diamond")), GroupTheme.EMPTY);
+
+		assertEquals(fluid, draft.frontIconId());
+		assertEquals(generic, draft.backIconId());
+		assertEquals(List.of(fluid, generic, GroupIconDefinition.item("minecraft:diamond")), draft.toIconIds());
+	}
+
+	private static List<GroupIconDefinition> items(String... ids) {
+		return java.util.Arrays.stream(ids).map(GroupIconDefinition::item).toList();
 	}
 }

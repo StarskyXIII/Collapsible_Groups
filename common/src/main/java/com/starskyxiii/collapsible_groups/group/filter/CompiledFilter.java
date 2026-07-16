@@ -158,8 +158,11 @@ public final class CompiledFilter {
 			if (resourceLocation == null) {
 				return false;
 			}
-			Set<ResourceLocation> ids = idsByType.get(canonicalType(view.ingredientType()));
-			return ids != null && ids.contains(resourceLocation);
+			String viewType = canonicalType(view.ingredientType());
+			Set<ResourceLocation> ids = idsByType.get(viewType);
+			if (ids != null && ids.contains(resourceLocation)) return true;
+			return idsByType.entrySet().stream().anyMatch(entry ->
+				canonicalType(entry.getKey()).equals(viewType) && entry.getValue().contains(resourceLocation));
 		}
 	}
 
@@ -362,6 +365,6 @@ public final class CompiledFilter {
 	}
 
 	private static boolean sameType(String ingredientType, IngredientView view) {
-		return ingredientType.equals(canonicalType(view.ingredientType()));
+		return canonicalType(ingredientType).equals(canonicalType(view.ingredientType()));
 	}
 }
