@@ -1,0 +1,44 @@
+{
+  "id": "localized_metadata",
+  "name": {
+    "translate": "example.groups.localized_metadata",
+    "fallback": "Localized Metadata"
+  },
+  "enabled": false,
+  "priority": 37,
+  "icon": "minecraft:enchanted_book",
+  "theme": {
+    "name_color": "#FFEEDDCC",
+    "collapsed_header_background": "#CC112233",
+    "expanded_header_background": "#CC223344",
+    "expanded_group_background": "#AA334455",
+    "expanded_group_border": "#FF445566"
+  },
+  "extra": {
+    "owner": "fixture",
+    "nested": {
+      "enabled": true,
+      "values": [1, "two", { "depth": 3 }]
+    }
+  },
+  "filter": {
+    "any": [
+      { "type": "item", "id": "minecraft:stone" },
+      { "type": "item", "tag": "minecraft:logs" },
+      { "type": "item", "namespace": "minecraft" },
+      { "block_tag": "minecraft:logs" },
+      { "item_path_starts_with": "minecraft:oak" },
+      { "item_path_contains": "planks" },
+      { "item_path_ends_with": "_slab" },
+      { "type": "item", "stack": "{\"id\":\"minecraft:stone\",\"count\":1}" },
+      { "type": "item", "component": "minecraft:custom_name", "value": "{\"text\":\"Fixture\"}" },
+      { "type": "item", "component": "minecraft:container", "path": "items[0].id", "value": "minecraft:stone" },
+      {
+        "all": [
+          { "type": "fluid", "id": "minecraft:water" },
+          { "not": { "type": "fluid", "tag": "minecraft:lava" } }
+        ]
+      }
+    ]
+  }
+}

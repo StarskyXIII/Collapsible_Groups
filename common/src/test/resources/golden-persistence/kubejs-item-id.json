@@ -1,0 +1,13 @@
+{
+  "id": "__kjs_example_tools_hammers",
+  "name": {
+    "translate": "collapsible_groups.group.__kjs_example_tools_hammers",
+    "fallback": "Scripted Hammers"
+  },
+  "enabled": true,
+  "icon": ["minecraft:iron_pickaxe", "minecraft:diamond_pickaxe"],
+  "filter": {
+    "type": "item",
+    "tag": "example:hammers"
+  }
+}
