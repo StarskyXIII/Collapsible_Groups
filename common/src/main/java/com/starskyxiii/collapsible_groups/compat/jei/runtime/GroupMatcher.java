@@ -1,6 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
+
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.ingredients.IIngredientHelper;
 

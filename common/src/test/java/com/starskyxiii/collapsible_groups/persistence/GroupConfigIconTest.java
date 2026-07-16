@@ -3,8 +3,8 @@ package com.starskyxiii.collapsible_groups.persistence;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.starskyxiii.collapsible_groups.core.Filters;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

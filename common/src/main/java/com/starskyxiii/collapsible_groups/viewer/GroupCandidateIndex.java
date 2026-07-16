@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 
 import java.util.List;
 import java.util.Map;

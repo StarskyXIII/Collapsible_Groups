@@ -1,11 +1,12 @@
 package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
+
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
-import com.starskyxiii.collapsible_groups.compat.jei.oreui.EnabledPersistenceKind;
-import com.starskyxiii.collapsible_groups.compat.jei.oreui.GroupSource;
+import com.starskyxiii.collapsible_groups.client.manager.model.EnabledPersistenceKind;
+import com.starskyxiii.collapsible_groups.client.manager.model.GroupSource;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
-import com.starskyxiii.collapsible_groups.core.Filters;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import mezz.jei.api.ingredients.IIngredientType;
 import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.Test;

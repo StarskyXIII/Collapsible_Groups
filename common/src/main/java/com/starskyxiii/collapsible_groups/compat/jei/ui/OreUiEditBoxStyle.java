@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
+import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import net.minecraft.network.chat.Component;
 
 /** Shared styling for edit-box content that must not depend on Minecraft defaults. */
@@ -14,7 +15,7 @@ public final class OreUiEditBoxStyle {
 	 * the component preserves the intended appearance across both versions.
 	 */
 	public static Component hint(Component component) {
-		int rgb = OreUiPalette.TEXT_PRIMARY & 0xFFFFFF;
+		int rgb = UiPalette.TEXT_PRIMARY & 0xFFFFFF;
 		return component.copy().withStyle(style -> style.withColor(rgb));
 	}
 }

@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.platform.Services;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;

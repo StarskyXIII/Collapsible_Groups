@@ -1,8 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.kubejs;
 
-import com.starskyxiii.collapsible_groups.core.Filters;
-import com.starskyxiii.collapsible_groups.core.GroupFilter;
-import com.starskyxiii.collapsible_groups.core.KubeJsItemFilterLowering;
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.KubeJsItemFilterLowering;
 import dev.latvian.mods.kubejs.core.IngredientSupplierKJS;
 import dev.latvian.mods.kubejs.fluid.FluidWrapper;
 import dev.latvian.mods.kubejs.fluid.NamespaceFluidIngredient;
@@ -422,7 +422,7 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 		id = id.trim();
-		return isValidResourceLocation(id) ? Filters.itemId(id) : null;
+		return isValidIdentifier(id) ? Filters.itemId(id) : null;
 	}
 
 	private static @Nullable GroupFilter compileItemTag(Map<?, ?> map) {
@@ -431,7 +431,7 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 		tag = tag.trim();
-		return isValidResourceLocation(tag) ? Filters.itemTag(tag) : null;
+		return isValidIdentifier(tag) ? Filters.itemTag(tag) : null;
 	}
 
 	private static @Nullable GroupFilter compileBlockTag(Map<?, ?> map) {
@@ -440,7 +440,7 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 		tag = tag.trim();
-		return isValidResourceLocation(tag) ? Filters.blockTag(tag) : null;
+		return isValidIdentifier(tag) ? Filters.blockTag(tag) : null;
 	}
 
 	private static void addIfPresent(List<GroupFilter> children, @Nullable GroupFilter filter) {
@@ -454,7 +454,7 @@ public final class KubeJsFilterCompiler {
 		return value instanceof CharSequence chars ? chars.toString() : null;
 	}
 
-	private static boolean isValidResourceLocation(String value) {
+	private static boolean isValidIdentifier(String value) {
 		return !value.isEmpty() && Identifier.tryParse(value) != null;
 	}
 

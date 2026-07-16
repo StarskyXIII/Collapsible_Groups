@@ -1,0 +1,63 @@
+package com.starskyxiii.collapsible_groups.group.filter;
+
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.ItemFilterQueryCompiler;
+import org.junit.jupiter.api.Test;
+
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+
+class ItemPathQueryPlanTest {
+
+	@Test
+	void standaloneItemPathStartsWithCompilesToFullScan() {
+		GroupFilter filter = new GroupFilter.ItemPathStartsWith("gutter_");
+
+		ItemFilterQueryCompiler.ItemQueryPlan plan = ItemFilterQueryCompiler.compile(filter);
+
+		assertInstanceOf(ItemFilterQueryCompiler.FullScanPlan.class, plan);
+	}
+
+	@Test
+	void standaloneItemPathEndsWithCompilesToFullScan() {
+		GroupFilter filter = new GroupFilter.ItemPathEndsWith("_chair");
+
+		ItemFilterQueryCompiler.ItemQueryPlan plan = ItemFilterQueryCompiler.compile(filter);
+
+		assertInstanceOf(ItemFilterQueryCompiler.FullScanPlan.class, plan);
+	}
+
+	@Test
+	void standaloneItemPathContainsCompilesToFullScan() {
+		GroupFilter filter = new GroupFilter.ItemPathContains("_beam_");
+
+		ItemFilterQueryCompiler.ItemQueryPlan plan = ItemFilterQueryCompiler.compile(filter);
+
+		assertInstanceOf(ItemFilterQueryCompiler.FullScanPlan.class, plan);
+	}
+
+	@Test
+	void namespaceAndItemPathEndsWithCompilesToCandidatePlan() {
+		GroupFilter filter = Filters.all(
+			Filters.itemNamespace("mcwfurnitures"),
+			Filters.itemPathEndsWith("_chair")
+		);
+
+		ItemFilterQueryCompiler.ItemQueryPlan plan = ItemFilterQueryCompiler.compile(filter);
+
+		assertInstanceOf(ItemFilterQueryCompiler.CandidatePlan.class, plan);
+	}
+
+	@Test
+	void namespaceAndItemPathContainsCompilesToCandidatePlan() {
+		GroupFilter filter = Filters.all(
+			Filters.itemNamespace("mcwbridges"),
+			Filters.itemPathContains("_beam_")
+		);
+
+		ItemFilterQueryCompiler.ItemQueryPlan plan = ItemFilterQueryCompiler.compile(filter);
+
+		assertInstanceOf(ItemFilterQueryCompiler.CandidatePlan.class, plan);
+	}
+}

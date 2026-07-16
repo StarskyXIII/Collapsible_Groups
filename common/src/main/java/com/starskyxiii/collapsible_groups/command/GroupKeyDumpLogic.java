@@ -4,8 +4,8 @@ import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
-import com.starskyxiii.collapsible_groups.core.GroupDisplayName;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import net.minecraft.network.chat.Component;
 

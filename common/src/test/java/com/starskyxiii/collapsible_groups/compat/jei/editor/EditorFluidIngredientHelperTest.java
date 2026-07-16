@@ -1,8 +1,9 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
-import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
-import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
-import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchDocument;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchQuery;
+import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientView;
+import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
 import net.minecraft.network.chat.Component;
 import org.junit.jupiter.api.Test;
 
@@ -42,7 +43,7 @@ class EditorFluidIngredientHelperTest {
 	void genericTooltipSearchIsAlwaysEmpty() {
 		IngredientSearchDocument document = IngredientSearchDocument.of(
 			List.of("Example entry", "example:entry"), List.of("example"), Set.of("c:test"));
-		GenericIngredientView entry = new GenericIngredientView("example:type", null, new Object(), null, null,
+		EditorGenericIngredientView entry = new EditorGenericIngredientView("example:type", new Object(), new Object(),
 			Component.literal("Example entry"), "example:entry", Set.of("c:test"), document);
 		assertEquals(List.of(), EditorGenericIngredientHelper.filterViews(
 			List.of(entry), Map.of(), false, query("$example")));

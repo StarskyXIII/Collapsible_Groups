@@ -30,7 +30,7 @@ public class GroupsButtonController implements IIconButtonController {
 	public boolean onPress(IJeiUserInput input) {
 		if (!input.isSimulate()) {
 			Minecraft mc = Minecraft.getInstance();
-			mc.setScreen(new OreGroupManagerScreen(mc.screen));
+			mc.setScreen(new GroupManagerScreen(mc.screen));
 		}
 		return true;
 	}

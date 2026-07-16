@@ -1,8 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.jei;
 
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
-import com.starskyxiii.collapsible_groups.core.Filters;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientType;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;

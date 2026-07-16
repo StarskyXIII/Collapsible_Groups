@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.group;
 
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 
 import java.text.Normalizer;
 import java.util.ArrayList;

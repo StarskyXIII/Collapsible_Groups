@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
-import com.starskyxiii.collapsible_groups.core.GroupTheme;
-import com.starskyxiii.collapsible_groups.core.GroupThemeColors;
+import com.starskyxiii.collapsible_groups.group.GroupTheme;
+import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
-import com.starskyxiii.collapsible_groups.core.GroupSortMode;
+import com.starskyxiii.collapsible_groups.client.manager.model.GroupSortMode;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

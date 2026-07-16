@@ -28,6 +28,9 @@ dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     // JEI common — internal classes: IElement, IngredientElement, JeiTooltip, etc.
     compileOnly "mezz.jei:jei-${minecraft_version}-common:${jei_version}"
+    // JEI packages mezz.jei.gui.* only in full loader jars. The referenced GUI
+    // implementation FQCNs are shared, so one full jar supplies compile symbols only.
+    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
 
     // Tests — pure Java logic only (path grammar, path navigation)
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'

@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
+import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import net.minecraft.ChatFormatting;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.Style;
@@ -19,7 +20,7 @@ class OreUiEditBoxStyleTest {
 
 		assertEquals(Style.EMPTY, source.getStyle());
 		assertNotEquals(Style.EMPTY, hint.getStyle());
-		assertEquals(OreUiPalette.TEXT_PRIMARY & 0xFFFFFF, hint.getStyle().getColor().getValue());
+		assertEquals(UiPalette.TEXT_PRIMARY & 0xFFFFFF, hint.getStyle().getColor().getValue());
 		assertNull(source.getStyle().getColor());
 	}
 
@@ -29,7 +30,7 @@ class OreUiEditBoxStyleTest {
 
 		Component hint = OreUiEditBoxStyle.hint(source);
 
-		assertEquals(OreUiPalette.TEXT_PRIMARY & 0xFFFFFF, hint.getStyle().getColor().getValue());
+		assertEquals(UiPalette.TEXT_PRIMARY & 0xFFFFFF, hint.getStyle().getColor().getValue());
 		assertNull(source.getStyle().getColor());
 		assertTrue(source.getStyle().isItalic());
 		assertTrue(hint.getStyle().isItalic());

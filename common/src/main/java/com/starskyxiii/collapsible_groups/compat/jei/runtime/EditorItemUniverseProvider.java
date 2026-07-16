@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
-import com.starskyxiii.collapsible_groups.core.ItemUniverseProvider;
+import com.starskyxiii.collapsible_groups.ingredient.ItemUniverseProvider;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;

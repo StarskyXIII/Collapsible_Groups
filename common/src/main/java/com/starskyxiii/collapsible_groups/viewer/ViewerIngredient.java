@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
-import com.starskyxiii.collapsible_groups.core.IngredientView;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 
 import java.util.Objects;
 

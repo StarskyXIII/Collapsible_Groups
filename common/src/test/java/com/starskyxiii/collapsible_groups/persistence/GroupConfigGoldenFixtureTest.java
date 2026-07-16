@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.persistence;
 
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 

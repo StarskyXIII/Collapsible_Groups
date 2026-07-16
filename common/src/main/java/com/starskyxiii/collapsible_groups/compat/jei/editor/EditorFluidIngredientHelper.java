@@ -1,12 +1,15 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientView;
+import com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper;
+
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
-import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
-import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchDocument;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchQuery;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;

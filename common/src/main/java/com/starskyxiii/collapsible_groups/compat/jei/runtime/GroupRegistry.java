@@ -1,8 +1,9 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
-import com.starskyxiii.collapsible_groups.core.Filters;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
-import com.starskyxiii.collapsible_groups.core.GroupFilter;
-import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
+
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;

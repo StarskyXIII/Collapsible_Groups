@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.platform;
 
-import com.starskyxiii.collapsible_groups.core.IngredientView;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.platform.services.IPlatformHelper;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;

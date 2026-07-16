@@ -1,6 +1,9 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
-import com.starskyxiii.collapsible_groups.core.IngredientView;
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+
+import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
@@ -57,9 +60,9 @@ class ViewerAdapterContractTest {
 		ViewerProjection<String> projection = GroupProjectionEngine.project(
 			adapter.bootstrapContext().universe(),
 			new ViewerSearchSnapshot<>("", resolved.ingredients(), false, 0),
-			List.of(new com.starskyxiii.collapsible_groups.core.GroupDefinition(
+			List.of(new com.starskyxiii.collapsible_groups.group.GroupDefinition(
 				"__kjs_generic_test", "KubeJS chemicals", true,
-				com.starskyxiii.collapsible_groups.core.Filters.genericNamespace("test:chemical", "test")
+				com.starskyxiii.collapsible_groups.group.filter.Filters.genericNamespace("test:chemical", "test")
 			)),
 			id -> false
 		);

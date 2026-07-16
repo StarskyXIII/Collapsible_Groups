@@ -6,9 +6,9 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.GenericJeiIngredien
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
-import com.starskyxiii.collapsible_groups.core.IngredientView;
-import com.starskyxiii.collapsible_groups.core.ItemStackIngredientView;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
+import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.platform.Services;

@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.persistence;
 
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider;
 import com.starskyxiii.collapsible_groups.group.GroupCatalog;
 

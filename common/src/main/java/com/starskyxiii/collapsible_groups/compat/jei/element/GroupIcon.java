@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.element;
 
 import com.mojang.serialization.Codec;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
-import com.starskyxiii.collapsible_groups.core.GroupDisplayName;
+import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.network.chat.Component;
