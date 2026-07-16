@@ -20,8 +20,7 @@ import java.util.function.Function;
 /**
  * Pre-built index over the JEI item list for fast editor draft resolution.
  *
- * <p>Replaces the per-edit O(allItems) full-scan path for structurally editable
- * drafts with an O(selectorCount + matchedCandidates) index lookup.
+ * <p>Structurally editable drafts resolve in O(selectorCount + matchedCandidates).
  *
  * <p>Lifecycle: owned by {@link GroupRegistry}, lazily built on first editable
  * preview rebuild, invalidated whenever {@code jeiAllItems} is replaced or cleared.

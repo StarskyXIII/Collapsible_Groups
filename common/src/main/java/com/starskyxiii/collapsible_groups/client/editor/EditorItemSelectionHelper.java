@@ -35,8 +35,8 @@ final class EditorItemSelectionHelper {
 	 * the selector stored for a plain single-click. Component-less items store the cheap,
 	 * broad whole-item id (so common vanilla items never bloat into exact-stack rules); items that
 	 * carry a component patch keep the exact-stack selector. Plain-clicking therefore toggles the
-	 * whole-item selection on/off for component-less items (a second click removes, it no longer
-	 * switches to an exact variant), while items with components keep their prior exact behavior.
+	 * whole-item selection on/off for component-less items, while items with components use exact
+	 * selectors.
 	 */
 	private String preferredSelector(ItemStack stack) {
 		return stack.getComponentsPatch().isEmpty()

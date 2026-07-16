@@ -119,7 +119,6 @@ public final class GroupRegistry {
 	// Group queries
 	// -----------------------------------------------------------------------
 
-	/** Returns all JSON-persisted groups. */
 	public static List<GroupDefinition> getAll() {
 		syncCatalogFromLegacyFields();
 		return CATALOG.priorityOrder();
@@ -401,7 +400,7 @@ public final class GroupRegistry {
 
 	/**
 	 * Resolves the item preview for a structurally editable editor draft using the
-	 * pre-built item index. This replaces the per-edit O(allItems) full scan.
+	 * pre-built item index in O(selectorCount + matchedCandidates).
 	 *
 	 * <p>If {@code enabled} is false, returns an empty list without any resolution work.
 	 * If the draft has no item selectors or tags, returns empty immediately.
@@ -421,9 +420,7 @@ public final class GroupRegistry {
 	 * item preview for a <em>hybrid</em> draft (flat contents leaves + preserved advanced
 	 * subtrees). The flat part is resolved from the item index; the preserved part is full-scanned
 	 * once and memoised in the index's single-slot cache. The two are unioned (identity-dedup,
-	 * ordinal order) so the result is item-for-item, order-for-order identical to the previous
-	 * {@code resolveItems(buildPreviewDefinition())} full scan — the hot-path fix for hybrids
-	 * that re-scanned every {@code onGroupChanged} tick.
+	 * ordinal order) to preserve the JEI universe order.
 	 *
 	 * <p>Returns empty for a disabled group, mirroring {@code GroupDefinition.matches}
 	 * ({@code enabled && …}) so the union stays equivalent to the full scan in that case too.
@@ -460,12 +457,10 @@ public final class GroupRegistry {
 	// Resolved-items cache  (pre-built by MixinIngredientFilter)
 	// -----------------------------------------------------------------------
 
-	/** Called by MixinIngredientFilter after building the ingredient-group index. */
 	public static void setResolvedItemsByGroup(Map<String, List<ItemStack>> map) {
 		resolvedItemsByGroup = freezeResolvedMap(map);
 	}
 
-	/** Called by MixinIngredientFilter after building the ingredient-group index. */
 	public static void setResolvedFluidsByGroup(Map<String, List<Object>> map) {
 		resolvedFluidsByGroup = freezeResolvedMap(map);
 	}
@@ -538,7 +533,7 @@ public final class GroupRegistry {
 	}
 
 	// -----------------------------------------------------------------------
-	// KubeJS group management (delegated to KubeJsGroupStore)
+	// KubeJS group management
 	// -----------------------------------------------------------------------
 
 	public static void setKubeJsGroups(List<GroupDefinition> incoming) {
@@ -556,7 +551,7 @@ public final class GroupRegistry {
 	public static void markKubeJsApplied()   { KubeJsGroupStore.markApplied(); }
 
 	// -----------------------------------------------------------------------
-	// Expand / collapse state (delegated to GroupExpandState)
+	// Expand / collapse state
 	// -----------------------------------------------------------------------
 
 	public static boolean isExpanded(GroupDefinition group)  { return GroupExpandState.isExpandedById(group.id()); }

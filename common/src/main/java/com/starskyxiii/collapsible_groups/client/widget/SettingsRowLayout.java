@@ -24,7 +24,7 @@ public final class SettingsRowLayout {
 	public static final int SECTION_GAP = 8;
 	public static final int SUBHEADER_HEIGHT = 20;
 	/**
-	 * Vertical breathing room added below the last row of each section (fix 3b).
+	 * Vertical breathing room below the last row of each section.
 	 * Read by both {@link #compute} (folded into {@link Result#contentHeight()} so
 	 * scrolling to the bottom does not clip the final section) and the Screen's
 	 * section backdrop (last-row bottom + this pad). The two must stay in sync.
@@ -125,7 +125,7 @@ public final class SettingsRowLayout {
 		}
 		y += SECTION_GAP - ROW_GAP;
 
-		// --- Behavior (fix 8: Enabled → Priority → Group ID) ---
+		// --- Behavior: Enabled → Priority → Group ID ---
 		y = subheader(rows, x, y, w, "behavior");
 		y = enabledRow(rows, x, y, w);
 		y += BEHAVIOR_ROW_HEIGHT + ROW_GAP;
@@ -134,7 +134,7 @@ public final class SettingsRowLayout {
 		y = idRow(rows, x, y, w);
 		y += ID_ROW_HEIGHT;
 
-		// fix 3b: fold the section bottom pad into the scrollable content height so
+		// Fold the section bottom pad into the scrollable content height so
 		// the final section keeps its breathing room when scrolled to the bottom.
 		int contentHeight = y - contentTop + SECTION_BOTTOM_PAD;
 		return new Result(rows, contentHeight);
@@ -169,7 +169,7 @@ public final class SettingsRowLayout {
 	}
 
 	/**
-	 * Right-anchored color row (fix 3): swatch / hex / picker / reset hug the
+	 * Right-anchored color row: swatch / hex / picker / reset hug the
 	 * right edge and the label flexes to fill the remaining width. The hex value
 	 * gets its own {@code hexBox} rect so render and tooltip hit-testing read one
 	 * source instead of the Screen recomputing {@code hexX}.

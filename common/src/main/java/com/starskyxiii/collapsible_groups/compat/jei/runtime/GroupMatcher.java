@@ -11,10 +11,6 @@ import mezz.jei.api.ingredients.IIngredientHelper;
  *
  * <p>Fluid matching uses the loader-agnostic {@link Services#PLATFORM} abstraction,
  * so fluid stacks are passed as {@code Object} (e.g. NeoForge {@code FluidStack}).
- *
- * <p>All methods that were previously on {@link GroupDefinition} and depended on
- * loader/JEI APIs live here.  {@link GroupDefinition} itself now resides in
- * {@code common/core/} and is fully loader-agnostic.
  */
 public final class GroupMatcher {
 

@@ -133,8 +133,8 @@ public final class GroupFilterEditorDraft {
 	/**
 	 * decode with preserved subtrees. Branches:
 	 * <ul>
-	 * <li>{@code null} → empty draft, {@code editable=false} (matches the legacy
-	 * empty-filter contract that {@code refreshContentsDraftFromRules} relies on).</li>
+	 * <li>{@code null} → empty draft, {@code editable=false}, as required by
+	 * {@code refreshContentsDraftFromRules}.</li>
 	 * <li>root {@code Any} → supported flat leaves flow into the draft, every other
 	 * child subtree is preserved verbatim; {@code editable=true}.</li>
 	 * <li>root single supported leaf → flat draft, no preserved; {@code editable=true}.</li>

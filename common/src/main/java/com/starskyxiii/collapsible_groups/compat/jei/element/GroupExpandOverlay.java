@@ -4,10 +4,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
 import mezz.jei.api.gui.drawable.IDrawable;
 import net.minecraft.client.gui.GuiGraphics;
 
-/**
- * Registers group-header positions for the next background pre-pass.
- * Stacked-icon rendering is handled by {@link GroupIconRenderer}.
- */
+/** Registers group-header positions for the next background pre-pass. */
 public final class GroupExpandOverlay implements IDrawable {
 	private final String groupId;
 

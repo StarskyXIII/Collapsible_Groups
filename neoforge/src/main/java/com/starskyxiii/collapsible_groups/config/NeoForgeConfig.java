@@ -89,8 +89,8 @@ public final class NeoForgeConfig implements IConfigProvider {
 	public static final ModConfigSpec.BooleanValue LOAD_AE2;
 
 	/**
-	 * Whether to load built-in RS2 groups.
-	 * Ignored if RS2 is not installed; the setting cannot take effect without the mod.
+	 * Whether to load built-in Refined Storage 2 groups.
+	 * Ignored if Refined Storage 2 is not installed.
 	 */
 	public static final ModConfigSpec.BooleanValue LOAD_RS2;
 

@@ -37,8 +37,7 @@ class EditorModeAndCellStateContractTest {
 
 	@Test
 	void sourceCellStatesExposeOverlapOwnershipAndStayClickable() {
-		// Overlap replaces the red blocked state and remains clickable —
-		// clicking adds the ingredient to the current group.
+		// Overlap remains clickable so a click can add the ingredient to the current group.
 		IngredientSourceCellState overlap = IngredientSourceCellState.overlap(List.of("Other Group"));
 
 		assertEquals(IngredientSourceCellVisualState.OVERLAP, overlap.visualState());

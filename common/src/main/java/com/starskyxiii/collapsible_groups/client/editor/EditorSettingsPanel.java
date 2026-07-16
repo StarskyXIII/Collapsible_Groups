@@ -239,7 +239,7 @@ public final class EditorSettingsPanel {
 		return new EditorChrome.Rect(panelX, panelY, Math.max(1, panelW), Math.max(1, panelH));
 	}
 
-	/** Content column width, reserving space for the scrollbar (fix 6+8c). */
+	/** Content column width, reserving space for the scrollbar. */
 	private int rowColumnWidth() {
 		return Math.max(1, contentW - SETTINGS_SCROLLBAR_WIDTH - SETTINGS_ROW_GAP);
 	}
@@ -308,7 +308,7 @@ public final class EditorSettingsPanel {
 	/** Renders the color / icon picker modals at the caller-established top Z. */
 	public void renderModals(GuiGraphics g, int mouseX, int mouseY) {
 		if (!isModalOpen()) return;
-		// fix 5: lift the whole modal above the row list's renderItem draws (~z150).
+		// Lift the whole modal above the row list's renderItem draws (~z150).
 		// The modal backdrop lands at z200, its own items at ~z350, still below the
 		// ConfirmDialog at z500. Panel-drawn tooltips inside stay on this pose.
 		g.pose().pushPose();
@@ -322,7 +322,7 @@ public final class EditorSettingsPanel {
 	}
 
 	private void renderSectionBackdrop(GuiGraphics g, SettingsRowLayout.Result result, EditorChrome.Rect content) {
-		// fix 4: backdrop / divider right edge shares the row column width (which
+		// Backdrop / divider right edge shares the row column width (which
 		// reserves the scrollbar gutter) so the scrollbar never overlaps the frame.
 		int columnWidth = rowColumnWidth();
 		int columnRight = content.x() + columnWidth;
@@ -474,7 +474,7 @@ public final class EditorSettingsPanel {
 			focused ? UiPalette.OUTLINE_SELECTED : UiPalette.OUTLINE_DARK);
 		String value = focused ? priorityEditText : String.valueOf(state.editPriority());
 		String clipped = font.plainSubstrByWidth(value, Math.max(0, valueBox.width() - 6));
-		// fix 9: editing text stays centered (same centering as the idle value);
+		// Editing text stays centered, matching the idle value;
 		// the caret sits just past the centered text's right edge and blinks.
 		int valueX = valueBox.x() + Math.max(0, (valueBox.width() - font.width(clipped)) / 2);
 		int valueY = UiSkinRenderer.centeredTextY(font, valueBox.y(), valueBox.height());
@@ -592,7 +592,7 @@ public final class EditorSettingsPanel {
 		return centeredModalRect(w, h, inset);
 	}
 
-	/** Centers a modal of the given size within the settings panel (fix 6). */
+	/** Centers a modal of the given size within the settings panel. */
 	private EditorChrome.Rect centeredModalRect(int w, int h, int inset) {
 		int x = clamp(panelX + (panelW - w) / 2, panelX + inset, panelX + panelW - inset - w);
 		int y = clamp(panelY + (panelH - h) / 2, panelY + inset, panelY + panelH - inset - h);
@@ -892,7 +892,7 @@ public final class EditorSettingsPanel {
 			return true;
 		}
 
-		// fix 1: clicking the hex field focuses the EditBox and forwards the click.
+		// Clicking the hex field focuses the EditBox and forwards the click.
 		if (colorHexFieldRect().contains(mouseX, mouseY) && colorPickerHexBox != null) {
 			colorPickerHexBox.setFocused(true);
 			colorPickerHexBox.mouseClicked(mouseX, mouseY, 0);
@@ -950,7 +950,7 @@ public final class EditorSettingsPanel {
 	}
 
 	private boolean handleColorPickerKey(int keyCode, int scanCode, int modifiers) {
-		// fix 1: intercept ESC=cancel / ENTER=confirm at the panel level before the
+		// Intercept ESC=cancel / ENTER=confirm at the panel level before the
 		// EditBox can swallow ENTER (mirrors handleIconPickerKey's ESC-first check).
 		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
 			cancelColorPicker();
@@ -1046,7 +1046,7 @@ public final class EditorSettingsPanel {
 
 	/**
 	 * Group items, with the currently selected icon pinned to the front when it
-	 * is not otherwise in the group (fix 5). The pinned entry is flagged so the
+	 * is not otherwise in the group. The pinned entry is flagged so the
 	 * grid can mark it as a non-group item.
 	 */
 	private List<PickerEntry> iconPickerEntries() {
@@ -1178,8 +1178,7 @@ public final class EditorSettingsPanel {
 		EditorChrome.Rect grid = iconPickerGridRect();
 		List<PickerEntry> entries = iconPickerEntries();
 		if (entries.isEmpty()) {
-			// fix 10: wrap the empty-state hint inside the grid width instead of
-			// clipping it to a single line.
+			// Wrap the empty-state hint inside the grid width.
 			int lineY = grid.y() + 4;
 			for (net.minecraft.util.FormattedCharSequence line : font.split(
 					Component.translatable(ModTranslationKeys.ORE_EDITOR_ICON_PICKER_EMPTY), Math.max(1, grid.width()))) {
@@ -1542,7 +1541,7 @@ public final class EditorSettingsPanel {
 		return false;
 	}
 
-	/** Wheel over the whole editor panel scrolls the settings list (fix 6+8d). */
+	/** Wheel over the whole editor panel scrolls the settings list. */
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
 		if (isColorPickerOpen()) return true;
 		if (iconPickerOpen) return handleIconPickerScroll(scrollY);

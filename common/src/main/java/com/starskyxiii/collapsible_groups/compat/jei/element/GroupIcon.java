@@ -33,9 +33,7 @@ public final class GroupIcon {
 	}
 
 	public String groupId() { return groupId; }
-	/** Returns the stable translation key for this group's name. */
 	public String groupTranslationKey() { return groupTranslationKey; }
-	/** Returns the fallback display name (plain text). */
 	public String groupName() { return groupName; }
 	public List<ITypedIngredient<?>> displayIngredients() { return displayIngredients; }
 	public boolean isExpanded() { return GroupRegistry.isExpandedById(groupId); }

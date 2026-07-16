@@ -49,7 +49,7 @@ class GroupSampleRendererTest {
 
 	@Test
 	void pageButtonsSplitToBottomCornersLikeRealJei() {
-		// Fix 2: ◀ pinned to the area's bottom-left, ▶ to the bottom-right, so the
+		// ◀ is pinned to the area's bottom-left and ▶ to the bottom-right, so the
 		// page counter can sit centered between them.
 		GroupSampleRenderer.Rect area = new GroupSampleRenderer.Rect(0, 0, 36, 60);
 		GroupSampleRenderer.Layout layout = GroupSampleRenderer.layout(area, true, 5, 0);

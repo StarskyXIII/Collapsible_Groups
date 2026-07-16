@@ -92,7 +92,7 @@ class SettingsRowLayoutTest {
 		SettingsRowLayout.Result result = SettingsRowLayout.compute(0, 0, 220, 0, FIVE_COLORS);
 		for (SettingsRowLayout.Row row : result.rows()) {
 			if (row.kind() != SettingsRowLayout.Kind.COLOR) continue;
-			// Right-anchored flex layout (fix 3): swatch / hex / picker / reset hug
+			// Right-anchored flex layout: swatch / hex / picker / reset hug
 			// the right edge in order, reset stays inside the padded row, and the
 			// label region (rect.x()+PAD .. swatch.x()) is what flexes.
 			assertTrue(row.swatch().x() >= row.rect().x() + SettingsRowLayout.PAD,
@@ -117,7 +117,7 @@ class SettingsRowLayoutTest {
 
 	@Test
 	void reservingScrollbarWidthKeepsControlsInsideNarrowerColumn() {
-		// Fix 6+8c: the panel narrows the row column by the scrollbar width + gap.
+		// The panel narrows the row column by the scrollbar width + gap.
 		// Every right-anchored control must still land inside the narrower column
 		// and the reset button must re-hug the new right edge.
 		int full = 220;
