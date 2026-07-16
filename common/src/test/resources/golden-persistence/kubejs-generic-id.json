@@ -1,0 +1,12 @@
+{
+  "id": "__kjs_mekanism_chemical_example_gases_hydrogen",
+  "name": {
+    "translate": "collapsible_groups.group.__kjs_mekanism_chemical_example_gases_hydrogen",
+    "fallback": "Scripted Hydrogen"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "mekanism:chemical",
+    "id": "mekanism:hydrogen"
+  }
+}

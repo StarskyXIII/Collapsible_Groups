@@ -1,0 +1,12 @@
+{
+  "id": "__kjs_fluid_example_coolants_water",
+  "name": {
+    "translate": "collapsible_groups.group.__kjs_fluid_example_coolants_water",
+    "fallback": "Scripted Coolants"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "fluid",
+    "namespace": "example"
+  }
+}
