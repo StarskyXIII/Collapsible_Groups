@@ -482,18 +482,15 @@ final class EditorRulesPanel {
 		renderToolbar(g, listMouseX, listMouseY);
 		renderList(g, listMouseX, listMouseY);
 		// Drag ghost tag follows the pointer, drawn last and outside any scissor so it can
-		// float over the whole body. Modal dimming/drawing is now hoisted to the full-screen
-		// layer by the Screen via renderModals(), so nothing modal-related happens here.
+		// float over the whole body. The Screen owns modal rendering through renderModals().
 		if (dragNode != null) {
 			renderDragGhost(g, mouseX, mouseY);
 		}
 	}
 
 	/**
-	 * Full-screen modal layer: dims the entire screen (header / footer / preview included)
-	 * then draws the active rules modal on top. Called by the Screen at the shell's top Z,
-	 * mirroring the LOOK-mode settings precedent, so the dim is no longer confined to the
-	 * rules body. {@link #render} intentionally no longer paints modals or a body-only dim.
+	 * Dims the entire screen, including header, footer, and preview, then draws the active rules
+	 * modal at the shell's top Z. {@link #render} paints only the rules body.
 	 */
 	void renderModals(GuiGraphicsExtractor g, int screenW, int screenH, int mouseX, int mouseY) {
 		if (!isModalOpen()) {

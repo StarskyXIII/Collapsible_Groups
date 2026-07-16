@@ -57,7 +57,7 @@ public interface IConfigProvider {
 
 	/**
 	 * Whether to load built-in Refined Storage 2 block variant groups.
-	 * Default false; overridden by loaders that support RS2.
+	 * Default false; overridden by loaders that support Refined Storage 2.
 	 */
 	default boolean shouldLoadRS2() { return false; }
 

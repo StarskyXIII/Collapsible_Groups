@@ -310,10 +310,10 @@ public final class GroupFilterRuleDraft {
 	 *
 	 * <p>Cross-parent moves use the pre-detach index verbatim (the sentinel {@code oldIndex}
 	 * for a foreign parent never matches, so the decrement never fires). Tail insertions passed
-	 * as {@code children().size()} remain equivalent to the old behaviour: for a cross-parent
-	 * move the clamp caps them at the new parent's size; for a same-parent tail move
+	 * as {@code children().size()} resolve to the post-detach tail: for a cross-parent move the
+	 * clamp caps them at the new parent's size; for a same-parent tail move
 	 * {@code oldIndex < size} holds so the decrement lands them at {@code size-1} = post-detach
-	 * tail — identical to the prior clamp-only result.
+	 * tail.
 	 *
 	 * @return {@code true} when the move was applied.
 	 */

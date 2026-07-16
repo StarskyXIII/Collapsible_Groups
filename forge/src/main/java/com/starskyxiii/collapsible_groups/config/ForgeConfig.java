@@ -167,8 +167,8 @@ public final class ForgeConfig implements IConfigProvider {
 				"Has no effect if none of the supported Macaw's mods are installed."
 			)
 			.define("loadMacawsSeries", true);
-		// Note: Chipped and RS2 integration groups are not yet implemented on Forge.
-		// IConfigProvider defaults shouldLoadChipped() and shouldLoadRS2() to false.
+		// Forge leaves Chipped and Refined Storage 2 integration groups disabled through
+		// the IConfigProvider defaults.
 		builder.pop(); // ModIntegration
 		builder.pop(); // defaultGroups
 

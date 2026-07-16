@@ -281,7 +281,7 @@ class GroupConfigComponentPathTest {
 
 		@Test
 		void legacyHasComponentJsonStillParsesCorrectly() {
-			// This mimics the JSON shape that existed before ComponentPath was added.
+			// This is the supported legacy HasComponent JSON shape.
 			// Must continue to parse as HasComponent without errors.
 			JsonObject node = JsonParser.parseString("""
 				{
