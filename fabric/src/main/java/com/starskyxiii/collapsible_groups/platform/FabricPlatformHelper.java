@@ -2,9 +2,7 @@ package com.starskyxiii.collapsible_groups.platform;
 
 import com.starskyxiii.collapsible_groups.core.IngredientView;
 import com.starskyxiii.collapsible_groups.platform.services.IPlatformHelper;
-import mezz.jei.api.fabric.constants.FabricTypes;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
-import mezz.jei.api.ingredients.IIngredientType;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
 import net.fabricmc.loader.api.FabricLoader;
@@ -94,10 +92,5 @@ public class FabricPlatformHelper implements IPlatformHelper {
                 return false;
             }
         };
-    }
-
-    @Override
-    public IIngredientType<?> getJeiFluidType() {
-        return FabricTypes.FLUID_STACK;
     }
 }

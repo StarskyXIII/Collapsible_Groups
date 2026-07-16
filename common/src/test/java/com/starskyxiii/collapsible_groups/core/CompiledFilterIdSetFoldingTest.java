@@ -338,7 +338,7 @@ class CompiledFilterIdSetFoldingTest {
 	}
 
 	private static boolean sameType(String ingredientType, IngredientView view) {
-		// IngredientTypeRegistry has no registrations in the unit test classpath, so
+		// IngredientTypeIds has no registrations in the unit test classpath, so
 		// canonicalization is the identity function here - matching CompiledFilter's own
 		// canonicalType() fallback for unregistered/unknown types.
 		return ingredientType.equals(view.ingredientType());

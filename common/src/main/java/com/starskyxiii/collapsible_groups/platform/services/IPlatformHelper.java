@@ -1,7 +1,6 @@
 package com.starskyxiii.collapsible_groups.platform.services;
 
 import com.starskyxiii.collapsible_groups.core.IngredientView;
-import mezz.jei.api.ingredients.IIngredientType;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -82,13 +81,5 @@ public interface IPlatformHelper {
      */
     default IngredientView createFluidView(Object fluidStack) {
         throw new UnsupportedOperationException("createFluidView not implemented for " + getPlatformName());
-    }
-
-    /**
-     * Returns the platform-specific JEI fluid ingredient type, or {@code null} if unsupported.
-     * <p>NeoForge returns {@code NeoForgeTypes.FLUID_STACK}; Forge returns {@code ForgeTypes.FLUID_STACK}.
-     */
-    default IIngredientType<?> getJeiFluidType() {
-        return null;
     }
 }

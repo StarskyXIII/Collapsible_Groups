@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.preview;
 
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -12,13 +13,13 @@ final class PreviewIngredientRenderer {
 	private PreviewIngredientRenderer() {}
 
 	static Object getFluidIngredient(ITypedIngredient<?> typed) {
-		IIngredientType<?> fluidType = Services.PLATFORM.getJeiFluidType();
+		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		if (fluidType == null) return null;
 		return getIngredient(typed, fluidType);
 	}
 
 	static void renderFluid(GuiGraphicsExtractor guiGraphics, Object fluid, int x, int y) {
-		IIngredientType<?> fluidType = Services.PLATFORM.getJeiFluidType();
+		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		if (JeiRuntimeHolder.get() != null && fluidType != null) {
 			renderWithJei(guiGraphics, fluidType, fluid, x, y);
 			return;

@@ -1339,7 +1339,7 @@ public class OreGroupEditorScreen extends Screen {
 	private void disableSourceAfterCopyIfRequested() {
 		String sourceGroupId = state.sourceGroupId();
 		if (!state.isCopyDraft() || !disableSourceAfterCopy || sourceGroupId == null) return;
-		GroupRegistry.setEnabledQuietly(sourceGroupId, false);
+		GroupRegistry.setEnabledQuietlyWithoutEvent(sourceGroupId, false);
 	}
 
 	private void clearRightHover() {

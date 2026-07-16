@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIconHelper;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIconRenderer;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.registration.IModIngredientRegistration;
@@ -42,5 +43,12 @@ public class CollapsibleGroupsJeiPlugin implements IModPlugin {
 	@Override
 	public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
 		JeiRuntimeHolder.set(jeiRuntime);
+		JeiViewerAdapter.registerRuntime();
+	}
+
+	@Override
+	public void onRuntimeUnavailable() {
+		JeiViewerAdapter.unregisterRuntime();
+		JeiRuntimeHolder.set(null);
 	}
 }

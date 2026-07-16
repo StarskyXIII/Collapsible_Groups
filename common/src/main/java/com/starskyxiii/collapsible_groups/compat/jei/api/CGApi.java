@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.api;
 
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import mezz.jei.api.ingredients.IIngredientType;
 
 /**
@@ -35,7 +36,7 @@ public final class CGApi {
 	 * @param type The JEI IIngredientType to associate with this ID
 	 */
 	public static void registerIngredientType(String id, IIngredientType<?> type) {
-		IngredientTypeRegistry.register(id, type);
+		JeiIngredientTypes.register(id, type);
 	}
 
 	/**
@@ -51,6 +52,6 @@ public final class CGApi {
 	 * @param canonicalId The canonical ID registered via {@link #registerIngredientType}
 	 */
 	public static void registerIngredientTypeAlias(String alias, String canonicalId) {
-		IngredientTypeRegistry.registerAlias(alias, canonicalId);
+		JeiIngredientTypes.registerAlias(alias, canonicalId);
 	}
 }

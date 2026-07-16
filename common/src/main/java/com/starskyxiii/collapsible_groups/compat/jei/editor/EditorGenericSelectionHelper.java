@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
-import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientView;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 
@@ -76,7 +76,7 @@ final class EditorGenericSelectionHelper {
 	}
 
 	private static String canonicalTypeId(String typeId) {
-		String canonical = IngredientTypeRegistry.getCanonicalId(typeId);
+		String canonical = IngredientTypeIds.getCanonicalId(typeId);
 		return canonical != null ? canonical : typeId;
 	}
 }

@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
@@ -83,7 +84,7 @@ final class EditorFluidIngredientHelper {
 
 	static void render(GuiGraphicsExtractor g, EditorFluidIngredientView entry, int x, int y) {
 		var runtime = JeiRuntimeHolder.get();
-		IIngredientType<?> fluidType = Services.PLATFORM.getJeiFluidType();
+		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		if (runtime != null && fluidType != null) {
 			renderWithJei(g, fluidType, entry.ingredient(), x, y);
 			return;

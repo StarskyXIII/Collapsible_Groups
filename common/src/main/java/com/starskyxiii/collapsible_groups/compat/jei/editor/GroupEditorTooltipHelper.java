@@ -7,9 +7,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -32,7 +30,7 @@ final class GroupEditorTooltipHelper {
 		// --- Left panel ---
 		if (left.hoveredItem >= 0 && left.hoveredItem < left.filteredItems().size()) {
 			ItemStack stack = left.filteredItems().get(left.hoveredItem);
-			List<Component> lines = new ArrayList<>(stack.getTooltipLines(Item.TooltipContext.EMPTY, null, TooltipFlag.Default.NORMAL));
+			List<Component> lines = new ArrayList<>(EditorItemTooltipHelper.tooltipLines(stack));
 			appendOtherGroups(lines, left.otherGroupsForItem(stack));
 			if (left.isShowingItems()) appendItemHint(lines, state, stack);
 			g.setComponentTooltipForNextFrame(font, lines, mouseX, mouseY);
@@ -82,7 +80,7 @@ final class GroupEditorTooltipHelper {
 			ItemStack stack = right.groupItems().get(right.hoveredItem);
 			boolean isExact = state.isExactSelected(stack);
 			boolean isWhole = state.isWholeItemSelected(stack);
-			List<Component> lines = new ArrayList<>(stack.getTooltipLines(Item.TooltipContext.EMPTY, null, TooltipFlag.Default.NORMAL));
+			List<Component> lines = new ArrayList<>(EditorItemTooltipHelper.tooltipLines(stack));
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 			else if (!isExact && !isWhole) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			else if (isWhole) {

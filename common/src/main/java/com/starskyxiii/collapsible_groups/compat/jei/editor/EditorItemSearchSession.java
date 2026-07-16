@@ -3,11 +3,8 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
 import com.starskyxiii.collapsible_groups.core.IngredientSearchQuery;
 import net.minecraft.ChatFormatting;
-import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.TooltipFlag;
 
 import java.util.IdentityHashMap;
 import java.util.List;
@@ -60,10 +57,6 @@ final class EditorItemSearchSession {
 	}
 
 	private static List<Component> minecraftTooltip(ItemStack stack) {
-		Minecraft minecraft = Minecraft.getInstance();
-		Item.TooltipContext context = minecraft.level == null
-			? Item.TooltipContext.EMPTY
-			: Item.TooltipContext.of(minecraft.level);
-		return stack.getTooltipLines(context, minecraft.player, TooltipFlag.Default.NORMAL);
+		return EditorItemTooltipHelper.tooltipLines(stack, List.of());
 	}
 }

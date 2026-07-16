@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.core;
 
 import com.google.gson.JsonParser;
-import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.resources.Identifier;
 import net.minecraft.network.chat.Component;
@@ -122,7 +122,7 @@ public final class GroupFilterValidator {
 		if (ITEM_TYPE.equals(type) || FLUID_TYPE.equals(type)) {
 			return;
 		}
-		if (IngredientTypeRegistry.getCanonicalId(type) != null) {
+		if (IngredientTypeIds.getCanonicalId(type) != null) {
 			return;
 		}
 		if (Identifier.tryParse(type) != null) {
