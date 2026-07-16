@@ -2,8 +2,6 @@ package com.starskyxiii.collapsible_groups.platform;
 
 import com.starskyxiii.collapsible_groups.core.IngredientView;
 import com.starskyxiii.collapsible_groups.platform.services.IPlatformHelper;
-import mezz.jei.api.forge.ForgeTypes;
-import mezz.jei.api.ingredients.IIngredientType;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
@@ -87,10 +85,5 @@ public class ForgePlatformHelper implements IPlatformHelper {
                 return false;
             }
         };
-    }
-
-    @Override
-    public IIngredientType<?> getJeiFluidType() {
-        return ForgeTypes.FLUID_STACK;
     }
 }

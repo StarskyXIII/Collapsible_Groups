@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
-import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterNormalizer;
 import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
@@ -172,7 +172,7 @@ public final class ItemFilterQueryCompiler {
 	}
 
 	private static String canonicalType(String type) {
-		String canonical = IngredientTypeRegistry.getCanonicalId(type);
+		String canonical = IngredientTypeIds.getCanonicalId(type);
 		return canonical != null ? canonical : type;
 	}
 

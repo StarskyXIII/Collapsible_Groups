@@ -1,25 +1,25 @@
 package com.starskyxiii.collapsible_groups.compat.kubejs;
 
-import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.KubeJsItemFilterLowering;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
+import com.starskyxiii.collapsible_groups.viewer.ViewerBootstrapContext;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientType;
 import dev.latvian.mods.kubejs.plugin.builtin.event.RecipeViewerEvents;
 import dev.latvian.mods.kubejs.recipe.viewer.RecipeViewerEntryType;
 import dev.latvian.mods.kubejs.recipe.viewer.server.FluidData;
 import dev.latvian.mods.kubejs.recipe.viewer.server.ItemData;
 import dev.latvian.mods.kubejs.script.ScriptType;
-import mezz.jei.api.ingredients.IIngredientHelper;
-import mezz.jei.api.ingredients.IIngredientType;
-import mezz.jei.api.runtime.IIngredientManager;
+import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Bridges KubeJS RecipeViewerEvents.groupEntries() into our JEI group system.
@@ -38,15 +38,20 @@ public final class KubeJSGroupBridge {
 	private KubeJSGroupBridge() {}
 
 	/**
-	 * @param ingredientManager must be obtained from IngredientFilter's own field (via @Shadow),
-	 *                          NOT from JeiRuntimeHolder. This method is called during JEI's
-	 *                          "Building ingredient filter" phase, before IJeiRuntime is
-	 *                          constructed and JeiRuntimeHolder is populated (~150 ms earlier).
-	 *                          Using JeiRuntimeHolder here would always return isAvailable()=false
-	 *                          and silently skip all custom ingredient type groups.
+	 * @param bootstrap early viewer context supplied while the ingredient filter is being built,
+	 *                  before the normal JEI runtime is available
 	 */
-	public static void applyGroups(List<ItemStack> allItems, List<FluidStack> allFluids, IIngredientManager ingredientManager) {
+	public static void applyGroups(ViewerBootstrapContext<ITypedIngredient<?>> bootstrap) {
 		List<GroupDefinition> allGroups = new ArrayList<>();
+		List<ItemStack> allItems = bootstrap.universe().items().stream()
+			.flatMap(ingredient -> ingredient.entry().getItemStack().stream())
+			.toList();
+		List<FluidStack> allFluids = bootstrap.universe().fluids().stream()
+			.map(ViewerIngredient::entry)
+			.map(ITypedIngredient::getIngredient)
+			.filter(FluidStack.class::isInstance)
+			.map(FluidStack.class::cast)
+			.toList();
 
 		// Client-script item groups
 		if (RecipeViewerEvents.GROUP_ENTRIES.hasListeners(RecipeViewerEntryType.ITEM)) {
@@ -63,10 +68,10 @@ public final class KubeJSGroupBridge {
 		}
 
 		// Client-script generic groups (custom ingredient types).
-		// Iterate getAllWithAliases() so both canonical IDs and short aliases
-		// (e.g. "chemical" alongside "mekanism:chemical") fire their KubeJS events.
-		for (Map.Entry<String, IIngredientType<?>> entry : IngredientTypeRegistry.getAllWithAliases().entrySet()) {
-			applyGenericType(entry.getKey(), entry.getValue(), ingredientManager, allGroups);
+		// Preserve canonical-then-alias registration order while resolving from the early context.
+		for (String typeId : IngredientTypeIds.getAllIds().keySet()) {
+			ViewerIngredientType<ITypedIngredient<?>> type = bootstrap.resolveType(typeId).orElse(null);
+			if (type != null) applyGenericType(typeId, type.ingredients(), allGroups);
 		}
 
 		// Server-remote groups (from RemoteRecipeViewerDataUpdatedEvent)
@@ -75,20 +80,17 @@ public final class KubeJSGroupBridge {
 		GroupRegistry.setKubeJsGroups(allGroups);
 	}
 
-	private static <T> void applyGenericType(
+	private static void applyGenericType(
 		String typeId,
-		IIngredientType<T> type,
-		IIngredientManager ingredientManager,
+		List<ViewerIngredient<ITypedIngredient<?>>> ingredients,
 		List<GroupDefinition> out
 	) {
 		RecipeViewerEntryType entryType = RecipeViewerEntryType.fromString(typeId);
 		if (entryType == null || !RecipeViewerEvents.GROUP_ENTRIES.hasListeners(entryType)) return;
 
-		List<T> allIngredients = new ArrayList<>(ingredientManager.getAllIngredients(type));
-		if (allIngredients.isEmpty()) return;
+		if (ingredients.isEmpty()) return;
 
-		IIngredientHelper<T> helper = ingredientManager.getIngredientHelper(type);
-		JEIGenericGroupEntriesKubeEvent<T> event = new JEIGenericGroupEntriesKubeEvent<>(typeId, type, allIngredients, helper);
+		JEIGenericGroupEntriesKubeEvent<Object> event = new JEIGenericGroupEntriesKubeEvent<>(typeId, ingredients);
 		RecipeViewerEvents.GROUP_ENTRIES.post(ScriptType.CLIENT, entryType, event);
 		out.addAll(event.getCollected());
 	}

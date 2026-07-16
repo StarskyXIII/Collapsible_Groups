@@ -1,15 +1,12 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
-import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
-import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
 import mezz.jei.api.gui.drawable.IDrawable;
 import net.minecraft.client.gui.GuiGraphics;
 
 /**
- * Overlay drawn on group header elements in the JEI ingredient grid.
- * Only draws a semi-transparent background tint; stacked-icon rendering
- * is handled by {@link GroupIconRenderer}.
+ * Registers group-header positions for the next background pre-pass.
+ * Stacked-icon rendering is handled by {@link GroupIconRenderer}.
  */
 public final class GroupExpandOverlay implements IDrawable {
 	private final String groupId;
@@ -26,11 +23,6 @@ public final class GroupExpandOverlay implements IDrawable {
 
 	@Override
 	public void draw(GuiGraphics guiGraphics, int xOffset, int yOffset) {
-		if (!Services.CONFIG.showGroupBackgrounds()) return;
-
-		boolean expanded = GroupRegistry.isExpandedById(groupId);
-		int background = GroupThemeResolver.headerBackgroundColor(groupId, expanded);
-		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17,
-			background);
+		GroupBackgroundRenderer.registerHeader(groupId, xOffset, yOffset);
 	}
 }

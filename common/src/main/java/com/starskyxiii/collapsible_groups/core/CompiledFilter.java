@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.core;
 
-import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -106,7 +106,7 @@ public final class CompiledFilter {
 	}
 
 	private static String canonicalType(String type) {
-		String canonical = IngredientTypeRegistry.getCanonicalId(type);
+		String canonical = IngredientTypeIds.getCanonicalId(type);
 		return canonical != null ? canonical : type;
 	}
 

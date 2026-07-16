@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
-import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.core.IngredientView;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.subtypes.UidContext;
@@ -15,7 +15,7 @@ public final class GenericJeiIngredientView<T> implements IngredientView {
 	private final IIngredientHelper<T> helper;
 
 	public GenericJeiIngredientView(String typeId, T ingredient, IIngredientHelper<T> helper) {
-		String canonical = IngredientTypeRegistry.getCanonicalId(typeId);
+		String canonical = IngredientTypeIds.getCanonicalId(typeId);
 		this.canonicalTypeId = canonical != null ? canonical : typeId;
 		this.ingredient = ingredient;
 		this.helper = helper;

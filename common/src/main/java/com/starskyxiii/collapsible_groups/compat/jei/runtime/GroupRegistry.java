@@ -5,13 +5,14 @@ import com.starskyxiii.collapsible_groups.core.GroupFilter;
 import com.starskyxiii.collapsible_groups.core.GroupFilterEditorDraft;
 
 import com.starskyxiii.collapsible_groups.Constants;
-import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
-import com.starskyxiii.collapsible_groups.compat.jei.oreui.GroupSource;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider;
-import com.starskyxiii.collapsible_groups.persistence.GroupConfig;
+import com.starskyxiii.collapsible_groups.group.GroupCatalog;
+import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
+import com.starskyxiii.collapsible_groups.group.GroupSource;
 import com.starskyxiii.collapsible_groups.persistence.GroupExpandState;
-import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.persistence.GroupStore;
 import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -19,17 +20,12 @@ import mezz.jei.api.runtime.IIngredientManager;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 
-import java.text.Normalizer;
 import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.function.UnaryOperator;
 
 /**
  * Central registry for all collapsible groups.
@@ -39,7 +35,7 @@ import java.util.function.UnaryOperator;
  *
  * <p>Responsibilities:
  * <ul>
- *   <li>JSON-persisted group CRUD ({@link GroupConfig})
+ *   <li>JSON-persisted group CRUD ({@link GroupStore})
  *   <li>JEI ingredient caches (items and fluids)
  *   <li>Generic ingredient resolution
  *   <li>JEI invalidation callback
@@ -63,12 +59,8 @@ public final class GroupRegistry {
 	private static volatile List<GroupDefinition> groups = List.of();
 	private static volatile List<GroupDefinition> orderedGroups = List.of();
 	private static volatile Map<String, GroupDefinition> groupsById = Map.of();
-
-	/** Set by MixinIngredientFilter. Triggers a full JEI rebuild, including the ingredient-to-group ownership index. */
-	public static volatile Runnable jeiInvalidateCallback = null;
-
-	/** Set by MixinIngredientFilter. Rebuilds only the group structure and display caches; does not rebuild the ownership index. */
-	public static volatile Runnable jeiStructureInvalidateCallback = null;
+	private static final GroupCatalog CATALOG = new GroupCatalog();
+	private static final GroupStore STORE = new GroupStore();
 
 	private static volatile List<ItemStack> jeiAllItems  = List.of();
 	private static volatile List<Object>    jeiAllFluids = List.of();
@@ -109,22 +101,8 @@ public final class GroupRegistry {
 	 * @param providers built-in default group providers; pass an empty list for none
 	 */
 	public static void load(List<DefaultGroupProvider> providers) {
-		Map<String, Boolean> enabledOverrides = GroupConfig.loadEnabledOverrides();
-		// 1. Collect provider defaults (insertion order preserved)
-		Map<String, GroupDefinition> merged = new LinkedHashMap<>();
-		for (DefaultGroupProvider provider : providers) {
-			for (GroupDefinition g : provider.getGroups()) {
-				merged.put(g.id(), g);
-			}
-		}
-
-		// 2. Disk JSON fills in user-created groups; __default_ IDs are reserved for providers
-		for (GroupDefinition g : GroupConfig.load()) {
-			if (!g.id().startsWith("__default_")) merged.put(g.id(), g);
-		}
-
-		publishGroups(applyEnabledOverridesToManagedSources(List.copyOf(merged.values()), enabledOverrides));
-		GroupExpandState.load(GroupConfig.loadExpandState());
+		publishGroups(STORE.loadGroups(providers));
+		STORE.loadExpandState();
 
 		long itemGroups  = groups.stream().filter(GroupDefinition::hasItemFilters).count();
 		long fluidGroups = groups.stream().filter(GroupDefinition::hasFluidFilters).count();
@@ -142,14 +120,16 @@ public final class GroupRegistry {
 
 	/** Returns all JSON-persisted groups. */
 	public static List<GroupDefinition> getAll() {
-		return orderedGroups;
+		syncCatalogFromLegacyFields();
+		return CATALOG.priorityOrder();
 	}
 
 	/** Finds a group by ID, checking persisted/provider groups before ephemeral KubeJS groups. */
 	public static Optional<GroupDefinition> findById(String id) {
 		if (id == null || id.isBlank()) return Optional.empty();
-		GroupDefinition group = groupsById.get(id);
-		if (group != null) return Optional.of(group);
+		syncCatalogFromLegacyFields();
+		Optional<GroupDefinition> group = CATALOG.findById(id);
+		if (group.isPresent()) return group;
 		for (GroupDefinition kjsGroup : KubeJsGroupStore.getGroups()) {
 			if (id.equals(kjsGroup.id())) return Optional.of(kjsGroup);
 		}
@@ -161,13 +141,14 @@ public final class GroupRegistry {
 	 * Use this when checking whether an ingredient already belongs to another group.
 	 */
 	public static List<GroupDefinition> getAllIncludingKubeJs() {
+		syncCatalogFromLegacyFields();
 		List<GroupDefinition> kjs = KubeJsGroupStore.getGroups();
-		List<GroupDefinition> snapshot = groups;
-		if (kjs.isEmpty()) return orderedGroups;
+		List<GroupDefinition> snapshot = CATALOG.registrationOrder();
+		if (kjs.isEmpty()) return CATALOG.priorityOrder();
 		List<GroupDefinition> combined = new ArrayList<>(snapshot.size() + kjs.size());
 		combined.addAll(snapshot);
 		combined.addAll(kjs);
-		return orderByPriority(combined);
+		return GroupCatalog.orderByPriority(combined);
 	}
 
 	/**
@@ -248,7 +229,7 @@ public final class GroupRegistry {
 		if (isJeiAllItemsEmpty()) {
 			setJeiAllItems(new ArrayList<>(manager.getAllIngredients(VanillaTypes.ITEM_STACK)));
 		}
-		IIngredientType<?> fluidType = Services.PLATFORM.getJeiFluidType();
+		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		if (fluidType != null && isJeiAllFluidsEmpty()) {
 			setJeiAllFluids(new ArrayList<>((List<Object>) (List<?>) manager.getAllIngredients(fluidType)));
 		}
@@ -362,7 +343,7 @@ public final class GroupRegistry {
 		if (runtime == null) return List.of();
 		IIngredientManager ingredientManager = runtime.getIngredientManager();
 		List<GenericIngredientRef> result = new ArrayList<>();
-		for (Map.Entry<String, IIngredientType<?>> entry : IngredientTypeRegistry.getAll().entrySet()) {
+		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
 			appendMatchingGenericIngredients(group, entry.getKey(), entry.getValue(), ingredientManager, result);
 		}
 		List<GenericIngredientRef> copy = List.copyOf(result);
@@ -377,7 +358,7 @@ public final class GroupRegistry {
 		if (runtime == null) return List.of();
 		IIngredientManager ingredientManager = runtime.getIngredientManager();
 		List<GenericIngredientRef> result = new ArrayList<>();
-		for (Map.Entry<String, IIngredientType<?>> entry : IngredientTypeRegistry.getAll().entrySet()) {
+		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
 			appendAllGenericIngredients(entry.getKey(), entry.getValue(), ingredientManager, result);
 		}
 		return List.copyOf(result);
@@ -528,6 +509,14 @@ public final class GroupRegistry {
 		if (fluids != null) fluids.remove(groupId);
 	}
 
+	/** Clears enabled-dependent ownership lookups while preserving full-match previews. */
+	public static void clearFirstMatchCaches() {
+		resolvedItemsByGroup = null;
+		resolvedFluidsByGroup = null;
+		itemIdToGroupIds = null;
+		fluidIdToGroupIds = null;
+	}
+
 	/** Invalidates manager full-match preview cache (enable-agnostic filter results). */
 	public static void invalidateFullMatchCache(String groupId) {
 		var fullItems = fullMatchItemsByGroup;
@@ -552,8 +541,9 @@ public final class GroupRegistry {
 	// -----------------------------------------------------------------------
 
 	public static void setKubeJsGroups(List<GroupDefinition> incoming) {
-		KubeJsGroupStore.setGroups(applyEnabledOverridesToManagedSources(incoming, GroupConfig.loadEnabledOverrides()));
+		KubeJsGroupStore.setGroups(GroupCatalog.applyEnabledOverrides(incoming, STORE.loadEnabledOverrides()));
 		clearManagerPreviewCaches();
+		GroupChangeEvent.publish(GroupChangeEvent.Kind.KUBEJS_REPLACE);
 	}
 	public static boolean isKubeJsGroupsEmpty()                        { return KubeJsGroupStore.isGroupsEmpty(); }
 	public static void clearKubeJsGroups() {
@@ -587,23 +577,10 @@ public final class GroupRegistry {
 	/** Saves a group without triggering JEI invalidation. */
 	public static void saveQuietly(GroupDefinition group) {
 		invalidateFirstMatchCache(group.id());
-		replaceGroups(snapshot -> {
-			List<GroupDefinition> copy = new ArrayList<>(snapshot.size() + 1);
-			boolean replaced = false;
-			for (GroupDefinition existing : snapshot) {
-				if (existing.id().equals(group.id())) {
-					copy.add(group);
-					replaced = true;
-				} else {
-					copy.add(existing);
-				}
-			}
-			if (!replaced) {
-				copy.add(group);
-			}
-			return List.copyOf(copy);
-		});
-		GroupConfig.save(group);
+		syncCatalogFromLegacyFields();
+		CATALOG.saveOrReplace(group);
+		syncLegacyFieldsFromCatalog();
+		STORE.save(group);
 	}
 
 	public static Optional<GroupDefinition> copyAsCustomQuietly(String sourceId, String copiedDisplayName) {
@@ -624,7 +601,7 @@ public final class GroupRegistry {
 	}
 
 	/**
-	 * Updates enabled state without triggering JEI invalidation.
+	 * Updates enabled state and publishes an enabled-only change event.
 	 *
 	 * <p>User groups are persisted through their normal group JSON. Built-in and
 	 * KubeJS groups are persisted through the enabled override store so provider
@@ -633,17 +610,30 @@ public final class GroupRegistry {
 	 * @return {@code false} only when the id is blank or no current group exists.
 	 */
 	public static boolean setEnabledQuietly(String id, boolean enabled) {
+		return setEnabledQuietly(id, enabled, true);
+	}
+
+	/** Updates enabled state without publishing the enabled event, for coalesced operations. */
+	public static boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
+		return setEnabledQuietly(id, enabled, false);
+	}
+
+	private static boolean setEnabledQuietly(String id, boolean enabled, boolean publishEvent) {
 		if (id == null || id.isBlank()) return false;
 
-		GroupDefinition existing = groupsById.get(id);
+		syncCatalogFromLegacyFields();
+		GroupDefinition existing = CATALOG.byId().get(id);
 		if (existing != null) {
 			if (existing.enabled() == enabled) return true;
-			if (isEnabledOverrideManagedSource(id)) {
-				replaceGroups(snapshot -> replaceEnabled(snapshot, id, enabled));
-				saveEnabledOverride(id, enabled);
+			clearFirstMatchCaches();
+			if (GroupSource.fromGroupId(id).usesEnabledOverride()) {
+				CATALOG.setEnabled(id, enabled);
+				syncLegacyFieldsFromCatalog();
+				STORE.saveEnabledOverride(id, enabled);
 			} else {
 				saveQuietly(existing.withEnabled(enabled));
 			}
+			if (publishEvent) notifyEnabledChanged();
 			return true;
 		}
 
@@ -652,13 +642,19 @@ public final class GroupRegistry {
 			if (group.enabled() == enabled) return true;
 			boolean updated = KubeJsGroupStore.updateGroup(id, current -> current.withEnabled(enabled));
 			if (updated) {
-				invalidateFirstMatchCache(id);
-				saveEnabledOverride(id, enabled);
+				clearFirstMatchCaches();
+				STORE.saveEnabledOverride(id, enabled);
+				if (publishEvent) notifyEnabledChanged();
 			}
 			return updated;
 		}
 
 		return false;
+	}
+
+	/** Publishes one coalesced enabled-state change. */
+	public static void notifyEnabledChanged() {
+		GroupChangeEvent.publish(GroupChangeEvent.Kind.ENABLED);
 	}
 
 	/** Removes a group by ID, deletes its file, and refreshes JEI. */
@@ -670,53 +666,34 @@ public final class GroupRegistry {
 	/** Removes a group without triggering JEI invalidation. */
 	public static void deleteQuietly(String id) {
 		invalidateResolvedCache(id);
-		replaceGroups(snapshot -> List.copyOf(snapshot.stream().filter(g -> !g.id().equals(id)).toList()));
-		GroupConfig.delete(id);
-		GroupExpandState.remove(id);
+		syncCatalogFromLegacyFields();
+		CATALOG.delete(id);
+		syncLegacyFieldsFromCatalog();
+		STORE.delete(id);
 	}
 
 	/** Triggers a full JEI rebuild. Called only by {@link #save} and {@link #delete}; the Quietly variants do not trigger this. */
 	public static void notifyJei() {
-		Runnable cb = jeiInvalidateCallback;
-		if (cb != null) cb.run();
+		GroupChangeEvent.publish(GroupChangeEvent.Kind.FULL);
 	}
 
 	/** Lightweight refresh: only Level-2+3 caches (structure + display), preserving Level-1 index. */
 	public static void notifyJeiStructureOnly() {
-		Runnable cb = jeiStructureInvalidateCallback;
-		if (cb != null) cb.run();
+		GroupChangeEvent.publish(GroupChangeEvent.Kind.STRUCTURE);
 	}
 
 	/** Generates a unique group ID that doesn't collide with any existing group. */
 	public static String generateUniqueId(String base) {
-		String id = sanitizeGeneratedIdBase(base);
-		if (id.isEmpty()) {
-			id = fallbackGeneratedIdBase(base);
-		}
-		List<GroupDefinition> snapshot = groups;
-		final String baseId = id;
-		if (snapshot.stream().noneMatch(g -> g.id().equals(baseId))) return baseId;
-		for (int i = 2; i < 1000; i++) {
-			String candidate = baseId + "_" + i;
-			if (snapshot.stream().noneMatch(g -> g.id().equals(candidate))) return candidate;
-		}
-		return baseId + "_" + System.currentTimeMillis();
+		syncCatalogFromLegacyFields();
+		return CATALOG.generateUniqueId(base);
 	}
 
 	/** Generates a unique group ID that avoids both persisted/provider groups and ephemeral KubeJS groups. */
 	public static String generateUniqueIdIncludingKubeJs(String base) {
-		String id = sanitizeGeneratedIdBase(base);
-		if (id.isEmpty()) {
-			id = fallbackGeneratedIdBase(base);
-		}
-		List<String> existingIds = getAllIncludingKubeJs().stream().map(GroupDefinition::id).toList();
-		final String baseId = id;
-		if (existingIds.stream().noneMatch(existingId -> existingId.equals(baseId))) return baseId;
-		for (int i = 2; i < 1000; i++) {
-			String candidate = baseId + "_" + i;
-			if (existingIds.stream().noneMatch(existingId -> existingId.equals(candidate))) return candidate;
-		}
-		return baseId + "_" + System.currentTimeMillis();
+		return GroupCatalog.generateUniqueId(
+			base,
+			getAllIncludingKubeJs().stream().map(GroupDefinition::id).toList()
+		);
 	}
 
 	static Optional<GroupDefinition> createCustomCopy(
@@ -724,21 +701,7 @@ public final class GroupRegistry {
 		String copiedDisplayName,
 		List<String> existingGroupIds
 	) {
-		if (source == null || GroupSource.fromGroupId(source.id()) == GroupSource.USER) {
-			return Optional.empty();
-		}
-		String fallbackName = normalizedCopyName(copiedDisplayName, source);
-		String id = generateUniqueCustomCopyId(copyBaseId(source.id(), fallbackName), existingGroupIds);
-		return Optional.of(new GroupDefinition(
-			id,
-			fallbackName,
-			source.enabled(),
-			source.filter(),
-			source.iconIds(),
-			source.theme(),
-			source.priority(),
-			source.extra()
-		));
+		return GroupCatalog.createCustomCopy(source, copiedDisplayName, existingGroupIds);
 	}
 
 	/**
@@ -746,70 +709,7 @@ public final class GroupRegistry {
 	 * Repeated separators are collapsed and leading/trailing underscores are trimmed.
 	 */
 	public static String sanitizeGeneratedIdBase(String base) {
-		if (base == null || base.isBlank()) {
-			return "";
-		}
-
-		String normalized = Normalizer.normalize(base, Normalizer.Form.NFKC)
-			.toLowerCase(Locale.ROOT)
-			.replaceAll("[^a-z0-9_]", "_")
-			.replaceAll("_+", "_")
-			.replaceAll("^_+|_+$", "");
-
-		return normalized;
-	}
-
-	private static String normalizedCopyName(String copiedDisplayName, GroupDefinition source) {
-		if (copiedDisplayName != null && !copiedDisplayName.isBlank()) {
-			return copiedDisplayName.trim();
-		}
-		String fallback = source.displayName().fallback();
-		return fallback == null || fallback.isBlank() ? source.id() : fallback;
-	}
-
-	private static String copyBaseId(String sourceId, String copiedDisplayName) {
-		String stripped = stripReservedSourcePrefix(sourceId);
-		if (!stripped.isBlank()) {
-			return stripped + "_copy";
-		}
-		return copiedDisplayName + "_copy";
-	}
-
-	private static String stripReservedSourcePrefix(String id) {
-		if (id == null) return "";
-		if (id.startsWith("__default_")) return id.substring("__default_".length());
-		if (id.startsWith("__kjs_")) return id.substring("__kjs_".length());
-		return id;
-	}
-
-	private static String generateUniqueCustomCopyId(String base, List<String> existingGroupIds) {
-		String id = sanitizeGeneratedIdBase(base);
-		if (id.isEmpty()) {
-			id = fallbackGeneratedIdBase(base);
-		}
-		if (id.startsWith("__default_") || id.startsWith("__kjs_")) {
-			id = sanitizeGeneratedIdBase(stripReservedSourcePrefix(id));
-			if (id.isEmpty()) {
-				id = "group";
-			}
-		}
-		List<String> existing = existingGroupIds == null ? List.of() : List.copyOf(existingGroupIds);
-		final String baseId = id;
-		if (existing.stream().noneMatch(existingId -> existingId.equals(baseId))) return baseId;
-		for (int i = 2; i < 1000; i++) {
-			String candidate = baseId + "_" + i;
-			if (existing.stream().noneMatch(existingId -> existingId.equals(candidate))) return candidate;
-		}
-		return baseId + "_" + System.currentTimeMillis();
-	}
-
-	private static String fallbackGeneratedIdBase(String base) {
-		if (base == null || base.isBlank()) {
-			return "group";
-		}
-
-		String normalized = Normalizer.normalize(base, Normalizer.Form.NFKC);
-		return "group_" + Integer.toUnsignedString(normalized.hashCode(), 36);
+		return GroupCatalog.sanitizeGeneratedIdBase(base);
 	}
 
 	// -----------------------------------------------------------------------
@@ -911,72 +811,32 @@ public final class GroupRegistry {
 		return copy;
 	}
 
-	private static void replaceGroups(UnaryOperator<List<GroupDefinition>> updater) {
-		synchronized (GroupRegistry.class) {
-			List<GroupDefinition> updated = updater.apply(groups);
-			publishGroups(updated);
-		}
-	}
-
 	private static void publishGroups(List<GroupDefinition> registrationOrder) {
-		groups = registrationOrder == null ? List.of() : List.copyOf(registrationOrder);
-		orderedGroups = orderByPriority(groups);
-		groupsById = buildGroupsById(groups);
+		CATALOG.publish(registrationOrder);
+		syncLegacyFieldsFromCatalog();
 	}
 
 	static List<GroupDefinition> orderByPriority(List<GroupDefinition> source) {
-		if (source == null || source.isEmpty()) return List.of();
-		return source.stream()
-			.sorted(Comparator.comparingInt(GroupDefinition::priority).reversed())
-			.toList();
+		return GroupCatalog.orderByPriority(source);
 	}
 
 	static List<GroupDefinition> applyEnabledOverridesToManagedSources(
 		List<GroupDefinition> source,
 		Map<String, Boolean> overrides
 	) {
-		if (source == null || source.isEmpty() || overrides == null || overrides.isEmpty()) {
-			return source == null ? List.of() : List.copyOf(source);
-		}
-		List<GroupDefinition> updated = new ArrayList<>(source.size());
-		boolean changed = false;
-		for (GroupDefinition group : source) {
-			Boolean override = isEnabledOverrideManagedSource(group.id()) ? overrides.get(group.id()) : null;
-			if (override != null && group.enabled() != override) {
-				updated.add(group.withEnabled(override));
-				changed = true;
-			} else {
-				updated.add(group);
-			}
-		}
-		return changed ? List.copyOf(updated) : List.copyOf(source);
+		return GroupCatalog.applyEnabledOverrides(source, overrides);
 	}
 
-	private static boolean isEnabledOverrideManagedSource(String id) {
-		return id != null && (id.startsWith("__default_") || id.startsWith("__kjs_"));
-	}
-
-	private static List<GroupDefinition> replaceEnabled(List<GroupDefinition> snapshot, String id, boolean enabled) {
-		List<GroupDefinition> copy = new ArrayList<>(snapshot.size());
-		for (GroupDefinition group : snapshot) {
-			copy.add(id.equals(group.id()) ? group.withEnabled(enabled) : group);
+	private static synchronized void syncCatalogFromLegacyFields() {
+		if (CATALOG.registrationOrder() != groups) {
+			CATALOG.publish(groups);
+			syncLegacyFieldsFromCatalog();
 		}
-		invalidateFirstMatchCache(id);
-		return List.copyOf(copy);
 	}
 
-	private static void saveEnabledOverride(String id, boolean enabled) {
-		Map<String, Boolean> overrides = new LinkedHashMap<>(GroupConfig.loadEnabledOverrides());
-		overrides.put(id, enabled);
-		GroupConfig.saveEnabledOverrides(overrides);
-	}
-
-	private static Map<String, GroupDefinition> buildGroupsById(List<GroupDefinition> source) {
-		if (source.isEmpty()) return Map.of();
-		Map<String, GroupDefinition> byId = new LinkedHashMap<>(source.size());
-		for (GroupDefinition group : source) {
-			byId.put(group.id(), group);
-		}
-		return Map.copyOf(byId);
+	private static synchronized void syncLegacyFieldsFromCatalog() {
+		groups = CATALOG.registrationOrder();
+		orderedGroups = CATALOG.priorityOrder();
+		groupsById = CATALOG.byId();
 	}
 }

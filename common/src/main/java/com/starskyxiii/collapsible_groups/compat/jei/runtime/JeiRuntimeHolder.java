@@ -13,7 +13,7 @@ public final class JeiRuntimeHolder {
 
 	private JeiRuntimeHolder() {}
 
-	public static void set(IJeiRuntime r) {
+	public static void set(@Nullable IJeiRuntime r) {
 		runtime = r;
 	}
 

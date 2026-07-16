@@ -45,6 +45,41 @@ sourceSets {
         compileClasspath += sourceSets.main.compileClasspath
         runtimeClasspath += sourceSets.main.compileClasspath
     }
+    neutralCheck {
+        java {
+            srcDir 'src/main/java'
+			srcDir 'src/test/java'
+            include 'com/starskyxiii/collapsible_groups/group/**/*.java'
+            include 'com/starskyxiii/collapsible_groups/ingredient/**/*.java'
+            include 'com/starskyxiii/collapsible_groups/viewer/**/*.java'
+            include 'com/starskyxiii/collapsible_groups/client/**/*.java'
+        }
+        compileClasspath = files(
+            sourceSets.main.output,
+			configurations.compileClasspath.filter { file ->
+				!file.name.toLowerCase(Locale.ROOT).startsWith('jei-')
+			},
+			configurations.testCompileClasspath.filter { file ->
+                !file.name.toLowerCase(Locale.ROOT).startsWith('jei-')
+            }
+        )
+    }
+}
+
+tasks.named('compileNeutralCheckJava') {
+    dependsOn tasks.named('classes')
+    doFirst {
+        def jeiEntries = classpath.files.findAll { file ->
+            file.name.toLowerCase(Locale.ROOT).startsWith('jei-')
+        }
+        if (!jeiEntries.isEmpty()) {
+            throw new GradleException("Neutral compile classpath contains JEI artifacts: ${jeiEntries}")
+        }
+    }
+}
+
+tasks.named('check') {
+    dependsOn tasks.named('compileNeutralCheckJava')
 }
 
 test {

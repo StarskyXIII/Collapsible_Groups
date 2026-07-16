@@ -1,6 +1,8 @@
 package com.starskyxiii.collapsible_groups.mixin;
 
-import com.starskyxiii.collapsible_groups.compat.jei.api.IngredientTypeRegistry;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
+import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.compat.jei.element.FluidChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GenericChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupChildElement;
@@ -10,11 +12,14 @@ import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.IngredientFilterHelper;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.SearchUngroupPolicy;
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
+import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
+import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
 import mezz.jei.api.fabric.constants.FabricTypes;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import mezz.jei.api.ingredients.IIngredientHelper;
@@ -46,7 +51,6 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -54,7 +58,6 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Mixin(value = IngredientFilter.class, remap = false)
@@ -69,22 +72,38 @@ public abstract class MixinIngredientFilter {
 	@org.spongepowered.asm.mixin.gen.Invoker("notifyListenersOfChange")
 	protected abstract void cg$notifyListenersOfChange();
 
-	@Unique @Nullable private Map<ITypedIngredient<?>, GroupDefinition> cg$ingredientGroupIndex = null;
+	@Unique @Nullable private GroupCandidateIndex cg$ingredientGroupIndex = null;
 	@Unique @Nullable private List<IElement<?>>                         cg$baseList             = null;
 	@Unique @Nullable private List<String>                              cg$baseListGroupIds     = null;
 	@Unique @Nullable private Map<String, List<IElement<?>>>            cg$childrenByGroupId    = null;
-	@Unique @Nullable private Set<String>                               cg$enabledGroupIds      = null;
+	@Unique @Nullable private ViewerProjection<ITypedIngredient<?>>     cg$projection           = null;
 	@Unique @Nullable private List<ITypedIngredient<?>>                 cg$cachedFullList       = null;
-	@Unique @Nullable private CompletableFuture<Map<ITypedIngredient<?>, GroupDefinition>> cg$pendingIndex = null;
-	@Unique private boolean cg$searchActiveForCache = false;
+	@Unique @Nullable private CompletableFuture<GroupCandidateIndex> cg$pendingIndex = null;
+	@Unique private String cg$searchTextForCache = "";
+	@Unique private static GroupChangeEvent.Subscription cg$fullChangeSubscription;
+	@Unique private static GroupChangeEvent.Subscription cg$structureChangeSubscription;
+	@Unique private static GroupChangeEvent.Subscription cg$enabledChangeSubscription;
 
 	@Unique private static final ExecutorService REBUILD_EXECUTOR =
 		Executors.newSingleThreadExecutor(r -> { Thread t = new Thread(r, "CG-IndexRebuild"); t.setDaemon(true); return t; });
 
 	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
-		GroupRegistry.jeiInvalidateCallback = this::cg$invalidateAndNotify;
-		GroupRegistry.jeiStructureInvalidateCallback = this::cg$invalidateStructureAndNotify;
+		if (cg$fullChangeSubscription != null) cg$fullChangeSubscription.close();
+		if (cg$structureChangeSubscription != null) cg$structureChangeSubscription.close();
+		if (cg$enabledChangeSubscription != null) cg$enabledChangeSubscription.close();
+		cg$fullChangeSubscription = GroupChangeEvent.subscribe(
+			GroupChangeEvent.Kind.FULL,
+			this::cg$invalidateAndNotify
+		);
+		cg$structureChangeSubscription = GroupChangeEvent.subscribe(
+			GroupChangeEvent.Kind.STRUCTURE,
+			this::cg$invalidateStructureAndNotify
+		);
+		cg$enabledChangeSubscription = GroupChangeEvent.subscribe(
+			GroupChangeEvent.Kind.ENABLED,
+			this::cg$invalidateStructureAndNotify
+		);
 		GroupRegistry.clearJeiAllItems();
 		GroupRegistry.clearJeiAllFluids();
 		GroupRegistry.clearKubeJsGroups();
@@ -96,7 +115,7 @@ public abstract class MixinIngredientFilter {
 		if (this.ingredientListCached == null) {
 			String rawFilterText = this.filterTextSource.getFilterText();
 			String filterText = rawFilterText.toLowerCase(Locale.ROOT);
-			this.cg$searchActiveForCache = !rawFilterText.isBlank();
+			this.cg$searchTextForCache = rawFilterText;
 			List<ITypedIngredient<?>> ingredients = this.cg$getIngredientListUncached(filterText).toList();
 			this.cg$buildStructureCache(ingredients);
 			this.ingredientListCached = this.cg$buildDisplayFromCache();
@@ -109,7 +128,7 @@ public abstract class MixinIngredientFilter {
 		this.cg$clearStructureCaches();
 		List<ITypedIngredient<?>> snapshot = this.cg$cachedFullList;
 		if (snapshot != null) {
-			CompletableFuture<Map<ITypedIngredient<?>, GroupDefinition>> future = CompletableFuture.supplyAsync(
+			CompletableFuture<GroupCandidateIndex> future = CompletableFuture.supplyAsync(
 				() -> this.cg$buildIngredientGroupIndex(snapshot), REBUILD_EXECUTOR);
 			this.cg$pendingIndex = future;
 			future.thenRunAsync(() -> {
@@ -126,12 +145,13 @@ public abstract class MixinIngredientFilter {
 
 	@Unique
 	private void cg$clearStructureCaches() {
+		GroupBackgroundRenderer.clear();
 		this.ingredientListCached = null;
 		this.cg$baseList = null;
 		this.cg$baseListGroupIds = null;
 		this.cg$childrenByGroupId = null;
-		this.cg$enabledGroupIds = null;
-		this.cg$searchActiveForCache = false;
+		this.cg$projection = null;
+		this.cg$searchTextForCache = "";
 	}
 
 	@Unique
@@ -142,7 +162,9 @@ public abstract class MixinIngredientFilter {
 
 	@Unique
 	private void cg$toggleAndRebuildDisplay() {
+		GroupBackgroundRenderer.clear();
 		if (this.cg$baseList != null) {
+			this.cg$projection = this.cg$projection.withExpansion(GroupRegistry::isExpandedById);
 			this.ingredientListCached = this.cg$buildDisplayFromCache();
 		} else {
 			this.ingredientListCached = null;
@@ -152,12 +174,12 @@ public abstract class MixinIngredientFilter {
 
 	/** Level-1: item/fluid/generic index. */
 	@Unique
-	private Map<ITypedIngredient<?>, GroupDefinition> cg$buildIngredientGroupIndex(List<ITypedIngredient<?>> all) {
+	private GroupCandidateIndex cg$buildIngredientGroupIndex(List<ITypedIngredient<?>> all) {
 		Map<ITypedIngredient<?>, GroupDefinition> index = IngredientFilterHelper.buildItemGroupIndex(all);
 		Map<String, List<Object>> fluidsByGroup = new HashMap<>();
 		Map<String, List<Object>> fullMatchFluidsByGroup = new HashMap<>();
 		Map<String, List<GenericIngredientRef>> fullMatchGenericByGroup = new HashMap<>();
-		IIngredientType<?> fluidType = Services.PLATFORM.getJeiFluidType();
+		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		List<GroupDefinition> allGroups = GroupRegistry.getAllIncludingKubeJs();
 		List<GroupDefinition> fluidGroups = allGroups.stream()
 			.filter(GroupDefinition::hasFluidFilters)
@@ -209,7 +231,7 @@ public abstract class MixinIngredientFilter {
 			}
 		}
 		GroupRegistry.setFluidIdToGroupIds(fluidIdToGroupIds);
-		return index;
+		return JeiViewerAdapter.instance().buildOwnershipIndex(all, this.ingredientManager, allGroups);
 	}
 
 	@Unique
@@ -220,7 +242,7 @@ public abstract class MixinIngredientFilter {
 		List<GroupDefinition> genericGroups,
 		Map<String, List<GenericIngredientRef>> fullMatchGenericByGroup
 	) {
-		for (Map.Entry<String, IIngredientType<?>> entry : IngredientTypeRegistry.getAll().entrySet()) {
+		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
 			IIngredientType<T> type = (IIngredientType<T>) entry.getValue();
 			ITypedIngredient<T> cast = typed.cast(type);
 			if (cast == null) continue;
@@ -244,7 +266,7 @@ public abstract class MixinIngredientFilter {
 	@Unique
 	private void cg$buildStructureCache(List<ITypedIngredient<?>> ingredients) {
 		List<ITypedIngredient<?>> all = this.cg$cachedFullList;
-		IIngredientType<?> fluidType = Services.PLATFORM.getJeiFluidType();
+		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		if (all == null) {
 			all = this.cg$getIngredientListUncached("").toList();
 			this.cg$cachedFullList = all;
@@ -268,96 +290,84 @@ public abstract class MixinIngredientFilter {
 			this.cg$ingredientGroupIndex = this.cg$buildIngredientGroupIndex(all);
 		}
 
-		this.cg$enabledGroupIds = GroupRegistry.getAllIncludingKubeJs().stream()
-			.filter(GroupDefinition::enabled).map(GroupDefinition::id)
-			.collect(Collectors.toSet());
-
-		// Pass 1: bucket items and fluids
-		Map<GroupDefinition, List<ITypedIngredient<ItemStack>>> itemGroups = new LinkedHashMap<>();
-		Map<GroupDefinition, List<ITypedIngredient<IJeiFluidIngredient>>> fluidGroups = new LinkedHashMap<>();
-		Map<GroupDefinition, List<ITypedIngredient<?>>> genericGroups = new LinkedHashMap<>();
-		for (ITypedIngredient<?> ingredient : ingredients) {
-			GroupDefinition group = this.cg$ingredientGroupIndex.get(ingredient);
-			if (group == null || !this.cg$enabledGroupIds.contains(group.id())) continue;
-			if (ingredient.getItemStack().isPresent()) {
-				@SuppressWarnings("unchecked")
-				ITypedIngredient<ItemStack> item = (ITypedIngredient<ItemStack>) ingredient;
-				itemGroups.computeIfAbsent(group, x -> new ArrayList<>()).add(item);
-			} else if (fluidType != null) {
-				ITypedIngredient<IJeiFluidIngredient> fluid = ingredient.cast(FabricTypes.FLUID_STACK);
-				if (fluid != null) {
-					fluidGroups.computeIfAbsent(group, x -> new ArrayList<>()).add(fluid);
-				} else {
-					genericGroups.computeIfAbsent(group, x -> new ArrayList<>()).add(ingredient);
-				}
-			} else {
-				genericGroups.computeIfAbsent(group, x -> new ArrayList<>()).add(ingredient);
-			}
-		}
-
-		// Pass 2: build structure cache
+		List<GroupDefinition> groups = GroupRegistry.getAllIncludingKubeJs();
+		ViewerProjection<ITypedIngredient<?>> projection = JeiViewerAdapter.instance().project(
+			ingredients,
+			this.cg$searchTextForCache,
+			Services.CONFIG.searchUngroupSmallGroups(),
+			Services.CONFIG.searchUngroupThreshold(),
+			groups,
+			GroupRegistry::isExpandedById,
+			this.cg$ingredientGroupIndex
+		);
 		List<IElement<?>> baseList = new ArrayList<>();
-		List<String>      baseListGroupIds = new ArrayList<>();
+		List<String> baseListGroupIds = new ArrayList<>();
 		Map<String, List<IElement<?>>> childrenByGroupId = new HashMap<>();
-		Set<String> emittedHeaders = new HashSet<>();
-		boolean searchUngroupEnabled = Services.CONFIG.searchUngroupSmallGroups();
-		int searchUngroupThreshold = Services.CONFIG.searchUngroupThreshold();
-
-		for (ITypedIngredient<?> ingredient : ingredients) {
-			GroupDefinition group = this.cg$ingredientGroupIndex.get(ingredient);
-			if (group != null) {
-				List<ITypedIngredient<ItemStack>> itemChildren = itemGroups.getOrDefault(group, List.of());
-				List<ITypedIngredient<IJeiFluidIngredient>> fluidChildren = fluidGroups.getOrDefault(group, List.of());
-				List<ITypedIngredient<?>> genericChildren = genericGroups.getOrDefault(group, List.of());
-				int totalChildren = itemChildren.size() + fluidChildren.size() + genericChildren.size();
-				if (totalChildren >= 2) {
-					boolean ungroupForSearch = SearchUngroupPolicy.shouldUngroup(
-						searchUngroupEnabled, this.cg$searchActiveForCache, totalChildren, searchUngroupThreshold);
-					if (ungroupForSearch) {
-						baseList.add(new IngredientElement<>(ingredient));
-						baseListGroupIds.add(null);
-						continue;
-					}
-					if (emittedHeaders.add(group.id())) {
-						List<ITypedIngredient<?>> displayIngredients = group.iconIds().isEmpty()
-							? List.of() : cg$resolveIconIds(group.iconIds());
-						if (displayIngredients.isEmpty()) {
-							List<ITypedIngredient<?>> allChildren = new ArrayList<>(totalChildren);
-							allChildren.addAll(itemChildren);
-							allChildren.addAll(fluidChildren);
-							allChildren.addAll(genericChildren);
-							displayIngredients = allChildren.subList(0, Math.min(2, allChildren.size()));
-						}
-						GroupIcon icon = new GroupIcon(group.id(), group.displayName().key(), group.displayName().fallback(), displayIngredients);
-						ITypedIngredient<GroupIcon> typedIcon = TypedIngredient.createUnvalidated(GroupIcon.TYPE, icon);
-						List<GroupPreviewEntry> previewEntries = new ArrayList<>(totalChildren);
-						for (ITypedIngredient<ItemStack> child : itemChildren)
-							previewEntries.add(GroupPreviewEntry.ofItem(child.getIngredient()));
-						for (ITypedIngredient<IJeiFluidIngredient> child : fluidChildren)
-							previewEntries.add(GroupPreviewEntry.ofFluid(child.getIngredient()));
-						previewEntries.addAll(GroupPreviewEntry.fromTypedIngredients(genericChildren));
-						Component countLabel = cg$buildCountLabel(itemChildren.size(), fluidChildren.size(), genericChildren.size());
-						baseList.add(new GroupHeaderElement(typedIcon, countLabel, previewEntries, this::cg$toggleAndRebuildDisplay));
-						baseListGroupIds.add(group.id());
-						List<IElement<?>> children = new ArrayList<>(totalChildren);
-						for (ITypedIngredient<ItemStack> child : itemChildren)
-							children.add(new GroupChildElement(child, group.id()));
-						for (ITypedIngredient<IJeiFluidIngredient> child : fluidChildren)
-							children.add(new FluidChildElement(child, group.id()));
-						for (ITypedIngredient<?> child : genericChildren)
-							children.add(cg$wrapGenericChild(child, group.id()));
-						childrenByGroupId.put(group.id(), children);
-					}
-					continue;
+		for (ViewerProjection.Entry<ITypedIngredient<?>> entry : projection.entries()) {
+			switch (entry) {
+				case ViewerProjection.IngredientEntry<ITypedIngredient<?>> ingredient -> {
+					baseList.add(new IngredientElement<>(ingredient.ingredient().entry()));
+					baseListGroupIds.add(null);
+				}
+				case ViewerProjection.GroupHeader<ITypedIngredient<?>> header -> {
+					baseList.add(cg$createGroupHeader(header));
+					baseListGroupIds.add(header.group().id());
+					childrenByGroupId.put(header.group().id(), cg$createChildElements(header));
 				}
 			}
-			baseList.add(new IngredientElement<>(ingredient));
-			baseListGroupIds.add(null);
 		}
 
 		this.cg$baseList          = baseList;
 		this.cg$baseListGroupIds  = baseListGroupIds;
 		this.cg$childrenByGroupId = childrenByGroupId;
+		this.cg$projection        = projection;
+	}
+
+	@Unique
+	private IElement<?> cg$createGroupHeader(
+		ViewerProjection.GroupHeader<ITypedIngredient<?>> header
+	) {
+		GroupDefinition group = header.group();
+		List<ITypedIngredient<?>> displayIngredients = header.iconIds().isEmpty()
+			? List.of() : cg$resolveIconIds(header.iconIds());
+		if (displayIngredients.isEmpty()) {
+			displayIngredients = header.fallbackIconIngredients().stream().map(ViewerIngredient::entry).toList();
+		}
+		GroupIcon icon = new GroupIcon(group.id(), group.displayName().key(), group.displayName().fallback(), displayIngredients);
+		ITypedIngredient<GroupIcon> typedIcon = TypedIngredient.createUnvalidated(GroupIcon.TYPE, icon);
+		List<GroupPreviewEntry> previewEntries = new ArrayList<>(header.children().size());
+		List<ITypedIngredient<?>> genericChildren = new ArrayList<>();
+		for (ViewerIngredient<ITypedIngredient<?>> child : header.children()) {
+			switch (child.kind()) {
+				case ITEM -> child.entry().getItemStack().ifPresent(stack -> previewEntries.add(GroupPreviewEntry.ofItem(stack)));
+				case FLUID -> {
+					Object fluid = child.entry().getIngredient();
+					if (fluid instanceof IJeiFluidIngredient stack) previewEntries.add(GroupPreviewEntry.ofFluid(stack));
+				}
+				case GENERIC -> genericChildren.add(child.entry());
+			}
+		}
+		previewEntries.addAll(GroupPreviewEntry.fromTypedIngredients(genericChildren));
+		Component countLabel = cg$buildCountLabel(header.itemCount(), header.fluidCount(), header.genericCount());
+		return new GroupHeaderElement(typedIcon, countLabel, previewEntries, this::cg$toggleAndRebuildDisplay);
+	}
+
+	@Unique
+	private List<IElement<?>> cg$createChildElements(
+		ViewerProjection.GroupHeader<ITypedIngredient<?>> header
+	) {
+		List<IElement<?>> children = new ArrayList<>(header.children().size());
+		for (ViewerIngredient<ITypedIngredient<?>> child : header.children()) {
+			switch (child.kind()) {
+				case ITEM -> children.add(new GroupChildElement(child.entry().castToItemStackType(), header.group().id()));
+				case FLUID -> {
+					ITypedIngredient<IJeiFluidIngredient> fluid = child.entry().cast(FabricTypes.FLUID_STACK);
+					children.add(new FluidChildElement(fluid, header.group().id()));
+				}
+				case GENERIC -> children.add(cg$wrapGenericChild(child.entry(), header.group().id()));
+			}
+		}
+		return children;
 	}
 
 	@Unique
@@ -400,11 +410,19 @@ public abstract class MixinIngredientFilter {
 	/** Level-3: display list from cache. */
 	@Unique
 	private List<IElement<?>> cg$buildDisplayFromCache() {
+		Set<String> expandedGroupIds = new HashSet<>();
+		if (this.cg$projection != null) {
+			for (ViewerProjection.Entry<ITypedIngredient<?>> entry : this.cg$projection.entries()) {
+				if (entry instanceof ViewerProjection.GroupHeader<ITypedIngredient<?>> header && header.expanded()) {
+					expandedGroupIds.add(header.group().id());
+				}
+			}
+		}
 		List<IElement<?>> result = new ArrayList<>(this.cg$baseList.size());
 		for (int i = 0; i < this.cg$baseList.size(); i++) {
 			result.add(this.cg$baseList.get(i));
 			String groupId = this.cg$baseListGroupIds.get(i);
-			if (groupId != null && GroupRegistry.isExpandedById(groupId)) {
+			if (groupId != null && expandedGroupIds.contains(groupId)) {
 				result.addAll(this.cg$childrenByGroupId.get(groupId));
 			}
 		}

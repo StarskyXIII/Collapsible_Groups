@@ -2,12 +2,12 @@ package com.starskyxiii.collapsible_groups.compat.kubejs;
 
 import com.starskyxiii.collapsible_groups.core.GroupDefinition;
 import com.starskyxiii.collapsible_groups.core.GroupFilter;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import dev.latvian.mods.rhino.BaseFunction;
 import dev.latvian.mods.rhino.Context;
 import dev.latvian.mods.rhino.NativeArray;
 import dev.latvian.mods.rhino.Wrapper;
-import mezz.jei.api.ingredients.IIngredientHelper;
-import mezz.jei.api.ingredients.IIngredientType;
+import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -23,14 +23,15 @@ import java.util.function.Predicate;
 public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kubejs.recipe.viewer.GroupEntriesKubeEvent {
 
 	private final String typeId;
-	private final List<T> allIngredients;
-	private final IIngredientHelper<T> helper;
+	private final List<ViewerIngredient<ITypedIngredient<?>>> allIngredients;
 	private final List<GroupDefinition> collected = new ArrayList<>();
 
-	public JEIGenericGroupEntriesKubeEvent(String typeId, IIngredientType<T> type, List<T> allIngredients, IIngredientHelper<T> helper) {
+	public JEIGenericGroupEntriesKubeEvent(
+		String typeId,
+		List<ViewerIngredient<ITypedIngredient<?>>> allIngredients
+	) {
 		this.typeId = typeId;
-		this.allIngredients = allIngredients;
-		this.helper = helper;
+		this.allIngredients = List.copyOf(allIngredients);
 	}
 
 	@Override
@@ -53,13 +54,13 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 			);
 		}
 
-		Predicate<T> predicate = buildPredicate(unwrapped);
+		Predicate<ViewerIngredient<ITypedIngredient<?>>> predicate = buildPredicate(unwrapped);
 		LinkedHashSet<GroupFilter> nodes = new LinkedHashSet<>();
-		for (T ingredient : allIngredients) {
+		for (ViewerIngredient<ITypedIngredient<?>> ingredient : allIngredients) {
 			if (!predicate.test(ingredient)) {
 				continue;
 			}
-			ResourceLocation loc = helper.getResourceLocation(ingredient);
+			ResourceLocation loc = ingredient.view().resourceLocation();
 			if (loc != null) {
 				nodes.add(KubeJsFilterLowering.lowerResolvedGenericIngredient(typeId, loc));
 			}
@@ -71,19 +72,19 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 		}
 	}
 
-	private Predicate<T> buildPredicate(Object filter) {
+	private Predicate<ViewerIngredient<ITypedIngredient<?>>> buildPredicate(Object filter) {
 		if (filter instanceof String str) {
 			return buildStringPredicate(str);
 		}
 		if (filter instanceof NativeArray arr) {
-			List<Predicate<T>> predicates = new ArrayList<>();
+			List<Predicate<ViewerIngredient<ITypedIngredient<?>>>> predicates = new ArrayList<>();
 			for (Object item : arr) {
 				predicates.add(buildStringPredicate(String.valueOf(item)));
 			}
 			return ingredient -> predicates.stream().anyMatch(p -> p.test(ingredient));
 		}
 		if (filter instanceof List<?> list) {
-			List<Predicate<T>> predicates = new ArrayList<>();
+			List<Predicate<ViewerIngredient<ITypedIngredient<?>>>> predicates = new ArrayList<>();
 			for (Object item : list) {
 				predicates.add(buildStringPredicate(String.valueOf(item)));
 			}
@@ -92,21 +93,21 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 		return ingredient -> false;
 	}
 
-	private Predicate<T> buildStringPredicate(String str) {
+	private Predicate<ViewerIngredient<ITypedIngredient<?>>> buildStringPredicate(String str) {
 		if (str.startsWith("@")) {
 			String namespace = str.substring(1);
 			return ingredient -> {
-				ResourceLocation loc = helper.getResourceLocation(ingredient);
+				ResourceLocation loc = ingredient.view().resourceLocation();
 				return loc != null && namespace.equals(loc.getNamespace());
 			};
 		}
 		if (str.startsWith("#")) {
 			ResourceLocation tagId = ResourceLocation.parse(str.substring(1));
-			return ingredient -> helper.getTagStream(ingredient).anyMatch(tagId::equals);
+			return ingredient -> ingredient.view().hasTag(tagId);
 		}
 		ResourceLocation exactId = ResourceLocation.tryParse(str);
 		if (exactId == null) return ingredient -> false;
-		return ingredient -> exactId.equals(helper.getResourceLocation(ingredient));
+		return ingredient -> exactId.equals(ingredient.view().resourceLocation());
 	}
 
 	private static Object unwrap(Object filter) {

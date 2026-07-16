@@ -1,21 +1,16 @@
 package com.starskyxiii.collapsible_groups.compat.jei.oreui;
 
-import java.util.Objects;
-
 public enum GroupSource {
 	USER,
 	BUILTIN,
 	KUBEJS;
 
 	public static GroupSource fromGroupId(String groupId) {
-		Objects.requireNonNull(groupId, "groupId");
-		if (groupId.startsWith("__default_")) {
-			return BUILTIN;
-		}
-		if (groupId.startsWith("__kjs_")) {
-			return KUBEJS;
-		}
-		return USER;
+		return switch (com.starskyxiii.collapsible_groups.group.GroupSource.fromGroupId(groupId)) {
+			case USER -> USER;
+			case BUILTIN -> BUILTIN;
+			case KUBEJS -> KUBEJS;
+		};
 	}
 
 	public boolean userEditable() {

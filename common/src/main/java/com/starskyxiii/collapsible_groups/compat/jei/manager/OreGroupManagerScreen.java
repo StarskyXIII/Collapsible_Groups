@@ -1065,7 +1065,6 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 				if (!GroupRegistry.setEnabledQuietly(card.id(), newEnabled)) return true;
 				updateCardEnabled(card.id(), newEnabled);
 				suppressedSwitchHoverGroupId = card.id();
-				GroupRegistry.notifyJei();
 				return true;
 			}
 			if (editClick) {
@@ -1203,13 +1202,13 @@ public class OreGroupManagerScreen extends Screen implements GroupManagerParent 
 			if (card.group().enabled() == enabled || !card.actionEligibility().canRequest(action)) {
 				continue;
 			}
-			if (GroupRegistry.setEnabledQuietly(card.id(), enabled)) {
+			if (GroupRegistry.setEnabledQuietlyWithoutEvent(card.id(), enabled)) {
 				updateCardEnabled(card.id(), enabled);
 				changed = true;
 			}
 		}
 		if (changed) {
-			GroupRegistry.notifyJei();
+			GroupRegistry.notifyEnabledChanged();
 		}
 		heldBatchToolbarAction = null;
 	}

@@ -1,8 +1,12 @@
 package com.starskyxiii.collapsible_groups.mixin;
 
 import com.starskyxiii.collapsible_groups.config.NeoForgeConfig;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBorderRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.manager.GroupsButtonController;
+import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.viewer.ViewerOverlayHook;
 import mezz.jei.common.util.ImmutableRect2i;
 import mezz.jei.gui.elements.IconButton;
 import mezz.jei.gui.input.GuiTextFieldFilter;
@@ -20,6 +24,8 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.Objects;
+
 @Mixin(value = IngredientListOverlay.class, remap = false)
 public abstract class MixinIngredientListOverlay {
 	@Unique
@@ -36,10 +42,15 @@ public abstract class MixinIngredientListOverlay {
 
 	@Unique
 	private IconButton cg$groupsButton;
+	@Unique private int cg$lastGuiWidth = Integer.MIN_VALUE;
+	@Unique private int cg$lastGuiHeight = Integer.MIN_VALUE;
+	@Unique private String cg$lastSearchText;
+	@Unique private ImmutableRect2i cg$lastSearchArea;
 
 	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
 		this.cg$groupsButton = new IconButton(new GroupsButtonController());
+		GroupBackgroundRenderer.clear();
 	}
 
 	/**
@@ -57,22 +68,22 @@ public abstract class MixinIngredientListOverlay {
 		ImmutableRect2i searchArea = ((MixinGuiTextFieldFilterAccessor) (Object) searchField).cg$getArea();
 		if (searchArea == null || searchArea.isEmpty()) return;
 
-		int desiredSearchRight = configArea.getX() - CG_BUTTON_GAP;
+		ViewerOverlayHook.Bounds buttonBounds = new ViewerOverlayHook.Bounds(
+			configArea.getX(), configArea.getY(), configArea.getWidth(), configArea.getHeight());
 		if (showGroupsButton) {
 			// Place groups button immediately to the left of the config button (with 2px gap)
+			buttonBounds = JeiViewerAdapter.instance().overlayHook().placeButton(buttonBounds, CG_BUTTON_GAP);
 			ImmutableRect2i groupsArea = new ImmutableRect2i(
-				configArea.getX() - configArea.getWidth() - CG_BUTTON_GAP,
-				configArea.getY(),
-				configArea.getWidth(),
-				configArea.getHeight()
-			);
+				buttonBounds.x(), buttonBounds.y(), buttonBounds.width(), buttonBounds.height());
 			if (!groupsArea.equals(this.cg$groupsButton.getArea())) {
 				this.cg$groupsButton.updateBounds(groupsArea);
 			}
-			desiredSearchRight = groupsArea.getX() - CG_BUTTON_GAP;
 		}
 
-		int adjustedWidth = Math.max(0, desiredSearchRight - searchArea.getX());
+		int adjustedWidth = JeiViewerAdapter.instance().overlayHook().adjustSearchFieldWidth(
+			new ViewerOverlayHook.Bounds(searchArea.getX(), searchArea.getY(), searchArea.getWidth(), searchArea.getHeight()),
+			buttonBounds,
+			CG_BUTTON_GAP);
 		if (searchArea.getWidth() != adjustedWidth) {
 			this.searchField.updateBounds(new ImmutableRect2i(
 				searchArea.getX(),
@@ -85,12 +96,33 @@ public abstract class MixinIngredientListOverlay {
 
 	@Inject(method = "drawScreen", at = @At("HEAD"), require = 0)
 	private void cg$syncBoundsBeforeDraw(Minecraft minecraft, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
+		if (!this.isListDisplayed()) {
+			GroupBackgroundRenderer.clear();
+			cg$resetBackgroundTracking();
+			return;
+		}
 		cg$syncBoundsToConfigButton(cg$shouldShowGroupsButton());
+		String searchText = this.searchField.getValue();
+		ImmutableRect2i searchArea = ((MixinGuiTextFieldFilterAccessor) (Object) searchField).cg$getArea();
+		int guiWidth = Minecraft.getInstance().getWindow().getGuiScaledWidth();
+		int guiHeight = Minecraft.getInstance().getWindow().getGuiScaledHeight();
+		if (guiWidth != this.cg$lastGuiWidth
+			|| guiHeight != this.cg$lastGuiHeight
+			|| !Objects.equals(searchText, this.cg$lastSearchText)
+			|| !Objects.equals(searchArea, this.cg$lastSearchArea)) {
+			GroupBackgroundRenderer.clear();
+		}
+		this.cg$lastGuiWidth = guiWidth;
+		this.cg$lastGuiHeight = guiHeight;
+		this.cg$lastSearchText = searchText;
+		this.cg$lastSearchArea = searchArea;
+		GroupBackgroundRenderer.renderPreviousFrame(guiGraphics, Services.CONFIG.showGroupBackgrounds());
 	}
 
 	@Inject(method = "drawScreen", at = @At("TAIL"), require = 0)
 	private void cg$drawScreen(Minecraft minecraft, GuiGraphics guiGraphics, int mouseX, int mouseY, float partialTicks, CallbackInfo ci) {
 		GroupBorderRenderer.renderAndClear(guiGraphics);
+		GroupBackgroundRenderer.advanceFrame();
 		if (cg$shouldShowGroupsButton()) this.cg$groupsButton.draw(guiGraphics, mouseX, mouseY, partialTicks);
 	}
 
@@ -111,7 +143,16 @@ public abstract class MixinIngredientListOverlay {
 	}
 
 	@Unique
+	private void cg$resetBackgroundTracking() {
+		this.cg$lastGuiWidth = Integer.MIN_VALUE;
+		this.cg$lastGuiHeight = Integer.MIN_VALUE;
+		this.cg$lastSearchText = null;
+		this.cg$lastSearchArea = null;
+	}
+
+	@Unique
 	private boolean cg$shouldShowGroupsButton() {
-		return cg$groupsButton != null && NeoForgeConfig.SHOW_MANAGER_BUTTON.get() && this.isListDisplayed();
+		return cg$groupsButton != null && JeiViewerAdapter.instance().overlayHook().shouldShowButton(
+			NeoForgeConfig.SHOW_MANAGER_BUTTON.get(), this.isListDisplayed());
 	}
 }
