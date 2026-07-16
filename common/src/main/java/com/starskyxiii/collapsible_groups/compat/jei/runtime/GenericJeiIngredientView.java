@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
-import com.starskyxiii.collapsible_groups.core.IngredientView;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.subtypes.UidContext;
 import net.minecraft.resources.ResourceLocation;

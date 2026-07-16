@@ -1,9 +1,9 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.google.gson.JsonObject;
-import com.starskyxiii.collapsible_groups.core.Filters;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
-import com.starskyxiii.collapsible_groups.core.GroupTheme;
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;

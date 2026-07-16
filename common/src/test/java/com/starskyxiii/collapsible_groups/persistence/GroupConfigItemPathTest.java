@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.persistence;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.starskyxiii.collapsible_groups.core.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

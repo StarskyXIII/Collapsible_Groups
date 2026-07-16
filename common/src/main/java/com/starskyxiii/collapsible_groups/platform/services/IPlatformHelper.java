@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.platform.services;
 
-import com.starskyxiii.collapsible_groups.core.IngredientView;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 

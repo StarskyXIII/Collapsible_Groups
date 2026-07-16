@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 
 import java.util.ArrayList;
 import java.util.List;

@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.defaults.integration;
 
 import com.starskyxiii.collapsible_groups.config.NeoForgeConfig;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider;
 import static com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider.*;
 

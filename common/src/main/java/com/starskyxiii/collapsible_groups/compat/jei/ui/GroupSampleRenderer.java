@@ -1,7 +1,11 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
-import com.starskyxiii.collapsible_groups.core.GroupTheme;
-import com.starskyxiii.collapsible_groups.core.GroupThemeColors;
+import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
+import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
+import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
+
+import com.starskyxiii.collapsible_groups.group.GroupTheme;
+import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.world.item.ItemStack;
@@ -24,7 +28,7 @@ public final class GroupSampleRenderer {
 	public static final int ICON_SIZE = 16;
 	private static final int PAGE_BUTTON_WIDTH = 20;
 	private static final int PAGE_BUTTON_GAP = 3;
-	private static final int PAGE_CONTROL_HEIGHT = OreUiRenderer.BUTTON_DESIGN_HEIGHT;
+	private static final int PAGE_CONTROL_HEIGHT = UiSkinRenderer.BUTTON_DESIGN_HEIGHT;
 
 	public record Fallbacks(int nameRgb, int collapsedHeaderArgb, int expandedHeaderArgb,
 	                        int expandedGroupArgb, int expandedBorderArgb) {}
@@ -146,14 +150,14 @@ public final class GroupSampleRenderer {
 		if (layout.hasPages()) {
 			Rect prev = layout.previousPageButton();
 			Rect nxt = layout.nextPageButton();
-			OreUiRenderer.drawButton(g, font, prev.x(), prev.y(), prev.width(), prev.height(), "<",
+			UiSkinRenderer.drawButton(g, font, prev.x(), prev.y(), prev.width(), prev.height(), "<",
 				buttonState(layout.canPageBackward()));
-			OreUiRenderer.drawButton(g, font, nxt.x(), nxt.y(), nxt.width(), nxt.height(), ">",
+			UiSkinRenderer.drawButton(g, font, nxt.x(), nxt.y(), nxt.width(), nxt.height(), ">",
 				buttonState(layout.canPageForward()));
 			String counter = (layout.page() + 1) + "/" + layout.pageCount();
 			int counterX = (prev.right() + nxt.x()) / 2 - font.width(counter) / 2;
 			int counterY = prev.y() + Math.max(0, (prev.height() - font.lineHeight) / 2);
-			g.drawString(font, counter, counterX, counterY, OreUiPalette.TEXT_MUTED, false);
+			g.drawString(font, counter, counterX, counterY, UiPalette.TEXT_MUTED, false);
 		}
 		return layout;
 	}
@@ -190,8 +194,8 @@ public final class GroupSampleRenderer {
 		return new Rect(area.x() + col * SLOT_PITCH, area.y() + row * SLOT_PITCH, ICON_SIZE, ICON_SIZE);
 	}
 
-	private static OreUiRenderer.ButtonState buttonState(boolean active) {
-		return active ? OreUiRenderer.ButtonState.NORMAL : OreUiRenderer.ButtonState.DISABLED;
+	private static UiSkinRenderer.ButtonState buttonState(boolean active) {
+		return active ? UiSkinRenderer.ButtonState.NORMAL : UiSkinRenderer.ButtonState.DISABLED;
 	}
 
 	private static int clamp(int value, int min, int max) {

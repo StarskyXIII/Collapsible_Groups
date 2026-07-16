@@ -1,8 +1,10 @@
 package com.starskyxiii.collapsible_groups.persistence;
 
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.starskyxiii.collapsible_groups.core.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -11,7 +13,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Pure-common coverage for block-tag JSON serialization.
  *
  * <p>Validator assertions for block tags are intentionally not exercised here because
- * {@link com.starskyxiii.collapsible_groups.core.GroupFilterValidator} delegates to
+ * {@link com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator} delegates to
  * {@code ResourceLocation.tryParse(...)}, which is unavailable on the pure-common
  * unit-test runtime classpath.
  */

@@ -1,8 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
-import com.starskyxiii.collapsible_groups.core.GroupTheme;
-import com.starskyxiii.collapsible_groups.core.GroupThemeColors;
+import com.starskyxiii.collapsible_groups.group.GroupTheme;
+import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
 import com.starskyxiii.collapsible_groups.platform.Services;
 
 /** Resolves runtime group theme colors for JEI overlay rendering. */

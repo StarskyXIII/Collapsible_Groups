@@ -1,6 +1,8 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
+
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupCatalog;
 
 import java.util.ArrayList;

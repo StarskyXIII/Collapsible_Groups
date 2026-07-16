@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.platform;
 
-import com.starskyxiii.collapsible_groups.core.IngredientView;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.platform.services.IPlatformHelper;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;

@@ -8,11 +8,11 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.config.ColorConfigParser;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
-import com.starskyxiii.collapsible_groups.core.GroupDisplayName;
-import com.starskyxiii.collapsible_groups.core.GroupFilter;
-import com.starskyxiii.collapsible_groups.core.GroupFilterValidator;
-import com.starskyxiii.collapsible_groups.core.GroupTheme;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator;
+import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import com.starskyxiii.collapsible_groups.platform.Services;
 

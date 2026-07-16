@@ -1,9 +1,9 @@
 package com.starskyxiii.collapsible_groups.compat.kubejs;
 
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
-import com.starskyxiii.collapsible_groups.core.GroupFilter;
-import com.starskyxiii.collapsible_groups.core.KubeJsItemFilterLowering;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.KubeJsItemFilterLowering;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.viewer.ViewerBootstrapContext;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;

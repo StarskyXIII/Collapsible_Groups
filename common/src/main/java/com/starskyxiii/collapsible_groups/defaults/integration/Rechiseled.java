@@ -1,9 +1,9 @@
 package com.starskyxiii.collapsible_groups.defaults.integration;
 
 import com.starskyxiii.collapsible_groups.platform.Services;
-import com.starskyxiii.collapsible_groups.core.Filters;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
-import com.starskyxiii.collapsible_groups.core.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider;
 import static com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider.*;
 

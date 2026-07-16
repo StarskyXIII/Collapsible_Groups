@@ -1,5 +1,7 @@
 package com.starskyxiii.collapsible_groups.mixin;
 
+// Keep this mixin plugin byte-identical across Fabric, Forge, and NeoForge.
+
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;

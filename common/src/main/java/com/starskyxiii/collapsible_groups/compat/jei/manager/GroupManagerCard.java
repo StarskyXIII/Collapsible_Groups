@@ -1,12 +1,13 @@
 package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
+
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
-import com.starskyxiii.collapsible_groups.compat.jei.oreui.GroupActionEligibility;
-import com.starskyxiii.collapsible_groups.compat.jei.oreui.GroupCardViewModel;
-import com.starskyxiii.collapsible_groups.compat.jei.oreui.GroupSource;
-import com.starskyxiii.collapsible_groups.compat.jei.oreui.PreviewPaneModel;
+import com.starskyxiii.collapsible_groups.client.manager.model.GroupActionEligibility;
+import com.starskyxiii.collapsible_groups.client.manager.model.GroupCardViewModel;
+import com.starskyxiii.collapsible_groups.client.manager.model.GroupSource;
+import com.starskyxiii.collapsible_groups.client.preview.model.PreviewPaneModel;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.Item;

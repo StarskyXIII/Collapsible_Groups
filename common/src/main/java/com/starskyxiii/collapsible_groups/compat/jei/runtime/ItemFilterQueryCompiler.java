@@ -1,9 +1,9 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
-import com.starskyxiii.collapsible_groups.core.GroupFilter;
-import com.starskyxiii.collapsible_groups.core.GroupFilterNormalizer;
-import com.starskyxiii.collapsible_groups.core.GroupItemSelector;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilterNormalizer;
+import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;

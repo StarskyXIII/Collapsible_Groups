@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
-import com.starskyxiii.collapsible_groups.core.Filters;
-import com.starskyxiii.collapsible_groups.core.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;

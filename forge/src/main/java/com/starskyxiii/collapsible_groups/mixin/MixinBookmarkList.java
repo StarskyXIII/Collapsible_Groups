@@ -1,5 +1,7 @@
 package com.starskyxiii.collapsible_groups.mixin;
 
+// Keep this annotation shell byte-identical across Fabric, Forge, and NeoForge.
+
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
 import mezz.jei.gui.input.UserInput;

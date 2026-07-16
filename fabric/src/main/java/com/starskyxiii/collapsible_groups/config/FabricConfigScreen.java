@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.config;
 
 import com.starskyxiii.collapsible_groups.CollapsibleGroupsFabric;
-import com.starskyxiii.collapsible_groups.compat.jei.ui.ScrollbarHelper;
+import com.starskyxiii.collapsible_groups.client.widget.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;

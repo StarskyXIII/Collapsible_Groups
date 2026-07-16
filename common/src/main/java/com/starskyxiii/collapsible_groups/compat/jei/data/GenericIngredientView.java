@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.data;
 
-import com.starskyxiii.collapsible_groups.core.IngredientSearchDocument;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchDocument;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
