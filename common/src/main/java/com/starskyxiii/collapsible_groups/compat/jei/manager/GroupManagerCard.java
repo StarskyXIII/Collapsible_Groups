@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupActionEligibility;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupCardViewModel;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupSource;
@@ -14,7 +15,6 @@ import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.Items;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
@@ -82,22 +82,14 @@ public record GroupManagerCard(
 	}
 
 	/**
-	 * Header stack source: resolve {@code group.iconIds()} to
-	 * item preview entries so the manager card header mirrors the live JEI header
-	 * (which prefers {@code iconIds} via {@code MixinIngredientFilter}). When the
-	 * group carries no icon ids, or none resolve to a real item, fall back to the
+	 * Header stack source: resolve {@code group.iconIds()} through the same JEI-universe
+	 * path as the live header. When the group carries no icon ids, or none resolve, fall back to the
 	 * first two {@code previewEntries} (never an empty slot). Resolution lives here
 	 * in common so the three loader screens share one path and stay byte-identical.
 	 */
 	public List<GroupPreviewEntry> headerSource() {
-		List<GroupPreviewEntry> resolved = new ArrayList<>();
-		for (String iconId : group.iconIds()) {
-			ItemStack stack = resolveItemStack(iconId);
-			if (!stack.isEmpty()) {
-				resolved.add(GroupPreviewEntry.ofItem(stack));
-			}
-			if (resolved.size() >= 2) break;
-		}
+		List<GroupPreviewEntry> resolved = GroupPreviewEntry.fromTypedIngredients(
+			JeiViewerAdapter.instance().resolveHeaderIconIngredients(group.iconIds()));
 		if (!resolved.isEmpty()) {
 			return List.copyOf(resolved);
 		}

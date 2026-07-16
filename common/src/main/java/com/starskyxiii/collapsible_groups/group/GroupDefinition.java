@@ -27,7 +27,7 @@ public final class GroupDefinition {
 	private final GroupDisplayName displayName;
 	private final boolean enabled;
 	private final GroupFilter filter;
-	private final List<String> iconIds;
+	private final List<GroupIconDefinition> iconIds;
 	private final GroupTheme theme;
 	private final int priority;
 	private final JsonObject extra;
@@ -37,11 +37,11 @@ public final class GroupDefinition {
 		this(id, name, enabled, filter, List.of());
 	}
 
-	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter, List<String> iconIds) {
+	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter, List<?> iconIds) {
 		this(id, name, enabled, filter, iconIds, GroupTheme.EMPTY);
 	}
 
-	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter, List<String> iconIds, GroupTheme theme) {
+	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter, List<?> iconIds, GroupTheme theme) {
 		this(id, name, enabled, filter, iconIds, theme, 0, new JsonObject());
 	}
 
@@ -50,7 +50,7 @@ public final class GroupDefinition {
 		String name,
 		boolean enabled,
 		GroupFilter filter,
-		List<String> iconIds,
+		List<?> iconIds,
 		GroupTheme theme,
 		int priority,
 		JsonObject extra
@@ -71,7 +71,7 @@ public final class GroupDefinition {
 		this(id, displayName, enabled, filter, List.of());
 	}
 
-	public GroupDefinition(String id, GroupDisplayName displayName, boolean enabled, GroupFilter filter, List<String> iconIds) {
+	public GroupDefinition(String id, GroupDisplayName displayName, boolean enabled, GroupFilter filter, List<?> iconIds) {
 		this(id, displayName, enabled, filter, iconIds, GroupTheme.EMPTY);
 	}
 
@@ -80,7 +80,7 @@ public final class GroupDefinition {
 		GroupDisplayName displayName,
 		boolean enabled,
 		GroupFilter filter,
-		List<String> iconIds,
+		List<?> iconIds,
 		GroupTheme theme
 	) {
 		this(id, displayName, enabled, filter, iconIds, theme, 0, new JsonObject());
@@ -91,7 +91,7 @@ public final class GroupDefinition {
 		GroupDisplayName displayName,
 		boolean enabled,
 		GroupFilter filter,
-		List<String> iconIds,
+		List<?> iconIds,
 		GroupTheme theme,
 		int priority,
 		JsonObject extra
@@ -104,7 +104,7 @@ public final class GroupDefinition {
 		if (!validationErrors.isEmpty()) {
 			throw new IllegalArgumentException("Invalid group filter: " + String.join("; ", validationErrors));
 		}
-		this.iconIds = List.copyOf(Objects.requireNonNull(iconIds, "iconIds"));
+		this.iconIds = normalizeIcons(iconIds);
 		this.theme = Objects.requireNonNullElse(theme, GroupTheme.EMPTY);
 		this.priority = priority;
 		this.extra = copyExtra(extra);
@@ -144,7 +144,7 @@ public final class GroupDefinition {
 		return filter;
 	}
 
-	public List<String> iconIds() {
+	public List<GroupIconDefinition> iconIds() {
 		return iconIds;
 	}
 
@@ -207,7 +207,7 @@ public final class GroupDefinition {
 		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
 	}
 
-	public GroupDefinition withIconIds(List<String> iconIds) {
+	public GroupDefinition withIconIds(List<?> iconIds) {
 		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
 	}
 
@@ -262,6 +262,16 @@ public final class GroupDefinition {
 
 	private static JsonObject copyExtra(JsonObject extra) {
 		return extra == null ? new JsonObject() : extra.deepCopy();
+	}
+
+	private static List<GroupIconDefinition> normalizeIcons(List<?> values) {
+		Objects.requireNonNull(values, "iconIds");
+		return values.stream().map(value -> switch (value) {
+			case GroupIconDefinition icon -> icon;
+			case String itemId -> GroupIconDefinition.item(itemId);
+			case null -> throw new NullPointerException("iconIds contains null");
+			default -> throw new IllegalArgumentException("Unsupported icon value: " + value);
+		}).toList();
 	}
 
 	@Override

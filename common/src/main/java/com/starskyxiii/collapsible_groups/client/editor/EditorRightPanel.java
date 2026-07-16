@@ -97,6 +97,24 @@ final class EditorRightPanel {
 				+ " generic=" + groupGenericIngredients.size());
 	}
 
+	boolean rebuildFromPreparedCache() {
+		GroupDefinition temp = state.buildPreviewDefinition();
+		List<ItemStack> items = EditorRuntimeServices.get().cachedFullMatchItems(temp);
+		List<EditorFluidIngredientView> fluids = EditorRuntimeServices.get().cachedFullMatchFluids(
+			temp, "EditorRightPanel.cachedFluidViews");
+		List<EditorGenericIngredientView> generic = EditorRuntimeServices.get().cachedFullMatchGeneric(
+			temp, "EditorRightPanel.cachedGenericViews");
+		if (items == null || fluids == null || generic == null) return false;
+		groupItems = items;
+		groupFluids = fluids;
+		groupGenericIngredients = generic;
+		state.updateRuleCoverage(
+			state.itemRuleCoverageKeys(groupItems),
+			EditorRuleCoverageKeys.fluidIds(groupFluids),
+			EditorRuleCoverageKeys.genericKeys(groupGenericIngredients));
+		return true;
+	}
+
 	private static void verifyIndexResult(List<ItemStack> indexed, List<ItemStack> scanned) {
 		if (indexed.size() != scanned.size()) {
 			Constants.LOG.warn("[EditorItemIndex] MISMATCH size: indexed={} scanned={}", indexed.size(), scanned.size());

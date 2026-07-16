@@ -1,0 +1,6 @@
+{
+  "id": "typed_icon_strings",
+  "name": "Typed Icon Strings",
+  "icon": ["minecraft:diamond", "minecraft:emerald"],
+  "filter": { "type": "item", "id": "minecraft:stone" }
+}

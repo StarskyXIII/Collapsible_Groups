@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GenericChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupChildElement;
@@ -38,9 +39,6 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -48,14 +46,10 @@ import java.util.stream.Stream;
 
 /** Shared cache and projection logic behind the loader IngredientFilter mixins. */
 public final class JeiIngredientFilterController {
-	private static final ExecutorService REBUILD_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
-		Thread thread = new Thread(r, "CG-IndexRebuild");
-		thread.setDaemon(true);
-		return thread;
-	});
 	private static GroupChangeEvent.Subscription fullChangeSubscription;
 	private static GroupChangeEvent.Subscription structureChangeSubscription;
 	private static GroupChangeEvent.Subscription enabledChangeSubscription;
+	private static GroupChangeEvent.Subscription kubeJsChangeSubscription;
 
 	private final Supplier<String> filterText;
 	private final Function<String, Stream<ITypedIngredient<?>>> uncachedIngredients;
@@ -64,14 +58,13 @@ public final class JeiIngredientFilterController {
 	private final Supplier<List<IElement<?>>> displayCache;
 	private final Consumer<List<IElement<?>>> setDisplayCache;
 	private final PlatformHooks hooks;
+	private final JeiViewerGroupIndex viewerIndex = JeiViewerGroupIndex.instance();
 
-	private @Nullable GroupCandidateIndex ingredientGroupIndex;
 	private @Nullable List<IElement<?>> baseList;
 	private @Nullable List<String> baseListGroupIds;
 	private @Nullable Map<String, List<IElement<?>>> childrenByGroupId;
 	private @Nullable ViewerProjection<ITypedIngredient<?>> projection;
 	private @Nullable List<ITypedIngredient<?>> cachedFullList;
-	private @Nullable CompletableFuture<GroupCandidateIndex> pendingIndex;
 	private String searchTextForCache = "";
 
 	public JeiIngredientFilterController(
@@ -96,14 +89,21 @@ public final class JeiIngredientFilterController {
 		if (fullChangeSubscription != null) fullChangeSubscription.close();
 		if (structureChangeSubscription != null) structureChangeSubscription.close();
 		if (enabledChangeSubscription != null) enabledChangeSubscription.close();
-		fullChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.FULL, this::invalidateAndNotify);
-		structureChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.STRUCTURE,
-			this::invalidateStructureAndNotify);
-		enabledChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.ENABLED,
-			this::invalidateStructureAndNotify);
+		if (kubeJsChangeSubscription != null) kubeJsChangeSubscription.close();
 		GroupRegistry.clearJeiAllItems();
 		GroupRegistry.clearJeiAllFluids();
 		GroupRegistry.clearKubeJsGroups();
+		viewerIndex.reset();
+		viewerIndex.configureRebuild(this::buildConfiguredIndex, Minecraft.getInstance()::execute,
+			this::rebuildCompleted);
+		fullChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.FULL,
+			() -> handleIndexedChange(GroupChangeEvent.Kind.FULL));
+		structureChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.STRUCTURE,
+			() -> handleIndexedChange(GroupChangeEvent.Kind.STRUCTURE));
+		enabledChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.ENABLED,
+			() -> handleIndexedChange(GroupChangeEvent.Kind.ENABLED));
+		kubeJsChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.KUBEJS_REPLACE,
+			() -> handleIndexedChange(GroupChangeEvent.Kind.KUBEJS_REPLACE));
 		cachedFullList = null;
 	}
 
@@ -119,22 +119,20 @@ public final class JeiIngredientFilterController {
 		return current;
 	}
 
-	private void invalidateAndNotify() {
+	private void handleIndexedChange(GroupChangeEvent.Kind kind) {
 		clearStructureCaches();
+		notifyListeners.run();
+	}
+
+	private GroupCandidateIndex buildConfiguredIndex() {
 		List<ITypedIngredient<?>> snapshot = cachedFullList;
-		if (snapshot != null) {
-			CompletableFuture<GroupCandidateIndex> future = CompletableFuture.supplyAsync(
-				() -> buildIngredientGroupIndex(snapshot), REBUILD_EXECUTOR);
-			pendingIndex = future;
-			future.thenRunAsync(() -> {
-				if (pendingIndex != future) return;
-				clearStructureCaches();
-				notifyListeners.run();
-			}, Minecraft.getInstance()::execute);
-		} else {
-			pendingIndex = null;
-			ingredientGroupIndex = null;
-		}
+		if (snapshot == null) snapshot = uncachedIngredients.apply("").toList();
+		cachedFullList = snapshot;
+		return buildIngredientGroupIndex(snapshot);
+	}
+
+	private void rebuildCompleted() {
+		clearStructureCaches();
 		notifyListeners.run();
 	}
 
@@ -145,11 +143,6 @@ public final class JeiIngredientFilterController {
 		childrenByGroupId = null;
 		projection = null;
 		searchTextForCache = "";
-	}
-
-	private void invalidateStructureAndNotify() {
-		clearStructureCaches();
-		notifyListeners.run();
 	}
 
 	private void toggleAndRebuildDisplay() {
@@ -247,15 +240,13 @@ public final class JeiIngredientFilterController {
 		}
 
 		if (hooks.beforeIndex(all, ingredientManager)) {
-			ingredientGroupIndex = null;
-			pendingIndex = null;
+			viewerIndex.invalidateCandidates();
 		}
-		if (pendingIndex != null && pendingIndex.isDone()) {
-			try { ingredientGroupIndex = pendingIndex.join(); }
-			catch (Exception ignored) { ingredientGroupIndex = null; }
-			pendingIndex = null;
+		GroupCandidateIndex ingredientGroupIndex = viewerIndex.candidates().orElse(null);
+		if (ingredientGroupIndex == null) {
+			ingredientGroupIndex = buildIngredientGroupIndex(all);
+			viewerIndex.publishCandidateIndex(ingredientGroupIndex, GroupRegistry.getAllIncludingKubeJs());
 		}
-		if (ingredientGroupIndex == null) ingredientGroupIndex = buildIngredientGroupIndex(all);
 
 		List<GroupDefinition> groups = GroupRegistry.getAllIncludingKubeJs();
 		ViewerProjection<ITypedIngredient<?>> projected = JeiViewerAdapter.instance().project(
@@ -286,7 +277,7 @@ public final class JeiIngredientFilterController {
 				"filtered=" + ingredients.size() + " cachedFull=" + (all == null ? 0 : all.size())
 					+ " base=" + newBaseList.size() + " groups=" + newChildren.size()
 					+ " enabledGroups=" + groups.stream().filter(GroupDefinition::enabled).count()
-					+ " pending=" + (pendingIndex != null) + " indexReady=" + (ingredientGroupIndex != null));
+					+ " pending=" + (!viewerIndex.whenReady().isDone()) + " indexReady=" + viewerIndex.ready());
 		}
 	}
 
@@ -319,8 +310,8 @@ public final class JeiIngredientFilterController {
 
 	private IElement<?> createGroupHeader(ViewerProjection.GroupHeader<ITypedIngredient<?>> header, Runnable onToggle) {
 		GroupDefinition group = header.group();
-		List<ITypedIngredient<?>> display = header.iconIds().isEmpty() ? List.of() : resolveIconIds(header.iconIds());
-		if (display.isEmpty()) display = header.fallbackIconIngredients().stream().map(ViewerIngredient::entry).toList();
+		List<ITypedIngredient<?>> display = JeiViewerAdapter.instance().assembleHeaderIcons(
+			header.iconIds(), header.fallbackIconIngredients());
 		GroupIcon icon = new GroupIcon(group.id(), group.displayName().key(), group.displayName().fallback(), display);
 		ITypedIngredient<GroupIcon> typedIcon = TypedIngredient.createUnvalidated(GroupIcon.TYPE, icon);
 		List<GroupPreviewEntry> preview = new ArrayList<>(header.children().size());

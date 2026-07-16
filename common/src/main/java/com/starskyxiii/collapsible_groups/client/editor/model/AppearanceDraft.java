@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor.model;
 
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 
 import java.util.ArrayList;
@@ -8,9 +9,9 @@ import java.util.List;
 import java.util.Objects;
 
 public record AppearanceDraft(
-	String frontIconId,
-	String backIconId,
-	List<String> extraIconIds,
+	GroupIconDefinition frontIconId,
+	GroupIconDefinition backIconId,
+	List<GroupIconDefinition> extraIconIds,
 	String nameColor,
 	String collapsedHeaderBackground,
 	String expandedHeaderBackground,
@@ -18,9 +19,7 @@ public record AppearanceDraft(
 	String expandedGroupBorder
 ) {
 	public AppearanceDraft {
-		frontIconId = normalize(frontIconId);
-		backIconId = normalize(backIconId);
-		extraIconIds = copyNormalized(extraIconIds);
+		extraIconIds = extraIconIds == null ? List.of() : List.copyOf(extraIconIds);
 		if (frontIconId == null) {
 			backIconId = null;
 			extraIconIds = List.of();
@@ -37,12 +36,13 @@ public record AppearanceDraft(
 		return fromIconIds(group.iconIds(), group.theme());
 	}
 
-	public static AppearanceDraft fromIconIds(List<String> iconIds, GroupTheme theme) {
+	public static AppearanceDraft fromIconIds(List<?> iconIds, GroupTheme theme) {
 		Objects.requireNonNull(iconIds, "iconIds");
+		List<GroupIconDefinition> typedIcons = iconIds.stream().map(AppearanceDraft::icon).toList();
 		GroupTheme resolvedTheme = theme != null ? theme : GroupTheme.EMPTY;
-		String frontIconId = iconIds.isEmpty() ? null : iconIds.get(0);
-		String backIconId = iconIds.size() < 2 ? null : iconIds.get(1);
-		List<String> extraIconIds = iconIds.size() < 3 ? List.of() : iconIds.subList(2, iconIds.size());
+		GroupIconDefinition frontIconId = typedIcons.isEmpty() ? null : typedIcons.get(0);
+		GroupIconDefinition backIconId = typedIcons.size() < 2 ? null : typedIcons.get(1);
+		List<GroupIconDefinition> extraIconIds = typedIcons.size() < 3 ? List.of() : typedIcons.subList(2, typedIcons.size());
 		return new AppearanceDraft(
 			frontIconId,
 			backIconId,
@@ -55,8 +55,8 @@ public record AppearanceDraft(
 		);
 	}
 
-	public List<String> toIconIds() {
-		List<String> out = new ArrayList<>();
+	public List<GroupIconDefinition> toIconIds() {
+		List<GroupIconDefinition> out = new ArrayList<>();
 		if (frontIconId != null) {
 			out.add(frontIconId);
 		}
@@ -84,23 +84,29 @@ public record AppearanceDraft(
 		);
 	}
 
-	public AppearanceDraft withFrontIconId(String iconId) {
-		String normalized = normalize(iconId);
-		if (normalized == null) {
+	public AppearanceDraft withFrontIconId(GroupIconDefinition iconId) {
+		if (iconId == null) {
 			return clearFrontIcon();
 		}
-		return copy(normalized, backIconId, extraIconIds);
+		return copy(iconId, backIconId, extraIconIds);
 	}
 
-	public AppearanceDraft withBackIconId(String iconId) {
-		String normalized = normalize(iconId);
-		if (normalized == null) {
+	public AppearanceDraft withFrontIconId(String itemId) {
+		return withFrontIconId(itemId == null || itemId.isBlank() ? null : GroupIconDefinition.item(itemId));
+	}
+
+	public AppearanceDraft withBackIconId(GroupIconDefinition iconId) {
+		if (iconId == null) {
 			return clearBackIcon();
 		}
 		if (frontIconId == null) {
 			return this;
 		}
-		return copy(frontIconId, normalized, extraIconIds);
+		return copy(frontIconId, iconId, extraIconIds);
+	}
+
+	public AppearanceDraft withBackIconId(String itemId) {
+		return withBackIconId(itemId == null || itemId.isBlank() ? null : GroupIconDefinition.item(itemId));
 	}
 
 	public AppearanceDraft clearFrontIcon() {
@@ -118,8 +124,8 @@ public record AppearanceDraft(
 		return copy(backIconId, frontIconId, extraIconIds);
 	}
 
-	public AppearanceDraft withExtraIconIds(List<String> iconIds) {
-		return copy(frontIconId, backIconId, iconIds);
+	public AppearanceDraft withExtraIconIds(List<?> iconIds) {
+		return copy(frontIconId, backIconId, iconIds.stream().map(AppearanceDraft::icon).toList());
 	}
 
 	/** Back/secondary icons require a front icon because the JSON array has no sparse slot representation. */
@@ -147,7 +153,8 @@ public record AppearanceDraft(
 		return copyColors(nameColor, collapsedHeaderBackground, expandedHeaderBackground, expandedGroupBackground, color);
 	}
 
-	private AppearanceDraft copy(String frontIconId, String backIconId, List<String> extraIconIds) {
+	private AppearanceDraft copy(GroupIconDefinition frontIconId, GroupIconDefinition backIconId,
+		List<GroupIconDefinition> extraIconIds) {
 		return new AppearanceDraft(
 			frontIconId,
 			backIconId,
@@ -179,23 +186,18 @@ public record AppearanceDraft(
 		);
 	}
 
-	private static List<String> copyNormalized(List<String> values) {
-		if (values == null || values.isEmpty()) {
-			return List.of();
-		}
-		List<String> out = new ArrayList<>(values.size());
-		for (String value : values) {
-			String normalized = normalize(value);
-			if (normalized != null) {
-				out.add(normalized);
-			}
-		}
-		return List.copyOf(out);
-	}
-
 	private static String normalize(String value) {
 		if (value == null) return null;
 		String trimmed = value.trim();
 		return trimmed.isEmpty() ? null : trimmed;
+	}
+
+	private static GroupIconDefinition icon(Object value) {
+		return switch (value) {
+			case GroupIconDefinition typed -> typed;
+			case String itemId -> GroupIconDefinition.item(itemId);
+			case null -> throw new NullPointerException("iconIds contains null");
+			default -> throw new IllegalArgumentException("Unsupported icon value: " + value);
+		};
 	}
 }

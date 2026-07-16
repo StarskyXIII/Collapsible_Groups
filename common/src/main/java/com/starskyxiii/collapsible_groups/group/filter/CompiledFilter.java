@@ -362,6 +362,6 @@ public final class CompiledFilter {
 	}
 
 	private static boolean sameType(String ingredientType, IngredientView view) {
-		return ingredientType.equals(canonicalType(view.ingredientType()));
+		return canonicalType(ingredientType).equals(canonicalType(view.ingredientType()));
 	}
 }

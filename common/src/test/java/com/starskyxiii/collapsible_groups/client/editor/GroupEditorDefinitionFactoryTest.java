@@ -4,6 +4,7 @@ import com.google.gson.JsonObject;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
@@ -42,7 +43,7 @@ class GroupEditorDefinitionFactoryTest {
 			existing
 		);
 
-		assertEquals(List.of("minecraft:diamond", "minecraft:emerald"), saved.iconIds());
+		assertEquals(icons("minecraft:diamond", "minecraft:emerald"), saved.iconIds());
 		assertEquals("custom.translation.key", saved.displayName().key());
 		assertEquals("New Name", saved.displayName().fallback());
 		assertFalse(saved.enabled());
@@ -86,7 +87,7 @@ class GroupEditorDefinitionFactoryTest {
 			9
 		);
 
-		assertEquals(List.of("minecraft:emerald", "minecraft:gold_ingot", "minecraft:redstone"), saved.iconIds());
+		assertEquals(icons("minecraft:emerald", "minecraft:gold_ingot", "minecraft:redstone"), saved.iconIds());
 		assertEquals(new GroupTheme("#112233", "#44112233", "#55223344", "#66334455", "#77445566"), saved.theme());
 		assertEquals(9, saved.priority());
 		assertEquals(extra, saved.extra());
@@ -127,7 +128,7 @@ class GroupEditorDefinitionFactoryTest {
 			existing
 		);
 
-		assertEquals(List.of("minecraft:diamond"), copied.iconIds());
+		assertEquals(icons("minecraft:diamond"), copied.iconIds());
 		assertEquals(GroupTranslationHelper.keyForGroupId("copied_group"), copied.displayName().key());
 		assertEquals("Copied Group", copied.displayName().fallback());
 	}
@@ -153,10 +154,27 @@ class GroupEditorDefinitionFactoryTest {
 		);
 
 		assertSame(displayName, saved.displayName());
-		assertEquals(List.of("minecraft:diamond"), saved.iconIds());
+		assertEquals(icons("minecraft:diamond"), saved.iconIds());
 		assertFalse(saved.enabled());
 		assertEquals(updatedFilter, saved.filter());
 		assertEquals(0, saved.priority());
 		assertEquals(new JsonObject(), saved.extra());
+	}
+
+	@Test
+	void preservesTypedAppearanceIconsThroughDefinitionFactory() {
+		GroupIconDefinition fluid = new GroupIconDefinition("fluid", "minecraft:water");
+		GroupIconDefinition generic = new GroupIconDefinition("test:chemical", "test:oxygen");
+		AppearanceDraft appearance = AppearanceDraft.fromIconIds(List.of(fluid, generic), GroupTheme.EMPTY);
+
+		GroupDefinition saved = GroupEditorDefinitionFactory.create(
+			"typed_icons", "Typed Icons", true, Filters.itemId("minecraft:stone"),
+			null, appearance, 0);
+
+		assertEquals(List.of(fluid, generic), saved.iconIds());
+	}
+
+	private static List<GroupIconDefinition> icons(String... ids) {
+		return java.util.Arrays.stream(ids).map(GroupIconDefinition::item).toList();
 	}
 }

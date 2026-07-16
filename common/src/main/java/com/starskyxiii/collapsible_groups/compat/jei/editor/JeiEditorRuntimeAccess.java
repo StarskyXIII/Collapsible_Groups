@@ -6,14 +6,17 @@ import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewTooltip;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.EditorItemIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.EditorItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupSampleRenderer;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchQuery;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
@@ -24,6 +27,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 
 /** JEI implementation of the neutral editor runtime boundary. */
 public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
@@ -69,7 +73,18 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	@Override
 	public Map<EditorGenericIngredientView, List<String>> genericOwnership(List<EditorGenericIngredientView> entries,
 		List<GroupDefinition> groups) {
-		return EditorGenericIngredientHelper.buildOwnership(entries, groups);
+		Map<String, GroupDefinition> byId = new java.util.LinkedHashMap<>();
+		groups.forEach(group -> byId.put(group.id(), group));
+		Map<ViewerIngredientIdentity, String> resolved = JeiViewerGroupIndex.instance().resolveOwnership(groups);
+		Map<EditorGenericIngredientView, List<String>> ownership = new java.util.IdentityHashMap<>();
+		for (EditorGenericIngredientView entry : entries) {
+			String groupId = resolved.get(
+				new ViewerIngredientIdentity(entry.typeId(), EditorGenericIngredientHelper.identityValueId(entry)));
+			GroupDefinition owner = byId.get(groupId);
+			if (owner != null) ownership.put(entry,
+				List.of(com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper.displayName(owner)));
+		}
+		return ownership;
 	}
 
 	@Override public void renderFluid(GuiGraphicsExtractor g, EditorFluidIngredientView entry, int x, int y) {
@@ -98,6 +113,28 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	@Override public List<EditorGenericIngredientView> resolveGenericIngredients(GroupDefinition definition, String traceName) {
 		return EditorGenericIngredientHelper.buildViews(GroupRegistry.resolveGenericIngredients(definition), traceName);
 	}
+	@Override
+	public CompletableFuture<Void> prepareEditorEntry(GroupDefinition definition) {
+		long startedAt = PerformanceTrace.begin();
+		return JeiViewerGroupIndex.instance().prepareEditorAsync(GroupRegistry.getAllIncludingKubeJs(), () -> {
+			GroupRegistry.warmEditorItemIndex();
+			GroupRegistry.populateFullMatchCacheFromSaved(definition);
+		}).whenComplete((ignored, error) -> PerformanceTrace.logIfSlow("GroupEditorScreen.entry", startedAt, 0,
+			"group=" + definition.id() + " ready=" + (error == null)
+				+ " elapsedMillis=" + PerformanceTrace.elapsedMillis(startedAt)));
+	}
+	@Override public List<ItemStack> cachedFullMatchItems(GroupDefinition definition) {
+		return GroupRegistry.getFullMatchItemsCached(definition.id());
+	}
+	@Override public List<EditorFluidIngredientView> cachedFullMatchFluids(GroupDefinition definition, String traceName) {
+		List<Object> values = GroupRegistry.getFullMatchFluidsCached(definition.id());
+		return values == null ? null : EditorFluidIngredientHelper.buildViews(values, traceName);
+	}
+	@Override public List<EditorGenericIngredientView> cachedFullMatchGeneric(GroupDefinition definition, String traceName) {
+		List<com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef> values =
+			GroupRegistry.getFullMatchGenericCached(definition.id());
+		return values == null ? null : EditorGenericIngredientHelper.buildViews(values, traceName);
+	}
 	@Override public boolean verifyItemIndex() { return EditorItemIndex.isVerifyEnabled(); }
 	@Override public long beginTrace() { return PerformanceTrace.begin(); }
 	@Override public void logIfSlow(String name, long startedAt, long thresholdMillis, String details) {
@@ -121,14 +158,66 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	@Override
+	public List<PreviewEntry> resolveHeaderIcons(
+		List<GroupIconDefinition> iconIds,
+		List<PreviewEntry> fallbackEntries
+	) {
+		List<mezz.jei.api.ingredients.ITypedIngredient<?>> resolved =
+			com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter.instance()
+				.resolveHeaderIconIngredients(iconIds);
+		if (resolved.isEmpty()) return fallbackEntries.stream().limit(2).toList();
+		List<PreviewEntry> entries = new ArrayList<>(resolved.size());
+		for (mezz.jei.api.ingredients.ITypedIngredient<?> typed : resolved) {
+			typed.getItemStack().ifPresentOrElse(stack -> entries.add(PreviewEntry.item(stack)), () -> {
+				Object fluid = com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewIngredientRenderer
+					.getFluidIngredient(typed);
+				if (fluid != null) {
+					List<EditorFluidIngredientView> views =
+						EditorFluidIngredientHelper.buildViews(List.of(fluid), "EditorHeaderIcon.fluid");
+					if (!views.isEmpty()) entries.add(PreviewEntry.fluid(views.getFirst()));
+				} else {
+					@SuppressWarnings("unchecked")
+					mezz.jei.api.ingredients.IIngredientType<Object> type =
+						(mezz.jei.api.ingredients.IIngredientType<Object>) typed.getType();
+					String typeId = com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes
+						.getCanonicalId(type);
+					if (typeId == null || typeId.isBlank()) typeId = type.getUid();
+					List<EditorGenericIngredientView> views = EditorGenericIngredientHelper.buildViews(
+						List.of(new com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef(
+							typeId, type, typed.getIngredient())), "EditorHeaderIcon.generic");
+					if (!views.isEmpty()) entries.add(PreviewEntry.generic(views.getFirst()));
+				}
+			});
+		}
+		return List.copyOf(entries);
+	}
+
+	@Override
 	public PreviewLayout renderPreview(GuiGraphicsExtractor graphics, PreviewRect area, boolean expanded, int page,
-		AppearanceDraft appearance, List<ItemStack> headerIcons, List<ItemStack> items, Font font,
+		AppearanceDraft appearance, List<PreviewEntry> headerIcons, List<PreviewEntry> items, Font font,
 		PreviewFallbacks fallbacks) {
+		List<GroupPreviewEntry> convertedHeaders = convertPreviewEntries(headerIcons);
+		List<GroupPreviewEntry> convertedItems = convertPreviewEntries(items);
 		GroupSampleRenderer.Layout layout = GroupSampleRenderer.render(graphics, rect(area), expanded, page,
-			appearance.toTheme(), headerIcons, items, font, new GroupSampleRenderer.Fallbacks(
+			appearance.toTheme(), convertedHeaders, convertedItems, font, new GroupSampleRenderer.Fallbacks(
 				fallbacks.nameRgb(), fallbacks.collapsedHeaderArgb(), fallbacks.expandedHeaderArgb(),
 				fallbacks.expandedGroupArgb(), fallbacks.expandedBorderArgb()));
 		return layout(layout);
+	}
+
+	private static List<GroupPreviewEntry> convertPreviewEntries(List<PreviewEntry> entries) {
+		List<GroupPreviewEntry> converted = new ArrayList<>(entries.size());
+		for (PreviewEntry entry : entries) {
+			converted.add(switch (entry.kind()) {
+				case ITEM -> GroupPreviewEntry.ofItem((ItemStack) entry.value());
+				case FLUID -> GroupPreviewEntry.ofFluid(((EditorFluidIngredientView) entry.value()).ingredient());
+				case GENERIC -> {
+					EditorGenericIngredientView generic = (EditorGenericIngredientView) entry.value();
+					yield GroupPreviewEntry.ofGeneric(EditorGenericIngredientHelper.type(generic), generic.ingredient());
+				}
+			});
+		}
+		return List.copyOf(converted);
 	}
 
 	@Override

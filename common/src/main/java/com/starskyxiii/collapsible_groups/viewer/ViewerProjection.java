@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -73,7 +74,7 @@ public record ViewerProjection<E>(
 		int fluidCount,
 		int genericCount,
 		boolean expanded,
-		List<String> iconIds,
+		List<GroupIconDefinition> iconIds,
 		List<ViewerIngredient<E>> fallbackIconIngredients
 	) implements Entry<E> {
 		public GroupHeader {

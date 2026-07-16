@@ -17,7 +17,11 @@ class GroupConfigGoldenFixtureTest {
 		"localized-metadata.json",
 		"kubejs-item-id.json",
 		"kubejs-fluid-id.json",
-		"kubejs-generic-id.json"
+		"kubejs-generic-id.json",
+		"typed-icon-root-object.json",
+		"typed-icon-string-array.json",
+		"typed-icon-object-array.json",
+		"typed-icon-mixed-array.json"
 	})
 	void groupDefinitionIsSemanticallyStableAcrossRoundTrip(String fixtureName) throws IOException {
 		String source = readFixture(fixtureName);

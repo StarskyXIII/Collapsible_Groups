@@ -225,6 +225,7 @@
   "collapsible_groups.editor.save_blocked.readonly": "This filter is read-only: %s.",
   "collapsible_groups.editor.save_error": "Can't save this group yet.",
   "collapsible_groups.editor.search_hint": "Search...",
+  "collapsible_groups.editor.loading": "Loading group index...",
   "collapsible_groups.editor.search_syntax_tooltip": "Search in Name or ID\nUse @ to search by mod\nUse # to search by tag\nUse $ to search in tooltips",
   "collapsible_groups.editor.search_label": "Search",
   "collapsible_groups.editor.summary.fluids": "%s fluids",

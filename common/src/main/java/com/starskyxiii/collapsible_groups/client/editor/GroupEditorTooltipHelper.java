@@ -115,6 +115,11 @@ final class GroupEditorTooltipHelper {
 		}
 	}
 
+	static boolean shouldShowSearchSyntaxTooltip(boolean searchFieldVisible, EditorShellLayout.Rect bounds,
+		int mouseX, int mouseY) {
+		return searchFieldVisible && bounds.contains(mouseX, mouseY);
+	}
+
 	static List<Component> searchSyntaxLines() {
 		return java.util.Arrays.stream(Component.translatable(ModTranslationKeys.EDITOR_SEARCH_SYNTAX_TOOLTIP)
 			.getString().split("\\n", -1)).<Component>map(Component::literal).toList();
@@ -169,5 +174,11 @@ final class GroupEditorTooltipHelper {
 
 	private static Object fluidIngredient(EditorFluidIngredientView fluid) {
 		return fluid.ingredient();
+	}
+
+	static void render(GuiGraphicsExtractor g, int mouseX, int mouseY,
+		EditorLeftPanel left, EditorRightPanel right, GroupEditorState state,
+		Font font, EditorShellLayout shell, boolean hasGenericIngredients) {
+		render(g, mouseX, mouseY, left, right, state, font, shell);
 	}
 }

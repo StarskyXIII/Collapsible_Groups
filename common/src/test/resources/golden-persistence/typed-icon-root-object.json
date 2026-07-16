@@ -1,0 +1,6 @@
+{
+  "id": "typed_icon_root",
+  "name": "Typed Icon Root",
+  "icon": { "type": "fluid", "id": "minecraft:water" },
+  "filter": { "type": "fluid", "id": "minecraft:water" }
+}

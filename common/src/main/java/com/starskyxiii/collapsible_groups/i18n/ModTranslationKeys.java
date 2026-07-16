@@ -364,6 +364,7 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_SAVE_ERROR = "collapsible_groups.editor.save_error";
 
 	public static final String EDITOR_SEARCH_HINT = "collapsible_groups.editor.search_hint";
+	public static final String EDITOR_LOADING = "collapsible_groups.editor.loading";
 	public static final String EDITOR_SEARCH_SYNTAX_TOOLTIP = "collapsible_groups.editor.search_syntax_tooltip";
 
 	public static final String EDITOR_SEARCH_LABEL = "collapsible_groups.editor.search_label";

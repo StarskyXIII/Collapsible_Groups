@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
+import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.world.item.ItemStack;
@@ -114,10 +115,9 @@ public final class GroupSampleRenderer {
 	 * @return the full preview layout for hit-testing page buttons and header toggles.
 	 */
 	public static Layout render(GuiGraphicsExtractor g, Rect area, boolean expanded, int page, GroupTheme theme,
-	                            List<ItemStack> headerIcons, List<ItemStack> items,
+	                            List<GroupPreviewEntry> headerIcons, List<GroupPreviewEntry> items,
 	                            Font font, Fallbacks fallbacks) {
-		List<ItemStack> nonEmpty = filterNonEmpty(items);
-		Layout layout = layout(area, expanded, nonEmpty.size(), page);
+		Layout layout = layout(area, expanded, items.size(), page);
 
 		int expandedGroupBg = GroupThemeColors.expandedGroupBackground(theme, fallbacks.expandedGroupArgb());
 		int border = GroupThemeColors.expandedGroupBorder(theme, fallbacks.expandedBorderArgb());
@@ -130,13 +130,13 @@ public final class GroupSampleRenderer {
 			Rect rect = cell.rect();
 			if (cell.header()) {
 				g.fill(rect.x() - 1, rect.y() - 1, rect.x() + 17, rect.y() + 17, headerBg);
-				renderStackedItemIcons(g, filterNonEmpty(headerIcons), rect.x(), rect.y(), expanded, font);
+				renderStackedIcons(g, headerIcons, rect.x(), rect.y(), expanded, font);
 				if (expanded) {
 					borderPositions.add(new int[]{rect.x(), rect.y()});
 				}
 			} else {
 				g.fill(rect.x() - 1, rect.y() - 1, rect.x() + 17, rect.y() + 17, expandedGroupBg);
-				g.item(nonEmpty.get(cell.itemIndex()), rect.x(), rect.y());
+				items.get(cell.itemIndex()).render(g, rect.x(), rect.y());
 				borderPositions.add(new int[]{rect.x(), rect.y()});
 			}
 		}
@@ -164,20 +164,19 @@ public final class GroupSampleRenderer {
 	 * Draws up to two item icons stacked with a {@code +}/{@code -} indicator,
 	 * mirroring {@code GroupIconRenderer} (scale 0.9, offsets (2,0)/(0,2)).
 	 */
-	public static void renderStackedItemIcons(GuiGraphicsExtractor g, List<ItemStack> items, int x, int y,
+	public static void renderStackedIcons(GuiGraphicsExtractor g, List<GroupPreviewEntry> items, int x, int y,
 	                                          boolean expanded, Font font) {
-		List<ItemStack> nonEmpty = filterNonEmpty(items);
-		if (!nonEmpty.isEmpty()) {
+		if (!items.isEmpty()) {
 			g.pose().pushMatrix();
 			g.pose().translate(x, y);
 			g.nextStratum();
 			g.pose().scale(0.9f, 0.9f);
-			if (nonEmpty.size() == 1) {
-				g.item(nonEmpty.get(0), 1, 1);
+			if (items.size() == 1) {
+				items.getFirst().render(g, 1, 1);
 			} else {
-				g.item(nonEmpty.get(1), 2, 0);
+				items.get(1).render(g, 2, 0);
 				g.nextStratum();
-				g.item(nonEmpty.get(0), 0, 2);
+				items.getFirst().render(g, 0, 2);
 			}
 			g.pose().popMatrix();
 		}
@@ -201,13 +200,4 @@ public final class GroupSampleRenderer {
 		return Math.max(min, Math.min(max, value));
 	}
 
-	private static List<ItemStack> filterNonEmpty(List<ItemStack> items) {
-		List<ItemStack> out = new ArrayList<>();
-		for (ItemStack stack : items) {
-			if (stack != null && !stack.isEmpty()) {
-				out.add(stack);
-			}
-		}
-		return out;
-	}
 }

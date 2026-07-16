@@ -40,9 +40,11 @@ final class EditorGenericIngredientHelper {
 			IIngredientHelper<Object> helper = manager.getIngredientHelper(type);
 			IIngredientRenderer<Object> renderer = manager.getIngredientRenderer(type);
 			var resourceLocation = helper.getIdentifier(ref.ingredient());
+			Object uid = helper.getUid(ref.ingredient(), UidContext.Ingredient);
 			String resourceId = resourceLocation != null
 				? resourceLocation.toString()
-				: helper.getUid(ref.ingredient(), UidContext.Ingredient).toString();
+				: uid != null ? uid.toString() : helper.getErrorInfo(ref.ingredient());
+			String identityValueId = uid == null ? resourceId : uid.toString();
 			List<Component> tooltipLines = renderer.getTooltip(ref.ingredient(), TooltipFlag.Default.NORMAL);
 			Component displayName = tooltipLines.isEmpty() ? Component.literal(resourceId) : tooltipLines.getFirst();
 			Set<String> tagIds = helper.getTagStream(ref.ingredient())
@@ -53,7 +55,8 @@ final class EditorGenericIngredientHelper {
 			IngredientSearchDocument searchDocument = IngredientSearchDocument.of(
 				List.of(displayName.getString(), resourceId, ref.typeId()), List.of(namespace), tagIds);
 			result.add(new EditorGenericIngredientView(ref.typeId(), ref.ingredient(),
-				new JeiData(type, helper, renderer), displayName, resourceId, Set.copyOf(tagIds), searchDocument));
+				new JeiData(type, helper, renderer), displayName, resourceId, identityValueId,
+				Set.copyOf(tagIds), searchDocument));
 		}
 		List<EditorGenericIngredientView> copy = List.copyOf(result);
 		if (traceName != null && !traceName.isBlank()) {
@@ -105,6 +108,10 @@ final class EditorGenericIngredientHelper {
 
 	static String dragKey(EditorGenericIngredientView entry) {
 		return entry.typeId() + "|" + entry.resourceId();
+	}
+
+	static String identityValueId(EditorGenericIngredientView entry) {
+		return entry.identityValueId();
 	}
 
 	// Winner semantics: groups are priority-ordered, so the first match is the JEI
