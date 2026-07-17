@@ -13,6 +13,7 @@ import com.starskyxiii.collapsible_groups.client.manager.model.GroupAction;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupCardViewModel;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupSource;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.client.preview.PreviewGridLayout;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
@@ -43,6 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 public class GroupManagerScreen extends Screen implements GroupManagerParent {
@@ -136,6 +138,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private PendingBatchDelete pendingBatchDelete = null;
 	private String highlightedSavedGroupId = null;
 	private long highlightedSavedUntil = 0L;
+	private CompletableFuture<Void> pendingCardsRebuild;
 
 	public GroupManagerScreen(Screen previousScreen) {
 		super(Component.translatable(ModTranslationKeys.SCREEN_TITLE));
@@ -169,12 +172,28 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		int totalFluids = 0;
 		int totalGeneric = 0;
 		List<GroupManagerCard> cards = new ArrayList<>();
+		JeiViewerGroupIndex viewerIndex = JeiViewerGroupIndex.instance();
+		CompletableFuture<Void> readiness = viewerIndex.whenReady();
+		boolean generationPending = !readiness.isDone();
+		if (generationPending && readiness != pendingCardsRebuild) {
+			pendingCardsRebuild = readiness;
+			readiness.whenComplete((ignored, failure) -> Minecraft.getInstance().execute(() -> {
+				if (pendingCardsRebuild != readiness) return;
+				pendingCardsRebuild = null;
+				if (failure == null) rebuildCards();
+			}));
+		}
 
 		for (GroupDefinition group : GroupRegistry.getAllIncludingKubeJs()) {
-			GroupRegistry.FullMatchLookup<ItemStack> itemLookup = GroupRegistry.getFullMatchItemsLookup(group);
-			GroupRegistry.FullMatchLookup<Object> fluidLookup = GroupRegistry.getFullMatchFluidsLookup(group);
-			GroupRegistry.FullMatchLookup<GenericIngredientRef> genericLookup =
-				GroupRegistry.getFullMatchGenericIngredientsLookup(group);
+			GroupRegistry.FullMatchLookup<ItemStack> itemLookup = generationPending
+				? pendingLookup(GroupRegistry.getFullMatchItemsCached(group.id()))
+				: GroupRegistry.getFullMatchItemsLookup(group);
+			GroupRegistry.FullMatchLookup<Object> fluidLookup = generationPending
+				? pendingLookup(GroupRegistry.getFullMatchFluidsCached(group.id()))
+				: GroupRegistry.getFullMatchFluidsLookup(group);
+			GroupRegistry.FullMatchLookup<GenericIngredientRef> genericLookup = generationPending
+				? pendingLookup(GroupRegistry.getFullMatchGenericCached(group.id()))
+				: GroupRegistry.getFullMatchGenericIngredientsLookup(group);
 			cacheStats.record("item", group.id(), itemLookup);
 			cacheStats.record("fluid", group.id(), fluidLookup);
 			cacheStats.record("generic", group.id(), genericLookup);
@@ -204,6 +223,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				+ " totalItems=" + totalItems
 				+ " totalFluids=" + totalFluids
 				+ " totalGeneric=" + totalGeneric);
+	}
+
+	private static <T> GroupRegistry.FullMatchLookup<T> pendingLookup(List<T> cached) {
+		return new GroupRegistry.FullMatchLookup<>(cached == null ? List.of() : cached,
+			cached != null, cached == null ? "generation_pending" : null);
 	}
 
 	private void rebuildFilteredCards() {

@@ -38,32 +38,43 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		return thread;
 	});
 
-	private volatile @Nullable GroupCandidateIndex candidateIndex;
+	/** One coherently published ownership/cache generation. */
+	public record Generation(
+		GroupCandidateIndex candidates,
+		@Nullable Map<String, List<ItemStack>> resolvedItems,
+		@Nullable Map<String, List<Object>> resolvedFluids,
+		@Nullable Map<String, List<ItemStack>> fullMatchItems,
+		@Nullable Map<String, List<Object>> fullMatchFluids,
+		@Nullable Map<String, List<GenericIngredientRef>> fullMatchGeneric,
+		@Nullable Map<String, Set<String>> itemReverseIndex,
+		@Nullable Map<String, Set<String>> fluidReverseIndex
+	) {
+		public Generation {
+			resolvedItems = freezeNullableListMap(resolvedItems);
+			resolvedFluids = freezeNullableListMap(resolvedFluids);
+			fullMatchItems = freezeNullableListMap(fullMatchItems);
+			fullMatchFluids = freezeNullableListMap(fullMatchFluids);
+			fullMatchGeneric = freezeNullableListMap(fullMatchGeneric);
+			itemReverseIndex = freezeNullableSetMap(itemReverseIndex);
+			fluidReverseIndex = freezeNullableSetMap(fluidReverseIndex);
+		}
+	}
+
+	private volatile @Nullable Generation published;
 	private volatile ViewerIngredientUniverse<ITypedIngredient<?>> universe =
 		new ViewerIngredientUniverse<>(List.of());
 	private volatile CompletableFuture<Void> readyFuture = CompletableFuture.completedFuture(null);
-	private volatile @Nullable Supplier<GroupCandidateIndex> rebuildSource;
+	private volatile @Nullable Supplier<Generation> rebuildSource;
 	private volatile Executor completionExecutor = Runnable::run;
 	private volatile Runnable rebuildListener = () -> {};
 	private volatile List<GroupDefinition> currentGroups = List.of();
-	private long rebuildSequence;
-
-	private volatile @Nullable Map<String, List<ItemStack>> resolvedItemsByGroup;
-	private volatile @Nullable Map<String, List<Object>> resolvedFluidsByGroup;
-	private volatile @Nullable Map<String, List<ItemStack>> fullMatchItemsByGroup;
-	private volatile @Nullable Map<String, List<Object>> fullMatchFluidsByGroup;
-	private volatile @Nullable Map<String, List<GenericIngredientRef>> fullMatchGenericByGroup;
-	private volatile @Nullable Map<String, Set<String>> itemIdToGroupIds;
-	private volatile @Nullable Map<String, Set<String>> fluidIdToGroupIds;
-	private volatile boolean previewCachesValid;
+	private long resetSequence;
 
 	private JeiViewerGroupIndex() {}
 
-	public static JeiViewerGroupIndex instance() {
-		return INSTANCE;
-	}
+	public static JeiViewerGroupIndex instance() { return INSTANCE; }
 
-	public void configureRebuild(Supplier<GroupCandidateIndex> source, Executor completionExecutor,
+	public void configureRebuild(Supplier<Generation> source, Executor completionExecutor,
 		Runnable rebuildListener) {
 		this.rebuildSource = source;
 		this.completionExecutor = completionExecutor;
@@ -75,101 +86,115 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	public synchronized void reset() {
-		rebuildSequence++;
-		candidateIndex = null;
+		resetSequence++;
+		published = null;
 		universe = new ViewerIngredientUniverse<>(List.of());
 		readyFuture = CompletableFuture.completedFuture(null);
 		rebuildSource = null;
 		completionExecutor = Runnable::run;
 		rebuildListener = () -> {};
 		currentGroups = List.of();
-		clearResolvedCaches();
-		clearPreviewCaches();
 	}
 
+	/** Compatibility hook for viewer bootstrap resets. Prefer {@link #requestRebuild(List)}. */
 	public synchronized void invalidateCandidates() {
-		candidateIndex = null;
-		clearResolvedCaches();
+		published = null;
 	}
 
-	public void publishCandidateIndex(GroupCandidateIndex index, List<GroupDefinition> groups) {
-		candidateIndex = index;
-		refreshResolvedOwnership(index, groups);
+	public synchronized void publishGeneration(Generation generation) {
+		published = generation;
 	}
 
-	@Override
-	public Optional<GroupCandidateIndex> candidates() {
-		return Optional.ofNullable(candidateIndex);
+	/** Test/compatibility publication path; production rebuilds publish a complete generation. */
+	public synchronized void publishCandidateIndex(GroupCandidateIndex index, List<GroupDefinition> groups) {
+		Resolved resolved = resolve(index, groups);
+		Generation old = published;
+		published = new Generation(index, resolved.items(), resolved.fluids(),
+			old == null ? null : old.fullMatchItems(), old == null ? null : old.fullMatchFluids(),
+			old == null ? null : old.fullMatchGeneric(), resolved.itemIds(), resolved.fluidIds());
 	}
 
-	@Override
-	public boolean ready() {
-		return candidateIndex != null && resolvedItemsByGroup != null && resolvedFluidsByGroup != null;
+	@Override public Optional<GroupCandidateIndex> candidates() {
+		Generation current = published;
+		return current == null ? Optional.empty() : Optional.of(current.candidates());
 	}
 
-	@Override
-	public CompletableFuture<Void> whenReady() {
-		return readyFuture;
+	@Override public boolean ready() {
+		Generation current = published;
+		return readyFuture.isDone() && current != null
+			&& current.resolvedItems() != null && current.resolvedFluids() != null;
 	}
 
-	@Override
-	public Optional<String> resolveOwner(ViewerIngredientIdentity identity, List<GroupDefinition> groups) {
+	@Override public CompletableFuture<Void> whenReady() { return readyFuture; }
+
+	@Override public Optional<String> resolveOwner(ViewerIngredientIdentity identity,
+		List<GroupDefinition> groups) {
 		return Optional.ofNullable(resolveOwnership(groups).get(identity));
 	}
 
-	@Override
-	public Map<ViewerIngredientIdentity, String> resolveOwnership(List<GroupDefinition> groups) {
-		GroupCandidateIndex current = candidateIndex;
-		return current == null ? Map.of() : GroupProjectionEngine.resolveOwnership(current, groups);
+	@Override public Map<ViewerIngredientIdentity, String> resolveOwnership(List<GroupDefinition> groups) {
+		Generation current = published;
+		return current == null ? Map.of()
+			: GroupProjectionEngine.resolveOwnership(current.candidates(), groups);
 	}
 
-	@Override
-	public synchronized void onGroupChange(GroupChangeEvent.Kind kind, List<GroupDefinition> groups) {
+	@Override public synchronized void onGroupChange(GroupChangeEvent.Kind kind,
+		List<GroupDefinition> groups) {
 		currentGroups = List.copyOf(groups);
 		switch (kind) {
 			case ENABLED -> {
-				GroupCandidateIndex current = candidateIndex;
-				if (current != null) refreshResolvedOwnership(current, groups);
+				Generation current = published;
+				if (current != null) {
+					Resolved resolved = resolve(current.candidates(), groups);
+					published = new Generation(current.candidates(), resolved.items(), resolved.fluids(),
+						current.fullMatchItems(), current.fullMatchFluids(), current.fullMatchGeneric(),
+						resolved.itemIds(), resolved.fluidIds());
+				}
 			}
 			case STRUCTURE -> { }
 			case FULL, KUBEJS_REPLACE -> {
-				candidateIndex = null;
-				clearResolvedCaches();
-				clearPreviewCaches();
-				startConfiguredRebuild(groups);
+				// Keep the last candidate generation available to the render path while replacing it.
+				Generation current = published;
+				if (current != null) {
+					published = new Generation(current.candidates(), null, null, null, null, null, null, null);
+				}
+				startConfiguredRebuild();
 			}
 		}
 	}
 
-	private void startConfiguredRebuild(List<GroupDefinition> groups) {
-		Supplier<GroupCandidateIndex> source = rebuildSource;
-		if (source == null) {
-			readyFuture = CompletableFuture.completedFuture(null);
-			return;
-		}
-		long sequence = ++rebuildSequence;
-		CompletableFuture<GroupCandidateIndex> build = CompletableFuture.supplyAsync(source, REBUILD_EXECUTOR);
-		CompletableFuture<Void> published = build.thenAccept(index -> {
+	public synchronized CompletableFuture<Void> requestRebuild(List<GroupDefinition> groups) {
+		currentGroups = List.copyOf(groups);
+		startConfiguredRebuild();
+		return readyFuture;
+	}
+
+	private void startConfiguredRebuild() {
+		if (!readyFuture.isDone()) return;
+		Supplier<Generation> source = rebuildSource;
+		if (source == null) return;
+		long sequence = resetSequence;
+		CompletableFuture<Generation> build = CompletableFuture.supplyAsync(source, REBUILD_EXECUTOR);
+		CompletableFuture<Void> publication = build.thenAccept(generation -> {
 			synchronized (this) {
-				if (sequence != rebuildSequence) return;
-				publishCandidateIndex(index, currentGroups);
+				if (sequence != resetSequence) return;
+				publishGeneration(withCurrentEnabledState(generation));
 			}
 		});
-		readyFuture = published;
-		published.thenRunAsync(() -> {
+		readyFuture = publication;
+		publication.thenRunAsync(() -> {
 			synchronized (this) {
-				if (sequence != rebuildSequence) return;
+				if (sequence != resetSequence) return;
 			}
 			rebuildListener.run();
 		}, completionExecutor);
 	}
 
-	/** Starts the configured rebuild for a cold editor without ever running it on the render thread. */
+	/** Starts the configured rebuild for a cold editor without running it on the render thread. */
 	public synchronized CompletableFuture<Void> ensureReadyAsync(List<GroupDefinition> groups) {
 		currentGroups = List.copyOf(groups);
-		if (ready()) return CompletableFuture.completedFuture(null);
-		if (!readyFuture.isDone()) return readyFuture;
-		startConfiguredRebuild(groups);
+		if (published != null && readyFuture.isDone()) return CompletableFuture.completedFuture(null);
+		startConfiguredRebuild();
 		return readyFuture;
 	}
 
@@ -177,7 +202,26 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		return ensureReadyAsync(groups).thenRunAsync(warmCaches, REBUILD_EXECUTOR);
 	}
 
-	private void refreshResolvedOwnership(GroupCandidateIndex index, List<GroupDefinition> groups) {
+	private Generation withCurrentEnabledState(Generation generation) {
+		Map<String, GroupDefinition> snapshot = generation.candidates().groupSnapshot();
+		boolean unchanged = snapshot.size() == currentGroups.size();
+		if (unchanged) {
+			for (GroupDefinition group : currentGroups) {
+				GroupDefinition built = snapshot.get(group.id());
+				if (built == null || built.enabled() != group.enabled()) {
+					unchanged = false;
+					break;
+				}
+			}
+		}
+		if (unchanged) return generation;
+		Resolved resolved = resolve(generation.candidates(), currentGroups);
+		return new Generation(generation.candidates(), resolved.items(), resolved.fluids(),
+			generation.fullMatchItems(), generation.fullMatchFluids(), generation.fullMatchGeneric(),
+			resolved.itemIds(), resolved.fluidIds());
+	}
+
+	private Resolved resolve(GroupCandidateIndex index, List<GroupDefinition> groups) {
 		Map<ViewerIngredientIdentity, String> ownership = GroupProjectionEngine.resolveOwnership(index, groups);
 		Map<String, List<ItemStack>> items = new LinkedHashMap<>();
 		Map<String, List<Object>> fluids = new LinkedHashMap<>();
@@ -205,117 +249,129 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 				case GENERIC -> { }
 			}
 		}
-		setResolvedItemsByGroup(items);
-		setResolvedFluidsByGroup(fluids);
-		itemIdToGroupIds = freezeSetMap(itemIds);
-		fluidIdToGroupIds = freezeSetMap(fluidIds);
+		return new Resolved(items, fluids, itemIds, fluidIds);
 	}
+
+	private record Resolved(Map<String, List<ItemStack>> items, Map<String, List<Object>> fluids,
+		Map<String, Set<String>> itemIds, Map<String, Set<String>> fluidIds) {}
 
 	public @Nullable List<ItemStack> resolvedItems(String groupId) {
-		Map<String, List<ItemStack>> cache = resolvedItemsByGroup;
+		Map<String, List<ItemStack>> cache = resolvedItemsCache();
 		return cache == null ? null : cache.get(groupId);
 	}
-	public @Nullable Map<String, List<ItemStack>> resolvedItemsCache() { return resolvedItemsByGroup; }
-	public @Nullable Map<String, List<Object>> resolvedFluidsCache() { return resolvedFluidsByGroup; }
-
+	public @Nullable Map<String, List<ItemStack>> resolvedItemsCache() {
+		Generation current = published; return current == null ? null : current.resolvedItems();
+	}
+	public @Nullable Map<String, List<Object>> resolvedFluidsCache() {
+		Generation current = published; return current == null ? null : current.resolvedFluids();
+	}
 	public @Nullable List<Object> resolvedFluids(String groupId) {
-		Map<String, List<Object>> cache = resolvedFluidsByGroup;
-		return cache == null ? null : cache.get(groupId);
+		Map<String, List<Object>> cache = resolvedFluidsCache(); return cache == null ? null : cache.get(groupId);
+	}
+	public @Nullable Map<String, List<ItemStack>> fullMatchItems() {
+		Generation current = published; return current == null ? null : current.fullMatchItems();
+	}
+	public @Nullable Map<String, List<Object>> fullMatchFluids() {
+		Generation current = published; return current == null ? null : current.fullMatchFluids();
+	}
+	public @Nullable Map<String, List<GenericIngredientRef>> fullMatchGeneric() {
+		Generation current = published; return current == null ? null : current.fullMatchGeneric();
+	}
+	public @Nullable Map<String, Set<String>> itemReverseIndex() {
+		Generation current = published; return current == null ? null : current.itemReverseIndex();
+	}
+	public @Nullable Map<String, Set<String>> fluidReverseIndex() {
+		Generation current = published; return current == null ? null : current.fluidReverseIndex();
+	}
+	public boolean previewCachesValid() {
+		Generation current = published;
+		return current != null && current.fullMatchItems() != null
+			&& current.fullMatchFluids() != null && current.fullMatchGeneric() != null;
 	}
 
-	public @Nullable Map<String, List<ItemStack>> fullMatchItems() { return fullMatchItemsByGroup; }
-	public @Nullable Map<String, List<Object>> fullMatchFluids() { return fullMatchFluidsByGroup; }
-	public @Nullable Map<String, List<GenericIngredientRef>> fullMatchGeneric() { return fullMatchGenericByGroup; }
-	public @Nullable Map<String, Set<String>> itemReverseIndex() { return itemIdToGroupIds; }
-	public @Nullable Map<String, Set<String>> fluidReverseIndex() { return fluidIdToGroupIds; }
-	public boolean previewCachesValid() { return previewCachesValid; }
-
-	public void setResolvedItemsByGroup(Map<String, List<ItemStack>> values) {
-		resolvedItemsByGroup = freezeListMap(values);
+	public synchronized void setResolvedItemsByGroup(Map<String, List<ItemStack>> values) {
+		Generation g = baseGeneration(); published = new Generation(g.candidates(), values, g.resolvedFluids(),
+			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex());
 	}
-	public void setResolvedFluidsByGroup(Map<String, List<Object>> values) {
-		resolvedFluidsByGroup = freezeListMap(values);
+	public synchronized void setResolvedFluidsByGroup(Map<String, List<Object>> values) {
+		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), values,
+			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex());
 	}
-	public void setFullMatchItemsByGroup(Map<String, List<ItemStack>> values) {
-		fullMatchItemsByGroup = freezeListMap(values);
-		previewCachesValid = true;
+	public synchronized void setFullMatchItemsByGroup(Map<String, List<ItemStack>> values) {
+		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
+			values, g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex());
 	}
-	public void setFullMatchFluidsByGroup(Map<String, List<Object>> values) {
-		fullMatchFluidsByGroup = freezeListMap(values);
-		previewCachesValid = true;
+	public synchronized void setFullMatchFluidsByGroup(Map<String, List<Object>> values) {
+		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
+			g.fullMatchItems(), values, g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex());
 	}
-	public void setFullMatchGenericByGroup(Map<String, List<GenericIngredientRef>> values) {
-		fullMatchGenericByGroup = freezeListMap(values);
-		previewCachesValid = true;
+	public synchronized void setFullMatchGenericByGroup(Map<String, List<GenericIngredientRef>> values) {
+		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
+			g.fullMatchItems(), g.fullMatchFluids(), values, g.itemReverseIndex(), g.fluidReverseIndex());
 	}
-	public void setItemReverseIndex(Map<String, Set<String>> values) { itemIdToGroupIds = freezeSetMap(values); }
-	public void setFluidReverseIndex(Map<String, Set<String>> values) { fluidIdToGroupIds = freezeSetMap(values); }
-
-	public void clearResolvedCaches() {
-		resolvedItemsByGroup = null;
-		resolvedFluidsByGroup = null;
-		itemIdToGroupIds = null;
-		fluidIdToGroupIds = null;
+	public synchronized void setItemReverseIndex(Map<String, Set<String>> values) {
+		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
+			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), values, g.fluidReverseIndex());
+	}
+	public synchronized void setFluidReverseIndex(Map<String, Set<String>> values) {
+		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
+			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), values);
 	}
 
-	public void clearPreviewCaches() {
-		fullMatchItemsByGroup = null;
-		fullMatchFluidsByGroup = null;
-		fullMatchGenericByGroup = null;
-		previewCachesValid = false;
+	public synchronized void clearResolvedCaches() {
+		if (published == null) return; Generation g = published;
+		published = new Generation(g.candidates(), null, null, g.fullMatchItems(), g.fullMatchFluids(),
+			g.fullMatchGeneric(), null, null);
 	}
-
+	public synchronized void clearPreviewCaches() {
+		if (published == null) return; Generation g = published;
+		published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(), null, null, null,
+			g.itemReverseIndex(), g.fluidReverseIndex());
+	}
 	public void invalidateFirstMatch(String groupId) {
-		Map<String, List<ItemStack>> items = resolvedItemsByGroup;
-		if (items != null) items.remove(groupId);
-		Map<String, List<Object>> fluids = resolvedFluidsByGroup;
-		if (fluids != null) fluids.remove(groupId);
+		Map<String, List<ItemStack>> items = resolvedItemsCache(); if (items != null) items.remove(groupId);
+		Map<String, List<Object>> fluids = resolvedFluidsCache(); if (fluids != null) fluids.remove(groupId);
 	}
-
 	public void invalidateFullMatch(String groupId) {
-		Map<String, List<ItemStack>> items = fullMatchItemsByGroup;
-		if (items != null) items.remove(groupId);
-		Map<String, List<Object>> fluids = fullMatchFluidsByGroup;
-		if (fluids != null) fluids.remove(groupId);
-		Map<String, List<GenericIngredientRef>> generic = fullMatchGenericByGroup;
-		if (generic != null) generic.remove(groupId);
+		Map<String, List<ItemStack>> items = fullMatchItems(); if (items != null) items.remove(groupId);
+		Map<String, List<Object>> fluids = fullMatchFluids(); if (fluids != null) fluids.remove(groupId);
+		Map<String, List<GenericIngredientRef>> generic = fullMatchGeneric(); if (generic != null) generic.remove(groupId);
+	}
+	public synchronized Map<String, List<ItemStack>> ensureFullMatchItems() {
+		Map<String, List<ItemStack>> cache = fullMatchItems();
+		if (cache != null) return cache;
+		setFullMatchItemsByGroup(Map.of()); return fullMatchItems();
+	}
+	public synchronized Map<String, List<Object>> ensureFullMatchFluids() {
+		Map<String, List<Object>> cache = fullMatchFluids();
+		if (cache != null) return cache;
+		setFullMatchFluidsByGroup(Map.of()); return fullMatchFluids();
+	}
+	public synchronized Map<String, List<GenericIngredientRef>> ensureFullMatchGeneric() {
+		Map<String, List<GenericIngredientRef>> cache = fullMatchGeneric();
+		if (cache != null) return cache;
+		setFullMatchGenericByGroup(Map.of()); return fullMatchGeneric();
 	}
 
-	public Map<String, List<ItemStack>> ensureFullMatchItems() {
-		Map<String, List<ItemStack>> cache = fullMatchItemsByGroup;
-		if (cache != null) return cache;
-		synchronized (this) {
-			if (fullMatchItemsByGroup == null) fullMatchItemsByGroup = new ConcurrentHashMap<>();
-			previewCachesValid = true;
-			return fullMatchItemsByGroup;
-		}
-	}
-	public Map<String, List<Object>> ensureFullMatchFluids() {
-		Map<String, List<Object>> cache = fullMatchFluidsByGroup;
-		if (cache != null) return cache;
-		synchronized (this) {
-			if (fullMatchFluidsByGroup == null) fullMatchFluidsByGroup = new ConcurrentHashMap<>();
-			previewCachesValid = true;
-			return fullMatchFluidsByGroup;
-		}
-	}
-	public Map<String, List<GenericIngredientRef>> ensureFullMatchGeneric() {
-		Map<String, List<GenericIngredientRef>> cache = fullMatchGenericByGroup;
-		if (cache != null) return cache;
-		synchronized (this) {
-			if (fullMatchGenericByGroup == null) fullMatchGenericByGroup = new ConcurrentHashMap<>();
-			previewCachesValid = true;
-			return fullMatchGenericByGroup;
-		}
+	private Generation baseGeneration() {
+		Generation current = published;
+		if (current != null) return current;
+		return new Generation(new GroupCandidateIndex(Map.of(), Map.of(), 0, 0, 0),
+			null, null, null, null, null, null, null);
 	}
 
-	private static <T> Map<String, List<T>> freezeListMap(Map<String, List<T>> values) {
+	private static <T> @Nullable Map<String, List<T>> freezeNullableListMap(
+		@Nullable Map<String, List<T>> values) {
+		if (values == null) return null;
+		if (values instanceof ConcurrentHashMap<?, ?>) return values;
 		Map<String, List<T>> copy = new ConcurrentHashMap<>(Math.max(16, values.size() * 2));
 		values.forEach((key, value) -> copy.put(key, List.copyOf(value)));
 		return copy;
 	}
-
-	private static Map<String, Set<String>> freezeSetMap(Map<String, Set<String>> values) {
+	private static @Nullable Map<String, Set<String>> freezeNullableSetMap(
+		@Nullable Map<String, Set<String>> values) {
+		if (values == null) return null;
+		if (values instanceof ConcurrentHashMap<?, ?>) return values;
 		Map<String, Set<String>> copy = new ConcurrentHashMap<>(Math.max(16, values.size() * 2));
 		values.forEach((key, value) -> copy.put(key, Set.copyOf(value)));
 		return copy;
