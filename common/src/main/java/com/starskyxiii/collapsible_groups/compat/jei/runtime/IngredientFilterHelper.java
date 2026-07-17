@@ -25,7 +25,8 @@ import java.util.function.Function;
  * <p>Only contains logic that does not depend on {@code IElement} or other
  * GUI classes, because those are only available in loader-specific JEI artifacts.
  *
- * <p>Build results are written directly into {@link GroupRegistry}'s static caches via {@link #publish}.
+	 * <p>The optimized build can be returned without side effects so callers can publish a complete
+	 * cache generation atomically.
  */
 public final class IngredientFilterHelper {
 	private static final String STARTUP_INDEX_VERIFY_OVERRIDE =
@@ -49,9 +50,17 @@ public final class IngredientFilterHelper {
 	public static Map<ITypedIngredient<?>, GroupDefinition> buildItemGroupIndex(
 		List<ITypedIngredient<?>> all
 	) {
+		ItemOwnershipBuildResult result = buildItemOwnershipResult(all, GroupRegistry.getAllIncludingKubeJs());
+		publish(result);
+		return result.ingredientGroupIndex();
+	}
+
+	public static ItemOwnershipBuildResult buildItemOwnershipResult(
+		List<ITypedIngredient<?>> all,
+		List<GroupDefinition> allGroups
+	) {
 		boolean startupIndexVerifyEnabled = isStartupIndexVerifyEnabled();
 		long traceStart = PerformanceTrace.begin();
-		List<GroupDefinition> allGroups = GroupRegistry.getAllIncludingKubeJs();
 		long itemGroups = allGroups.stream().filter(GroupDefinition::hasItemFilters).count();
 
 		IngredientFilterItemIndex itemIndex = IngredientFilterItemIndex.build(all);
@@ -74,7 +83,6 @@ public final class IngredientFilterHelper {
 			}
 		}
 
-		publish(optimizedResult);
 		PerformanceTrace.logIfSlow("IngredientFilterHelper.buildItemGroupIndex", traceStart, 20,
 			"mode=" + mode
 				+ " ingredients=" + all.size()
@@ -84,7 +92,7 @@ public final class IngredientFilterHelper {
 				+ " fullMatchGroups=" + optimizedResult.fullMatchEntriesByGroup().size()
 				+ " itemIds=" + optimizedResult.itemIdToGroupIds().size()
 				+ " indexSize=" + optimizedResult.ingredientGroupIndex().size());
-		return optimizedResult.ingredientGroupIndex();
+		return optimizedResult;
 	}
 
 	static ItemOwnershipBuildResult buildReferenceItemOwnershipResult(
@@ -232,7 +240,7 @@ public final class IngredientFilterHelper {
 		return Map.copyOf(copy);
 	}
 
-	private static Map<String, List<ItemStack>> toStackMap(
+	public static Map<String, List<ItemStack>> toStackMap(
 		Map<String, List<IngredientFilterItemIndex.ItemEntry>> entriesByGroup
 	) {
 		Map<String, List<ItemStack>> stacksByGroup = new HashMap<>(Math.max(16, entriesByGroup.size() * 2));

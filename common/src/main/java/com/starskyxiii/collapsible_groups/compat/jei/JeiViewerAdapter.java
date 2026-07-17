@@ -182,6 +182,32 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		return result;
 	}
 
+	/** Builds candidates from matches already collected by the optimized per-kind indexers. */
+	public GroupCandidateIndex buildOwnershipIndexFromMatches(
+		List<ITypedIngredient<?>> ingredients,
+		IIngredientManager manager,
+		List<GroupDefinition> groups,
+		Map<ITypedIngredient<?>, List<String>> matches
+	) {
+		updateBootstrap(ingredients, manager);
+		ViewerIngredientUniverse<ITypedIngredient<?>> universe = bootstrapContext.universe();
+		JeiViewerGroupIndex.instance().updateUniverse(universe);
+		Map<ViewerIngredientIdentity, List<String>> candidates = new LinkedHashMap<>();
+		long edges = 0;
+		int maxCandidates = 0;
+		for (ViewerIngredient<ITypedIngredient<?>> ingredient : universe.ordered()) {
+			List<String> groupIds = matches.get(ingredient.entry());
+			if (groupIds == null || groupIds.isEmpty()) continue;
+			List<String> frozen = List.copyOf(groupIds);
+			candidates.put(ingredient.identity(), frozen);
+			edges += frozen.size();
+			maxCandidates = Math.max(maxCandidates, frozen.size());
+		}
+		Map<String, GroupDefinition> snapshot = new LinkedHashMap<>();
+		for (GroupDefinition group : groups) snapshot.put(group.id(), group);
+		return new GroupCandidateIndex(candidates, snapshot, edges, candidates.size(), maxCandidates);
+	}
+
 	public ViewerProjection<ITypedIngredient<?>> project(
 		List<ITypedIngredient<?>> filtered,
 		String searchText,

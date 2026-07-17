@@ -245,9 +245,15 @@ class GroupRegistryLifecycleTest {
 	}
 
 	private static Map<?, ?> cache(String fieldName) throws ReflectiveOperationException {
-		Field field = JeiViewerGroupIndex.class.getDeclaredField(fieldName);
-		field.setAccessible(true);
-		return (Map<?, ?>) field.get(JeiViewerGroupIndex.instance());
+		JeiViewerGroupIndex index = JeiViewerGroupIndex.instance();
+		return switch (fieldName) {
+			case "resolvedItemsByGroup" -> index.resolvedItemsCache();
+			case "resolvedFluidsByGroup" -> index.resolvedFluidsCache();
+			case "fullMatchItemsByGroup" -> index.fullMatchItems();
+			case "fullMatchFluidsByGroup" -> index.fullMatchFluids();
+			case "fullMatchGenericByGroup" -> index.fullMatchGeneric();
+			default -> throw new NoSuchFieldException(fieldName);
+		};
 	}
 
 	private static void resetRegistryState() throws Exception {
