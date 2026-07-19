@@ -13,6 +13,8 @@ import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator;
+import com.starskyxiii.collapsible_groups.group.filter.FilterNodeCapabilities;
+import com.starskyxiii.collapsible_groups.group.filter.FilterNodeKind;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import com.starskyxiii.collapsible_groups.platform.Services;
@@ -34,6 +36,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 public final class GroupConfig {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+	private static final int UNAVAILABLE_WARNING_LIMIT = 10;
 
 	private GroupConfig() {}
 
@@ -207,6 +210,7 @@ public final class GroupConfig {
 
 	private static List<GroupDefinition> loadFromDir(Path dir) throws IOException {
 		List<GroupDefinition> result = new ArrayList<>();
+		AtomicInteger unavailableWarnings = new AtomicInteger();
 		try (var stream = Files.list(dir)) {
 			stream.filter(p -> p.toString().endsWith(".json"))
 				.sorted()
@@ -214,7 +218,20 @@ public final class GroupConfig {
 					try {
 						String json = Files.readString(path, StandardCharsets.UTF_8);
 						GroupDefinition def = fromJson(json);
-						if (def != null) result.add(def);
+						if (def != null) {
+							result.add(def);
+							if (def.hasUnavailableFilter()) {
+								int warningIndex = unavailableWarnings.getAndIncrement();
+								if (warningIndex < UNAVAILABLE_WARNING_LIMIT) {
+									Constants.LOG.warn(
+										"Group '{}' contains unavailable filter node(s) {} and will remain inert until supported; raw JSON is preserved.",
+										def.id(), FilterNodeCapabilities.unavailableKinds(def.filter())
+									);
+								} else if (warningIndex == UNAVAILABLE_WARNING_LIMIT) {
+									Constants.LOG.warn("Additional groups with unavailable filter nodes were loaded; further warnings are suppressed.");
+								}
+							}
+						}
 					} catch (Exception e) {
 						Constants.LOG.error("Failed to parse group file: {}", path, e);
 					}
@@ -463,7 +480,7 @@ public final class GroupConfig {
 
 		if (!group.iconIds().isEmpty()) {
 			if (group.iconIds().size() == 1) {
-				obj.add("icon", serializeIcon(group.iconIds().getFirst()));
+				obj.add("icon", serializeIcon(group.iconIds().get(0)));
 			} else {
 				JsonArray iconArr = new JsonArray();
 				group.iconIds().forEach(icon -> iconArr.add(serializeIcon(icon)));
@@ -509,6 +526,10 @@ public final class GroupConfig {
 
 	// package-private for testing (GroupConfigComponentPathTest)
 	static GroupFilter parseFilter(JsonObject obj) {
+		FilterNodeKind kind = nodeKind(obj);
+		if (kind == FilterNodeKind.UNKNOWN || !FilterNodeCapabilities.isAvailable(kind)) {
+			return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
+		}
 		if (obj.has("any")) {
 			List<GroupFilter> children = new ArrayList<>();
 			obj.getAsJsonArray("any").forEach(element -> children.add(parseFilter(element.getAsJsonObject())));
@@ -586,6 +607,9 @@ public final class GroupConfig {
 
 	// package-private for testing (GroupConfigComponentPathTest)
 	static JsonObject serializeFilter(GroupFilter filter) {
+		if (filter instanceof GroupFilter.Unsupported unsupported) {
+			return unsupported.rawJson();
+		}
 		JsonObject obj = new JsonObject();
 		switch (filter) {
 			case GroupFilter.Any any -> {
@@ -630,8 +654,35 @@ public final class GroupConfig {
 				obj.addProperty("path", cp.path());
 				obj.addProperty("value", cp.expectedValue());
 			}
+			case GroupFilter.Unsupported ignored -> throw new AssertionError("Unsupported nodes return before serialization switch");
 		}
 		return obj;
+	}
+
+	private static FilterNodeKind nodeKind(JsonObject obj) {
+		if (obj.has("any")) return FilterNodeKind.ANY;
+		if (obj.has("all")) return FilterNodeKind.ALL;
+		if (obj.has("not")) return FilterNodeKind.NOT;
+		if (obj.has("component")) return obj.has("path") ? FilterNodeKind.COMPONENT_PATH : FilterNodeKind.HAS_COMPONENT;
+		if (obj.has("stack")) return FilterNodeKind.EXACT_STACK;
+		if (obj.has("block_tag")) return FilterNodeKind.BLOCK_TAG;
+		if (obj.has("item_path_starts_with")) return FilterNodeKind.ITEM_PATH_STARTS_WITH;
+		if (obj.has("item_path_contains")) return FilterNodeKind.ITEM_PATH_CONTAINS;
+		if (obj.has("item_path_ends_with")) return FilterNodeKind.ITEM_PATH_ENDS_WITH;
+		if (obj.has("id")) return FilterNodeKind.ID;
+		if (obj.has("tag")) return FilterNodeKind.TAG;
+		if (obj.has("namespace")) return FilterNodeKind.NAMESPACE;
+		return FilterNodeKind.UNKNOWN;
+	}
+
+	private static String recognizedKind(JsonObject obj, FilterNodeKind kind) {
+		if (kind != FilterNodeKind.UNKNOWN) {
+			return kind.name().toLowerCase(java.util.Locale.ROOT);
+		}
+		for (String key : obj.keySet()) {
+			if (!"type".equals(key)) return key;
+		}
+		return "unknown";
 	}
 
 	private static void deleteIfGroupIdMatches(Path path, String id, AtomicInteger deletedCount) {

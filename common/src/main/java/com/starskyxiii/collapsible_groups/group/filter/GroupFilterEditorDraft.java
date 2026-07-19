@@ -47,7 +47,8 @@ public final class GroupFilterEditorDraft {
 		NAMESPACE(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NAMESPACE_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NAMESPACE_REASON),
 		NESTED_STRUCTURE(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NESTED_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NESTED_REASON),
 		HAS_COMPONENT(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_HAS_COMPONENT_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_HAS_COMPONENT_REASON),
-		COMPONENT_PATH(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_COMPONENT_PATH_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_COMPONENT_PATH_REASON);
+		COMPONENT_PATH(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_COMPONENT_PATH_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_COMPONENT_PATH_REASON),
+		UNAVAILABLE(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_UNAVAILABLE_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_UNAVAILABLE_REASON);
 
 		private final String labelKey;
 		private final String reasonKey;
@@ -181,7 +182,8 @@ public final class GroupFilterEditorDraft {
 
 	private static DecodeResult finishDecode(GroupFilterEditorDraft draft,
 	                                         Set<UnsupportedEditorNodeKind> unsupportedNodeKinds) {
-		return new DecodeResult(draft, true, List.copyOf(draft.preservedSubtrees), unsupportedNodeKinds);
+		boolean editable = !unsupportedNodeKinds.contains(UnsupportedEditorNodeKind.UNAVAILABLE);
+		return new DecodeResult(draft, editable, List.copyOf(draft.preservedSubtrees), unsupportedNodeKinds);
 	}
 
 	/**
@@ -278,14 +280,14 @@ public final class GroupFilterEditorDraft {
 		// superfluous Any wrap, so a rules-only filter is not structurally deformed by a
 		// no-op pass through the contents editor.
 		if (flat.isEmpty() && preservedSubtrees.size() == 1) {
-			return Optional.of(preservedSubtrees.getFirst());
+			return Optional.of(preservedSubtrees.get(0));
 		}
 		// Stable order: preserved advanced subtrees first, then flat contents leaves.
 		List<GroupFilter> nodes = new ArrayList<>(preservedSubtrees.size() + flat.size());
 		nodes.addAll(preservedSubtrees);
 		nodes.addAll(flat);
 		if (nodes.size() == 1) {
-			return Optional.of(nodes.getFirst());
+			return Optional.of(nodes.get(0));
 		}
 		return Optional.of(Filters.any(nodes.toArray(GroupFilter[]::new)));
 	}
@@ -336,6 +338,7 @@ public final class GroupFilterEditorDraft {
 			case GroupFilter.Namespace ignored -> kinds.add(UnsupportedEditorNodeKind.NAMESPACE);
 			case GroupFilter.HasComponent ignored -> kinds.add(UnsupportedEditorNodeKind.HAS_COMPONENT);
 			case GroupFilter.ComponentPath ignored -> kinds.add(UnsupportedEditorNodeKind.COMPONENT_PATH);
+			case GroupFilter.Unsupported ignored -> kinds.add(UnsupportedEditorNodeKind.UNAVAILABLE);
 			// Supported leaves can appear inside a preserved composite; they contribute no kind.
 			case GroupFilter.Id ignored -> { }
 			case GroupFilter.Tag ignored -> { }

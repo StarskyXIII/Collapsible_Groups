@@ -160,7 +160,7 @@ final class GroupEditorTooltipHelper {
 	private static void appendOtherGroups(List<Component> lines, List<String> groups) {
 		if (groups.isEmpty()) return;
 		lines.add(Component.translatable(ModTranslationKeys.EDITOR_OVERLAP_SHOWN_BY,
-			Component.literal(groups.getFirst()).withStyle(ChatFormatting.YELLOW))
+			Component.literal(groups.get(0)).withStyle(ChatFormatting.YELLOW))
 			.withStyle(ChatFormatting.GOLD));
 	}
 

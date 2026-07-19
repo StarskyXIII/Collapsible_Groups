@@ -69,7 +69,7 @@ class BlockTagEditorDraftTest {
 			GroupFilterClauseFormatter.format(new GroupFilter.BlockTag("minecraft:logs"));
 
 		assertEquals(1, clauses.size());
-		assertEquals("Block Tag", clauses.getFirst().label());
-		assertEquals("minecraft:logs", clauses.getFirst().value());
+		assertEquals("Block Tag", clauses.get(0).label());
+		assertEquals("minecraft:logs", clauses.get(0).value());
 	}
 }

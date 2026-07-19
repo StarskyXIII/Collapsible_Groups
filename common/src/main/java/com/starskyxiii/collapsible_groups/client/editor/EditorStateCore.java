@@ -28,6 +28,7 @@ final class EditorStateCore {
 	private final GroupFilterRuleDraft ruleDraft;
 	private final Runnable onRulesDraftChanged;
 	private final boolean saveAsNew;
+	private final boolean readOnlyFilter;
 	@Nullable
 	private final String sourceGroupId;
 
@@ -66,9 +67,10 @@ final class EditorStateCore {
 	) {
 		this.existingDefinition = existingDefinition;
 		this.saveAsNew = saveAsNew;
+		this.readOnlyFilter = existingDefinition != null && existingDefinition.hasUnavailableFilter();
 		this.sourceGroupId = normalizeSourceGroupId(sourceGroupId);
 		this.onRulesDraftChanged = Objects.requireNonNull(onRulesDraftChanged, "onRulesDraftChanged");
-		this.ruleDraft = existingDefinition != null
+		this.ruleDraft = existingDefinition != null && !readOnlyFilter
 			? GroupFilterRuleDraft.decode(existingDefinition.filter())
 			: GroupFilterRuleDraft.empty();
 		this.selectedRuleNode = ruleDraft.root();
@@ -92,6 +94,9 @@ final class EditorStateCore {
 	}
 
 	Optional<GroupFilter> buildCurrentFilter() {
+		if (readOnlyFilter) {
+			return Optional.of(existingDefinition.filter());
+		}
 		return ruleDraft.toFilter();
 	}
 
@@ -147,8 +152,8 @@ final class EditorStateCore {
 	 * A hybrid draft is {@code editable=true} but {@code flatIndexSafe=false}.
 	 */
 	void setContentsEditability(boolean editable, boolean flatIndexSafe) {
-		this.contentsQuickEditAvailable = editable;
-		this.flatIndexPreviewSafe = flatIndexSafe;
+		this.contentsQuickEditAvailable = editable && !readOnlyFilter;
+		this.flatIndexPreviewSafe = flatIndexSafe && !readOnlyFilter;
 	}
 
 	void setContentsQuickEditAvailable(boolean contentsQuickEditAvailable) {
@@ -255,7 +260,7 @@ final class EditorStateCore {
 		if (!errors.isEmpty()) {
 			return List.of(
 				Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR),
-				errors.getFirst()
+				errors.get(0)
 			);
 		}
 		return List.of();
@@ -286,6 +291,9 @@ final class EditorStateCore {
 	}
 
 	String contentsEditStatusLabel() {
+		if (readOnlyFilter) {
+			return Component.translatable(ModTranslationKeys.EDITOR_FILTER_UNAVAILABLE).getString();
+		}
 		return Component.translatable(contentsQuickEditAvailable
 			? ModTranslationKeys.EDITOR_FILTER_EDITABLE
 			: ModTranslationKeys.EDITOR_FILTER_READONLY).getString();
@@ -311,19 +319,20 @@ final class EditorStateCore {
 	}
 
 	boolean canInsertRuleRelative() {
-		return ruleDraft.canInsertRelativeTo(selectedRuleNode);
+		return !readOnlyFilter && ruleDraft.canInsertRelativeTo(selectedRuleNode);
 	}
 
 	boolean canWrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
-		return ruleDraft.canWrap(selectedRuleNode, kind);
+		return !readOnlyFilter && ruleDraft.canWrap(selectedRuleNode, kind);
 	}
 
 	boolean canDeleteSelectedRule() {
-		return selectedRuleNode != null;
+		return !readOnlyFilter && selectedRuleNode != null;
 	}
 
 	@Nullable
 	GroupFilterRuleDraft.Node insertRuleRelative(GroupFilterRuleDraft.NodeKind kind) {
+		if (readOnlyFilter) return null;
 		GroupFilterRuleDraft.Node node = ruleDraft.insertRelativeTo(selectedRuleNode, kind);
 		if (node != null) {
 			selectedRuleNode = node;
@@ -364,7 +373,7 @@ final class EditorStateCore {
 
 	@Nullable
 	GroupFilterRuleDraft.Node wrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
-		if (selectedRuleNode == null) {
+		if (readOnlyFilter || selectedRuleNode == null) {
 			return null;
 		}
 		GroupFilterRuleDraft.Node node = ruleDraft.wrap(selectedRuleNode, kind);
@@ -376,10 +385,11 @@ final class EditorStateCore {
 	}
 
 	boolean canMoveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent) {
-		return ruleDraft.canMove(node, targetParent);
+		return !readOnlyFilter && ruleDraft.canMove(node, targetParent);
 	}
 
 	boolean moveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent, int index) {
+		if (readOnlyFilter) return false;
 		if (!ruleDraft.moveNode(node, targetParent, index)) {
 			return false;
 		}
@@ -389,7 +399,7 @@ final class EditorStateCore {
 	}
 
 	void deleteSelectedRule() {
-		if (selectedRuleNode == null) {
+		if (readOnlyFilter || selectedRuleNode == null) {
 			return;
 		}
 		selectedRuleNode = ruleDraft.delete(selectedRuleNode);
@@ -400,7 +410,7 @@ final class EditorStateCore {
 	}
 
 	void markRulesChanged() {
-		onRulesDraftChanged.run();
+		if (!readOnlyFilter) onRulesDraftChanged.run();
 	}
 
 	List<Component> currentValidationErrors() {

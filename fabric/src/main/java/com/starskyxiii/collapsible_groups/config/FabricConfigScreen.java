@@ -290,7 +290,7 @@ public class FabricConfigScreen extends Screen {
 		newData.ui.showGroupBackgrounds                            = showGroupBackgrounds;
 		newData.ui.searchUngroupSmallGroups                        = searchUngroupSmallGroups;
 		newData.ui.searchUngroupThreshold                          = readNonNegativeInt(
-			integerFields.isEmpty() ? "" : integerFields.getFirst().getValue(),
+			integerFields.isEmpty() ? "" : integerFields.get(0).getValue(),
 			searchUngroupThreshold);
 		newData.ui.collapsedGroupBackgroundColor                   = existingData.ui.collapsedGroupBackgroundColor;
 		newData.ui.expandedGroupBackgroundColor                    = existingData.ui.expandedGroupBackgroundColor;

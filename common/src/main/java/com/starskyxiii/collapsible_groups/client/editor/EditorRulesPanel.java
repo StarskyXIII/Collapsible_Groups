@@ -15,6 +15,8 @@ import com.starskyxiii.collapsible_groups.group.filter.ComponentPathNavigator;
 import com.starskyxiii.collapsible_groups.group.filter.ComponentReferenceExtractor;
 import com.starskyxiii.collapsible_groups.group.filter.EncodedValueNormalizer;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
+import com.starskyxiii.collapsible_groups.group.filter.FilterNodeCapabilities;
+import com.starskyxiii.collapsible_groups.group.filter.FilterNodeKind;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchQuery;
 import com.starskyxiii.collapsible_groups.ingredient.ItemUniverseProvider;
@@ -541,7 +543,7 @@ final class EditorRulesPanel {
 		if (flat.isEmpty()) {
 			return;
 		}
-		GroupFilterRuleDraft.Node root = flat.getFirst().node();
+		GroupFilterRuleDraft.Node root = flat.get(0).node();
 		String rootChip = chipLabel(root);
 		int leafCount = RuleNodePresentation.countLeafRules(flat);
 		String text = Component.translatable(ModTranslationKeys.EDITOR_RULES_TOOLBAR_INFO, rootChip, leafCount)
@@ -771,13 +773,23 @@ final class EditorRulesPanel {
 
 	private List<MenuEntry> menuEntries() {
 		if (!menuGroupMode) {
-			return CONDITION_ENTRIES;
+			return CONDITION_ENTRIES.stream()
+				.filter(entry -> FilterNodeCapabilities.isEditorConditionExposed(capabilityKind(entry.kind())))
+				.toList();
 		}
-		List<MenuEntry> entries = new ArrayList<>(GROUP_INSERT_ENTRIES);
+		List<MenuEntry> entries = new ArrayList<>(GROUP_INSERT_ENTRIES.stream()
+			.filter(entry -> FilterNodeCapabilities.isEditorConditionExposed(capabilityKind(entry.kind())))
+			.toList());
 		if (state.selectedRuleNode() != null) {
-			entries.addAll(GROUP_WRAP_ENTRIES);
+			GROUP_WRAP_ENTRIES.stream()
+				.filter(entry -> FilterNodeCapabilities.isEditorConditionExposed(capabilityKind(entry.kind())))
+				.forEach(entries::add);
 		}
 		return entries;
+	}
+
+	private static FilterNodeKind capabilityKind(GroupFilterRuleDraft.NodeKind kind) {
+		return FilterNodeKind.valueOf(kind.name());
 	}
 
 	private String menuEntryLabel(MenuEntry entry) {

@@ -43,6 +43,7 @@ public final class ItemFilterQueryCompiler {
 			case GroupFilter.ExactStack exactStack -> compileExactStack(exactStack);
 			case GroupFilter.HasComponent ignored -> FULL_SCAN;
 			case GroupFilter.ComponentPath ignored -> FULL_SCAN;
+			case GroupFilter.Unsupported ignored -> FULL_SCAN;
 		};
 	}
 
@@ -64,7 +65,7 @@ public final class ItemFilterQueryCompiler {
 			}
 		}
 		if (candidates.isEmpty()) return EMPTY;
-		if (candidates.size() == 1) return candidates.getFirst();
+		if (candidates.size() == 1) return candidates.get(0);
 		List<CandidatePlan> stableCandidates = List.copyOf(candidates);
 		return new CandidatePlan(index -> {
 			List<List<IngredientFilterItemIndex.ItemEntry>> buckets = new ArrayList<>(stableCandidates.size());
@@ -98,7 +99,7 @@ public final class ItemFilterQueryCompiler {
 		}
 		if (!sawNonAllItems) return ALL_ITEMS;
 		if (candidates.isEmpty()) return FULL_SCAN;
-		if (candidates.size() == 1) return candidates.getFirst();
+		if (candidates.size() == 1) return candidates.get(0);
 		List<CandidatePlan> stableCandidates = List.copyOf(candidates);
 		return new CandidatePlan(index -> {
 			List<IngredientFilterItemIndex.ItemEntry> smallest = null;

@@ -1,8 +1,9 @@
 package com.starskyxiii.collapsible_groups.compat.kubejs;
 
-import com.starskyxiii.collapsible_groups.group.filter.Filters;
-
-import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsFilterComposition;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupCollector;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupIds;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsLoweredGroup;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import dev.latvian.mods.rhino.BaseFunction;
@@ -22,11 +23,11 @@ import java.util.function.Predicate;
  * Collects KubeJS RecipeViewerEvents.groupEntries() calls for a generic
  * JEI ingredient type T (anything other than item and fluid).
  */
-public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kubejs.recipe.viewer.GroupEntriesKubeEvent {
+public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kubejs.recipe.viewer.GroupEntriesKubeEvent, KubeJsGroupCollector {
 
 	private final String typeId;
 	private final List<ViewerIngredient<ITypedIngredient<?>>> allIngredients;
-	private final List<GroupDefinition> collected = new ArrayList<>();
+	private final List<KubeJsLoweredGroup> collected = new ArrayList<>();
 
 	public JEIGenericGroupEntriesKubeEvent(
 		String typeId,
@@ -38,13 +39,12 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 
 	@Override
 	public void group(Context cx, Object filter, ResourceLocation groupId, Component description) {
-		String id = "__kjs_" + typeId.replace(':', '_').replace('/', '_') + "_"
-			+ groupId.toString().replace(':', '_').replace('/', '_');
+		String id = KubeJsGroupIds.generic(typeId, groupId.toString());
 		String name = description.getString();
 
 		GroupFilter compiled = KubeJsFilterCompiler.compileGenericFilter(typeId, filter);
-		if (compiled != null) {
-			collected.add(new GroupDefinition(id, name, true, compiled));
+		if (compiled != null && KubeJsFilterComposition.supportsTree(compiled)) {
+			collected.add(new KubeJsLoweredGroup(id, name, compiled));
 			return;
 		}
 
@@ -68,9 +68,9 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 			}
 		}
 
-		GroupFilter lowered = KubeJsFilterLowering.composeFallbackNodes(new ArrayList<>(nodes));
+		GroupFilter lowered = KubeJsFilterComposition.any(new ArrayList<>(nodes));
 		if (lowered != null) {
-			collected.add(new GroupDefinition(id, name, true, lowered));
+			collected.add(new KubeJsLoweredGroup(id, name, lowered));
 		}
 	}
 
@@ -119,7 +119,8 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 		return filter;
 	}
 
-	public List<GroupDefinition> getCollected() {
+	@Override
+	public List<KubeJsLoweredGroup> collectedGroups() {
 		return List.copyOf(collected);
 	}
 }

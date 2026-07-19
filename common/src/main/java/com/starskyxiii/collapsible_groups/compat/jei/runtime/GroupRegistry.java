@@ -32,7 +32,9 @@ import java.util.Set;
  * Central registry for all collapsible groups.
  *
  * <p>All group types (item, fluid, generic) are stored as {@link GroupDefinition}.
- * KubeJS ephemeral groups are stored in {@link KubeJsGroupStore}.
+ * KubeJS ephemeral groups are stored by the viewer-neutral
+ * {@link com.starskyxiii.collapsible_groups.group.ScriptedGroupStore};
+ * {@link KubeJsGroupStore} is only the compatibility delegate for this JEI-era API.
  *
  * <p>Responsibilities:
  * <ul>

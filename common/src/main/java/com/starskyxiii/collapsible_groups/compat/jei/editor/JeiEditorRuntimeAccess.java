@@ -171,7 +171,7 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 				if (fluid != null) {
 					List<EditorFluidIngredientView> views = EditorFluidIngredientHelper.buildViews(
 						List.of(fluid), "EditorHeaderIcon.fluid");
-					if (!views.isEmpty()) entries.add(PreviewEntry.fluid(views.getFirst()));
+					if (!views.isEmpty()) entries.add(PreviewEntry.fluid(views.get(0)));
 				} else {
 					@SuppressWarnings("unchecked")
 					mezz.jei.api.ingredients.IIngredientType<Object> type =
@@ -187,7 +187,7 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 					List<EditorGenericIngredientView> views = EditorGenericIngredientHelper.buildViews(
 						List.of(new com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef(
 							typeId, type, typed.getIngredient())), "EditorHeaderIcon.generic");
-					if (!views.isEmpty()) entries.add(PreviewEntry.generic(views.getFirst()));
+					if (!views.isEmpty()) entries.add(PreviewEntry.generic(views.get(0)));
 				}
 			});
 		}

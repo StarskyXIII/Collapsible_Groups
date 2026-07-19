@@ -1315,7 +1315,7 @@ public class GroupEditorScreen extends Screen {
 		if (!hasPendingSave() && state.canSave()) return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_CLEAN);
 		List<Component> tooltip = state.saveBlockedTooltip();
 		if (tooltip.isEmpty()) return Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR);
-		return tooltip.size() > 1 ? tooltip.get(1) : tooltip.getFirst();
+		return tooltip.size() > 1 ? tooltip.get(1) : tooltip.get(0);
 	}
 
 	private void saveAndClose() {

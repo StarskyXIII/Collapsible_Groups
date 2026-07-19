@@ -104,7 +104,7 @@ class GroupProjectionContractTest {
 			List.of(group),
 			id -> false
 		);
-		assertInstanceOf(ViewerProjection.GroupHeader.class, groupedAtThreshold.entries().getFirst());
+		assertInstanceOf(ViewerProjection.GroupHeader.class, groupedAtThreshold.entries().get(0));
 	}
 
 	@Test
@@ -128,7 +128,7 @@ class GroupProjectionContractTest {
 
 		ViewerProjection.GroupHeader<String> header = assertInstanceOf(
 			ViewerProjection.GroupHeader.class,
-			projection.entries().getFirst()
+			projection.entries().get(0)
 		);
 		assertEquals("high", header.group().id());
 		assertEquals("high", projection.ownership().get(first.identity()));

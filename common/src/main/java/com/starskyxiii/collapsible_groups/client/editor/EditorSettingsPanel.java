@@ -567,7 +567,7 @@ public final class EditorSettingsPanel {
 		if (iconId == null) return;
 		List<EditorRuntimeAccess.PreviewEntry> resolved = EditorRuntimeServices.get()
 			.resolveHeaderIcons(List.of(iconId), List.of());
-		if (!resolved.isEmpty()) renderPickerEntry(g, resolved.getFirst(), x, y);
+		if (!resolved.isEmpty()) renderPickerEntry(g, resolved.get(0), x, y);
 	}
 
 	private static String iconLabel(GroupIconDefinition icon) {
@@ -1061,7 +1061,7 @@ public final class EditorSettingsPanel {
 			body.add(new PickerEntry(entry, false));
 		}
 		if (!pinned.isEmpty() && !selectedInGroup) {
-			EditorRuntimeAccess.PreviewEntry entry = pinned.getFirst();
+			EditorRuntimeAccess.PreviewEntry entry = pinned.get(0);
 			if (matchesQuery(entry, query)) {
 				out.add(new PickerEntry(entry, true));
 			}

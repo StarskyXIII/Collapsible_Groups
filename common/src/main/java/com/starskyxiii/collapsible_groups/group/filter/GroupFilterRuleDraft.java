@@ -450,6 +450,9 @@ public final class GroupFilterRuleDraft {
 				node.tertiaryValue = componentPath.expectedValue();
 				yield node;
 			}
+			case GroupFilter.Unsupported unsupported -> throw new IllegalArgumentException(
+				"Unavailable filter nodes cannot be decoded into an editable rule draft: " + unsupported.recognizedKind()
+			);
 		};
 	}
 
@@ -461,7 +464,7 @@ public final class GroupFilterRuleDraft {
 				if (node.children.size() != 1) {
 					yield null;
 				}
-				GroupFilter child = encodeNode(node.children.getFirst());
+				GroupFilter child = encodeNode(node.children.get(0));
 				yield child == null ? null : Filters.not(child);
 			}
 			case ID -> Filters.id(node.ingredientType, node.primaryValue);

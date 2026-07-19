@@ -10,9 +10,11 @@ import java.util.List;
 import java.util.Set;
 
 public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
-	private static final Set<String> OPTIONAL_JEI_MIXINS = Set.of(
+	private static final Set<String> JEI_INTERNAL_MIXINS = Set.of(
 		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientFilter",
-		"com.starskyxiii.collapsible_groups.mixin.MixinBookmarkList"
+		"com.starskyxiii.collapsible_groups.mixin.MixinBookmarkList",
+		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientListOverlay",
+		"com.starskyxiii.collapsible_groups.mixin.MixinGuiTextFieldFilterAccessor"
 	);
 
 	@Override
@@ -26,8 +28,9 @@ public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
 
 	@Override
 	public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-		if (OPTIONAL_JEI_MIXINS.contains(mixinClassName)) {
-			return isClassPresent(targetClassName);
+		if (JEI_INTERNAL_MIXINS.contains(mixinClassName)) {
+			return !isClassPresent("dev.nolij.toomanyrecipeviewers.TooManyRecipeViewers")
+				&& isClassPresent(targetClassName);
 		}
 		return true;
 	}

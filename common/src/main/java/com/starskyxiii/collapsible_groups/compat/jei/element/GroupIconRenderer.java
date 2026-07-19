@@ -41,13 +41,13 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 
 		if (items.size() == 1) {
 			// Single item: center it: (16 - 16*0.9)/2 / 0.9 ~= 1
-			renderIngredient(g, items.getFirst(), 1, 1);
+			renderIngredient(g, items.get(0), 1, 1);
 		} else {
 			// Back item (right-up)
 			renderIngredient(g, items.get(1), 2, 0);
 			g.pose().translate(0, 0, 10);
 			// Front item (left-down)
-			renderIngredient(g, items.getFirst(), 0, 2);
+			renderIngredient(g, items.get(0), 0, 2);
 		}
 
 		g.pose().popPose();

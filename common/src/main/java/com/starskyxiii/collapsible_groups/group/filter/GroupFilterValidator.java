@@ -43,6 +43,10 @@ public final class GroupFilterValidator {
 	}
 
 	private static void validateNode(GroupFilter filter, List<ValidationError> errors) {
+		FilterNodeCapabilities.Capability capability = FilterNodeCapabilities.capability(FilterNodeCapabilities.kindOf(filter));
+		if (!capability.available() || capability.validatorBehavior() == FilterNodeCapabilities.ValidatorBehavior.PRESERVE_OPAQUE) {
+			return;
+		}
 		switch (filter) {
 			case GroupFilter.Any any -> {
 				if (any.children().isEmpty()) {
@@ -107,6 +111,7 @@ public final class GroupFilterValidator {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_COMPONENT_PATH_VALUE_BLANK);
 				}
 			}
+			case GroupFilter.Unsupported ignored -> { }
 		}
 	}
 

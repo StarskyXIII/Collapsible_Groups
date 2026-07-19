@@ -90,6 +90,8 @@ public final class ForgeConfig implements IConfigProvider {
 	 */
 	public static final ForgeConfigSpec.BooleanValue LOAD_MACAWS_SERIES;
 
+	/** auto, jei, or emi. Sampled at startup; changes require a restart. */
+
 	// ui
 
 	/** Whether to show the group manager button in the JEI overlay. */

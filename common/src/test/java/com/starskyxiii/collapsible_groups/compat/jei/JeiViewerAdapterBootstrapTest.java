@@ -70,7 +70,7 @@ class JeiViewerAdapterBootstrapTest {
 			);
 			ViewerProjection.GroupHeader<ITypedIngredient<?>> header = assertInstanceOf(
 				ViewerProjection.GroupHeader.class,
-				projection.entries().getFirst()
+				projection.entries().get(0)
 			);
 			assertEquals("__kjs_test_bootstrap", header.group().id());
 			assertEquals(List.of(oxygen, hydrogen), header.children().stream()

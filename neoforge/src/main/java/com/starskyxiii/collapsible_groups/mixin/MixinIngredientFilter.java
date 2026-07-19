@@ -2,8 +2,8 @@ package com.starskyxiii.collapsible_groups.mixin;
 
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
 import com.starskyxiii.collapsible_groups.compat.jei.element.FluidChildElement;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterController;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.neoforge.NeoForgeTypes;
 import mezz.jei.api.runtime.IIngredientManager;
@@ -11,7 +11,6 @@ import mezz.jei.gui.filter.IFilterTextSource;
 import mezz.jei.gui.ingredients.IngredientFilter;
 import mezz.jei.gui.overlay.elements.IElement;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
@@ -40,6 +39,7 @@ public abstract class MixinIngredientFilter {
 
 	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		this.cg$controller = new JeiIngredientFilterController(
 			this.filterTextSource::getFilterText, this::cg$getIngredientListUncached,
 			this::cg$notifyListenersOfChange, this.ingredientManager,
@@ -69,12 +69,7 @@ public abstract class MixinIngredientFilter {
 				@Override public boolean canIndexGeneric(IIngredientManager manager) { return manager != null; }
 				@Override public boolean probeFluidWithoutGroups() { return true; }
 				@Override public boolean beforeIndex(List<ITypedIngredient<?>> all, IIngredientManager manager) {
-					JeiViewerAdapter.instance().updateBootstrap(all, manager);
-					if (GroupRegistry.isKubeJsApplied() || !ModList.get().isLoaded("kubejs")) return false;
-					com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge.applyGroups(
-						JeiViewerAdapter.instance().bootstrapContext());
-					GroupRegistry.markKubeJsApplied();
-					return true;
+					return JeiViewerAdapter.instance().universeReady(all, manager);
 				}
 				@Override public boolean traceBuilds() { return true; }
 			});
@@ -83,6 +78,7 @@ public abstract class MixinIngredientFilter {
 
 	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true, require = 0)
 	private void cg$onGetElements(CallbackInfoReturnable<List<IElement<?>>> cir) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
 		cir.setReturnValue(this.cg$controller.getElements());
 	}
 }

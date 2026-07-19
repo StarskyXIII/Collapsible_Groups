@@ -26,7 +26,7 @@ public final class GroupFilterNormalizer {
 			}
 		}
 		if (normalized.size() == 1) {
-			return normalized.getFirst();
+			return normalized.get(0);
 		}
 		return new GroupFilter.Any(normalized);
 	}
@@ -42,7 +42,7 @@ public final class GroupFilterNormalizer {
 			}
 		}
 		if (normalized.size() == 1) {
-			return normalized.getFirst();
+			return normalized.get(0);
 		}
 		return new GroupFilter.All(normalized);
 	}

@@ -6,7 +6,6 @@ package com.starskyxiii.collapsible_groups.platform.services;
  * Fabric/Forge via their respective config systems).
  */
 public interface IConfigProvider {
-
 	/** Master switch: false means no built-in default groups are loaded. */
 	boolean loadDefaultGroups();
 

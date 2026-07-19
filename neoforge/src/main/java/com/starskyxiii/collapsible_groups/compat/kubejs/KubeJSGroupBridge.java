@@ -1,5 +1,10 @@
 package com.starskyxiii.collapsible_groups.compat.kubejs;
 
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsFilterComposition;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupCollector;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupConsumer;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupIds;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsLoweredGroup;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
@@ -37,6 +42,11 @@ public final class KubeJSGroupBridge {
 
 	private KubeJSGroupBridge() {}
 
+	@SuppressWarnings("unchecked")
+	public static void applyGroupsNeutral(ViewerBootstrapContext<?> bootstrap) {
+		applyGroups((ViewerBootstrapContext<ITypedIngredient<?>>) bootstrap);
+	}
+
 	/**
 	 * @param bootstrap early viewer context supplied while the ingredient filter is being built,
 	 *                  before the normal JEI runtime is available
@@ -57,14 +67,14 @@ public final class KubeJSGroupBridge {
 		if (RecipeViewerEvents.GROUP_ENTRIES.hasListeners(RecipeViewerEntryType.ITEM)) {
 			var event = new JEIGroupEntriesKubeEvent(allItems);
 			RecipeViewerEvents.GROUP_ENTRIES.post(ScriptType.CLIENT, RecipeViewerEntryType.ITEM, event);
-			allGroups.addAll(event.getCollected());
+			addCollected(event, allGroups);
 		}
 
 		// Client-script fluid groups
 		if (RecipeViewerEvents.GROUP_ENTRIES.hasListeners(RecipeViewerEntryType.FLUID)) {
 			var event = new JEIFluidGroupEntriesKubeEvent(allFluids);
 			RecipeViewerEvents.GROUP_ENTRIES.post(ScriptType.CLIENT, RecipeViewerEntryType.FLUID, event);
-			allGroups.addAll(event.getCollected());
+			addCollected(event, allGroups);
 		}
 
 		// Client-script generic groups (custom ingredient types).
@@ -77,7 +87,8 @@ public final class KubeJSGroupBridge {
 		// Server-remote groups (from RemoteRecipeViewerDataUpdatedEvent)
 		applyRemoteGroups(allItems, allFluids, allGroups);
 
-		GroupRegistry.setKubeJsGroups(allGroups);
+		KubeJsGroupConsumer consumer = GroupRegistry::setKubeJsGroups;
+		consumer.replace(allGroups);
 	}
 
 	private static void applyGenericType(
@@ -92,17 +103,25 @@ public final class KubeJSGroupBridge {
 
 		JEIGenericGroupEntriesKubeEvent<Object> event = new JEIGenericGroupEntriesKubeEvent<>(typeId, ingredients);
 		RecipeViewerEvents.GROUP_ENTRIES.post(ScriptType.CLIENT, entryType, event);
-		out.addAll(event.getCollected());
+		addCollected(event, out);
+	}
+
+	private static void addCollected(KubeJsGroupCollector collector, List<GroupDefinition> out) {
+		collector.collectedGroups().stream().map(KubeJSGroupBridge::toDefinition).forEach(out::add);
+	}
+
+	private static GroupDefinition toDefinition(KubeJsLoweredGroup group) {
+		return new GroupDefinition(group.id(), group.name(), true, group.filter());
 	}
 
 	private static void applyRemoteGroups(List<ItemStack> allItems, List<FluidStack> allFluids, List<GroupDefinition> out) {
 		// Remote item groups
 		for (ItemData.Group group : KubeJSRemoteListener.getPendingItemGroups()) {
-			String id = "__kjs_remote_" + group.groupId().toString().replace(':', '_').replace('/', '_');
+			String id = KubeJsGroupIds.remoteItem(group.groupId().toString());
 			String name = group.description().getString();
 
 			GroupFilter compiled = KubeJsFilterCompiler.compileItemFilter(group.filter());
-			if (compiled != null) {
+			if (compiled != null && KubeJsFilterComposition.supportsTree(compiled)) {
 				out.add(new GroupDefinition(id, name, true, compiled));
 				continue;
 			}
@@ -113,7 +132,7 @@ public final class KubeJSGroupBridge {
 				nodes.add(KubeJsItemFilterLowering.lowerResolvedStack(stack));
 			}
 
-			GroupFilter lowered = KubeJsFilterLowering.composeFallbackNodes(new ArrayList<>(nodes));
+			GroupFilter lowered = KubeJsFilterComposition.any(new ArrayList<>(nodes));
 			if (lowered != null) {
 				out.add(new GroupDefinition(id, name, true, lowered));
 			}
@@ -121,11 +140,11 @@ public final class KubeJSGroupBridge {
 
 		// Remote fluid groups
 		for (FluidData.Group group : KubeJSRemoteListener.getPendingFluidGroups()) {
-			String id = "__kjs_remote_fluid_" + group.groupId().toString().replace(':', '_').replace('/', '_');
+			String id = KubeJsGroupIds.remoteFluid(group.groupId().toString());
 			String name = group.description().getString();
 
 			GroupFilter compiled = KubeJsFilterCompiler.compileFluidFilter(group.filter());
-			if (compiled != null) {
+			if (compiled != null && KubeJsFilterComposition.supportsTree(compiled)) {
 				out.add(new GroupDefinition(id, name, true, compiled));
 				continue;
 			}
@@ -137,7 +156,7 @@ public final class KubeJSGroupBridge {
 				}
 			}
 
-			GroupFilter lowered = KubeJsFilterLowering.composeFallbackNodes(new ArrayList<>(nodes));
+			GroupFilter lowered = KubeJsFilterComposition.any(new ArrayList<>(nodes));
 			if (lowered != null) {
 				out.add(new GroupDefinition(id, name, true, lowered));
 			}

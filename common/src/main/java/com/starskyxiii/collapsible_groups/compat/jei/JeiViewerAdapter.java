@@ -17,7 +17,7 @@ import com.starskyxiii.collapsible_groups.viewer.GroupExpansionState;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.GroupProjectionEngine;
 import com.starskyxiii.collapsible_groups.viewer.ViewerAdapter;
-import com.starskyxiii.collapsible_groups.viewer.ViewerAdapterRegistry;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import com.starskyxiii.collapsible_groups.viewer.ViewerBookmarkPolicy;
 import com.starskyxiii.collapsible_groups.viewer.ViewerBootstrapContext;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
@@ -60,7 +60,6 @@ import java.util.function.Consumer;
 /** JEI implementation of the recipe-viewer contract. */
 public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>, Component> {
 	private static final JeiViewerAdapter INSTANCE = new JeiViewerAdapter();
-	private static final ViewerAdapterRegistry REGISTRY = new ViewerAdapterRegistry();
 	private static final ViewerOverlayHook OVERLAY = new StandardOverlayHook();
 	private static final ViewerBookmarkPolicy<ITypedIngredient<?>> BOOKMARKS =
 		ViewerBookmarkPolicy.headersCannotBeBookmarked();
@@ -79,7 +78,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 
 	public static synchronized void registerRuntime() {
 		if (runtimeRegistration != null) runtimeRegistration.close();
-		runtimeRegistration = REGISTRY.register(INSTANCE);
+		runtimeRegistration = ViewerLifecycleCoordinator.global().register(INSTANCE);
 	}
 
 	public static synchronized void unregisterRuntime() {
@@ -142,6 +141,12 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRegistry.getAllIncludingKubeJs());
 		JeiHeaderIconResolver.warnUnresolvedAfterBootstrap(
 			GroupRegistry.getAllIncludingKubeJs(), bootstrapContext.universe());
+	}
+
+	/** Publishes the JEI universe, then lets the global lifecycle apply scripted groups once. */
+	public boolean universeReady(List<ITypedIngredient<?>> ingredients, IIngredientManager manager) {
+		updateBootstrap(ingredients, manager);
+		return ViewerLifecycleCoordinator.global().activeUniverseReady(id(), bootstrapContext);
 	}
 
 	public List<ITypedIngredient<?>> assembleHeaderIcons(

@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.kubejs;
 
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.group.ScriptedGroupStore;
 import dev.latvian.mods.kubejs.recipe.viewer.server.FluidData;
 import dev.latvian.mods.kubejs.recipe.viewer.server.ItemData;
 import dev.latvian.mods.kubejs.recipe.viewer.server.RecipeViewerData;
@@ -40,10 +40,9 @@ public final class KubeJSRemoteListener {
 			pendingFluidGroups = List.copyOf(data.fluidData().groupedEntries());
 		}
 
-		// Force KubeJS groups to be re-collected on the next JEI render pass
-		// so that the new remote group definitions are incorporated.
-		GroupRegistry.clearKubeJsGroups();
-		GroupRegistry.notifyJei();
+		// Invalidate through the viewer-neutral lifecycle. The active viewer will
+		// recollect these definitions when its universe is next requested.
+		ScriptedGroupStore.invalidateAndNotify();
 	}
 
 	public static List<ItemData.Group> getPendingItemGroups() {

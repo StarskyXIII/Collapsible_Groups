@@ -66,6 +66,8 @@ public final class NeoForgeConfig implements IConfigProvider {
 	@Override public boolean debugEditorIndexVerificationEnabled() { return DEBUG_EDITOR_INDEX_VERIFY.get(); }
 
 
+	/** auto, jei, or emi. Sampled at startup; changes require a restart. */
+
 	// defaultGroups
 
 	/** Master switch: set to false for a completely clean slate with no built-in groups. */

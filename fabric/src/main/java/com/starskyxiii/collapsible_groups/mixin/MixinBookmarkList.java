@@ -4,6 +4,7 @@ package com.starskyxiii.collapsible_groups.mixin;
 
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.gui.input.UserInput;
 import mezz.jei.gui.overlay.bookmarks.BookmarkOverlay;
 import mezz.jei.gui.overlay.elements.IElement;
@@ -21,6 +22,7 @@ public class MixinBookmarkList {
 		BookmarkOverlay bookmarkOverlay,
 		CallbackInfoReturnable<Boolean> cir
 	) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		if (element.getTypedIngredient().getType() == GroupIcon.TYPE
 			&& !JeiViewerAdapter.instance().bookmarkPolicy().canBookmarkGroupHeader()) {
 			cir.setReturnValue(true);

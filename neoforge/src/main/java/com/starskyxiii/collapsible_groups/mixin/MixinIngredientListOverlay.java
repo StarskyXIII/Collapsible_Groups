@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.mixin;
 
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientListOverlayController;
 import com.starskyxiii.collapsible_groups.config.NeoForgeConfig;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.gui.elements.IconButton;
 import mezz.jei.gui.input.GuiTextFieldFilter;
 import mezz.jei.gui.input.IUserInputHandler;
@@ -25,6 +26,7 @@ public abstract class MixinIngredientListOverlay {
 
 	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		this.cg$controller = new JeiIngredientListOverlayController(
 			this.configButton, this.searchField,
 			() -> ((MixinGuiTextFieldFilterAccessor) (Object) this.searchField).cg$getArea(),
@@ -34,23 +36,26 @@ public abstract class MixinIngredientListOverlay {
 	@Inject(method = "drawScreen", at = @At("HEAD"), require = 0)
 	private void cg$beforeDraw(Minecraft minecraft, GuiGraphics graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
 		this.cg$controller.beforeDraw(graphics);
 	}
 
 	@Inject(method = "drawScreen", at = @At("TAIL"), require = 0)
 	private void cg$afterDraw(Minecraft minecraft, GuiGraphics graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
 		this.cg$controller.afterDraw(graphics, mouseX, mouseY, partialTicks);
 	}
 
 	@Inject(method = "drawTooltips", at = @At("TAIL"), require = 0)
 	private void cg$drawTooltips(Minecraft minecraft, GuiGraphics graphics, int mouseX, int mouseY, CallbackInfo ci) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
 		this.cg$controller.drawTooltips(graphics, mouseX, mouseY);
 	}
 
 	@Inject(method = "createInputHandler", at = @At("RETURN"), cancellable = true, require = 0)
 	private void cg$wrapInputHandler(CallbackInfoReturnable<IUserInputHandler> cir) {
-		if (this.cg$controller == null) return;
+		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
 		cir.setReturnValue(this.cg$controller.wrapInputHandler(cir.getReturnValue()));
 	}
 }

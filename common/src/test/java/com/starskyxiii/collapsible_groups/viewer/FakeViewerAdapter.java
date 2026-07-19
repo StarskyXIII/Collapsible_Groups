@@ -8,6 +8,7 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 final class FakeViewerAdapter implements ViewerAdapter<String, String> {
+	private final String id;
 	private final ViewerIngredientUniverse<String> universe;
 	private final List<ViewerIngredientType<String>> ingredientTypes;
 	private final FakeSearchState searchState;
@@ -19,6 +20,17 @@ final class FakeViewerAdapter implements ViewerAdapter<String, String> {
 		List<ViewerIngredientType<String>> ingredientTypes,
 		ViewerSearchSnapshot<String> initialSearch
 	) {
+		this("fake", universe, ingredientTypes, initialSearch);
+	}
+
+	FakeViewerAdapter(String id) {
+		this(id, new ViewerIngredientUniverse<>(List.of()), List.of(),
+			new ViewerSearchSnapshot<>("", List.of(), false, 0));
+	}
+
+	private FakeViewerAdapter(String id, ViewerIngredientUniverse<String> universe,
+		List<ViewerIngredientType<String>> ingredientTypes, ViewerSearchSnapshot<String> initialSearch) {
+		this.id = id;
 		this.universe = universe;
 		this.ingredientTypes = List.copyOf(ingredientTypes);
 		this.searchState = new FakeSearchState(initialSearch);
@@ -26,7 +38,7 @@ final class FakeViewerAdapter implements ViewerAdapter<String, String> {
 
 	@Override
 	public String id() {
-		return "fake";
+		return id;
 	}
 
 	@Override

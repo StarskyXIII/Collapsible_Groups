@@ -17,6 +17,12 @@ import java.util.Optional;
 import java.util.Set;
 
 public final class CompiledFilter {
+	public enum Evaluation {
+		MATCH,
+		NO_MATCH,
+		UNAVAILABLE
+	}
+
 	private final GroupFilter source;
 	private final CompiledNode root;
 
@@ -30,7 +36,11 @@ public final class CompiledFilter {
 	}
 
 	public boolean matches(IngredientView view) {
-		return root.matches(view);
+		return evaluate(view) == Evaluation.MATCH;
+	}
+
+	public Evaluation evaluate(IngredientView view) {
+		return root.evaluate(view);
 	}
 
 	public GroupFilter source() {
@@ -52,6 +62,7 @@ public final class CompiledFilter {
 			case GroupFilter.ExactStack exactStack -> new ExactStackNode(exactStack.encodedStack());
 			case GroupFilter.HasComponent hc -> new HasComponentNode(hc.componentTypeId(), hc.encodedValue());
 			case GroupFilter.ComponentPath cp -> new ComponentPathNode(cp.componentTypeId(), cp.path(), cp.expectedValue());
+			case GroupFilter.Unsupported ignored -> UnavailableNode.INSTANCE;
 		};
 	}
 
@@ -114,28 +125,59 @@ public final class CompiledFilter {
 	}
 
 	private sealed interface CompiledNode
-		permits AnyNode, AllNode, NotNode, IdNode, IdSetNode, TagNode, BlockTagNode, ItemPathStartsWithNode, ItemPathContainsNode, ItemPathEndsWithNode, NamespaceNode, ExactStackNode, ExactStackSetNode, HasComponentNode, ComponentPathNode {
-		boolean matches(IngredientView view);
+		permits AnyNode, AllNode, NotNode, IdNode, IdSetNode, TagNode, BlockTagNode, ItemPathStartsWithNode, ItemPathContainsNode, ItemPathEndsWithNode, NamespaceNode, ExactStackNode, ExactStackSetNode, HasComponentNode, ComponentPathNode, UnavailableNode {
+		default Evaluation evaluate(IngredientView view) {
+			return matches(view) ? Evaluation.MATCH : Evaluation.NO_MATCH;
+		}
+
+		default boolean matches(IngredientView view) {
+			throw new UnsupportedOperationException("Node must implement evaluate or matches");
+		}
 	}
 
 	private record AnyNode(List<CompiledNode> children) implements CompiledNode {
 		@Override
-		public boolean matches(IngredientView view) {
-			return children.stream().anyMatch(child -> child.matches(view));
+		public Evaluation evaluate(IngredientView view) {
+			boolean unavailable = false;
+			for (CompiledNode child : children) {
+				Evaluation result = child.evaluate(view);
+				if (result == Evaluation.MATCH) return Evaluation.MATCH;
+				unavailable |= result == Evaluation.UNAVAILABLE;
+			}
+			return unavailable ? Evaluation.UNAVAILABLE : Evaluation.NO_MATCH;
 		}
 	}
 
 	private record AllNode(List<CompiledNode> children) implements CompiledNode {
 		@Override
-		public boolean matches(IngredientView view) {
-			return children.stream().allMatch(child -> child.matches(view));
+		public Evaluation evaluate(IngredientView view) {
+			boolean unavailable = false;
+			for (CompiledNode child : children) {
+				Evaluation result = child.evaluate(view);
+				if (result == Evaluation.NO_MATCH) return Evaluation.NO_MATCH;
+				unavailable |= result == Evaluation.UNAVAILABLE;
+			}
+			return unavailable ? Evaluation.UNAVAILABLE : Evaluation.MATCH;
 		}
 	}
 
 	private record NotNode(CompiledNode child) implements CompiledNode {
 		@Override
-		public boolean matches(IngredientView view) {
-			return !child.matches(view);
+		public Evaluation evaluate(IngredientView view) {
+			return switch (child.evaluate(view)) {
+				case MATCH -> Evaluation.NO_MATCH;
+				case NO_MATCH -> Evaluation.MATCH;
+				case UNAVAILABLE -> Evaluation.UNAVAILABLE;
+			};
+		}
+	}
+
+	private enum UnavailableNode implements CompiledNode {
+		INSTANCE;
+
+		@Override
+		public Evaluation evaluate(IngredientView view) {
+			return Evaluation.UNAVAILABLE;
 		}
 	}
 

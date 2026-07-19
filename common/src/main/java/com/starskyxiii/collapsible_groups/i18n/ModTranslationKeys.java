@@ -82,6 +82,8 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_FILTER_READONLY = "collapsible_groups.editor.filter.readonly";
 
+	public static final String EDITOR_FILTER_UNAVAILABLE = "collapsible_groups.editor.filter.unavailable";
+
 	/** non-blocking Contents hint — "%s advanced rules managed in Rules mode". */
 
 	public static final String EDITOR_HINT_ADD_THIS = "collapsible_groups.editor.hint.add_this";
@@ -539,6 +541,10 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_UNSUPPORTED_NODE_NOT_LABEL = "collapsible_groups.editor.unsupported_node.not.label";
 
 	public static final String EDITOR_UNSUPPORTED_NODE_NOT_REASON = "collapsible_groups.editor.unsupported_node.not.reason";
+
+	public static final String EDITOR_UNSUPPORTED_NODE_UNAVAILABLE_LABEL = "collapsible_groups.editor.unsupported_node.unavailable.label";
+
+	public static final String EDITOR_UNSUPPORTED_NODE_UNAVAILABLE_REASON = "collapsible_groups.editor.unsupported_node.unavailable.reason";
 
 	public static final String MANAGER_BADGE_BUILTIN = "collapsible_groups.manager.badge_builtin";
 

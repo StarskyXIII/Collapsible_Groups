@@ -5,9 +5,6 @@ import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.neoforge.fluids.FluidStack;
-import org.jetbrains.annotations.Nullable;
-
-import java.util.List;
 
 /**
  * Shared lowering helpers for KubeJS bridge fallback paths.
@@ -23,13 +20,4 @@ public final class KubeJsFilterLowering {
 		return Filters.genericId(typeId, id.toString());
 	}
 
-	public static @Nullable GroupFilter composeFallbackNodes(List<GroupFilter> nodes) {
-		if (nodes.isEmpty()) {
-			return null;
-		}
-		if (nodes.size() == 1) {
-			return nodes.getFirst();
-		}
-		return Filters.any(nodes.toArray(GroupFilter[]::new));
-	}
 }

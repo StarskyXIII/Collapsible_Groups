@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.group;
 
 import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
+import com.starskyxiii.collapsible_groups.group.filter.FilterNodeCapabilities;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterNormalizer;
@@ -168,6 +169,10 @@ public final class GroupDefinition {
 		return compiledFilter;
 	}
 
+	public boolean hasUnavailableFilter() {
+		return FilterNodeCapabilities.containsUnavailable(filter);
+	}
+
 	public boolean matchesIgnoringEnabled(ItemStack stack) {
 		return compiledFilter.matches(new ItemStackIngredientView(stack));
 	}
@@ -228,7 +233,7 @@ public final class GroupDefinition {
 	}
 
 	public boolean isStructurallyEditable() {
-		return GroupFilterEditorDraft.decode(filter).structurallyEditable();
+		return !hasUnavailableFilter() && GroupFilterEditorDraft.decode(filter).structurallyEditable();
 	}
 
 	private boolean hasFilterForType(String type) {

@@ -168,11 +168,11 @@ public final class GroupSampleRenderer {
 			g.pose().translate(x, y, 0);
 			g.pose().scale(0.9f, 0.9f, 0.9f);
 			if (entries.size() == 1) {
-				entries.getFirst().render(g, 1, 1);
+				entries.get(0).render(g, 1, 1);
 			} else {
 				entries.get(1).render(g, 2, 0);
 				g.pose().translate(0, 0, 10);
-				entries.getFirst().render(g, 0, 2);
+				entries.get(0).render(g, 0, 2);
 			}
 			g.pose().popPose();
 		}

@@ -5,6 +5,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewTooltipComponent;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
@@ -75,6 +76,11 @@ public class CollapsibleGroups {
 	}
 
 	private void onClientSetup(FMLClientSetupEvent event) {
+		if (ModList.get().isLoaded("kubejs")) {
+			ViewerLifecycleCoordinator.global().setScriptedGroupBootstrap(
+				com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge::applyGroupsNeutral
+			);
+		}
 		reloadGroupsFromCurrentConfig();
 	}
 

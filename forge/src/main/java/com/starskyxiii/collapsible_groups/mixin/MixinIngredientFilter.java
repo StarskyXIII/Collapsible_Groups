@@ -4,6 +4,8 @@ import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.element.FluidChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterController;
 import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.gui.filter.IFilterTextSource;
@@ -37,6 +39,7 @@ public abstract class MixinIngredientFilter {
 
 	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		this.cg$controller = new JeiIngredientFilterController(
 			this.filterTextSource::getFilterText, this::cg$getIngredientListUncached,
 			this::cg$notifyListenersOfChange, this.ingredientManager,
@@ -61,12 +64,16 @@ public abstract class MixinIngredientFilter {
 				@Override public JeiIngredientFilterController.FluidCachePolicy fluidCachePolicy() {
 					return JeiIngredientFilterController.FluidCachePolicy.WITH_ITEMS;
 				}
+				@Override public boolean beforeIndex(List<ITypedIngredient<?>> all, IIngredientManager manager) {
+					return JeiViewerAdapter.instance().universeReady(all, manager);
+				}
 			});
 		this.cg$controller.initialize();
 	}
 
 	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true, require = 0)
 	private void cg$onGetElements(CallbackInfoReturnable<List<IElement<?>>> cir) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
 		cir.setReturnValue(this.cg$controller.getElements());
 	}
 }

@@ -60,7 +60,7 @@ class ComponentReferenceExtractorTest {
 			result.stream().map(ComponentReferenceExtractor.ComponentReference::fromPatch).toList());
 		assertEquals("minecraft:sharpness", result.get(1).encodedValue(),
 			"string primitives must be unwrapped for the production matcher");
-		assertEquals("5", result.getFirst().encodedValue(), "the patch-marked duplicate id must win");
+		assertEquals("5", result.get(0).encodedValue(), "the patch-marked duplicate id must win");
 	}
 
 	@Test

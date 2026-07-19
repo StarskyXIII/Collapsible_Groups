@@ -1,6 +1,9 @@
 package com.starskyxiii.collapsible_groups.compat.kubejs;
 
-import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsFilterComposition;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupCollector;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupIds;
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsLoweredGroup;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.KubeJsItemFilterLowering;
 import dev.latvian.mods.kubejs.recipe.viewer.GroupEntriesKubeEvent;
@@ -22,10 +25,10 @@ import java.util.function.Predicate;
  * Groups defined here are ephemeral (not saved to disk) and take lower
  * priority than user-configured JSON groups.
  */
-public class JEIGroupEntriesKubeEvent implements GroupEntriesKubeEvent {
+public class JEIGroupEntriesKubeEvent implements GroupEntriesKubeEvent, KubeJsGroupCollector {
 
 	private final List<ItemStack> allItems;
-	private final List<GroupDefinition> collected = new ArrayList<>();
+	private final List<KubeJsLoweredGroup> collected = new ArrayList<>();
 
 	public JEIGroupEntriesKubeEvent(List<ItemStack> allItems) {
 		this.allItems = allItems;
@@ -34,12 +37,12 @@ public class JEIGroupEntriesKubeEvent implements GroupEntriesKubeEvent {
 	@Override
 	@SuppressWarnings({"unchecked", "rawtypes"})
 	public void group(Context cx, Object filter, ResourceLocation groupId, Component description) {
-		String id = "__kjs_" + groupId.toString().replace(':', '_').replace('/', '_');
+		String id = KubeJsGroupIds.item(groupId.toString());
 		String name = description.getString();
 
 		GroupFilter compiled = KubeJsFilterCompiler.compileItemFilter(cx, filter);
-		if (compiled != null) {
-			collected.add(new GroupDefinition(id, name, true, compiled));
+		if (compiled != null && KubeJsFilterComposition.supportsTree(compiled)) {
+			collected.add(new KubeJsLoweredGroup(id, name, compiled));
 			return;
 		}
 
@@ -51,13 +54,14 @@ public class JEIGroupEntriesKubeEvent implements GroupEntriesKubeEvent {
 			}
 		}
 
-		GroupFilter lowered = KubeJsFilterLowering.composeFallbackNodes(new ArrayList<>(nodes));
+		GroupFilter lowered = KubeJsFilterComposition.any(new ArrayList<>(nodes));
 		if (lowered != null) {
-			collected.add(new GroupDefinition(id, name, true, lowered));
+			collected.add(new KubeJsLoweredGroup(id, name, lowered));
 		}
 	}
 
-	public List<GroupDefinition> getCollected() {
+	@Override
+	public List<KubeJsLoweredGroup> collectedGroups() {
 		return List.copyOf(collected);
 	}
 }

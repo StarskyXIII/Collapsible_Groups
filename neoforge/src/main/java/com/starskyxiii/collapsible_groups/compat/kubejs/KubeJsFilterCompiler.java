@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.kubejs;
 
+import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsFilterComposition;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.KubeJsItemFilterLowering;
@@ -57,7 +58,7 @@ public final class KubeJsFilterCompiler {
 		}
 
 		if (filter instanceof GroupFilter groupFilter) {
-			return groupFilter;
+			return KubeJsFilterComposition.supportsTree(groupFilter) ? groupFilter : null;
 		}
 
 		List<?> list = ListJS.of(filter);
@@ -185,7 +186,7 @@ public final class KubeJsFilterCompiler {
 				}
 				children.add(child);
 			}
-			return KubeJsFilterLowering.composeFallbackNodes(children);
+			return KubeJsFilterComposition.any(children);
 		}
 
 		return null;
@@ -227,9 +228,9 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 		if (children.size() == 1) {
-			return children.getFirst();
+			return children.get(0);
 		}
-		return Filters.all(children.toArray(GroupFilter[]::new));
+		return KubeJsFilterComposition.all(children);
 	}
 
 	private static @Nullable GroupFilter compileFluidString(Context cx, String input) {
@@ -254,7 +255,7 @@ public final class KubeJsFilterCompiler {
 			}
 			children.add(child);
 		}
-		return KubeJsFilterLowering.composeFallbackNodes(children);
+		return KubeJsFilterComposition.any(children);
 	}
 
 	private static @Nullable GroupFilter compileFluidList(Context cx, List<?> list) {
@@ -266,7 +267,7 @@ public final class KubeJsFilterCompiler {
 			}
 			children.add(child);
 		}
-		return KubeJsFilterLowering.composeFallbackNodes(children);
+		return KubeJsFilterComposition.any(children);
 	}
 
 	private static @Nullable GroupFilter compileCustomItemIngredient(ICustomIngredient ingredient) {
@@ -289,7 +290,7 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 
-		ItemStack stack = new ItemStack(items.getFirst(), 1, data.components().asPatch());
+		ItemStack stack = new ItemStack(items.get(0), 1, data.components().asPatch());
 		return KubeJsItemFilterLowering.lowerResolvedStack(stack);
 	}
 
@@ -299,7 +300,7 @@ public final class KubeJsFilterCompiler {
 		if (base == null || subtracted == null) {
 			return null;
 		}
-		return Filters.all(base, Filters.not(subtracted));
+		return KubeJsFilterComposition.all(List.of(base, Filters.not(subtracted)));
 	}
 
 	private static @Nullable GroupFilter compileDifferenceFluid(DifferenceFluidIngredient difference) {
@@ -308,7 +309,7 @@ public final class KubeJsFilterCompiler {
 		if (base == null || subtracted == null) {
 			return null;
 		}
-		return Filters.all(base, Filters.not(subtracted));
+		return KubeJsFilterComposition.all(List.of(base, Filters.not(subtracted)));
 	}
 
 	private static @Nullable GroupFilter compileItemChildren(List<Ingredient> children, boolean any) {
@@ -321,7 +322,7 @@ public final class KubeJsFilterCompiler {
 			compiled.add(filter);
 		}
 		return any
-			? KubeJsFilterLowering.composeFallbackNodes(compiled)
+			? KubeJsFilterComposition.any(compiled)
 			: compileAllChildren(compiled);
 	}
 
@@ -335,7 +336,7 @@ public final class KubeJsFilterCompiler {
 			compiled.add(filter);
 		}
 		return any
-			? KubeJsFilterLowering.composeFallbackNodes(compiled)
+			? KubeJsFilterComposition.any(compiled)
 			: compileAllChildren(compiled);
 	}
 
@@ -344,9 +345,9 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 		if (children.size() == 1) {
-			return children.getFirst();
+			return children.get(0);
 		}
-		return Filters.all(children.toArray(GroupFilter[]::new));
+		return KubeJsFilterComposition.all(children);
 	}
 
 	private static @Nullable GroupFilter lowerExplicitItemStacks(List<ItemStack> stacks) {
@@ -357,7 +358,7 @@ public final class KubeJsFilterCompiler {
 			}
 			children.add(KubeJsItemFilterLowering.lowerResolvedStack(stack));
 		}
-		return KubeJsFilterLowering.composeFallbackNodes(children);
+		return KubeJsFilterComposition.any(children);
 	}
 
 	private static @Nullable GroupFilter compileGenericString(String typeId, String input) {

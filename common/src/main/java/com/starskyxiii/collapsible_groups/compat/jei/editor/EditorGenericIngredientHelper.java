@@ -46,7 +46,7 @@ final class EditorGenericIngredientHelper {
 				: uid != null ? uid.toString() : helper.getErrorInfo(ref.ingredient());
 			String identityValueId = uid == null ? resourceId : uid.toString();
 			List<Component> tooltipLines = renderer.getTooltip(ref.ingredient(), TooltipFlag.Default.NORMAL);
-			Component displayName = tooltipLines.isEmpty() ? Component.literal(resourceId) : tooltipLines.getFirst();
+			Component displayName = tooltipLines.isEmpty() ? Component.literal(resourceId) : tooltipLines.get(0);
 			Set<String> tagIds = helper.getTagStream(ref.ingredient())
 				.map(Object::toString)
 				.collect(Collectors.toCollection(LinkedHashSet::new));

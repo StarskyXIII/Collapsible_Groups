@@ -5,6 +5,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIconHelper;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIconRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.api.IModPlugin;
 import mezz.jei.api.JeiPlugin;
 import mezz.jei.api.registration.IModIngredientRegistration;
@@ -32,6 +33,7 @@ public class CollapsibleGroupsJeiPlugin implements IModPlugin {
 
 	@Override
 	public void registerIngredients(IModIngredientRegistration registration) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		registration.register(
 			GroupIcon.TYPE,
 			Collections.emptyList(),
@@ -43,6 +45,7 @@ public class CollapsibleGroupsJeiPlugin implements IModPlugin {
 
 	@Override
 	public void onRuntimeAvailable(IJeiRuntime jeiRuntime) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		JeiRuntimeHolder.set(jeiRuntime);
 		JeiViewerAdapter.instance().discoverRuntimeTypes(jeiRuntime.getIngredientManager());
 		JeiViewerAdapter.registerRuntime();
@@ -50,6 +53,7 @@ public class CollapsibleGroupsJeiPlugin implements IModPlugin {
 
 	@Override
 	public void onRuntimeUnavailable() {
+		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		JeiViewerAdapter.unregisterRuntime();
 		JeiRuntimeHolder.set(null);
 	}
