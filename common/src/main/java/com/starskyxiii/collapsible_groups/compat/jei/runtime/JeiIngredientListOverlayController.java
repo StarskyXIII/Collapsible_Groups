@@ -16,7 +16,7 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
-/** Shared draw, layout, and input behavior behind the loader overlay mixins. */
+/** Shared render-phase, layout, and input behavior behind the loader overlay mixins. */
 public final class JeiIngredientListOverlayController {
 	private static final int BUTTON_GAP = 2;
 
