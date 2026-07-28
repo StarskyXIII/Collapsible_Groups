@@ -19,7 +19,7 @@ import java.util.Objects;
 import java.util.function.BooleanSupplier;
 import java.util.function.Supplier;
 
-/** Shared draw, layout, and input behavior behind the loader overlay mixins. */
+/** Shared render-phase, layout, and input behavior behind the loader overlay mixins. */
 public final class JeiIngredientListOverlayController {
 	private static final int BUTTON_GAP = 2;
 
@@ -44,7 +44,9 @@ public final class JeiIngredientListOverlayController {
 		GroupBackgroundRenderer.clear();
 	}
 
-	public void beforeDraw(GuiGraphics graphics) {
+	public void drawBackgroundPhase(GuiGraphics graphics) {
+		GroupBackgroundRenderer.beginFrame();
+		GroupBorderRenderer.clear();
 		if (!listDisplayed.getAsBoolean()) {
 			GroupBackgroundRenderer.clear();
 			resetBackgroundTracking();
@@ -67,7 +69,7 @@ public final class JeiIngredientListOverlayController {
 		GroupBackgroundRenderer.renderPreviousFrame(graphics, Services.CONFIG.showGroupBackgrounds());
 	}
 
-	public void afterDraw(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
+	public void drawForegroundPhase(GuiGraphics graphics, int mouseX, int mouseY, float partialTicks) {
 		GroupBorderRenderer.renderAndClear(graphics);
 		GroupBackgroundRenderer.advanceFrame();
 		if (shouldShowGroupsButton()) groupsButton.draw(graphics, mouseX, mouseY, partialTicks);

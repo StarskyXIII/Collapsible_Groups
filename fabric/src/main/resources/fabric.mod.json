@@ -32,7 +32,7 @@
         "java": ">=${java_version}"
     },
     "suggests": {
-        "jei": "*"
+        "jei": ">=${jei_version}"
     }
 }
   

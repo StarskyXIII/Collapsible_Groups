@@ -38,6 +38,15 @@ public final class GroupBackgroundRenderer {
 		}
 	}
 
+	/**
+	 * Starts a new render pass after discarding registrations left by an
+	 * incomplete foreground pass. The previous completed frame is preserved so
+	 * it can still provide this frame's backgrounds.
+	 */
+	public static void beginFrame() {
+		currentFrame.clear();
+	}
+
 	/** Makes positions registered by overlays this frame available to the next frame. */
 	public static void advanceFrame() {
 		previousFrame = List.copyOf(currentFrame);

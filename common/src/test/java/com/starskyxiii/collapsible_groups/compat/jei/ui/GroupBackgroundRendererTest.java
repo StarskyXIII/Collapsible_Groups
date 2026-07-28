@@ -53,6 +53,22 @@ class GroupBackgroundRendererTest {
 	}
 
 	@Test
+	void beginFrameDropsIncompleteCurrentFrameButPreservesPreviousFrame() {
+		GroupBackgroundRenderer.registerChild("complete", 1, 2);
+		GroupBackgroundRenderer.advanceFrame();
+		GroupBackgroundRenderer.registerHeader("incomplete", 3, 4);
+
+		GroupBackgroundRenderer.beginFrame();
+
+		assertEquals(0, GroupBackgroundRenderer.currentFrameSize());
+		assertEquals(
+			List.of(new GroupBackgroundRenderer.BackgroundPosition(
+				GroupBackgroundRenderer.Kind.CHILD, "complete", 1, 2)),
+			GroupBackgroundRenderer.previousFrameForRender(true)
+		);
+	}
+
+	@Test
 	void disabledConfigSkipsAndClearsPreviousButStillAllowsFrameAdvance() {
 		GroupBackgroundRenderer.registerChild("old", 1, 2);
 		GroupBackgroundRenderer.advanceFrame();

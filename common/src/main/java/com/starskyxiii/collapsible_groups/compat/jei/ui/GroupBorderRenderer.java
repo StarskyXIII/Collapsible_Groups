@@ -14,7 +14,7 @@ import java.util.Set;
  *
  * Modelled after REI's {@code CollapsedEntriesBorderRenderer}: slot overlays
  * call {@link #registerPosition} as they are individually drawn, then
- * {@link #renderAndClear} is called once at the end of JEI's drawScreen pass
+ * {@link #renderAndClear} is called once at the end of JEI's foreground pass
  * to draw all group borders in a single go and clear the accumulator.
  *
  * Because all positions are collected and drawn in the same render frame there
@@ -41,6 +41,11 @@ public final class GroupBorderRenderer {
 		framePositions.computeIfAbsent(groupId, k -> new ArrayList<>()).add(new int[]{x, y});
 	}
 
+	/** Drops positions left by an incomplete previous foreground pass. */
+	public static void clear() {
+		framePositions.clear();
+	}
+
 	// -----------------------------------------------------------------------
 	// Rendering (called from MixinIngredientListOverlay after all entries)
 	// -----------------------------------------------------------------------
@@ -48,7 +53,7 @@ public final class GroupBorderRenderer {
 	/**
 	 * Draws the connected border for every group that registered positions this
 	 * frame, then clears the accumulator.  Called by
-	 * {@code MixinIngredientListOverlay} at the tail of {@code drawScreen}.
+	 * {@code MixinIngredientListOverlay} at the tail of {@code drawForeground}.
 	 */
 	public static void renderAndClear(GuiGraphics guiGraphics) {
 		if (framePositions.isEmpty()) return;
@@ -64,6 +69,12 @@ public final class GroupBorderRenderer {
 			guiGraphics.pose().popPose();
 			framePositions.clear();
 		}
+	}
+
+	static int currentFrameSize() {
+		return framePositions.values().stream()
+			.mapToInt(List::size)
+			.sum();
 	}
 
 	// -----------------------------------------------------------------------
