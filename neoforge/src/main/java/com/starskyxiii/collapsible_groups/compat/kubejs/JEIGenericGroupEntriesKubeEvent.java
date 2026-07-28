@@ -10,7 +10,6 @@ import dev.latvian.mods.rhino.BaseFunction;
 import dev.latvian.mods.rhino.Context;
 import dev.latvian.mods.rhino.NativeArray;
 import dev.latvian.mods.rhino.Wrapper;
-import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 
@@ -21,17 +20,17 @@ import java.util.function.Predicate;
 
 /**
  * Collects KubeJS RecipeViewerEvents.groupEntries() calls for a generic
- * JEI ingredient type T (anything other than item and fluid).
+ * viewer ingredient type T (anything other than item and fluid).
  */
 public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kubejs.recipe.viewer.GroupEntriesKubeEvent, KubeJsGroupCollector {
 
 	private final String typeId;
-	private final List<ViewerIngredient<ITypedIngredient<?>>> allIngredients;
+	private final List<ViewerIngredient<?>> allIngredients;
 	private final List<KubeJsLoweredGroup> collected = new ArrayList<>();
 
 	public JEIGenericGroupEntriesKubeEvent(
 		String typeId,
-		List<ViewerIngredient<ITypedIngredient<?>>> allIngredients
+		List<? extends ViewerIngredient<?>> allIngredients
 	) {
 		this.typeId = typeId;
 		this.allIngredients = List.copyOf(allIngredients);
@@ -56,9 +55,9 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 			);
 		}
 
-		Predicate<ViewerIngredient<ITypedIngredient<?>>> predicate = buildPredicate(unwrapped);
+		Predicate<ViewerIngredient<?>> predicate = buildPredicate(unwrapped);
 		LinkedHashSet<GroupFilter> nodes = new LinkedHashSet<>();
-		for (ViewerIngredient<ITypedIngredient<?>> ingredient : allIngredients) {
+		for (ViewerIngredient<?> ingredient : allIngredients) {
 			if (!predicate.test(ingredient)) {
 				continue;
 			}
@@ -74,19 +73,19 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 		}
 	}
 
-	private Predicate<ViewerIngredient<ITypedIngredient<?>>> buildPredicate(Object filter) {
+	private Predicate<ViewerIngredient<?>> buildPredicate(Object filter) {
 		if (filter instanceof String str) {
 			return buildStringPredicate(str);
 		}
 		if (filter instanceof NativeArray arr) {
-			List<Predicate<ViewerIngredient<ITypedIngredient<?>>>> predicates = new ArrayList<>();
+			List<Predicate<ViewerIngredient<?>>> predicates = new ArrayList<>();
 			for (Object item : arr) {
 				predicates.add(buildStringPredicate(String.valueOf(item)));
 			}
 			return ingredient -> predicates.stream().anyMatch(p -> p.test(ingredient));
 		}
 		if (filter instanceof List<?> list) {
-			List<Predicate<ViewerIngredient<ITypedIngredient<?>>>> predicates = new ArrayList<>();
+			List<Predicate<ViewerIngredient<?>>> predicates = new ArrayList<>();
 			for (Object item : list) {
 				predicates.add(buildStringPredicate(String.valueOf(item)));
 			}
@@ -95,7 +94,7 @@ public class JEIGenericGroupEntriesKubeEvent<T> implements dev.latvian.mods.kube
 		return ingredient -> false;
 	}
 
-	private Predicate<ViewerIngredient<ITypedIngredient<?>>> buildStringPredicate(String str) {
+	private Predicate<ViewerIngredient<?>> buildStringPredicate(String str) {
 		if (str.startsWith("@")) {
 			String namespace = str.substring(1);
 			return ingredient -> {

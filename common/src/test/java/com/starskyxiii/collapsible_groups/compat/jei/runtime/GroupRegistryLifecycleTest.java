@@ -5,6 +5,8 @@ import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
+import com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess;
 import com.starskyxiii.collapsible_groups.platform.TestPlatformHelper;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import org.junit.jupiter.api.AfterEach;
@@ -32,11 +34,16 @@ class GroupRegistryLifecycleTest {
 	private GroupChangeEvent.Subscription fullSubscription;
 	private GroupChangeEvent.Subscription structureSubscription;
 	private GroupChangeEvent.Subscription enabledSubscription;
+	private final List<GroupChangeEvent.Subscription> indexSubscriptions = new ArrayList<>();
 
 	@BeforeEach
 	void setUp() throws Exception {
 		System.setProperty(TestPlatformHelper.CONFIG_DIR_PROPERTY, configDir.toString());
 		resetRegistryState();
+		for (GroupChangeEvent.Kind kind : GroupChangeEvent.Kind.values()) {
+			indexSubscriptions.add(GroupChangeEvent.subscribe(kind, () -> JeiViewerGroupIndex.instance()
+				.onGroupChange(kind, GroupRepository.getAllIncludingScripted())));
+		}
 		fullSubscription = GroupChangeEvent.subscribe(
 			GroupChangeEvent.Kind.FULL,
 			() -> callbackOrder.add("full")
@@ -269,22 +276,11 @@ class GroupRegistryLifecycleTest {
 		if (fullSubscription != null) fullSubscription.close();
 		if (structureSubscription != null) structureSubscription.close();
 		if (enabledSubscription != null) enabledSubscription.close();
+		indexSubscriptions.forEach(GroupChangeEvent.Subscription::close);
+		indexSubscriptions.clear();
 	}
 
 	private static void replaceRegistrySnapshot(List<GroupDefinition> groups) throws Exception {
-		setStaticField("groups", List.copyOf(groups));
-		setStaticField("orderedGroups", GroupRegistry.orderByPriority(groups));
-
-		Map<String, GroupDefinition> byId = new LinkedHashMap<>();
-		for (GroupDefinition group : groups) {
-			byId.put(group.id(), group);
-		}
-		setStaticField("groupsById", Map.copyOf(byId));
-	}
-
-	private static void setStaticField(String fieldName, Object value) throws Exception {
-		Field field = GroupRegistry.class.getDeclaredField(fieldName);
-		field.setAccessible(true);
-		field.set(null, value);
+		GroupRepositoryTestAccess.replace(groups);
 	}
 }

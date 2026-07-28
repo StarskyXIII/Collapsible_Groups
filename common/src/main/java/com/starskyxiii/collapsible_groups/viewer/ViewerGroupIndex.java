@@ -43,6 +43,13 @@ public interface ViewerGroupIndex {
 	/** Completes when the current asynchronous rebuild, if any, has published its generation. */
 	CompletableFuture<Void> whenReady();
 
+	/**
+	 * Returns one coherent, enabled-independent full-match preview from the published generation.
+	 * An empty optional means no generation has been published (or the viewer must still populate
+	 * that generation's preview cache); present snapshots retain explicit empty kind buckets.
+	 */
+	Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group);
+
 	/** Resolves one current enabled owner by walking only this identity's candidate list. */
 	Optional<String> resolveOwner(ViewerIngredientIdentity identity, List<GroupDefinition> groups);
 

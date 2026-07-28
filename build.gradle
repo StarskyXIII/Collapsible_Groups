@@ -7,6 +7,96 @@ plugins {
     id 'net.neoforged.moddev' version '2.0.140' apply false
 }
 
+tasks.register('verifyEmiMixinParity') {
+    description = 'Verify Fabric and NeoForge EMI mixins remain byte-identical'
+    group = 'verification'
+    def names = ['MixinEmiScreenManager.java', 'MixinEmiScreenSpace.java']
+    def fabricDir = file('fabric/src/main/java/com/starskyxiii/collapsible_groups/mixin')
+    def neoForgeDir = file('neoforge/src/main/java/com/starskyxiii/collapsible_groups/mixin')
+    inputs.files(names.collectMany { [new File(fabricDir, it), new File(neoForgeDir, it)] })
+    doLast {
+        names.each { name ->
+            byte[] fabricBytes = new File(fabricDir, name).bytes
+            byte[] neoForgeBytes = new File(neoForgeDir, name).bytes
+            if (!java.util.Arrays.equals(fabricBytes, neoForgeBytes)) {
+                throw new GradleException("EMI mixin parity failed for ${name}")
+            }
+        }
+    }
+}
+
+def emiOnlyGuardPrefixes = [
+    'com/starskyxiii/collapsible_groups/group/',
+    'com/starskyxiii/collapsible_groups/viewer/',
+    'com/starskyxiii/collapsible_groups/client/',
+    'com/starskyxiii/collapsible_groups/compat/emi/',
+    'com/starskyxiii/collapsible_groups/compat/kubejs/'
+]
+def emiOnlyGuardClasses = [
+    'com/starskyxiii/collapsible_groups/CollapsibleGroups',
+    'com/starskyxiii/collapsible_groups/compat/jei/manager/GroupManagerCard',
+    'com/starskyxiii/collapsible_groups/compat/jei/manager/GroupManagerCardAssembler',
+    'com/starskyxiii/collapsible_groups/compat/jei/manager/GroupManagerScreen',
+    'com/starskyxiii/collapsible_groups/compat/jei/manager/PublishedGenerationRefresh',
+    'com/starskyxiii/collapsible_groups/compat/jei/manager/UnavailableViewerGroupIndex',
+    'com/starskyxiii/collapsible_groups/compat/jei/ui/GroupBackgroundRenderer',
+    'com/starskyxiii/collapsible_groups/compat/jei/ui/GroupBorderRenderer',
+    'com/starskyxiii/collapsible_groups/compat/jei/ui/GroupThemeResolver'
+]
+def emiOnlyForbiddenSymbols = [
+    'mezz/jei/',
+    'com/starskyxiii/collapsible_groups/compat/jei/JeiViewerAdapter',
+    'com/starskyxiii/collapsible_groups/compat/jei/JeiViewerGroupIndex',
+    'com/starskyxiii/collapsible_groups/compat/jei/editor/JeiEditorRuntimeAccess',
+    'com/starskyxiii/collapsible_groups/compat/jei/runtime/GroupRegistry',
+    'com/starskyxiii/collapsible_groups/compat/jei/data/GenericIngredientRef',
+    'com/starskyxiii/collapsible_groups/compat/jei/preview/PreviewIngredientRenderer'
+]
+def emiOnlyKubeJsForbiddenSymbols = [
+    'com/starskyxiii/collapsible_groups/compat/jei/'
+]
+def shouldGuardEmiOnlyClass = { String path ->
+    path.endsWith('.class') && (emiOnlyGuardPrefixes.any { path.startsWith(it) }
+        || emiOnlyGuardClasses.any { path == it + '.class' || path.startsWith(it + '$') })
+}
+def verifyEmiOnlyBytes = { String path, byte[] bytes, List<String> failures ->
+    if (!shouldGuardEmiOnlyClass(path)) return
+    String constants = new String(bytes, java.nio.charset.StandardCharsets.ISO_8859_1)
+    emiOnlyForbiddenSymbols.each { symbol ->
+        if (constants.contains(symbol)) failures.add("${path} -> ${symbol}")
+    }
+    if (path.startsWith('com/starskyxiii/collapsible_groups/compat/kubejs/')) {
+        emiOnlyKubeJsForbiddenSymbols.each { symbol ->
+            if (constants.contains(symbol)) failures.add("${path} -> ${symbol}")
+        }
+    }
+}
+
+tasks.register('verifyEmiOnlyLinkage') {
+    description = 'Reject JEI linkage from viewer-neutral and pure-EMI classes in compiled output and the NeoForge jar'
+    group = 'verification'
+    dependsOn ':common:classes', ':neoforge:jar'
+    doLast {
+        List<String> failures = []
+        File classesDir = project(':common').layout.buildDirectory.dir('classes/java/main').get().asFile
+        fileTree(classesDir).matching { include '**/*.class' }.files.each { file ->
+            String path = classesDir.toPath().relativize(file.toPath()).toString().replace('\\', '/')
+            verifyEmiOnlyBytes(path, file.bytes, failures)
+        }
+        File jarFile = project(':neoforge').tasks.named('jar').get().archiveFile.get().asFile
+        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+            zip.entries().each { entry ->
+                if (!entry.directory && shouldGuardEmiOnlyClass(entry.name)) {
+                    verifyEmiOnlyBytes(entry.name, zip.getInputStream(entry).bytes, failures)
+                }
+            }
+        }
+        if (!failures.isEmpty()) {
+            throw new GradleException('Pure-EMI linkage guard found JEI references:\n' + failures.sort().join('\n'))
+        }
+    }
+}
+
 def groupLangSourceTrees = [
     fileTree('common/src/main/java') { include '**/defaults/**/*.java' },
     fileTree('fabric/src/main/java') { include '**/defaults/**/*.java' },

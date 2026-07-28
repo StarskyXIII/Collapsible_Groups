@@ -25,6 +25,8 @@ public final class ItemStackIngredientView implements IngredientView {
 		this.itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
 	}
 
+	public ItemStack stack() { return stack; }
+
 	@Override
 	public String ingredientType() {
 		return "item";

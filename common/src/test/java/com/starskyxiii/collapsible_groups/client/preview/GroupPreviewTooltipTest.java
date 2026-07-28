@@ -1,4 +1,4 @@
-package com.starskyxiii.collapsible_groups.compat.jei.preview;
+package com.starskyxiii.collapsible_groups.client.preview;
 
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
@@ -28,7 +28,8 @@ class GroupPreviewTooltipTest {
 	@Test
 	void collapsedIncludesPreviewVisualWithExpandHint() {
 		GroupPreviewTooltip.Result result = GroupPreviewTooltip.build(
-			"G", 0xFFFFFF, 1, 0, 0, false, List.of(GroupPreviewEntry.ofFluid(new Object())));
+			"G", 0xFFFFFF, 1, 0, 0, false,
+			List.of(GroupPreviewEntry.ofRenderer((graphics, x, y) -> {})));
 
 		// name + count + action hint.
 		assertEquals(3, result.lines().size());

@@ -1,15 +1,19 @@
 package com.starskyxiii.collapsible_groups.compat.jei;
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
+import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewIngredientRenderer;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.GroupProjectionEngine;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
+import com.starskyxiii.collapsible_groups.viewer.ViewerGroupPreviewSnapshot;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
+import com.starskyxiii.collapsible_groups.viewer.ViewerPreviewValue;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
@@ -126,6 +130,26 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	@Override public CompletableFuture<Void> whenReady() { return readyFuture; }
+
+	@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
+		if (published == null) return Optional.empty();
+		List<ItemStack> items = GroupRegistry.getFullMatchItemsLookup(group).values();
+		List<Object> fluids = GroupRegistry.getFullMatchFluidsLookup(group).values();
+		List<GenericIngredientRef> generic = GroupRegistry.getFullMatchGenericIngredientsLookup(group).values();
+		List<ViewerPreviewValue> itemValues = items.stream().map(ViewerPreviewValue::item).toList();
+		List<ViewerPreviewValue> fluidValues = fluids.stream().map(fluid -> ViewerPreviewValue.rendered(
+			(graphics, x, y) -> PreviewIngredientRenderer.renderFluid(graphics, fluid, x, y))).toList();
+		List<ViewerPreviewValue> genericValues = generic.stream().map(ref -> ViewerPreviewValue.rendered(
+			(graphics, x, y) -> renderGeneric(graphics, ref, x, y))).toList();
+		return Optional.of(new ViewerGroupPreviewSnapshot(itemValues, fluidValues, genericValues));
+	}
+
+	@SuppressWarnings("unchecked")
+	private static void renderGeneric(net.minecraft.client.gui.GuiGraphics graphics,
+		GenericIngredientRef ref, int x, int y) {
+		PreviewIngredientRenderer.renderGeneric(graphics,
+			(mezz.jei.api.ingredients.IIngredientType<Object>) ref.type(), ref.ingredient(), x, y);
+	}
 
 	@Override public Optional<String> resolveOwner(ViewerIngredientIdentity identity,
 		List<GroupDefinition> groups) {

@@ -23,6 +23,15 @@ plugins {
 
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'org.spongepowered.mixin'
+repositories {
+    mavenLocal {
+        content { includeGroup 'dev.emi' }
+    }
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/'
+    }
+}
 base {
     archivesName = "${mod_id}-forge-${minecraft_version}"
 }
@@ -101,6 +110,8 @@ dependencies {
     // JEI Forge full jar — provides mezz.jei.gui.* / mezz.jei.common.* needed by mixins at compile time
     compileOnly "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
     runtimeOnly "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
+    // Symbols only so the shared EMI compat sources compile; Forge 1.21 does not load EMI.
+    compileOnly "dev.emi:emi-xplat-mojmap:${emi_version}"
 
     // Forge's hack fix
     implementation('net.sf.jopt-simple:jopt-simple:5.0.4') { version { strictly '5.0.4' } }

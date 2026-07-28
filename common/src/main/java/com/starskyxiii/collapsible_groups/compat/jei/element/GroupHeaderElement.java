@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewTooltipComponent;
+import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.client.preview.PreviewTooltipComponent;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;

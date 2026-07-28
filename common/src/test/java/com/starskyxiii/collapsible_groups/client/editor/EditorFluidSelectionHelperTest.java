@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchDocument;
+import net.minecraft.network.chat.Component;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -72,6 +74,22 @@ class EditorFluidSelectionHelperTest {
 
 		assertEquals(List.of("minecraft:water"), ids);
 		assertEquals(1, callbacks.get());
+	}
+
+	@Test
+	void viewSelectionRoundTripsThroughResourceIdWithoutInspectingTheOpaqueIngredient() {
+		List<String> ids = new ArrayList<>();
+		AtomicInteger callbacks = new AtomicInteger();
+		EditorFluidSelectionHelper helper = helper(ids, callbacks);
+		EditorFluidIngredientView view = new EditorFluidIngredientView(new Object(), Component.literal("Water"),
+			"minecraft:water", IngredientSearchDocument.of(List.of(), List.of(), List.of()), null);
+
+		helper.toggleSelection(view);
+		assertTrue(helper.isSelected(view));
+		assertEquals(List.of("minecraft:water"), ids);
+		helper.removeSelection(view);
+		assertFalse(helper.isSelected(view));
+		assertEquals(2, callbacks.get());
 	}
 
 	private static EditorFluidSelectionHelper helper(List<String> ids, AtomicInteger callbacks) {

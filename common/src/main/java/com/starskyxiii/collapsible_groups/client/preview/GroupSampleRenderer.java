@@ -1,4 +1,4 @@
-package com.starskyxiii.collapsible_groups.compat.jei.ui;
+package com.starskyxiii.collapsible_groups.client.preview;
 
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
@@ -6,7 +6,6 @@ import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
 
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 
@@ -14,16 +13,16 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Renders an editor-only JEI-grid preview of a collapsible group directly from
+ * Renders an editor-only viewer-grid preview of a collapsible group directly from
  * a {@link GroupTheme} (typically {@code AppearanceDraft.toTheme()}).
  *
  * <p>The helper owns the preview geometry and returns it to the screen so
- * rendering and hit-testing share one source of truth. Live JEI elements are
- * not touched: this class only reuses the same color resolution, stacked icon
+ * rendering and hit-testing share one source of truth. Live viewer elements are
+ * not touched: this class reuses the same color resolution, stacked icon
  * visual, per-cell tint, and connected-border helper.
  */
 public final class GroupSampleRenderer {
-	/** Matches {@code GroupBorderRenderer.SPACING} / the live JEI slot pitch. */
+	/** Matches the live viewer slot pitch. */
 	public static final int SLOT_PITCH = 18;
 	public static final int ICON_SIZE = 16;
 	private static final int PAGE_BUTTON_WIDTH = 20;
@@ -143,7 +142,7 @@ public final class GroupSampleRenderer {
 		}
 
 		if (expanded && !borderPositions.isEmpty()) {
-			GroupBorderRenderer.drawBorder(g, borderPositions, border);
+			ConnectedSlotBorderRenderer.drawBorder(g, borderPositions, border);
 		}
 
 		if (layout.hasPages()) {

@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups;
 
-import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewTooltipComponent;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.client.preview.PreviewTooltipComponent;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
 import com.starskyxiii.collapsible_groups.config.ForgeConfig;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
@@ -53,7 +53,7 @@ public class CollapsibleGroupsForge {
     private void onConfigReload(ModConfigEvent.Reloading event) {
         if (event.getConfig().getSpec() == ForgeConfig.SPEC) {
             reloadGroupsFromCurrentConfig();
-            GroupRegistry.notifyJei();
+            GroupRepository.notifyViewer();
         }
     }
 
@@ -63,6 +63,6 @@ public class CollapsibleGroupsForge {
 
     public static void reloadGroupsFromCurrentConfig() {
         GroupLangBootstrap.refresh();
-        GroupRegistry.load(DefaultGroupProviders.loadAll("Forge", 3));
+        GroupRepository.load(DefaultGroupProviders.loadAll("Forge", 3));
     }
 }

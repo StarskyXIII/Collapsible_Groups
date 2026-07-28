@@ -1,4 +1,4 @@
-package com.starskyxiii.collapsible_groups.compat.jei.preview;
+package com.starskyxiii.collapsible_groups.client.preview;
 
 import org.junit.jupiter.api.Test;
 

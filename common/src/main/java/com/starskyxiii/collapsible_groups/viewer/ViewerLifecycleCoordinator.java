@@ -14,13 +14,14 @@ public final class ViewerLifecycleCoordinator {
 	public static final String JEI = "jei";
 	public static final String EMI = "emi";
 	public static final String TMRV_MOD_ID = "toomanyrecipeviewers";
-	private static final Set<String> SUPPORTED_VIEWERS = Set.of(JEI);
+	private static final Set<String> SUPPORTED_VIEWERS = Set.of(JEI, EMI);
 
 	private final ViewerAdapterRegistry registry = new ViewerAdapterRegistry();
 	private final Set<String> supportedViewerIds;
 	private final Selection selection;
 	private final Consumer<String> warnings;
 	private ScriptedGroupBootstrap scriptedGroupBootstrap;
+	private boolean scriptedBootstrapInProgress;
 
 	public ViewerLifecycleCoordinator(Environment environment, Set<String> supportedViewerIds,
 		Consumer<String> warnings) {
@@ -33,12 +34,17 @@ public final class ViewerLifecycleCoordinator {
 	public static ViewerLifecycleCoordinator global() { return GlobalHolder.INSTANCE; }
 
 	public static boolean isJeiSelected() { return global().isSelected(JEI); }
+	public static boolean isEmiSelected() { return global().isSelected(EMI); }
 
 	public boolean isSelected(String viewerId) {
 		return selection.viewerId().filter(viewerId::equals).isPresent();
 	}
 
 	public Selection selection() { return selection; }
+
+	public synchronized Optional<ViewerAdapter<?, ?>> activeAdapter() {
+		return registry.activeAdapter();
+	}
 
 	/** Registers only the selected adapter; inactive viewer callbacks are deliberate no-ops. */
 	public synchronized ViewerRegistration register(ViewerAdapter<?, ?> adapter) {
@@ -53,10 +59,16 @@ public final class ViewerLifecycleCoordinator {
 	/** Called when the selected adapter has published its initial ingredient universe. */
 	public synchronized boolean activeUniverseReady(String viewerId, ViewerBootstrapContext<?> context) {
 		if (!isSelected(viewerId) || !supportedViewerIds.contains(viewerId)) return false;
-		if (scriptedGroupBootstrap == null || ScriptedGroupStore.isApplied()) return false;
-		scriptedGroupBootstrap.apply(context);
-		ScriptedGroupStore.markApplied();
-		return true;
+		if (scriptedGroupBootstrap == null || ScriptedGroupStore.isApplied()
+			|| scriptedBootstrapInProgress) return false;
+		scriptedBootstrapInProgress = true;
+		try {
+			scriptedGroupBootstrap.apply(context);
+			ScriptedGroupStore.markApplied();
+			return true;
+		} finally {
+			scriptedBootstrapInProgress = false;
+		}
 	}
 
 	/**

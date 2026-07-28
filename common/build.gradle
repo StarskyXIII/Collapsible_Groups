@@ -17,6 +17,15 @@ neoForge {
 }
 
 repositories {
+    // The TerraformersMC maven truncates large transfers on some networks; a
+    // pre-seeded local repository (see note/internal) takes priority for EMI.
+    mavenLocal {
+        content { includeGroup 'dev.emi' }
+    }
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/'
+    }
     maven {
         name = 'BlameJared'
         url = 'https://maven.blamejared.com'
@@ -35,6 +44,10 @@ dependencies {
     // JEI packages mezz.jei.gui.* only in full loader jars. The referenced GUI
     // implementation FQCNs are shared, so one full jar supplies compile symbols only.
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    // EMI's xplat Mojmap jar supplies the loader-neutral API and the two stable
+    // screen internals targeted by our optional mixins. It is compile-only here;
+    // loader modules provide their own runtime artifact.
+    compileOnly "dev.emi:emi-xplat-mojmap:${emi_version}"
 
     // Tests — pure Java logic only (path grammar, path navigation)
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
@@ -60,10 +73,12 @@ sourceSets {
         compileClasspath = files(
             sourceSets.main.output,
 			configurations.compileClasspath.filter { file ->
-				!file.name.toLowerCase(Locale.ROOT).startsWith('jei-')
+				!file.name.toLowerCase(Locale.ROOT).startsWith('jei-') &&
+				!file.name.toLowerCase(Locale.ROOT).startsWith('emi-')
 			},
 			configurations.testCompileClasspath.filter { file ->
-                !file.name.toLowerCase(Locale.ROOT).startsWith('jei-')
+                !file.name.toLowerCase(Locale.ROOT).startsWith('jei-') &&
+                !file.name.toLowerCase(Locale.ROOT).startsWith('emi-')
             }
         )
     }
@@ -72,17 +87,20 @@ sourceSets {
 tasks.named('compileNeutralCheckJava') {
     dependsOn tasks.named('classes')
     doFirst {
-        def jeiEntries = classpath.files.findAll { file ->
-            file.name.toLowerCase(Locale.ROOT).startsWith('jei-')
+        def viewerEntries = classpath.files.findAll { file ->
+            def name = file.name.toLowerCase(Locale.ROOT)
+            name.startsWith('jei-') || name.startsWith('emi-')
         }
-        if (!jeiEntries.isEmpty()) {
-            throw new GradleException("Neutral compile classpath contains JEI artifacts: ${jeiEntries}")
+        if (!viewerEntries.isEmpty()) {
+            throw new GradleException("Neutral compile classpath contains viewer artifacts: ${viewerEntries}")
         }
     }
 }
 
 tasks.named('check') {
     dependsOn tasks.named('compileNeutralCheckJava')
+	dependsOn rootProject.tasks.named('verifyEmiMixinParity')
+	dependsOn rootProject.tasks.named('verifyEmiOnlyLinkage')
 }
 
 test {
@@ -112,4 +130,3 @@ tasks.named('processResources') {
 tasks.named('sourcesJar') {
     dependsOn(rootProject.tasks.named('generateGroupLang'))
 }
-

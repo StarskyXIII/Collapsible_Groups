@@ -1,17 +1,13 @@
 package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
 
-import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.client.manager.model.EnabledPersistenceKind;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupSource;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
-import mezz.jei.api.ingredients.IIngredientType;
-import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.Test;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -22,8 +18,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GroupManagerCardTest {
-	private static final IIngredientType<Object> TEST_GENERIC_TYPE = () -> Object.class;
-
 	@Test
 	void buildsUserCardViewModelFromResolvedCounts() {
 		GroupDefinition group = new GroupDefinition(
@@ -35,9 +29,9 @@ class GroupManagerCardTest {
 
 		GroupManagerCard card = GroupManagerCard.create(
 			group,
-			List.of(),
-			List.of(new Object()),
-			List.of(new GenericIngredientRef("test:generic", TEST_GENERIC_TYPE, new Object())),
+			0,
+			1,
+			1,
 			List.of()
 		);
 
@@ -63,7 +57,7 @@ class GroupManagerCardTest {
 			Filters.itemId("minecraft:apple")
 		);
 
-		GroupManagerCard card = GroupManagerCard.create(group, List.of(), List.of(), List.of(), List.of());
+		GroupManagerCard card = GroupManagerCard.create(group, 0, 0, 0, List.of());
 
 		assertEquals(GroupSource.BUILTIN, card.source());
 		assertFalse(card.editable());
@@ -79,19 +73,16 @@ class GroupManagerCardTest {
 			true,
 			Filters.itemId("minecraft:stone")
 		);
-		List<ItemStack> items = new ArrayList<>();
-		List<Object> fluids = new ArrayList<>(List.of(new Object()));
-		List<GenericIngredientRef> generic = new ArrayList<>();
-
-		GroupManagerCard card = GroupManagerCard.create(group, items, fluids, generic, List.of());
-		items.add(null);
-		fluids.add(new Object());
+		List<GroupPreviewEntry> entries = new java.util.ArrayList<>();
+		entries.add(noopPreview());
+		GroupManagerCard card = GroupManagerCard.create(group, 0, 1, 0, entries);
+		entries.add(noopPreview());
 
 		assertEquals(0, card.itemCount());
 		assertEquals(1, card.fluidCount());
-		assertThrows(UnsupportedOperationException.class, () -> card.items().add(null));
-		assertThrows(UnsupportedOperationException.class, () -> card.fluids().add(new Object()));
-		assertThrows(UnsupportedOperationException.class, () -> card.genericEntries().add(null));
+		assertEquals(1, card.previewEntries().size());
+		assertThrows(UnsupportedOperationException.class, () -> card.previewEntries().add(noopPreview()));
+		assertThrows(UnsupportedOperationException.class, () -> card.headerEntries().add(noopPreview()));
 	}
 
 	@Test
@@ -104,9 +95,9 @@ class GroupManagerCardTest {
 		);
 		GroupManagerCard card = GroupManagerCard.create(
 			group,
-			List.of(),
-			List.of(),
-			List.of(new GenericIngredientRef("test:generic", TEST_GENERIC_TYPE, new Object())),
+			0,
+			0,
+			1,
 			List.of()
 		);
 
@@ -128,10 +119,10 @@ class GroupManagerCardTest {
 	void headerSourceFallsBackToPreviewEntriesWhenNoIconIds() {
 		GroupDefinition group = new GroupDefinition(
 			"custom_group", "Custom Group", true, Filters.itemId("minecraft:stone"));
-		GroupPreviewEntry a = GroupPreviewEntry.ofFluid(new Object());
-		GroupPreviewEntry b = GroupPreviewEntry.ofFluid(new Object());
+		GroupPreviewEntry a = noopPreview();
+		GroupPreviewEntry b = noopPreview();
 		GroupManagerCard card = GroupManagerCard.create(
-			group, List.of(), List.of(), List.of(), List.of(a, b));
+			group, 0, 0, 0, List.of(a, b));
 
 		List<GroupPreviewEntry> header = card.headerSource();
 		assertEquals(2, header.size());
@@ -147,15 +138,19 @@ class GroupManagerCardTest {
 	void headerSourceTruncatesFallbackToFirstTwoPreviewEntries() {
 		GroupDefinition group = new GroupDefinition(
 			"custom_group", "Custom Group", true, Filters.itemId("minecraft:stone"));
-		GroupPreviewEntry a = GroupPreviewEntry.ofFluid(new Object());
-		GroupPreviewEntry b = GroupPreviewEntry.ofFluid(new Object());
-		GroupPreviewEntry c = GroupPreviewEntry.ofFluid(new Object());
+		GroupPreviewEntry a = noopPreview();
+		GroupPreviewEntry b = noopPreview();
+		GroupPreviewEntry c = noopPreview();
 		GroupManagerCard card = GroupManagerCard.create(
-			group, List.of(), List.of(), List.of(), List.of(a, b, c));
+			group, 0, 0, 0, List.of(a, b, c));
 
 		List<GroupPreviewEntry> header = card.headerSource();
 		assertEquals(2, header.size());
 		assertSame(a, header.get(0));
 		assertSame(b, header.get(1));
+	}
+
+	private static GroupPreviewEntry noopPreview() {
+		return GroupPreviewEntry.ofRenderer((graphics, x, y) -> {});
 	}
 }

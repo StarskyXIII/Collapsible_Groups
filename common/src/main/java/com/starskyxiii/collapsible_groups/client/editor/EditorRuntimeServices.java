@@ -1,16 +1,14 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
-import java.util.ServiceLoader;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 
 /** Resolves the installed recipe-viewer implementation for editor operations. */
 public final class EditorRuntimeServices {
-	private static final EditorRuntimeAccess ACCESS = ServiceLoader.load(EditorRuntimeAccess.class)
-		.findFirst()
-		.orElseThrow(() -> new IllegalStateException("No editor runtime access provider found"));
-
 	private EditorRuntimeServices() {}
 
 	public static EditorRuntimeAccess get() {
-		return ACCESS;
+		return ViewerLifecycleCoordinator.global().activeAdapter()
+			.map(adapter -> adapter.editorRuntimeAccess())
+			.orElseThrow(() -> new IllegalStateException("No active recipe-viewer editor runtime"));
 	}
 }

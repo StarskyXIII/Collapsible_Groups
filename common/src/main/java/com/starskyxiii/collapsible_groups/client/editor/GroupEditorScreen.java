@@ -749,7 +749,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	/**
-	 * Settings-mode preview area: start just below the "JEI Preview" title
+	 * Settings-mode preview area: start just below the "Viewer Preview" title
 	 * and its operation hint, not the Contents/Rules 22px stacked-icon header the
 	 * shared {@code previewBody} bakes in — that offset left ~35px of dead space.
 	 */

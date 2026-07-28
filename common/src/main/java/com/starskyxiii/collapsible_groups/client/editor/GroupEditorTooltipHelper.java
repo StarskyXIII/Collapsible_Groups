@@ -34,7 +34,7 @@ final class GroupEditorTooltipHelper {
 		// --- Left panel ---
 		if (left.hoveredItem >= 0 && left.hoveredItem < left.filteredItems().size()) {
 			ItemStack stack = left.filteredItems().get(left.hoveredItem);
-			List<Component> lines = new ArrayList<>(EditorItemTooltipHelper.tooltipLines(stack));
+			List<Component> lines = ownTooltipLines(EditorItemTooltipHelper.tooltipLines(stack));
 			appendOtherGroups(lines, left.otherGroupsForItem(stack));
 			if (left.isShowingItems()) appendItemHint(lines, state, stack);
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
@@ -42,14 +42,14 @@ final class GroupEditorTooltipHelper {
 		}
 		if (left.hoveredFluid >= 0 && left.hoveredFluid < left.filteredFluids().size()) {
 			EditorFluidIngredientView fluid = left.filteredFluids().get(left.hoveredFluid);
-			List<Component> lines = EditorRuntimeServices.get().fluidTooltip(fluid);
+			List<Component> lines = ownTooltipLines(EditorRuntimeServices.get().fluidTooltip(fluid));
 			appendOtherGroups(lines, left.otherGroupsForFluid(fluid));
 			if (!state.canEditContents()) {
 				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
-			} else if (!state.isFluidSelected(fluidIngredient(fluid))
+			} else if (!state.isFluidSelected(fluid)
 				&& state.isFluidRuleCovered(EditorRuleCoverageKeys.fluidKey(fluid))) {
 				lines.add(ruleCovered());
-			} else if (state.isFluidSelected(fluidIngredient(fluid))) {
+			} else if (state.isFluidSelected(fluid)) {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE_FLUIDS));
 			} else {
@@ -61,7 +61,7 @@ final class GroupEditorTooltipHelper {
 		}
 		if (left.hoveredGeneric >= 0 && left.hoveredGeneric < left.filteredGeneric().size()) {
 			EditorGenericIngredientView entry = left.filteredGeneric().get(left.hoveredGeneric);
-			List<Component> lines = EditorRuntimeServices.get().genericTooltip(entry);
+			List<Component> lines = ownTooltipLines(EditorRuntimeServices.get().genericTooltip(entry));
 			appendOtherGroups(lines, left.otherGroupsForGeneric(entry));
 			if (!state.canEditContents()) {
 				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
@@ -84,7 +84,7 @@ final class GroupEditorTooltipHelper {
 			ItemStack stack = right.groupItems().get(right.hoveredItem);
 			boolean isExact = state.isExactSelected(stack);
 			boolean isWhole = state.isWholeItemSelected(stack);
-			List<Component> lines = new ArrayList<>(EditorItemTooltipHelper.tooltipLines(stack));
+			List<Component> lines = ownTooltipLines(EditorItemTooltipHelper.tooltipLines(stack));
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 			else if (!isExact && !isWhole) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			else if (isWhole) {
@@ -99,16 +99,16 @@ final class GroupEditorTooltipHelper {
 		}
 		if (right.hoveredFluid >= 0 && right.hoveredFluid < right.groupFluids().size()) {
 			EditorFluidIngredientView fluid = right.groupFluids().get(right.hoveredFluid);
-			List<Component> lines = EditorRuntimeServices.get().fluidTooltip(fluid);
+			List<Component> lines = ownTooltipLines(EditorRuntimeServices.get().fluidTooltip(fluid));
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
-			else if (state.isFluidSelected(fluidIngredient(fluid))) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
+			else if (state.isFluidSelected(fluid)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
 			g.renderComponentTooltip(font, lines, mouseX, mouseY);
 			return;
 		}
 		if (right.hoveredGeneric >= 0 && right.hoveredGeneric < right.groupGeneric().size()) {
 			EditorGenericIngredientView entry = right.groupGeneric().get(right.hoveredGeneric);
-			List<Component> lines = EditorRuntimeServices.get().genericTooltip(entry);
+			List<Component> lines = ownTooltipLines(EditorRuntimeServices.get().genericTooltip(entry));
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 			else if (state.isGenericSelected(entry)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else if (state.isGenericTagMatched(entry)) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
@@ -124,6 +124,11 @@ final class GroupEditorTooltipHelper {
 	static List<Component> searchSyntaxLines() {
 		return java.util.Arrays.stream(Component.translatable(ModTranslationKeys.EDITOR_SEARCH_SYNTAX_TOOLTIP)
 			.getString().split("\\n", -1)).<Component>map(Component::literal).toList();
+	}
+
+	/** Takes mutable ownership of a provider snapshot before editor hints are appended. */
+	static List<Component> ownTooltipLines(List<Component> snapshot) {
+		return new ArrayList<>(snapshot);
 	}
 
 	private static void appendItemHint(List<Component> lines, GroupEditorState state, ItemStack stack) {
@@ -173,7 +178,4 @@ final class GroupEditorTooltipHelper {
 	private static Component hint2(String key) { return Component.translatable(key).withStyle(ChatFormatting.DARK_GRAY, ChatFormatting.ITALIC); }
 	private static Component dim(String key)   { return Component.translatable(key).withStyle(ChatFormatting.DARK_GRAY); }
 
-	private static Object fluidIngredient(EditorFluidIngredientView fluid) {
-		return fluid.ingredient();
-	}
 }

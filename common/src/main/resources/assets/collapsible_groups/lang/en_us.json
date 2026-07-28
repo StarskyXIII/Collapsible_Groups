@@ -326,7 +326,7 @@
   "collapsible_groups.ore_editor.settings.priority": "Priority",
   "collapsible_groups.ore_editor.settings.group_id": "Group ID",
   "collapsible_groups.ore_editor.settings.enabled": "Enabled",
-  "collapsible_groups.ore_editor.settings.preview.header": "JEI Preview",
+  "collapsible_groups.ore_editor.settings.preview.header": "Viewer Preview",
   "collapsible_groups.ore_editor.settings.preview.hint": "Click header to collapse / expand",
   "collapsible_groups.ore_editor.settings.priority.desc": "Higher values claim overlapping items and sort ahead in the JEI panel.",
   "collapsible_groups.ore_editor.settings.group_id.desc": "For KubeJS script references.",

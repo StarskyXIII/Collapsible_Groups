@@ -4,6 +4,13 @@ plugins {
 }
 
 repositories {
+    mavenLocal {
+        content { includeGroup 'dev.emi' }
+    }
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/'
+    }
     maven {
         name = 'BlameJared'
         url = 'https://maven.blamejared.com'
@@ -57,6 +64,8 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    compileOnly "dev.emi:emi-neoforge:${emi_version}"
+    runtimeOnly "dev.emi:emi-neoforge:${emi_version}"
     // Optional — provides RecipeViewerEvents.groupEntries support when KubeJS is present.
     // Adjust kubejs_version in gradle.properties to match the installed KubeJS build.
     compileOnly "dev.latvian.mods:kubejs-neoforge:${kubejs_version}"

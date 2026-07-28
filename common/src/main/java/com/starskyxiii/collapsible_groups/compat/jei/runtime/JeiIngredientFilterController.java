@@ -8,7 +8,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.element.GenericChildElement
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupHeaderElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
@@ -343,12 +343,12 @@ public final class JeiIngredientFilterController {
 				case ITEM -> child.entry().getItemStack().ifPresent(stack -> preview.add(GroupPreviewEntry.ofItem(stack)));
 				case FLUID -> {
 					Object fluid = hooks.previewFluid(child.entry());
-					if (fluid != null) preview.add(GroupPreviewEntry.ofFluid(fluid));
+					if (fluid != null) preview.add(com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries.ofFluid(fluid));
 				}
 				case GENERIC -> generic.add(child.entry());
 			}
 		}
-		preview.addAll(GroupPreviewEntry.fromTypedIngredients(generic));
+		preview.addAll(com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries.fromTypedIngredients(generic));
 		return new GroupHeaderElement(typedIcon,
 			buildCountLabel(header.itemCount(), header.fluidCount(), header.genericCount()), preview, onToggle);
 	}

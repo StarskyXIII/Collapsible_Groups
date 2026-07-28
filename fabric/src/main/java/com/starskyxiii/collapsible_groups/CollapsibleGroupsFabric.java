@@ -1,12 +1,13 @@
 package com.starskyxiii.collapsible_groups;
 
-import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewTooltipComponent;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.client.preview.PreviewTooltipComponent;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
 import com.starskyxiii.collapsible_groups.config.FabricConfig;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.rendering.v1.TooltipComponentCallback;
 import net.fabricmc.fabric.api.resource.ResourceManagerHelper;
 import net.fabricmc.fabric.api.resource.SimpleSynchronousResourceReloadListener;
@@ -44,11 +45,16 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
         // Register PreviewTooltipComponent so Minecraft renders the ingredient preview grid.
         TooltipComponentCallback.EVENT.register(data ->
             data instanceof PreviewTooltipComponent p ? p : null);
+
+        if (com.starskyxiii.collapsible_groups.platform.Services.PLATFORM.isModLoaded("emi")) {
+            ClientPlayConnectionEvents.DISCONNECT.register((handler, client) ->
+                com.starskyxiii.collapsible_groups.compat.emi.EmiViewerAdapter.unregisterRuntime());
+        }
     }
 
     public static void reloadGroupsFromCurrentConfig() {
         GroupLangBootstrap.refresh();
-        GroupRegistry.load(DefaultGroupProviders.loadAll("Fabric", 5));
-        GroupRegistry.notifyJei();
+        GroupRepository.load(DefaultGroupProviders.loadAll("Fabric", 5));
+        GroupRepository.notifyViewer();
     }
 }

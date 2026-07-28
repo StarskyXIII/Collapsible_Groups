@@ -326,7 +326,7 @@
   "collapsible_groups.ore_editor.settings.priority": "優先度",
   "collapsible_groups.ore_editor.settings.group_id": "群組 ID",
   "collapsible_groups.ore_editor.settings.enabled": "啟用",
-  "collapsible_groups.ore_editor.settings.preview.header": "JEI 預覽",
+  "collapsible_groups.ore_editor.settings.preview.header": "配方檢視器預覽",
   "collapsible_groups.ore_editor.settings.preview.hint": "點標頭可切換收合/展開",
   "collapsible_groups.ore_editor.settings.priority.desc": "高值優先佔用重疊物品，並排在 JEI 面板前面",
   "collapsible_groups.ore_editor.settings.group_id.desc": "KubeJS 腳本引用用",

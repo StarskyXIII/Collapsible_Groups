@@ -1,4 +1,4 @@
-package com.starskyxiii.collapsible_groups.compat.jei.preview;
+package com.starskyxiii.collapsible_groups.client.preview;
 
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import net.minecraft.ChatFormatting;
@@ -13,12 +13,12 @@ import java.util.Optional;
 
 /**
  * Builds the group-header hover tooltip (name, count label, optional preview grid,
- * and expand/collapse action hint) shared by the live JEI element and the editor's
+ * and expand/collapse action hint) shared by live viewer elements and the editor's
  * settings-mode preview.
  *
  * <p>Mirrors the composition of {@code GroupHeaderElement.getTooltip} and
  * {@code MixinIngredientFilter#cg$buildCountLabel} so the editor preview reads the
- * same as the real JEI element. Kept in {@code common} so the
+ * same as the real viewer element. Kept in {@code common} so the
  * three loader screens share one decision path and stay byte-identical.
  */
 public final class GroupPreviewTooltip {

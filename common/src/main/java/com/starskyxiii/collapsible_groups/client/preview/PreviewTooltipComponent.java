@@ -1,4 +1,4 @@
-package com.starskyxiii.collapsible_groups.compat.jei.preview;
+package com.starskyxiii.collapsible_groups.client.preview;
 
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;

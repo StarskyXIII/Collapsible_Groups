@@ -1,7 +1,5 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
-import com.starskyxiii.collapsible_groups.platform.Services;
-
 import java.util.List;
 import java.util.Objects;
 
@@ -14,16 +12,16 @@ final class EditorFluidSelectionHelper {
 		this.onContentsDraftChanged = Objects.requireNonNull(onContentsDraftChanged, "onContentsDraftChanged");
 	}
 
-	boolean isSelected(Object fluid) {
-		return isIdSelected(fluidId(fluid));
+	boolean isSelected(EditorFluidIngredientView view) {
+		return isIdSelected(view.resourceId());
 	}
 
-	void toggleSelection(Object fluid) {
-		toggleId(fluidId(fluid));
+	void toggleSelection(EditorFluidIngredientView view) {
+		toggleId(view.resourceId());
 	}
 
-	void removeSelection(Object fluid) {
-		removeId(fluidId(fluid));
+	void removeSelection(EditorFluidIngredientView view) {
+		removeId(view.resourceId());
 	}
 
 	boolean isIdSelected(String id) {
@@ -48,9 +46,5 @@ final class EditorFluidSelectionHelper {
 		if (fluidIds.remove(id)) {
 			onContentsDraftChanged.run();
 		}
-	}
-
-	private static String fluidId(Object fluid) {
-		return Services.PLATFORM.getFluidId(fluid);
 	}
 }

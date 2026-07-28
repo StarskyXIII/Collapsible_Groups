@@ -221,11 +221,11 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		// No-op: the contents collections are live views backed by the draft.
 	}
 
-	boolean isFluidSelected(Object fluid) {
+	boolean isFluidSelected(EditorFluidIngredientView fluid) {
 		return fluidSelection.isSelected(fluid);
 	}
 
-	void toggleFluidSelection(Object fluid) {
+	void toggleFluidSelection(EditorFluidIngredientView fluid) {
 		fluidSelection.toggleSelection(fluid);
 	}
 
@@ -233,7 +233,7 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		fluidSelection.addId(id);
 	}
 
-	void removeFluidSelection(Object fluid) {
+	void removeFluidSelection(EditorFluidIngredientView fluid) {
 		fluidSelection.removeSelection(fluid);
 	}
 

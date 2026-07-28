@@ -18,7 +18,7 @@ public final class PreviewIngredientRenderer {
 		return getIngredient(typed, fluidType);
 	}
 
-	static void renderFluid(GuiGraphics guiGraphics, Object fluid, int x, int y) {
+	public static void renderFluid(GuiGraphics guiGraphics, Object fluid, int x, int y) {
 		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		if (JeiRuntimeHolder.get() != null && fluidType != null) {
 			renderWithJei(guiGraphics, fluidType, fluid, x, y);
@@ -31,7 +31,7 @@ public final class PreviewIngredientRenderer {
 		}
 	}
 
-	static void renderGeneric(GuiGraphics guiGraphics, IIngredientType<Object> type, Object ingredient, int x, int y) {
+	public static void renderGeneric(GuiGraphics guiGraphics, IIngredientType<Object> type, Object ingredient, int x, int y) {
 		if (JeiRuntimeHolder.get() == null) return;
 		renderWithJei(guiGraphics, type, ingredient, x, y);
 	}

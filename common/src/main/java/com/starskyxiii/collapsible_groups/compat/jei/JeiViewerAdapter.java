@@ -5,8 +5,10 @@ import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIconRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GenericJeiIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.compat.jei.editor.JeiEditorRuntimeAccess;
+import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
@@ -24,6 +26,7 @@ import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientType;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
+import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerOverlayHook;
 import com.starskyxiii.collapsible_groups.viewer.ViewerPresentation;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
@@ -69,6 +72,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	private final JeiSearchState searchState = new JeiSearchState();
 	private final JeiBootstrapContext bootstrapContext = new JeiBootstrapContext();
 	private final ViewerPresentation<ITypedIngredient<?>, Component> presentation = new JeiPresentation();
+	private final EditorRuntimeAccess editorRuntimeAccess = new JeiEditorRuntimeAccess();
 
 	private JeiViewerAdapter() {}
 
@@ -130,17 +134,21 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		return OVERLAY;
 	}
 
+	@Override public ViewerGroupIndex groupIndex() { return JeiViewerGroupIndex.instance(); }
+	@Override public EditorRuntimeAccess editorRuntimeAccess() { return editorRuntimeAccess; }
+
 	@Override
 	public void onGroupChange(GroupChangeEvent.Kind kind) {
+		JeiViewerGroupIndex.instance().onGroupChange(kind, GroupRepository.getAllIncludingScripted());
 		searchState.publishCurrent();
 	}
 
 	public void updateBootstrap(List<ITypedIngredient<?>> ingredients, IIngredientManager manager) {
 		JeiIngredientTypeDiscovery.discover(manager);
 		bootstrapContext.update(ingredients, manager);
-		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRegistry.getAllIncludingKubeJs());
+		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRepository.getAllIncludingScripted());
 		JeiHeaderIconResolver.warnUnresolvedAfterBootstrap(
-			GroupRegistry.getAllIncludingKubeJs(), bootstrapContext.universe());
+			GroupRepository.getAllIncludingScripted(), bootstrapContext.universe());
 	}
 
 	/** Publishes the JEI universe, then lets the global lifecycle apply scripted groups once. */
@@ -162,7 +170,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 
 	public void discoverRuntimeTypes(IIngredientManager manager) {
 		JeiIngredientTypeDiscovery.discover(manager);
-		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRegistry.getAllIncludingKubeJs());
+		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRepository.getAllIncludingScripted());
 	}
 
 	public GroupCandidateIndex buildOwnershipIndex(

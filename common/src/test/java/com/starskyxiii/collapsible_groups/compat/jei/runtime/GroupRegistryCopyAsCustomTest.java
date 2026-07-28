@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 import com.google.gson.JsonObject;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import org.junit.jupiter.api.AfterEach;
@@ -153,20 +154,6 @@ class GroupRegistryCopyAsCustomTest {
 	}
 
 	private static void replaceRegistrySnapshot(List<GroupDefinition> groups) throws Exception {
-		Field groupsField = GroupRegistry.class.getDeclaredField("groups");
-		groupsField.setAccessible(true);
-		groupsField.set(null, List.copyOf(groups));
-
-		Field orderedGroupsField = GroupRegistry.class.getDeclaredField("orderedGroups");
-		orderedGroupsField.setAccessible(true);
-		orderedGroupsField.set(null, GroupRegistry.orderByPriority(groups));
-
-		Map<String, GroupDefinition> byId = new LinkedHashMap<>();
-		for (GroupDefinition group : groups) {
-			byId.put(group.id(), group);
-		}
-		Field groupsByIdField = GroupRegistry.class.getDeclaredField("groupsById");
-		groupsByIdField.setAccessible(true);
-		groupsByIdField.set(null, Map.copyOf(byId));
+		GroupRepositoryTestAccess.replace(groups);
 	}
 }

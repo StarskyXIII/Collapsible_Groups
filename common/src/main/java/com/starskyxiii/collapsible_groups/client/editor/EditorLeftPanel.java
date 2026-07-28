@@ -195,7 +195,7 @@ final class EditorLeftPanel {
 		boolean inWhole = false;
 		if (isShowingFluids()) {
 			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
-			boolean selected = state.isFluidSelected(fluidIngredient(fluid));
+			boolean selected = state.isFluidSelected(fluid);
 			cellState = IngredientSourceCellState.resolve(
 				selected,
 				!selected && state.isFluidRuleCovered(EditorRuleCoverageKeys.fluidKey(fluid)),
@@ -304,8 +304,8 @@ final class EditorLeftPanel {
 		}
 		if (isShowingFluids()) {
 			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
-			boolean was = state.isFluidSelected(fluidIngredient(fluid));
-			state.toggleFluidSelection(fluidIngredient(fluid));
+			boolean was = state.isFluidSelected(fluid);
+			state.toggleFluidSelection(fluid);
 			onChange.run();
 			startDrag(was ? DragGesture.FLUID_REMOVE : DragGesture.FLUID_ADD, dragFluidKey(fluid));
 			return;
@@ -337,7 +337,7 @@ final class EditorLeftPanel {
 	private boolean canToggleCurrentGroup(Object entry) {
 		if (isShowingFluids()) {
 			EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
-			return state.isFluidSelected(fluidIngredient(fluid))
+			return state.isFluidSelected(fluid)
 				|| !state.isFluidRuleCovered(EditorRuleCoverageKeys.fluidKey(fluid));
 		}
 		if (isShowingGeneric()) {
@@ -426,7 +426,7 @@ final class EditorLeftPanel {
 			case FLUID_ADD -> {
 				EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
 				String key = dragFluidKey(fluid);
-				if (dragVisited.add(key) && !state.isFluidSelected(fluidIngredient(fluid))) {
+				if (dragVisited.add(key) && !state.isFluidSelected(fluid)) {
 					state.addFluidId(key);
 					onChange.run();
 				}
@@ -434,8 +434,8 @@ final class EditorLeftPanel {
 			case FLUID_REMOVE -> {
 				EditorFluidIngredientView fluid = (EditorFluidIngredientView) entry;
 				String key = dragFluidKey(fluid);
-				if (dragVisited.add(key) && state.isFluidSelected(fluidIngredient(fluid))) {
-					state.removeFluidSelection(fluidIngredient(fluid));
+				if (dragVisited.add(key) && state.isFluidSelected(fluid)) {
+					state.removeFluidSelection(fluid);
 					onChange.run();
 				}
 			}

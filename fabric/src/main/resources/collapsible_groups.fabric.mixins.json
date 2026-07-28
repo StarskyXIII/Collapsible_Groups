@@ -10,7 +10,9 @@
     "MixinBookmarkList",
     "MixinIngredientFilter",
     "MixinIngredientListOverlay",
-    "MixinGuiTextFieldFilterAccessor"
+    "MixinGuiTextFieldFilterAccessor",
+    "MixinEmiScreenSpace",
+    "MixinEmiScreenManager"
   ],
   "server": [],
   "injectors": {

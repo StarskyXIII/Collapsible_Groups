@@ -5,7 +5,7 @@ import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupCollector;
 import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupConsumer;
 import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupIds;
 import com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsLoweredGroup;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.KubeJsItemFilterLowering;
@@ -13,12 +13,13 @@ import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.viewer.ViewerBootstrapContext;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientType;
+import com.starskyxiii.collapsible_groups.viewer.ViewerBootstrapEntries;
 import dev.latvian.mods.kubejs.plugin.builtin.event.RecipeViewerEvents;
 import dev.latvian.mods.kubejs.recipe.viewer.RecipeViewerEntryType;
 import dev.latvian.mods.kubejs.recipe.viewer.server.FluidData;
 import dev.latvian.mods.kubejs.recipe.viewer.server.ItemData;
 import dev.latvian.mods.kubejs.script.ScriptType;
-import mezz.jei.api.ingredients.ITypedIngredient;
+import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import net.neoforged.neoforge.fluids.FluidStack;
 
@@ -27,7 +28,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 
 /**
- * Bridges KubeJS RecipeViewerEvents.groupEntries() into our JEI group system.
+ * Bridges KubeJS RecipeViewerEvents.groupEntries() into the active viewer's group system.
  * All group types (item, fluid, generic) are unified as {@link GroupDefinition}.
  *
  * Handles both client-script groups (fired via the Rhino JS engine) and
@@ -42,25 +43,21 @@ public final class KubeJSGroupBridge {
 
 	private KubeJSGroupBridge() {}
 
-	@SuppressWarnings("unchecked")
 	public static void applyGroupsNeutral(ViewerBootstrapContext<?> bootstrap) {
-		applyGroups((ViewerBootstrapContext<ITypedIngredient<?>>) bootstrap);
+		applyGroups(bootstrap);
 	}
 
 	/**
 	 * @param bootstrap early viewer context supplied while the ingredient filter is being built,
-	 *                  before the normal JEI runtime is available
+	 *                  before the normal viewer runtime is available
 	 */
-	public static void applyGroups(ViewerBootstrapContext<ITypedIngredient<?>> bootstrap) {
+	public static void applyGroups(ViewerBootstrapContext<?> bootstrap) {
 		List<GroupDefinition> allGroups = new ArrayList<>();
-		List<ItemStack> allItems = bootstrap.universe().items().stream()
-			.flatMap(ingredient -> ingredient.entry().getItemStack().stream())
-			.toList();
-		List<FluidStack> allFluids = bootstrap.universe().fluids().stream()
-			.map(ViewerIngredient::entry)
-			.map(ITypedIngredient::getIngredient)
-			.filter(FluidStack.class::isInstance)
-			.map(FluidStack.class::cast)
+		List<ItemStack> allItems = ViewerBootstrapEntries.itemStacks(bootstrap);
+		List<FluidStack> allFluids = ViewerBootstrapEntries.resourceIds(bootstrap, ViewerIngredient.Kind.FLUID).stream()
+			.map(BuiltInRegistries.FLUID::get)
+			.filter(java.util.Objects::nonNull)
+			.map(fluid -> new FluidStack(fluid, 1000))
 			.toList();
 
 		// Client-script item groups
@@ -80,20 +77,20 @@ public final class KubeJSGroupBridge {
 		// Client-script generic groups (custom ingredient types).
 		// Preserve canonical-then-alias registration order while resolving from the early context.
 		for (String typeId : IngredientTypeIds.getAllIds().keySet()) {
-			ViewerIngredientType<ITypedIngredient<?>> type = bootstrap.resolveType(typeId).orElse(null);
+			ViewerIngredientType<?> type = bootstrap.resolveType(typeId).orElse(null);
 			if (type != null) applyGenericType(typeId, type.ingredients(), allGroups);
 		}
 
 		// Server-remote groups (from RemoteRecipeViewerDataUpdatedEvent)
 		applyRemoteGroups(allItems, allFluids, allGroups);
 
-		KubeJsGroupConsumer consumer = GroupRegistry::setKubeJsGroups;
+		KubeJsGroupConsumer consumer = GroupRepository::setScriptedGroups;
 		consumer.replace(allGroups);
 	}
 
 	private static void applyGenericType(
 		String typeId,
-		List<ViewerIngredient<ITypedIngredient<?>>> ingredients,
+		List<? extends ViewerIngredient<?>> ingredients,
 		List<GroupDefinition> out
 	) {
 		RecipeViewerEntryType entryType = RecipeViewerEntryType.fromString(typeId);

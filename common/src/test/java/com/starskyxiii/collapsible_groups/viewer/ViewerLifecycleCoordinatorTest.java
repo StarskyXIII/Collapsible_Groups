@@ -24,9 +24,8 @@ class ViewerLifecycleCoordinatorTest {
 		for (boolean jei : List.of(false, true)) for (boolean emi : List.of(false, true))
 			for (boolean tmrv : List.of(false, true)) {
 				boolean realJei = jei && !tmrv;
-				// This build supports only the JEI adapter, so the auto policy can
-				// select JEI or nothing; EMI-ecosystem environments select nothing.
-				String expected = realJei ? "jei" : null;
+				boolean effectiveEmi = emi || tmrv;
+				String expected = effectiveEmi ? "emi" : realJei ? "jei" : null;
 				rows.add(org.junit.jupiter.params.provider.Arguments.of(jei, emi, tmrv, expected));
 			}
 		return rows.stream();
@@ -35,7 +34,7 @@ class ViewerLifecycleCoordinatorTest {
 	@ParameterizedTest @MethodSource("selections")
 	void selectsExactlyOneViewer(boolean jei, boolean emi, boolean tmrv, String expected) {
 		var selection = ViewerLifecycleCoordinator.select(
-			new ViewerLifecycleCoordinator.Environment(jei, emi, tmrv), Set.of("jei"));
+			new ViewerLifecycleCoordinator.Environment(jei, emi, tmrv), Set.of("jei", "emi"));
 		assertEquals(java.util.Optional.ofNullable(expected), selection.viewerId());
 	}
 
@@ -62,6 +61,18 @@ class ViewerLifecycleCoordinatorTest {
 		var selection = ViewerLifecycleCoordinator.select(
 			new ViewerLifecycleCoordinator.Environment(true, false, true), Set.of("jei", "emi"));
 		assertEquals(java.util.Optional.of("emi"), selection.viewerId());
+	}
+
+	@Test void realRegistrationPathKeepsJeiInertWhenEmiWins() {
+		ViewerLifecycleCoordinator coordinator = new ViewerLifecycleCoordinator(
+			new ViewerLifecycleCoordinator.Environment(true, true, false), Set.of("jei", "emi"), ignored -> {});
+		FakeViewerAdapter emi = new FakeViewerAdapter("emi");
+		FakeViewerAdapter jei = new FakeViewerAdapter("jei");
+		coordinator.register(emi);
+		coordinator.register(jei);
+		GroupChangeEvent.publish(GroupChangeEvent.Kind.STRUCTURE);
+		assertEquals(List.of(GroupChangeEvent.Kind.STRUCTURE), emi.changes());
+		assertTrue(jei.changes().isEmpty());
 	}
 
 	@Test void inactiveJeiDoesNotSubscribeOrReceiveSharedChanges() {
@@ -103,5 +114,45 @@ class ViewerLifecycleCoordinatorTest {
 		}
 		assertFalse(ScriptedGroupStore.isApplied());
 		assertEquals(1, notifications[0]);
+	}
+
+	@Test void kubeJsReplacementCanRecollectAgainstTheAlreadyPublishedActiveUniverse() {
+		ViewerLifecycleCoordinator coordinator = new ViewerLifecycleCoordinator(
+			new ViewerLifecycleCoordinator.Environment(false, true, false), Set.of("emi"), ignored -> {});
+		FakeViewerAdapter emi = new FakeViewerAdapter("emi");
+		coordinator.register(emi);
+		int[] calls = {0};
+		coordinator.setScriptedGroupBootstrap(context -> calls[0]++);
+
+		assertTrue(coordinator.activeUniverseReady("emi", emi.bootstrapContext()));
+		ScriptedGroupStore.invalidate();
+		assertTrue(coordinator.activeUniverseReady("emi", emi.bootstrapContext()));
+		assertEquals(2, calls[0]);
+	}
+
+	@Test void scriptedBootstrapIsReentrySafeWhenPublishingReplacementEvents() {
+		ViewerLifecycleCoordinator coordinator = new ViewerLifecycleCoordinator(
+			new ViewerLifecycleCoordinator.Environment(false, true, false), Set.of("emi"), ignored -> {});
+		FakeViewerAdapter emi = new FakeViewerAdapter("emi");
+		coordinator.register(emi);
+		int[] calls = {0};
+		coordinator.setScriptedGroupBootstrap(context -> {
+			calls[0]++;
+			assertFalse(coordinator.activeUniverseReady("emi", context));
+		});
+
+		assertTrue(coordinator.activeUniverseReady("emi", emi.bootstrapContext()));
+		assertEquals(1, calls[0]);
+	}
+
+	@Test void activeAdapterExposesTheSelectedIndexAndEditorRuntimeSeams() {
+		ViewerLifecycleCoordinator coordinator = new ViewerLifecycleCoordinator(
+			new ViewerLifecycleCoordinator.Environment(false, true, false), Set.of("emi"), ignored -> {});
+		FakeViewerAdapter emi = new FakeViewerAdapter("emi");
+		coordinator.register(emi);
+
+		ViewerAdapter<?, ?> active = coordinator.activeAdapter().orElseThrow();
+		assertSame(emi.groupIndex(), active.groupIndex());
+		assertSame(emi.editorRuntimeAccess(), active.editorRuntimeAccess());
 	}
 }

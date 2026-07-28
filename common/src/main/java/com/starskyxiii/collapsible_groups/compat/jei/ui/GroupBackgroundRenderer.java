@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.ArrayList;
@@ -31,7 +31,7 @@ public final class GroupBackgroundRenderer {
 		for (BackgroundPosition position : previousFrameForRender(backgroundsVisible)) {
 			int color = switch (position.kind()) {
 				case HEADER -> GroupThemeResolver.headerBackgroundColor(
-					position.groupId(), GroupRegistry.isExpandedById(position.groupId()));
+					position.groupId(), GroupRepository.isExpandedById(position.groupId()));
 				case CHILD -> GroupThemeResolver.expandedGroupBackgroundColor(position.groupId());
 			};
 			guiGraphics.fill(position.x() - 1, position.y() - 1, position.x() + 17, position.y() + 17, color);

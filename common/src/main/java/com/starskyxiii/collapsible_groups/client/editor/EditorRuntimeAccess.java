@@ -18,7 +18,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-/** JEI-backed operations consumed by the viewer-neutral group editor. */
+/** Viewer-backed operations consumed by the viewer-neutral group editor. */
 public interface EditorRuntimeAccess {
 	List<ItemStack> allItems();
 	List<EditorFluidIngredientView> allFluids(String traceName);
@@ -37,7 +37,9 @@ public interface EditorRuntimeAccess {
 		List<GroupDefinition> otherGroups);
 	void renderFluid(GuiGraphics graphics, EditorFluidIngredientView entry, int x, int y);
 	void renderGeneric(GuiGraphics graphics, EditorGenericIngredientView entry, int x, int y);
+	/** Returns a read-only tooltip snapshot. Callers must copy it before appending UI hints. */
 	List<Component> fluidTooltip(EditorFluidIngredientView entry);
+	/** Returns a read-only tooltip snapshot. Callers must copy it before appending UI hints. */
 	List<Component> genericTooltip(EditorGenericIngredientView entry);
 
 	List<ItemStack> resolveEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled);

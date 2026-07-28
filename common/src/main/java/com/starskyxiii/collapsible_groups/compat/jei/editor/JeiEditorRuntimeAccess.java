@@ -4,14 +4,15 @@ import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientVie
 import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewTooltip;
+import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries;
+import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewTooltip;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.EditorItemIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.EditorItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
-import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupSampleRenderer;
+import com.starskyxiii.collapsible_groups.client.preview.GroupSampleRenderer;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
@@ -30,7 +31,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /** JEI implementation of the neutral editor runtime boundary. */
-public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
+public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	@Override
 	public List<ItemStack> allItems() {
 		return List.copyOf(EditorItemUniverseProvider.INSTANCE.allStacks());
@@ -119,6 +120,10 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		return JeiViewerGroupIndex.instance().prepareEditorAsync(GroupRegistry.getAllIncludingKubeJs(), () -> {
 			GroupRegistry.warmEditorItemIndex();
 			GroupRegistry.populateFullMatchCacheFromSaved(definition);
+			// EditorRightPanel consumes all three maps atomically; empty is ready, null is loading.
+			JeiViewerGroupIndex.instance().ensureFullMatchItems();
+			JeiViewerGroupIndex.instance().ensureFullMatchFluids();
+			JeiViewerGroupIndex.instance().ensureFullMatchGeneric();
 		}).whenComplete((ignored, error) -> PerformanceTrace.logIfSlow("GroupEditorScreen.entry", startedAt, 0,
 			"group=" + definition.id() + " ready=" + (error == null)
 				+ " elapsedMillis=" + PerformanceTrace.elapsedMillis(startedAt)));
@@ -212,10 +217,10 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		for (PreviewEntry entry : entries) {
 			converted.add(switch (entry.kind()) {
 				case ITEM -> GroupPreviewEntry.ofItem((ItemStack) entry.value());
-				case FLUID -> GroupPreviewEntry.ofFluid(((EditorFluidIngredientView) entry.value()).ingredient());
+				case FLUID -> JeiGroupPreviewEntries.ofFluid(((EditorFluidIngredientView) entry.value()).ingredient());
 				case GENERIC -> {
 					EditorGenericIngredientView generic = (EditorGenericIngredientView) entry.value();
-					yield GroupPreviewEntry.ofGeneric(EditorGenericIngredientHelper.type(generic), generic.ingredient());
+					yield JeiGroupPreviewEntries.ofGeneric(EditorGenericIngredientHelper.type(generic), generic.ingredient());
 				}
 			});
 		}
@@ -234,10 +239,10 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		for (PreviewEntry entry : entries) {
 			converted.add(switch (entry.kind()) {
 				case ITEM -> GroupPreviewEntry.ofItem((ItemStack) entry.value());
-				case FLUID -> GroupPreviewEntry.ofFluid(((EditorFluidIngredientView) entry.value()).ingredient());
+				case FLUID -> JeiGroupPreviewEntries.ofFluid(((EditorFluidIngredientView) entry.value()).ingredient());
 				case GENERIC -> {
 					EditorGenericIngredientView generic = (EditorGenericIngredientView) entry.value();
-					yield GroupPreviewEntry.ofGeneric(EditorGenericIngredientHelper.type(generic), generic.ingredient());
+					yield JeiGroupPreviewEntries.ofGeneric(EditorGenericIngredientHelper.type(generic), generic.ingredient());
 				}
 			});
 		}

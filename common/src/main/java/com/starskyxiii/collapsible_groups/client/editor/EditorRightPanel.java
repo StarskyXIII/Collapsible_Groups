@@ -226,7 +226,7 @@ final class EditorRightPanel {
 	private void renderFluidRow(GuiGraphics g, int mouseX, int mouseY, EditorLayout layout, int row, int y) {
 		EditorGridTraversal.forRowCells(groupFluids.size(), row, layout.rightCols(), layout.rightGridX(), y, (idx, x, cellY) -> {
 			EditorFluidIngredientView fluid = groupFluids.get(idx);
-			boolean selected = state.isFluidSelected(fluidIngredient(fluid));
+			boolean selected = state.isFluidSelected(fluid);
 			int iconX = x + 1;
 			int iconY = cellY + 1;
 			g.fill(iconX, iconY, iconX + 16, iconY + 16, selected ? 0x2855BB77 : 0x332266BB);
@@ -304,9 +304,9 @@ final class EditorRightPanel {
 				if (idx < 0) continue;
 				if (!state.canEditContents()) return true;
 				EditorFluidIngredientView fluid = groupFluids.get(idx);
-				if (state.isFluidSelected(fluidIngredient(fluid))
+				if (state.isFluidSelected(fluid)
 					&& isOverRemoveBadge(layout, idx, y, mouseX, mouseY)) {
-					state.removeFluidSelection(fluidIngredient(fluid));
+					state.removeFluidSelection(fluid);
 					onChange.run();
 				}
 				return true;

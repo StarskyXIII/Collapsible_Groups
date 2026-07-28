@@ -16,6 +16,11 @@ public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
 		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientListOverlay",
 		"com.starskyxiii.collapsible_groups.mixin.MixinGuiTextFieldFilterAccessor"
 	);
+	private static final Set<String> EMI_INTERNAL_MIXINS = Set.of(
+		"com.starskyxiii.collapsible_groups.mixin.MixinEmiScreenSpace",
+		"com.starskyxiii.collapsible_groups.mixin.MixinEmiScreenManager"
+	);
+	private static boolean warnedMissingEmiTarget;
 
 	@Override
 	public void onLoad(String mixinPackage) {
@@ -32,7 +37,18 @@ public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
 			return !isClassPresent("dev.nolij.toomanyrecipeviewers.TooManyRecipeViewers")
 				&& isClassPresent(targetClassName);
 		}
+		if (EMI_INTERNAL_MIXINS.contains(mixinClassName)) return shouldApplyEmiTarget(targetClassName, mixinClassName);
 		return true;
+	}
+
+	private static boolean shouldApplyEmiTarget(String targetClassName, String mixinClassName) {
+		boolean present = isClassPresent(targetClassName);
+		if (!present && isClassPresent("dev.emi.emi.EmiPort") && !warnedMissingEmiTarget) {
+			warnedMissingEmiTarget = true;
+			System.err.println("[CollapsibleGroups] EMI is present but the pinned integration target is missing; "
+				+ "EMI grouping is disabled (first failed mixin: " + mixinClassName + ").");
+		}
+		return present;
 	}
 
 	private static boolean isClassPresent(String className) {

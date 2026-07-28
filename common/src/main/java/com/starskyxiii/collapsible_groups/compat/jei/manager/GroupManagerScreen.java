@@ -5,17 +5,15 @@ import com.starskyxiii.collapsible_groups.client.manager.GroupManagerSearchMatch
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupUiState;
-import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.client.editor.GroupEditorScreen;
 import com.starskyxiii.collapsible_groups.client.manager.model.BatchActionEligibility;
 import com.starskyxiii.collapsible_groups.client.manager.model.BatchSelectionState;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupAction;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupCardViewModel;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupSource;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
-import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
+import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.client.preview.PreviewGridLayout;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.client.widget.ConfirmDialog;
@@ -26,6 +24,8 @@ import com.starskyxiii.collapsible_groups.client.manager.model.GroupSortMode;
 import com.starskyxiii.collapsible_groups.client.manager.model.SavedGroupContext;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
+import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -34,7 +34,6 @@ import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
-import net.minecraft.world.item.ItemStack;
 import org.lwjgl.glfw.GLFW;
 
 import java.util.ArrayList;
@@ -71,7 +70,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int FOOTER_HEIGHT = 28;
 	private static final int TOP_BUTTON_GAP = 6;
 	private static final int SCROLLBAR_WIDTH = 6;
-	private static final int CACHE_FALLBACK_SAMPLE_LIMIT = 8;
 
 	private static final int BACK_BTN_X = 6;
 	private static final int BACK_BTN_Y = 5;
@@ -138,7 +136,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private PendingBatchDelete pendingBatchDelete = null;
 	private String highlightedSavedGroupId = null;
 	private long highlightedSavedUntil = 0L;
-	private CompletableFuture<Void> pendingCardsRebuild;
+	private boolean generationPending;
+	private final PublishedGenerationRefresh publicationRefresh = new PublishedGenerationRefresh();
 
 	public GroupManagerScreen(Screen previousScreen) {
 		super(Component.translatable(ModTranslationKeys.SCREEN_TITLE));
@@ -167,67 +166,26 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private void rebuildCards() {
 		suppressedSwitchHoverGroupId = null;
 		long traceStart = PerformanceTrace.begin();
-		CacheTraceStats cacheStats = new CacheTraceStats();
-		int totalItems = 0;
-		int totalFluids = 0;
-		int totalGeneric = 0;
-		List<GroupManagerCard> cards = new ArrayList<>();
-		JeiViewerGroupIndex viewerIndex = JeiViewerGroupIndex.instance();
-		CompletableFuture<Void> readiness = viewerIndex.whenReady();
-		boolean generationPending = !readiness.isDone();
-		if (generationPending && readiness != pendingCardsRebuild) {
-			pendingCardsRebuild = readiness;
-			readiness.whenComplete((ignored, failure) -> Minecraft.getInstance().execute(() -> {
-				if (pendingCardsRebuild != readiness) return;
-				pendingCardsRebuild = null;
-				if (failure == null) rebuildCards();
-			}));
-		}
+		ViewerGroupIndex index = ViewerLifecycleCoordinator.global().activeAdapter()
+			.map(adapter -> adapter.groupIndex()).orElse(UnavailableViewerGroupIndex.INSTANCE);
+		GroupManagerCardAssembler.Result result = GroupManagerCardAssembler.build(
+			GroupRepository.getAllIncludingScripted(), index);
+		CompletableFuture<Void> readiness = index.whenReady();
+		boolean generationPending = result.generationPending();
+		this.generationPending = generationPending;
+		publicationRefresh.schedule(!readiness.isDone(), readiness,
+			command -> Minecraft.getInstance().execute(command), this::rebuildCards);
 
-		for (GroupDefinition group : GroupRegistry.getAllIncludingKubeJs()) {
-			GroupRegistry.FullMatchLookup<ItemStack> itemLookup = generationPending
-				? pendingLookup(GroupRegistry.getFullMatchItemsCached(group.id()))
-				: GroupRegistry.getFullMatchItemsLookup(group);
-			GroupRegistry.FullMatchLookup<Object> fluidLookup = generationPending
-				? pendingLookup(GroupRegistry.getFullMatchFluidsCached(group.id()))
-				: GroupRegistry.getFullMatchFluidsLookup(group);
-			GroupRegistry.FullMatchLookup<GenericIngredientRef> genericLookup = generationPending
-				? pendingLookup(GroupRegistry.getFullMatchGenericCached(group.id()))
-				: GroupRegistry.getFullMatchGenericIngredientsLookup(group);
-			cacheStats.record("item", group.id(), itemLookup);
-			cacheStats.record("fluid", group.id(), fluidLookup);
-			cacheStats.record("generic", group.id(), genericLookup);
-
-			List<ItemStack> items = itemLookup.values();
-			List<Object> fluids = fluidLookup.values();
-			List<GenericIngredientRef> generic = genericLookup.values();
-			totalItems += items.size();
-			totalFluids += fluids.size();
-			totalGeneric += generic.size();
-			cards.add(GroupManagerCard.create(
-				group,
-				items,
-				fluids,
-				generic,
-				GroupPreviewEntry.combine(items, fluids, generic)
-			));
-		}
-
-		allCards = cards;
+		allCards = GroupManagerCardAssembler.mutableWorkingCopy(
+			generationPending ? List.of() : result.cards());
 		previewScrollOffsets.keySet().retainAll(
 			allCards.stream().map(GroupManagerCard::id).collect(Collectors.toSet()));
 		rebuildFilteredCards();
-		PerformanceTrace.log("GroupManagerScreen.rebuildCards.cache", cacheStats.summary());
 		PerformanceTrace.logIfSlow("GroupManagerScreen.rebuildCards", traceStart, 20,
 			"groups=" + allCards.size()
-				+ " totalItems=" + totalItems
-				+ " totalFluids=" + totalFluids
-				+ " totalGeneric=" + totalGeneric);
-	}
-
-	private static <T> GroupRegistry.FullMatchLookup<T> pendingLookup(List<T> cached) {
-		return new GroupRegistry.FullMatchLookup<>(cached == null ? List.of() : cached,
-			cached != null, cached == null ? "generation_pending" : null);
+				+ " totalItems=" + result.totalItems()
+				+ " totalFluids=" + result.totalFluids()
+				+ " totalGeneric=" + result.totalGeneric());
 	}
 
 	private void rebuildFilteredCards() {
@@ -373,10 +331,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		UiSkinRenderer.drawScreenBars(g, this.width, this.height, headerHeight, FOOTER_HEIGHT);
 
 		g.enableScissor(0, vpTop, this.width, vpBottom);
-		for (int i = 0; i < filteredCards.size(); i++) {
+		if (generationPending) {
+			renderCenteredState(g, vpTop, vpBottom, Component.translatable(ModTranslationKeys.EDITOR_LOADING));
+		} else for (int i = 0; i < filteredCards.size(); i++) {
 			renderCard(g, i, mouseX, mouseY);
 		}
-		if (filteredCards.isEmpty()) {
+		if (!generationPending && filteredCards.isEmpty()) {
 			renderEmptyState(g, vpTop, vpBottom);
 		}
 		g.disableScissor();
@@ -529,8 +489,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void renderEmptyState(GuiGraphics g, int viewportTop, int viewportBottom) {
-		Component empty = Component.translatable(ModTranslationKeys.MANAGER_EMPTY_SEARCH);
-		String text = font.plainSubstrByWidth(empty.getString(), Math.max(0, this.width - 24));
+		renderCenteredState(g, viewportTop, viewportBottom,
+			Component.translatable(ModTranslationKeys.MANAGER_EMPTY_SEARCH));
+	}
+
+	private void renderCenteredState(GuiGraphics g, int viewportTop, int viewportBottom, Component message) {
+		String text = font.plainSubstrByWidth(message.getString(), Math.max(0, this.width - 24));
 		int x = Math.max(6, (this.width - font.width(text)) / 2);
 		int y = viewportTop + Math.max(0, (viewportBottom - viewportTop - font.lineHeight) / 2);
 		g.drawString(font, text, x, y, UiPalette.TEXT_HINT, false);
@@ -1090,7 +1054,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				if (!card.actionEligibility().canRequest(GroupAction.SWITCH_ENABLED)) return true;
 				heldSwitchGroupId = card.id();
 				boolean newEnabled = !card.group().enabled();
-				if (!GroupRegistry.setEnabledQuietly(card.id(), newEnabled)) return true;
+				if (!GroupRepository.setEnabledQuietly(card.id(), newEnabled)) return true;
 				updateCardEnabled(card.id(), newEnabled);
 				suppressedSwitchHoverGroupId = card.id();
 				return true;
@@ -1206,9 +1170,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			cancelDeleteDialog();
 			return false;
 		}
-		GroupRegistry.deleteQuietly(id);
+		GroupRepository.deleteQuietly(id);
 		removeCard(id);
-		GroupRegistry.notifyJei();
+		GroupRepository.notifyViewer();
 		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
 		cancelDeleteDialog();
 		return true;
@@ -1230,13 +1194,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			if (card.group().enabled() == enabled || !card.actionEligibility().canRequest(action)) {
 				continue;
 			}
-			if (GroupRegistry.setEnabledQuietlyWithoutEvent(card.id(), enabled)) {
+			if (GroupRepository.setEnabledQuietlyWithoutEvent(card.id(), enabled)) {
 				updateCardEnabled(card.id(), enabled);
 				changed = true;
 			}
 		}
 		if (changed) {
-			GroupRegistry.notifyEnabledChanged();
+			GroupRepository.notifyEnabledChanged();
 		}
 		heldBatchToolbarAction = null;
 	}
@@ -1262,11 +1226,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			return false;
 		}
 		for (String id : deletableIds) {
-			GroupRegistry.deleteQuietly(id);
+			GroupRepository.deleteQuietly(id);
 		}
 		removeCards(deletableIds);
 		batchSelection = batchSelection.clear();
-		GroupRegistry.notifyJei();
+		GroupRepository.notifyViewer();
 		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
 		cancelPendingDialog();
 		return true;
@@ -1281,7 +1245,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			ModTranslationKeys.MANAGER_COPY_NAME_FORMAT,
 			localizedDisplayName(card).getString()
 		).getString();
-		Optional<GroupDefinition> copied = GroupRegistry.createCustomCopyDraft(id, copiedDisplayName);
+		Optional<GroupDefinition> copied = GroupRepository.createCustomCopyDraft(id, copiedDisplayName);
 		if (copied.isEmpty()) {
 			return false;
 		}
@@ -1684,51 +1648,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		ENABLE,
 		DISABLE,
 		DELETE
-	}
-
-	private static final class CacheTraceStats {
-		private int itemHits;
-		private int itemMisses;
-		private int fluidHits;
-		private int fluidMisses;
-		private int genericHits;
-		private int genericMisses;
-		private final Map<String, Integer> fallbackReasons = new HashMap<>();
-		private final List<String> fallbackSamples = new ArrayList<>();
-
-		void record(String kind, String groupId, GroupRegistry.FullMatchLookup<?> lookup) {
-			if (lookup.cacheHit()) {
-				switch (kind) {
-					case "item" -> itemHits++;
-					case "fluid" -> fluidHits++;
-					case "generic" -> genericHits++;
-					default -> { }
-				}
-				return;
-			}
-			switch (kind) {
-				case "item" -> itemMisses++;
-				case "fluid" -> fluidMisses++;
-				case "generic" -> genericMisses++;
-				default -> { }
-			}
-			String reason = lookup.fallbackReason() == null ? "unknown" : lookup.fallbackReason();
-			fallbackReasons.merge(kind + ":" + reason, 1, Integer::sum);
-			if (fallbackSamples.size() < CACHE_FALLBACK_SAMPLE_LIMIT) {
-				fallbackSamples.add(kind + ":" + groupId + "(" + reason + ")");
-			}
-		}
-
-		String summary() {
-			return "itemHit=" + itemHits
-				+ " itemMiss=" + itemMisses
-				+ " fluidHit=" + fluidHits
-				+ " fluidMiss=" + fluidMisses
-				+ " genericHit=" + genericHits
-				+ " genericMiss=" + genericMisses
-				+ " fallbackReasons=" + fallbackReasons
-				+ " fallbackSamples=" + fallbackSamples;
-		}
 	}
 
 	private record PendingDelete(String groupId, String displayName) {}

@@ -15,7 +15,6 @@ public interface ViewerOverlayHook {
 	record Input(Type type, double mouseX, double mouseY, int button, int keyCode) {
 		public enum Type {
 			MOUSE_CLICK,
-			MOUSE_RELEASE,
 			KEY_PRESS
 		}
 	}

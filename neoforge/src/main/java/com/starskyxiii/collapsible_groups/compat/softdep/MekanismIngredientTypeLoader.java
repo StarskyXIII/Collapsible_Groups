@@ -24,6 +24,8 @@ public final class MekanismIngredientTypeLoader {
 			Constants.LOG.info("[CollapsibleGroups] Registered Mekanism chemical ingredient type.");
 		} catch (ClassNotFoundException e) {
 			// Mekanism JEI plugin class not present - safe to ignore
+		} catch (LinkageError e) {
+			Constants.LOG.warn("[CollapsibleGroups] Failed to link Mekanism's JEI ingredient type: {}", e.toString());
 		} catch (Exception e) {
 			Constants.LOG.warn("[CollapsibleGroups] Failed to register Mekanism ingredient type: {}", e.getMessage());
 		}

@@ -1,4 +1,4 @@
-package com.starskyxiii.collapsible_groups.compat.jei.ui;
+package com.starskyxiii.collapsible_groups.client.preview;
 
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
@@ -9,7 +9,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GroupSampleRendererTest {
 	@Test
-	void slotPitchMatchesLiveJeiSpacing() {
+	void slotPitchMatchesLiveViewerSpacing() {
 		// Must equal GroupBorderRenderer's SPACING (18) so preview borders line up.
 		assertEquals(18, GroupSampleRenderer.SLOT_PITCH);
 	}
@@ -48,7 +48,7 @@ class GroupSampleRendererTest {
 	}
 
 	@Test
-	void pageButtonsSplitToBottomCornersLikeRealJei() {
+	void pageButtonsSplitToBottomCornersLikeRealViewer() {
 		// ◀ is pinned to the area's bottom-left and ▶ to the bottom-right, so the
 		// page counter can sit centered between them.
 		GroupSampleRenderer.Rect area = new GroupSampleRenderer.Rect(0, 0, 36, 60);
