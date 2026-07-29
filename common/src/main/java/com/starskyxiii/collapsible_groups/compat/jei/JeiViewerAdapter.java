@@ -317,10 +317,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		@Override
 		public void renderHeader(ViewerProjection.GroupHeader<ITypedIngredient<?>> header, RenderContext context) {
 			if (!(context.drawingContext() instanceof GuiGraphics graphics)) return;
-			graphics.pose().pushPose();
-			graphics.pose().translate(context.x(), context.y(), 0);
-			groupIconRenderer.render(graphics, createGroupIcon(header));
-			graphics.pose().popPose();
+			groupIconRenderer.render(graphics, createGroupIcon(header), context.x(), context.y());
 		}
 
 		@Override
@@ -354,10 +351,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 			IJeiRuntime runtime = JeiRuntimeHolder.get();
 			if (runtime == null) return;
 			IIngredientRenderer<T> renderer = runtime.getIngredientManager().getIngredientRenderer(typed.getType());
-			graphics.pose().pushPose();
-			graphics.pose().translate(x, y, 0);
-			renderer.render(graphics, typed.getIngredient());
-			graphics.pose().popPose();
+			JeiIngredientRenderBridge.render(graphics, renderer, typed.getIngredient(), x, y);
 		}
 
 		private <T> List<Component> getTooltip(ITypedIngredient<T> typed) {

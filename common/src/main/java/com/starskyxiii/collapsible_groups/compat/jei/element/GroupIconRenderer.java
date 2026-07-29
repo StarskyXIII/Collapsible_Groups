@@ -1,12 +1,12 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientRenderBridge;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 
 import java.util.List;
@@ -26,38 +26,31 @@ import java.util.List;
  * Non-item ingredients (fluids, generics) fall back to JEI's own renderer via {@link JeiRuntimeHolder}.
  */
 public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
+	static final float INGREDIENT_SCALE = 0.9f;
 
 	@Override
 	public void render(GuiGraphics g, GroupIcon icon) {
+		render(g, icon, 0, 0);
+	}
+
+	@Override
+	public void render(GuiGraphics g, GroupIcon icon, int posX, int posY) {
 		List<ITypedIngredient<?>> items = icon.displayIngredients();
 		if (items.isEmpty()) return;
 
-		// --- Stacked ingredient rendering (REI style) ---
-		// Scale 0.9; positions derived from REI's FloatingRectangle(0.44/0.56, 0.56/0.44, 0.9, 0.9):
-		//   center_back  = (0.56*16, 0.44*16) = (8.96, 7.04) -> top-left (2, 0) at scale 0.9
-		//   center_front = (0.44*16, 0.56*16) = (7.04, 8.96) -> top-left (0, 2) at scale 0.9
-		g.pose().pushPose();
-		g.pose().scale(0.9f, 0.9f, 0.9f);
-
-		if (items.size() == 1) {
-			// Single item: center it: (16 - 16*0.9)/2 / 0.9 ~= 1
-			renderIngredient(g, items.getFirst(), 1, 1);
-		} else {
-			// Back item (right-up)
-			renderIngredient(g, items.get(1), 2, 0);
-			g.pose().translate(0, 0, 10);
-			// Front item (left-down)
-			renderIngredient(g, items.getFirst(), 0, 2);
+		for (Layer layer : layers(posX, posY, items.size())) {
+			renderIngredient(g, items.get(layer.ingredientIndex()), layer);
 		}
-
-		g.pose().popPose();
 
 		// --- Expand/collapse indicator ---
 		g.pose().pushPose();
-		g.pose().translate(0, 0, 200);
-		g.drawString(Minecraft.getInstance().font,
-			icon.isExpanded() ? "-" : "+", 10, 9, 0xFFFFFFFF, true);
-		g.pose().popPose();
+		try {
+			g.pose().translate(0, 0, 200);
+			g.drawString(Minecraft.getInstance().font,
+				icon.isExpanded() ? "-" : "+", posX + 10, posY + 9, 0xFFFFFFFF, true);
+		} finally {
+			g.pose().popPose();
+		}
 	}
 
 	@Override
@@ -71,18 +64,29 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 	 * Items use vanilla rendering; non-items delegate to JEI's renderer.
 	 */
 	@SuppressWarnings("unchecked")
-	private static void renderIngredient(GuiGraphics g, ITypedIngredient<?> typed, int x, int y) {
-		// Fast path: items use vanilla rendering (no JEI dependency)
-		var itemOpt = typed.getItemStack();
-		if (itemOpt.isPresent()) {
-			g.renderItem(itemOpt.get(), x, y);
-			return;
-		}
+	private static void renderIngredient(GuiGraphics g, ITypedIngredient<?> typed, Layer layer) {
+		g.pose().pushPose();
+		try {
+			// Scale around the layer's absolute top-left. JEI still receives absolute
+			// coordinates, so renderer-owned scissors contain the scaled sprite.
+			g.pose().translate(layer.x(), layer.y(), layer.z());
+			g.pose().scale(layer.scale(), layer.scale(), layer.scale());
+			g.pose().translate(-layer.x(), -layer.y(), 0);
 
-		// Fallback: non-items use JEI's registered renderer
-		var runtime = JeiRuntimeHolder.get();
-		if (runtime != null) {
-			renderViaJei(g, (ITypedIngredient<Object>) typed, runtime, x, y);
+			// Fast path: items use vanilla rendering (no JEI dependency)
+			var itemOpt = typed.getItemStack();
+			if (itemOpt.isPresent()) {
+				g.renderItem(itemOpt.get(), layer.x(), layer.y());
+				return;
+			}
+
+			// Fallback: non-items use JEI's registered renderer
+			var runtime = JeiRuntimeHolder.get();
+			if (runtime != null) {
+				renderViaJei(g, (ITypedIngredient<Object>) typed, runtime, layer.x(), layer.y());
+			}
+		} finally {
+			g.pose().popPose();
 		}
 	}
 
@@ -91,9 +95,19 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 		mezz.jei.api.runtime.IJeiRuntime runtime, int x, int y
 	) {
 		var renderer = runtime.getIngredientManager().getIngredientRenderer(typed.getType());
-		g.pose().pushPose();
-		g.pose().translate(x, y, 0);
-		renderer.render(g, typed.getIngredient());
-		g.pose().popPose();
+		JeiIngredientRenderBridge.render(g, renderer, typed.getIngredient(), x, y);
 	}
+
+	static List<Layer> layers(int posX, int posY, int ingredientCount) {
+		if (ingredientCount <= 0) return List.of();
+		if (ingredientCount == 1) {
+			return List.of(new Layer(0, posX + 1, posY + 1, 0, INGREDIENT_SCALE));
+		}
+		return List.of(
+			new Layer(1, posX + 2, posY, 0, INGREDIENT_SCALE),
+			new Layer(0, posX, posY + 2, 10, INGREDIENT_SCALE)
+		);
+	}
+
+	record Layer(int ingredientIndex, int x, int y, int z, float scale) {}
 }

@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
 import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientRenderBridge;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
@@ -99,11 +100,7 @@ final class EditorGenericIngredientHelper {
 	}
 
 	static void render(GuiGraphics g, EditorGenericIngredientView entry, int x, int y) {
-		g.pose().pushPose();
-		g.pose().translate(x, y, 0);
-		data(entry).renderer().render(g, entry.ingredient());
-		g.pose().popPose();
-		g.flush();
+		JeiIngredientRenderBridge.render(g, data(entry).renderer(), entry.ingredient(), x, y);
 	}
 
 	static String dragKey(EditorGenericIngredientView entry) {
