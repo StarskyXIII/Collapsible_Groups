@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper;
 
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientRenderBridge;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
@@ -107,11 +108,6 @@ final class EditorFluidIngredientHelper {
 	private static void renderWithJei(GuiGraphicsExtractor g, IIngredientType fluidType, Object ingredient, int x, int y) {
 		var manager = JeiRuntimeHolder.get().getIngredientManager();
 		IIngredientRenderer renderer = manager.getIngredientRenderer(fluidType);
-		g.enableScissor(x, y, x + 16, y + 16);
-		g.pose().pushMatrix();
-		g.pose().translate(x, y);
-		renderer.render(g, ingredient);
-		g.pose().popMatrix();
-		g.disableScissor();
+		JeiIngredientRenderBridge.render(g, renderer, ingredient, x, y);
 	}
 }

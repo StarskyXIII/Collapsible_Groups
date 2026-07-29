@@ -1,7 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.jei.preview;
 
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientRenderBridge;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -46,9 +47,6 @@ public final class PreviewIngredientRenderer {
 		var runtime = JeiRuntimeHolder.get();
 		if (runtime == null) return;
 		IIngredientRenderer renderer = runtime.getIngredientManager().getIngredientRenderer(type);
-		guiGraphics.pose().pushMatrix();
-		guiGraphics.pose().translate(x, y);
-		renderer.render(guiGraphics, ingredient);
-		guiGraphics.pose().popMatrix();
+		JeiIngredientRenderBridge.render(guiGraphics, renderer, ingredient, x, y);
 	}
 }
