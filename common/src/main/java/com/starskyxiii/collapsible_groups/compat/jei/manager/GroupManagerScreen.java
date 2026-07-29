@@ -177,6 +177,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		JeiViewerGroupIndex viewerIndex = JeiViewerGroupIndex.instance();
 		CompletableFuture<Void> readiness = viewerIndex.whenReady();
 		boolean generationPending = !readiness.isDone();
+		boolean liveResolutionAllowed = viewerIndex.ready() || viewerIndex.candidates().isEmpty();
+		JeiViewerGroupIndex.FullMatchCacheSnapshot previewSnapshot = viewerIndex.fullMatchSnapshot();
 		if (generationPending && readiness != pendingCardsRebuild) {
 			pendingCardsRebuild = readiness;
 			readiness.whenComplete((ignored, failure) -> Minecraft.getInstance().execute(() -> {
@@ -187,15 +189,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		}
 
 		for (GroupDefinition group : GroupRegistry.getAllIncludingKubeJs()) {
-			GroupRegistry.FullMatchLookup<ItemStack> itemLookup = generationPending
-				? pendingLookup(GroupRegistry.getFullMatchItemsCached(group.id()))
-				: GroupRegistry.getFullMatchItemsLookup(group);
-			GroupRegistry.FullMatchLookup<Object> fluidLookup = generationPending
-				? pendingLookup(GroupRegistry.getFullMatchFluidsCached(group.id()))
-				: GroupRegistry.getFullMatchFluidsLookup(group);
-			GroupRegistry.FullMatchLookup<GenericIngredientRef> genericLookup = generationPending
-				? pendingLookup(GroupRegistry.getFullMatchGenericCached(group.id()))
-				: GroupRegistry.getFullMatchGenericIngredientsLookup(group);
+			GroupRegistry.FullMatchGroupLookup previewLookup =
+				GroupRegistry.getFullMatchGroupLookup(group, previewSnapshot, liveResolutionAllowed);
+			GroupRegistry.FullMatchLookup<ItemStack> itemLookup = previewLookup.items();
+			GroupRegistry.FullMatchLookup<Object> fluidLookup = previewLookup.fluids();
+			GroupRegistry.FullMatchLookup<GenericIngredientRef> genericLookup = previewLookup.generic();
 			cacheStats.record("item", group.id(), itemLookup);
 			cacheStats.record("fluid", group.id(), fluidLookup);
 			cacheStats.record("generic", group.id(), genericLookup);
@@ -225,11 +223,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				+ " totalItems=" + totalItems
 				+ " totalFluids=" + totalFluids
 				+ " totalGeneric=" + totalGeneric);
-	}
-
-	private static <T> GroupRegistry.FullMatchLookup<T> pendingLookup(List<T> cached) {
-		return new GroupRegistry.FullMatchLookup<>(cached == null ? List.of() : cached,
-			cached != null, cached == null ? "generation_pending" : null);
 	}
 
 	private void rebuildFilteredCards() {

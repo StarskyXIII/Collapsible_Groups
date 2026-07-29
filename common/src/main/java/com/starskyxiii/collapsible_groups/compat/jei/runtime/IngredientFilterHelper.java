@@ -25,8 +25,8 @@ import java.util.function.Function;
  * <p>Only contains logic that does not depend on {@code IElement} or other
  * GUI classes, because those are only available in loader-specific JEI artifacts.
  *
-	 * <p>The optimized build can be returned without side effects so callers can publish a complete
-	 * cache generation atomically.
+ * <p>The optimized build can be returned without side effects so callers can publish a complete
+ * cache generation atomically.
  */
 public final class IngredientFilterHelper {
 	private static final String STARTUP_INDEX_VERIFY_OVERRIDE =
@@ -38,8 +38,8 @@ public final class IngredientFilterHelper {
 	 * Scans {@code all} JEI ingredients and maps each item ingredient to its
 	 * first enabled matching {@link GroupDefinition}.
 	 *
-	 * <p>Also updates {@link GroupRegistry#setResolvedItemsByGroup} so the
-	 * editor/manager can do O(1) group-member lookups.
+	 * <p>Also publishes the item cache set atomically so the editor/manager can do
+	 * O(1) group-member lookups.
 	 *
 	 * <p>The returned map is an {@link IdentityHashMap} and is mutable so
 	 * NeoForge can add fluid/generic entries after calling this method.
@@ -217,9 +217,11 @@ public final class IngredientFilterHelper {
 	}
 
 	private static void publish(ItemOwnershipBuildResult result) {
-		GroupRegistry.setResolvedItemsByGroup(toStackMap(result.resolvedEntriesByGroup()));
-		GroupRegistry.setFullMatchItemsByGroup(toStackMap(result.fullMatchEntriesByGroup()));
-		GroupRegistry.setItemIdToGroupIds(result.itemIdToGroupIds());
+		GroupRegistry.setItemCaches(
+			toStackMap(result.resolvedEntriesByGroup()),
+			toStackMap(result.fullMatchEntriesByGroup()),
+			result.itemIdToGroupIds()
+		);
 	}
 
 	private static Map<String, List<IngredientFilterItemIndex.ItemEntry>> newEntryMap(List<GroupDefinition> allGroups) {

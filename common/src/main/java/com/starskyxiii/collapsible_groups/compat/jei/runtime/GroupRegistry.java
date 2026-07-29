@@ -51,6 +51,11 @@ import java.util.Set;
  */
 public final class GroupRegistry {
 	public record FullMatchLookup<T>(List<T> values, boolean cacheHit, String fallbackReason) {}
+	public record FullMatchGroupLookup(
+		FullMatchLookup<ItemStack> items,
+		FullMatchLookup<Object> fluids,
+		FullMatchLookup<GenericIngredientRef> generic
+	) {}
 
 	/**
 	 * Copy-on-write group list in raw registration order. Always an unmodifiable snapshot.
@@ -277,15 +282,7 @@ public final class GroupRegistry {
 	}
 
 	public static FullMatchLookup<ItemStack> getFullMatchItemsLookup(GroupDefinition group) {
-		String groupId = group.id();
-		var cache = VIEWER_INDEX.fullMatchItems();
-		if (cache != null && cache.containsKey(groupId)) {
-			return new FullMatchLookup<>(cache.get(groupId), true, null);
-		}
-		String fallbackReason = cache == null ? "cache_map_null" : "entry_missing";
-		List<ItemStack> resolved = resolveItems(managerPreviewDefinition(group));
-		ensureFullMatchItemsCache().put(groupId, List.copyOf(resolved));
-		return new FullMatchLookup<>(resolved, false, fallbackReason);
+		return getFullMatchGroupLookup(group).items();
 	}
 
 	/** Same as {@link #getFullMatchItems(GroupDefinition)} but for fluids. */
@@ -294,15 +291,7 @@ public final class GroupRegistry {
 	}
 
 	public static FullMatchLookup<Object> getFullMatchFluidsLookup(GroupDefinition group) {
-		String groupId = group.id();
-		var cache = VIEWER_INDEX.fullMatchFluids();
-		if (cache != null && cache.containsKey(groupId)) {
-			return new FullMatchLookup<>(cache.get(groupId), true, null);
-		}
-		String fallbackReason = cache == null ? "cache_map_null" : "entry_missing";
-		List<Object> resolved = resolveFluids(managerPreviewDefinition(group));
-		ensureFullMatchFluidsCache().put(groupId, List.copyOf(resolved));
-		return new FullMatchLookup<>(resolved, false, fallbackReason);
+		return getFullMatchGroupLookup(group).fluids();
 	}
 
 	/** Same as {@link #getFullMatchItems(GroupDefinition)} but for generic ingredients. */
@@ -326,15 +315,48 @@ public final class GroupRegistry {
 	}
 
 	public static FullMatchLookup<GenericIngredientRef> getFullMatchGenericIngredientsLookup(GroupDefinition group) {
-		String groupId = group.id();
-		var cache = VIEWER_INDEX.fullMatchGeneric();
-		if (cache != null && cache.containsKey(groupId)) {
-			return new FullMatchLookup<>(cache.get(groupId), true, null);
+		return getFullMatchGroupLookup(group).generic();
+	}
+
+	public static FullMatchGroupLookup getFullMatchGroupLookup(GroupDefinition group) {
+		return getFullMatchGroupLookup(group, VIEWER_INDEX.fullMatchSnapshot(), true);
+	}
+
+	/**
+	 * Reads all preview kinds from one generation. When live resolution is allowed, a cache miss
+	 * is filled with one atomic tri-cache publication.
+	 */
+	public static FullMatchGroupLookup getFullMatchGroupLookup(GroupDefinition group,
+		JeiViewerGroupIndex.FullMatchCacheSnapshot snapshot, boolean resolveMissing) {
+		JeiViewerGroupIndex.FullMatchEntry cached = snapshot.entry(group.id());
+		if (cached != null) {
+			return new FullMatchGroupLookup(
+				new FullMatchLookup<>(cached.items(), true, null),
+				new FullMatchLookup<>(cached.fluids(), true, null),
+				new FullMatchLookup<>(cached.generic(), true, null)
+			);
 		}
-		String fallbackReason = cache == null ? "cache_map_null" : "entry_missing";
-		List<GenericIngredientRef> resolved = resolveGenericIngredients(managerPreviewDefinition(group));
-		ensureFullMatchGenericCache().put(groupId, List.copyOf(resolved));
-		return new FullMatchLookup<>(resolved, false, fallbackReason);
+
+		String fallbackReason = snapshot.complete() ? "entry_missing" : "cache_map_null";
+		if (!resolveMissing) {
+			String pendingReason = "generation_pending";
+			return new FullMatchGroupLookup(
+				new FullMatchLookup<>(List.of(), false, pendingReason),
+				new FullMatchLookup<>(List.of(), false, pendingReason),
+				new FullMatchLookup<>(List.of(), false, pendingReason)
+			);
+		}
+
+		GroupDefinition previewDefinition = managerPreviewDefinition(group);
+		List<ItemStack> items = resolveItems(previewDefinition);
+		List<Object> fluids = resolveFluids(previewDefinition);
+		List<GenericIngredientRef> generic = resolveGenericIngredients(previewDefinition);
+		VIEWER_INDEX.updateFullMatchEntry(group.id(), items, fluids, generic);
+		return new FullMatchGroupLookup(
+			new FullMatchLookup<>(items, false, fallbackReason),
+			new FullMatchLookup<>(fluids, false, fallbackReason),
+			new FullMatchLookup<>(generic, false, fallbackReason)
+		);
 	}
 
 	/** Resolves all generic JEI ingredients that match the given group definition. */
@@ -472,16 +494,14 @@ public final class GroupRegistry {
 		VIEWER_INDEX.setResolvedFluidsByGroup(map);
 	}
 
-	public static void setFullMatchItemsByGroup(Map<String, List<ItemStack>> map) {
-		VIEWER_INDEX.setFullMatchItemsByGroup(map);
+	public static void setFullMatchCachesByGroup(Map<String, List<ItemStack>> items,
+		Map<String, List<Object>> fluids, Map<String, List<GenericIngredientRef>> generic) {
+		VIEWER_INDEX.setFullMatchCachesByGroup(items, fluids, generic);
 	}
 
-	public static void setFullMatchFluidsByGroup(Map<String, List<Object>> map) {
-		VIEWER_INDEX.setFullMatchFluidsByGroup(map);
-	}
-
-	public static void setFullMatchGenericByGroup(Map<String, List<GenericIngredientRef>> map) {
-		VIEWER_INDEX.setFullMatchGenericByGroup(map);
+	public static void setItemCaches(Map<String, List<ItemStack>> resolvedItems,
+		Map<String, List<ItemStack>> fullMatchItems, Map<String, Set<String>> itemReverseIndex) {
+		VIEWER_INDEX.setItemCaches(resolvedItems, fullMatchItems, itemReverseIndex);
 	}
 
 	public static void setItemIdToGroupIds(Map<String, Set<String>> map)  { VIEWER_INDEX.setItemReverseIndex(map); }
@@ -761,21 +781,7 @@ public final class GroupRegistry {
 		List<Object> fluids = resolveFluids(previewDefinition);
 		List<GenericIngredientRef> generic = resolveGenericIngredients(previewDefinition);
 
-		ensureFullMatchItemsCache().put(saved.id(), List.copyOf(items));
-		ensureFullMatchFluidsCache().put(saved.id(), List.copyOf(fluids));
-		ensureFullMatchGenericCache().put(saved.id(), List.copyOf(generic));
-	}
-
-	private static Map<String, List<ItemStack>> ensureFullMatchItemsCache() {
-		return VIEWER_INDEX.ensureFullMatchItems();
-	}
-
-	private static Map<String, List<Object>> ensureFullMatchFluidsCache() {
-		return VIEWER_INDEX.ensureFullMatchFluids();
-	}
-
-	private static Map<String, List<GenericIngredientRef>> ensureFullMatchGenericCache() {
-		return VIEWER_INDEX.ensureFullMatchGeneric();
+		VIEWER_INDEX.updateFullMatchEntry(saved.id(), items, fluids, generic);
 	}
 
 	private static void publishGroups(List<GroupDefinition> registrationOrder) {
