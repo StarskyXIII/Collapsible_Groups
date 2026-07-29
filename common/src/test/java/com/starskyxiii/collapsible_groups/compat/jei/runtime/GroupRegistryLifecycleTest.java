@@ -226,9 +226,11 @@ class GroupRegistryLifecycleTest {
 			new GroupCandidateIndex(Map.of(), Map.of(id, indexed), 0, 0, 0), List.of(indexed));
 		GroupRegistry.setResolvedItemsByGroup(Map.of(id, List.of()));
 		GroupRegistry.setResolvedFluidsByGroup(Map.of(id, List.of(new Object())));
-		GroupRegistry.setFullMatchItemsByGroup(Map.of(id, List.of()));
-		GroupRegistry.setFullMatchFluidsByGroup(Map.of(id, List.of(new Object())));
-		GroupRegistry.setFullMatchGenericByGroup(Map.of(id, List.<GenericIngredientRef>of()));
+		GroupRegistry.setFullMatchCachesByGroup(
+			Map.of(id, List.of()),
+			Map.of(id, List.of(new Object())),
+			Map.of(id, List.<GenericIngredientRef>of())
+		);
 	}
 
 	private static boolean cacheContains(String fieldName, String id) throws ReflectiveOperationException {
