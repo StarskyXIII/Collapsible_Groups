@@ -17,7 +17,7 @@ import mezz.jei.common.input.IInternalKeyMappings;
 import mezz.jei.gui.bookmarks.IBookmark;
 import mezz.jei.gui.input.UserInput;
 import mezz.jei.gui.overlay.elements.IElement;
-import mezz.jei.gui.overlay.IngredientGridTooltipHelper;
+import mezz.jei.gui.overlay.ingredients.IngredientGridTooltipHelper;
 import mezz.jei.gui.util.FocusUtil;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -58,6 +58,9 @@ public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderI
 
 	@Override
 	public Optional<IBookmark> getBookmark() { return Optional.empty(); }
+
+	@Override
+	public void tick() {}
 
 	@Override
 	public @Nullable IDrawable createRenderOverlay() { return null; }

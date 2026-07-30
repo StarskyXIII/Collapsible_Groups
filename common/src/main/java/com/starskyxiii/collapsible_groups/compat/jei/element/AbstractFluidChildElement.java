@@ -15,7 +15,7 @@ import mezz.jei.gui.bookmarks.IBookmark;
 import mezz.jei.gui.input.UserInput;
 import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.elements.IngredientElement;
-import mezz.jei.gui.overlay.IngredientGridTooltipHelper;
+import mezz.jei.gui.overlay.ingredients.IngredientGridTooltipHelper;
 import mezz.jei.gui.util.FocusUtil;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
 import org.jetbrains.annotations.Nullable;
@@ -35,6 +35,7 @@ public abstract class AbstractFluidChildElement<T> implements IElement<T>, PreRe
 
 	@Override public ITypedIngredient<T> getTypedIngredient() { return delegate.getTypedIngredient(); }
 	@Override public Optional<IBookmark> getBookmark() { return delegate.getBookmark(); }
+	@Override public void tick() { delegate.tick(); }
 
 	@Override
 	public @Nullable IDrawable createRenderOverlay() {

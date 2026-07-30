@@ -39,7 +39,7 @@ public abstract class MixinIngredientListOverlay {
 		method = "<init>(Lmezz/jei/gui/overlay/ingredients/IIngredientGridSource;Lmezz/jei/gui/filter/IFilterTextSource;" +
 			"Lmezz/jei/api/runtime/IScreenHelper;Lmezz/jei/gui/overlay/ingredients/IIngredientListOverlayContents;" +
 			"Lmezz/jei/gui/overlay/bookmarks/history/LookupHistoryOverlay;" +
-			"Lmezz/jei/common/config/IIngredientGridConfig;Lmezz/jei/common/config/IClientConfig;" +
+			"Lmezz/jei/common/config/IClientConfig;" +
 			"Lmezz/jei/common/config/IClientToggleState;Lmezz/jei/common/input/IInternalKeyMappings;)V",
 		at = @At("TAIL"),
 		require = 1
@@ -51,19 +51,32 @@ public abstract class MixinIngredientListOverlay {
 			this::isListDisplayed, () -> NeoForgeConfig.SHOW_MANAGER_BUTTON.get());
 	}
 
-	@Inject(method = "drawScreen", at = @At("HEAD"), require = 0)
-	private void cg$beforeDraw(Minecraft minecraft, GuiGraphicsExtractor graphics, int mouseX, int mouseY,
-		float partialTicks, CallbackInfo ci) {
-		this.cg$controller.beforeDraw(graphics);
+	@Inject(
+		method = "drawBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V",
+		at = @At("HEAD"),
+		require = 1
+	)
+	private void cg$drawBackgroundPhase(GuiGraphicsExtractor graphics, CallbackInfo ci) {
+		this.cg$controller.drawBackgroundPhase(graphics);
 	}
 
-	@Inject(method = "drawScreen", at = @At("TAIL"), require = 0)
-	private void cg$afterDraw(Minecraft minecraft, GuiGraphicsExtractor graphics, int mouseX, int mouseY,
+	@Inject(
+		method = "drawForeground(Lnet/minecraft/client/Minecraft;" +
+			"Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
+		at = @At("TAIL"),
+		require = 1
+	)
+	private void cg$drawForegroundPhase(Minecraft minecraft, GuiGraphicsExtractor graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci) {
-		this.cg$controller.afterDraw(graphics, mouseX, mouseY, partialTicks);
+		this.cg$controller.drawForegroundPhase(graphics, mouseX, mouseY, partialTicks);
 	}
 
-	@Inject(method = "drawTooltips", at = @At("TAIL"), require = 0)
+	@Inject(
+		method = "drawTooltips(Lnet/minecraft/client/Minecraft;" +
+			"Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V",
+		at = @At("TAIL"),
+		require = 1
+	)
 	private void cg$drawTooltips(Minecraft minecraft, GuiGraphicsExtractor graphics, int mouseX, int mouseY, CallbackInfo ci) {
 		this.cg$controller.drawTooltips(graphics, mouseX, mouseY);
 	}

@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.mixin;
 
-// Keep this mixin plugin byte-identical across Fabric, Forge, and NeoForge.
+// Keep this mixin plugin byte-identical across the active Fabric and NeoForge loaders.
 
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
@@ -10,9 +10,13 @@ import java.util.List;
 import java.util.Set;
 
 public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
-	private static final Set<String> OPTIONAL_JEI_MIXINS = Set.of(
+	private static final String JEI_MARKER = "mezz/jei/api/JeiPlugin.class";
+	private static final Set<String> JEI_MIXINS = Set.of(
 		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientFilter",
-		"com.starskyxiii.collapsible_groups.mixin.MixinBookmarkList"
+		"com.starskyxiii.collapsible_groups.mixin.MixinBookmarkList",
+		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientListRenderer",
+		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientListOverlay",
+		"com.starskyxiii.collapsible_groups.mixin.MixinGuiTextFieldFilterAccessor"
 	);
 
 	@Override
@@ -26,15 +30,14 @@ public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
 
 	@Override
 	public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
-		if (OPTIONAL_JEI_MIXINS.contains(mixinClassName)) {
-			return isClassPresent(targetClassName);
+		if (JEI_MIXINS.contains(mixinClassName)) {
+			return isJeiPresent();
 		}
 		return true;
 	}
 
-	private static boolean isClassPresent(String className) {
-		String resourcePath = className.replace('.', '/') + ".class";
-		return CollapsibleGroupsMixinPlugin.class.getClassLoader().getResource(resourcePath) != null;
+	private static boolean isJeiPresent() {
+		return CollapsibleGroupsMixinPlugin.class.getClassLoader().getResource(JEI_MARKER) != null;
 	}
 
 	@Override

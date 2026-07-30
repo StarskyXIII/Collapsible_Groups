@@ -7,6 +7,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class LoaderOverlayMixinContractTest {
@@ -15,13 +16,29 @@ class LoaderOverlayMixinContractTest {
 
 	@ParameterizedTest
 	@ValueSource(strings = {"fabric", "neoforge"})
-	void loaderMixinUsesJei29ExtractorRenderContract(String loader) throws IOException {
+	void activeLoaderMixinUsesRequiredJei2920Contracts(String loader) throws IOException {
 		Path root = Path.of(System.getProperty("collapsibleGroupsRoot"));
 		String source = Files.readString(root.resolve(loader).resolve(MIXIN_PATH));
-		assertTrue(source.contains("method = \"drawScreen\""));
-		assertTrue(source.contains("method = \"drawTooltips\""));
+
+		assertTrue(source.contains(
+			"method = \"<init>(Lmezz/jei/gui/overlay/ingredients/IIngredientGridSource;" +
+				"Lmezz/jei/gui/filter/IFilterTextSource;\""));
+		assertTrue(source.contains(
+			"Lmezz/jei/api/runtime/IScreenHelper;" +
+				"Lmezz/jei/gui/overlay/ingredients/IIngredientListOverlayContents;\""));
+		assertTrue(source.contains(
+			"Lmezz/jei/gui/overlay/bookmarks/history/LookupHistoryOverlay;\""));
+		assertTrue(source.contains(
+			"Lmezz/jei/common/config/IClientConfig;\""));
+		assertTrue(source.contains(
+			"Lmezz/jei/common/config/IClientToggleState;" +
+				"Lmezz/jei/common/input/IInternalKeyMappings;)V\""));
+		assertFalse(source.contains("IIngredientGridConfig"));
+		assertTrue(source.contains("method = \"drawBackground("));
+		assertTrue(source.contains("method = \"drawForeground("));
+		assertTrue(source.contains("method = \"drawTooltips("));
 		assertTrue(source.contains("method = \"createInputHandler()"));
-		assertTrue(source.contains("GuiGraphicsExtractor"));
-		assertTrue(source.contains("require = 0"));
+		assertFalse(source.contains("method = \"drawScreen"));
+		assertFalse(source.contains("require = 0"));
 	}
 }

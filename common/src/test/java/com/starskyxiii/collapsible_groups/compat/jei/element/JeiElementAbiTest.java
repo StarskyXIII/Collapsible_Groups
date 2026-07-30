@@ -4,7 +4,7 @@ import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.common.gui.JeiTooltip;
 import mezz.jei.gui.overlay.elements.IElement;
-import mezz.jei.gui.overlay.IngredientGridTooltipHelper;
+import mezz.jei.gui.overlay.ingredients.IngredientGridTooltipHelper;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -32,6 +32,14 @@ class JeiElementAbiTest {
 				IIngredientHelper.class
 			);
 			assertNotNull(getTooltip, elementType.getName());
+		}
+	}
+
+	@Test
+	void everyCustomElementImplementsJei29TickContract() throws ReflectiveOperationException {
+		for (Class<?> elementType : ELEMENT_TYPES) {
+			Method tick = elementType.getDeclaredMethod("tick");
+			assertNotNull(tick, elementType.getName());
 		}
 	}
 }

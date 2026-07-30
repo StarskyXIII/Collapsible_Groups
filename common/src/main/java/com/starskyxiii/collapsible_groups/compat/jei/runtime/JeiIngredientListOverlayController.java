@@ -36,12 +36,13 @@ public final class JeiIngredientListOverlayController {
 		this.configuredVisible = configuredVisible;
 	}
 
-	public void beforeDraw(GuiGraphicsExtractor graphics) {
+	public void drawBackgroundPhase(GuiGraphicsExtractor graphics) {
+		GroupBorderRenderer.clear();
 		if (!listDisplayed.getAsBoolean()) return;
 		syncBoundsToConfigButton(shouldShowGroupsButton());
 	}
 
-	public void afterDraw(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
+	public void drawForegroundPhase(GuiGraphicsExtractor graphics, int mouseX, int mouseY, float partialTicks) {
 		GroupBorderRenderer.renderAndClear(graphics);
 		if (shouldShowGroupsButton()) groupsButton.draw(graphics, mouseX, mouseY, partialTicks);
 	}
