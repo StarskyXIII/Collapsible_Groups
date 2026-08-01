@@ -32,12 +32,11 @@
         "java": ">=${java_version}"
     },
     "suggests": {
-        "jei": ">=${jei_version} <29.21"
+        "jei": ">=${jei_version}"
     },
     "breaks": {
         "jei": [
-            "<${jei_version}",
-            ">=29.21"
+            "<${jei_version}"
         ]
     }
 }

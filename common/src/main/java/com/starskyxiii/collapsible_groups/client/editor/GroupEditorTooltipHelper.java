@@ -24,8 +24,9 @@ final class GroupEditorTooltipHelper {
 
 	static void render(GuiGraphicsExtractor g, int mouseX, int mouseY,
 	                   EditorLeftPanel left, EditorRightPanel right,
-	                   GroupEditorState state, Font font, EditorShellLayout shell) {
-		if (shell.searchField().contains(mouseX, mouseY)) {
+	                   GroupEditorState state, Font font, EditorShellLayout shell,
+	                   boolean searchFieldVisible) {
+		if (shouldShowSearchSyntaxTooltip(searchFieldVisible, shell.searchField(), mouseX, mouseY)) {
 			g.setComponentTooltipForNextFrame(font, searchSyntaxLines(), mouseX, mouseY);
 			return;
 		}
@@ -174,11 +175,5 @@ final class GroupEditorTooltipHelper {
 
 	private static Object fluidIngredient(EditorFluidIngredientView fluid) {
 		return fluid.ingredient();
-	}
-
-	static void render(GuiGraphicsExtractor g, int mouseX, int mouseY,
-		EditorLeftPanel left, EditorRightPanel right, GroupEditorState state,
-		Font font, EditorShellLayout shell, boolean hasGenericIngredients) {
-		render(g, mouseX, mouseY, left, right, state, font, shell);
 	}
 }
