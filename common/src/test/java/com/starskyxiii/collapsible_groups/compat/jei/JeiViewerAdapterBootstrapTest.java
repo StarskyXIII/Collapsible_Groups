@@ -129,6 +129,61 @@ class JeiViewerAdapterBootstrapTest {
 		}
 	}
 
+	@Test
+	@SuppressWarnings("unchecked")
+	void collidingUidStringsRemainDistinctWhileEquivalentWrappersAreCanonicalized() {
+		IIngredientType<String> type = new IIngredientType<>() {
+			@Override public Class<? extends String> getIngredientClass() { return String.class; }
+			@Override public String getUid() { return "test:colliding_uid"; }
+		};
+		IIngredientHelper<String> helper = new IIngredientHelper<>() {
+			@Override public IIngredientType<String> getIngredientType() { return type; }
+			@Override public String getDisplayName(String ingredient) { return ingredient; }
+			@Override public String getUniqueId(String ingredient, UidContext context) { return ingredient; }
+			@Override public Object getUid(String ingredient, UidContext context) {
+				return new CollisionUid("value-overload:" + ingredient);
+			}
+			@Override public Object getUid(ITypedIngredient<String> ingredient, UidContext context) {
+				return new CollisionUid(ingredient.getIngredient());
+			}
+			@Override public ResourceLocation getResourceLocation(String ingredient) {
+				return ResourceLocation.fromNamespaceAndPath("test", ingredient);
+			}
+			@Override public String copyIngredient(String ingredient) { return ingredient; }
+			@Override public String getErrorInfo(String ingredient) { return ingredient; }
+		};
+		ITypedIngredient<String> oxygen = typed(type, "oxygen");
+		ITypedIngredient<String> duplicateOxygen = typed(type, "oxygen");
+		ITypedIngredient<String> hydrogen = typed(type, "hydrogen");
+		List<ITypedIngredient<?>> all = List.of(oxygen, duplicateOxygen, hydrogen);
+		IIngredientManager manager = (IIngredientManager) Proxy.newProxyInstance(
+			getClass().getClassLoader(), new Class<?>[]{IIngredientManager.class}, (proxy, method, args) -> {
+				if (method.getName().equals("getRegisteredIngredientTypes")) return List.of(type);
+				if (method.getName().equals("getIngredientHelper")) return helper;
+				if (method.getName().equals("getAllTypedIngredients")) return all;
+				throw new UnsupportedOperationException(method.toString());
+			});
+		GroupDefinition group = new GroupDefinition("collision_group", "Collisions", true,
+			Filters.genericNamespace("test:colliding_uid", "test"));
+
+		JeiViewerAdapter adapter = JeiViewerAdapter.instance();
+		try {
+			GroupCandidateIndex ownership = adapter.buildOwnershipIndex(all, manager, List.of(group));
+			assertEquals(2, adapter.bootstrapContext().universe().ordered().size());
+			assertEquals(2, adapter.bootstrapContext().resolveType("test:colliding_uid")
+				.orElseThrow().ingredients().size());
+
+			ViewerProjection<ITypedIngredient<?>> projection = adapter.project(
+				all, "", false, 0, List.of(group), id -> false, ownership);
+			ViewerProjection.GroupHeader<ITypedIngredient<?>> header = assertInstanceOf(
+				ViewerProjection.GroupHeader.class, projection.entries().getFirst());
+			assertEquals(List.of(oxygen, hydrogen), header.children().stream()
+				.map(ingredient -> ingredient.entry()).toList());
+		} finally {
+			JeiViewerAdapter.unregisterRuntime();
+		}
+	}
+
 	private static IIngredientHelper<String> helper(IIngredientType<String> type) {
 		return new IIngredientHelper<>() {
 			@Override
@@ -175,5 +230,9 @@ class JeiViewerAdapterBootstrapTest {
 				return value;
 			}
 		};
+	}
+
+	private record CollisionUid(String value) {
+		@Override public String toString() { return "same-string"; }
 	}
 }

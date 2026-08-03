@@ -79,7 +79,9 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		Map<EditorGenericIngredientView, List<String>> ownership = new java.util.IdentityHashMap<>();
 		for (EditorGenericIngredientView entry : entries) {
 			String groupId = resolved.get(
-				new ViewerIngredientIdentity(entry.typeId(), EditorGenericIngredientHelper.identityValueId(entry)));
+				new ViewerIngredientIdentity(entry.typeId(),
+					EditorGenericIngredientHelper.identityValueId(entry),
+					EditorGenericIngredientHelper.identityKey(entry)));
 			GroupDefinition owner = byId.get(groupId);
 			if (owner != null) ownership.put(entry,
 				List.of(com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper.displayName(owner)));
