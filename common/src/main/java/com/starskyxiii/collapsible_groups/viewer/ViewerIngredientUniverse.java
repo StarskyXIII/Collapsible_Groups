@@ -10,13 +10,9 @@ public final class ViewerIngredientUniverse<E> {
 	private final Map<ViewerIngredientIdentity, ViewerIngredient<E>> byIdentity;
 
 	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered) {
-		this.ordered = List.copyOf(ordered);
 		Map<ViewerIngredientIdentity, ViewerIngredient<E>> indexed = new LinkedHashMap<>();
-		for (ViewerIngredient<E> ingredient : this.ordered) {
-			if (indexed.putIfAbsent(ingredient.identity(), ingredient) != null) {
-				throw new IllegalArgumentException("Duplicate ingredient identity: " + ingredient.identity());
-			}
-		}
+		for (ViewerIngredient<E> ingredient : ordered) indexed.putIfAbsent(ingredient.identity(), ingredient);
+		this.ordered = List.copyOf(indexed.values());
 		this.byIdentity = Map.copyOf(indexed);
 	}
 
