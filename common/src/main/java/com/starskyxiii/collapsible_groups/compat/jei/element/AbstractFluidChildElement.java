@@ -1,7 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
-import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBorderRenderer;
+import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
@@ -23,7 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 /** Shared JEI element behavior for loader-specific fluid ingredient types. */
-public abstract class AbstractFluidChildElement<T> implements IElement<T> {
+public abstract class AbstractFluidChildElement<T> implements IElement<T>, PreRenderIngredientGridElement {
 	private final IngredientElement<T> delegate;
 	private final String groupId;
 
@@ -38,7 +39,7 @@ public abstract class AbstractFluidChildElement<T> implements IElement<T> {
 
 	@Override
 	public @Nullable IDrawable createRenderOverlay() {
-		return new FluidChildOverlay(groupId);
+		return null;
 	}
 
 	@Override public void show(IRecipesGui recipesGui, FocusUtil focusUtil, List<RecipeIngredientRole> roles) {
@@ -53,12 +54,12 @@ public abstract class AbstractFluidChildElement<T> implements IElement<T> {
 		return delegate.handleClick(input, keyBindings);
 	}
 
-	private record FluidChildOverlay(String groupId) implements IDrawable {
-		@Override public int getWidth() { return 16; }
-		@Override public int getHeight() { return 16; }
-		@Override public void draw(GuiGraphics guiGraphics, int xOffset, int yOffset) {
-			GroupBackgroundRenderer.registerChild(groupId, xOffset, yOffset);
-			GroupBorderRenderer.registerPosition(groupId, xOffset, yOffset);
+	@Override
+	public void drawPreRender(GuiGraphics guiGraphics, int xOffset, int yOffset) {
+		if (Services.CONFIG.showGroupBackgrounds()) {
+			guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17,
+				GroupThemeResolver.expandedGroupBackgroundColor(groupId));
 		}
+		GroupBorderRenderer.registerPosition(groupId, xOffset, yOffset);
 	}
 }

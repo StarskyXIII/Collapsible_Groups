@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JeiElementAbiTest {
 	private static final List<Class<?>> ELEMENT_TYPES = List.of(
@@ -47,6 +48,20 @@ class JeiElementAbiTest {
 				IIngredientHelper.class
 			);
 			assertNotNull(getTooltip, elementType.getName());
+		}
+	}
+
+	@Test
+	void everyCustomElementSupportsSameFramePreRender() throws ReflectiveOperationException {
+		for (Class<?> elementType : ELEMENT_TYPES) {
+			assertTrue(PreRenderIngredientGridElement.class.isAssignableFrom(elementType), elementType.getName());
+			Method preRender = elementType.getMethod(
+				"drawPreRender",
+				net.minecraft.client.gui.GuiGraphics.class,
+				int.class,
+				int.class
+			);
+			assertEquals(void.class, preRender.getReturnType(), elementType.getName());
 		}
 	}
 }

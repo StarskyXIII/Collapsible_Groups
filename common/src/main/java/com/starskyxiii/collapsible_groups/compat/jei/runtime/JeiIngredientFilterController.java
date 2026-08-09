@@ -9,7 +9,6 @@ import com.starskyxiii.collapsible_groups.compat.jei.element.GroupChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupHeaderElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
-import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
@@ -137,7 +136,6 @@ public final class JeiIngredientFilterController {
 	}
 
 	private void clearStructureCaches() {
-		GroupBackgroundRenderer.clear();
 		setDisplayCache.accept(null);
 		baseList = null;
 		baseListGroupIds = null;
@@ -147,7 +145,6 @@ public final class JeiIngredientFilterController {
 	}
 
 	private void toggleAndRebuildDisplay() {
-		GroupBackgroundRenderer.clear();
 		if (baseList != null) {
 			projection = projection.withExpansion(GroupRegistry::isExpandedById);
 			setDisplayCache.accept(buildDisplayFromCache());

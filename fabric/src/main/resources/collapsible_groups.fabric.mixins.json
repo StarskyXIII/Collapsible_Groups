@@ -9,6 +9,7 @@
   "client": [
     "MixinBookmarkList",
     "MixinIngredientFilter",
+    "MixinIngredientListRenderer",
     "MixinIngredientListOverlay",
     "MixinGuiTextFieldFilterAccessor"
   ],

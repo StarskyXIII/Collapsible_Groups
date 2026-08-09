@@ -5,6 +5,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewTooltipCompo
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
@@ -19,8 +20,10 @@ import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.ingredients.IngredientGridTooltipHelper;
 import mezz.jei.gui.util.FocusUtil;
 import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
 import java.util.Optional;
@@ -29,7 +32,7 @@ import java.util.Optional;
  * Unified JEI element for all collapsible group header slots.
  * Uses {@link GroupIcon} as the ingredient type for full rendering control.
  */
-public final class GroupHeaderElement implements IElement<GroupIcon> {
+public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderIngredientGridElement {
 
 	private final ITypedIngredient<GroupIcon> typedIcon;
 	private final Component countLabel;
@@ -60,7 +63,16 @@ public final class GroupHeaderElement implements IElement<GroupIcon> {
 	public void tick() {}
 
 	@Override
-	public IDrawable createRenderOverlay() { return new GroupExpandOverlay(icon().groupId()); }
+	public @Nullable IDrawable createRenderOverlay() { return null; }
+
+	@Override
+	public void drawPreRender(GuiGraphics guiGraphics, int xOffset, int yOffset) {
+		if (!Services.CONFIG.showGroupBackgrounds()) return;
+
+		boolean expanded = GroupRegistry.isExpandedById(icon().groupId());
+		int background = GroupThemeResolver.headerBackgroundColor(icon().groupId(), expanded);
+		guiGraphics.fill(xOffset - 1, yOffset - 1, xOffset + 17, yOffset + 17, background);
+	}
 
 	@Override
 	public void show(IRecipesGui recipesGui, FocusUtil focusUtil, List<RecipeIngredientRole> roles) {}
