@@ -5,6 +5,8 @@ import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
+import mezz.jei.api.runtime.IIngredientManager;
 import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
@@ -12,6 +14,7 @@ import org.junit.jupiter.api.TestFactory;
 
 import java.util.List;
 import java.util.Map;
+import java.lang.reflect.Proxy;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.CountDownLatch;
@@ -194,25 +197,59 @@ class JeiViewerGroupIndexContractTest {
 	}
 
 	@Test
-	void failedFullRebuildKeepsPreviewAndNextEventCanRetry() {
+	void failedFullRebuildKeepsPreviewAndNextEventCanRetry() throws Exception {
 		JeiViewerGroupIndex index = JeiViewerGroupIndex.instance();
 		index.reset();
 		GroupDefinition group = group("retry", true);
 		index.publishGeneration(generation(candidate(group), group));
 		AtomicInteger builds = new AtomicInteger();
+		AtomicInteger listeners = new AtomicInteger();
+		CountDownLatch listenerCalled = new CountDownLatch(1);
 		index.configureRebuild(() -> {
 			if (builds.getAndIncrement() == 0) throw new IllegalStateException("expected");
 			return generation(candidate(group), group);
-		}, Runnable::run, () -> {});
+		}, Runnable::run, () -> {
+			listeners.incrementAndGet();
+			listenerCalled.countDown();
+		});
 
 		index.onGroupChange(GroupChangeEvent.Kind.FULL, List.of(group));
 		assertThrows(CompletionException.class, () -> index.whenReady().join());
 		assertNotNull(index.fullMatchSnapshot().entry(group.id()));
+		assertTrue(index.readyGenerationSnapshot().isEmpty());
+		assertEquals(0, listeners.get());
 
 		index.onGroupChange(GroupChangeEvent.Kind.FULL, List.of(group));
 		index.whenReady().join();
+		assertTrue(listenerCalled.await(10, TimeUnit.SECONDS));
 		assertEquals(2, builds.get());
+		assertEquals(1, listeners.get());
 		assertTrue(index.ready());
+	}
+
+	@Test
+	void overlayReadinessRequiresAndPreservesProjectionContext() {
+		JeiViewerGroupIndex index = JeiViewerGroupIndex.instance();
+		index.reset();
+		GroupDefinition group = group("projection_context", true);
+		GroupCandidateIndex candidates = candidate(group);
+		IIngredientManager manager = (IIngredientManager) Proxy.newProxyInstance(
+			getClass().getClassLoader(), new Class<?>[]{IIngredientManager.class},
+			(proxy, method, args) -> { throw new UnsupportedOperationException(method.toString()); });
+		JeiViewerAdapter.ProjectionContext context = new JeiViewerAdapter.ProjectionContext(
+			manager, new ViewerIngredientUniverse<>(List.of()), Map.of(), List.of());
+		JeiViewerGroupIndex.Generation complete = new JeiViewerGroupIndex.Generation(
+			candidates, Map.of(group.id(), List.of()), Map.of(group.id(), List.of()),
+			Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), context);
+
+		index.publishGeneration(complete);
+		assertSame(context, index.readyGenerationSnapshot().orElseThrow().projectionContext());
+		index.setFullMatchCachesByGroup(Map.of(), Map.of(), Map.of());
+		assertSame(context, index.readyGenerationSnapshot().orElseThrow().projectionContext());
+
+		index.publishGeneration(new JeiViewerGroupIndex.Generation(
+			candidates, Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+		assertTrue(index.readyGenerationSnapshot().isEmpty());
 	}
 
 	@Test

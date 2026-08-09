@@ -184,6 +184,48 @@ class JeiViewerAdapterBootstrapTest {
 		}
 	}
 
+	@Test
+	@SuppressWarnings("unchecked")
+	void preparedOwnershipKeepsProjectionOnItsOwnBootstrapGeneration() {
+		IIngredientType<String> type = new IIngredientType<>() {
+			@Override public Class<? extends String> getIngredientClass() { return String.class; }
+			@Override public String getUid() { return "test:generation"; }
+		};
+		IIngredientHelper<String> helper = helper(type);
+		ITypedIngredient<String> oxygen = typed(type, "oxygen");
+		ITypedIngredient<String> hydrogen = typed(type, "hydrogen");
+		List<ITypedIngredient<?>> all = List.of(oxygen, hydrogen);
+		IIngredientManager manager = (IIngredientManager) Proxy.newProxyInstance(
+			getClass().getClassLoader(), new Class<?>[]{IIngredientManager.class}, (proxy, method, args) -> {
+				if (method.getName().equals("getRegisteredIngredientTypes")) return List.of(type);
+				if (method.getName().equals("getIngredientHelper")) return helper;
+				if (method.getName().equals("getAllTypedIngredients")) return all;
+				throw new UnsupportedOperationException(method.toString());
+			});
+		GroupDefinition group = new GroupDefinition("generation_group", "Generation", true,
+			Filters.genericNamespace("test:generation", "test"));
+
+		JeiViewerAdapter adapter = JeiViewerAdapter.instance();
+		try {
+			JeiViewerAdapter.PreparedOwnershipBuild prepared = adapter.buildOwnershipIndexFromMatches(
+				all, manager, List.of(group), Map.of(
+					oxygen, List.of(group.id()), hydrogen, List.of(group.id())));
+			assertEquals(prepared.projectionContext().universe().byIdentity().keySet(),
+				prepared.candidates().candidates().keySet());
+
+			adapter.updateBootstrap(List.of(hydrogen), manager);
+			ViewerProjection<ITypedIngredient<?>> projection = adapter.project(
+				all, "", false, 0, List.of(group), id -> false,
+				prepared.projectionContext(), prepared.candidates());
+			ViewerProjection.GroupHeader<ITypedIngredient<?>> header = assertInstanceOf(
+				ViewerProjection.GroupHeader.class, projection.entries().getFirst());
+			assertEquals(List.of(oxygen, hydrogen), header.children().stream()
+				.map(ingredient -> ingredient.entry()).toList());
+		} finally {
+			JeiViewerAdapter.unregisterRuntime();
+		}
+	}
+
 	private static IIngredientHelper<String> helper(IIngredientType<String> type) {
 		return new IIngredientHelper<>() {
 			@Override

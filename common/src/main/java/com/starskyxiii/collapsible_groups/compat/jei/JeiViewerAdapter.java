@@ -136,16 +136,16 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		searchState.publishCurrent();
 	}
 
-	public ViewerIngredientUniverse<ITypedIngredient<?>> updateBootstrap(
+	public ProjectionContext updateBootstrap(
 		List<ITypedIngredient<?>> ingredients,
 		IIngredientManager manager
 	) {
 		JeiIngredientTypeDiscovery.discover(manager);
-		ViewerIngredientUniverse<ITypedIngredient<?>> universe = bootstrapContext.update(ingredients, manager);
+		ProjectionContext context = bootstrapContext.update(ingredients, manager);
 		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRegistry.getAllIncludingKubeJs());
 		JeiHeaderIconResolver.warnUnresolvedAfterBootstrap(
-			GroupRegistry.getAllIncludingKubeJs(), universe);
-		return universe;
+			GroupRegistry.getAllIncludingKubeJs(), context.universe());
+		return context;
 	}
 
 	public List<ITypedIngredient<?>> assembleHeaderIcons(
@@ -170,7 +170,8 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		List<GroupDefinition> groups
 	) {
 		long start = PerformanceTrace.begin();
-		ViewerIngredientUniverse<ITypedIngredient<?>> universe = updateBootstrap(ingredients, manager);
+		ProjectionContext context = updateBootstrap(ingredients, manager);
+		ViewerIngredientUniverse<ITypedIngredient<?>> universe = context.universe();
 		JeiHeaderIconResolver.warnUnresolvedAfterBootstrap(groups, universe);
 		JeiViewerGroupIndex.instance().updateUniverse(universe);
 		GroupCandidateIndex result = GroupProjectionEngine.buildCandidateIndex(universe, groups);
@@ -184,13 +185,14 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	}
 
 	/** Builds candidates from matches already collected by the optimized per-kind indexers. */
-	public GroupCandidateIndex buildOwnershipIndexFromMatches(
+	public PreparedOwnershipBuild buildOwnershipIndexFromMatches(
 		List<ITypedIngredient<?>> ingredients,
 		IIngredientManager manager,
 		List<GroupDefinition> groups,
 		Map<ITypedIngredient<?>, List<String>> matches
 	) {
-		ViewerIngredientUniverse<ITypedIngredient<?>> universe = updateBootstrap(ingredients, manager);
+		ProjectionContext context = updateBootstrap(ingredients, manager);
+		ViewerIngredientUniverse<ITypedIngredient<?>> universe = context.universe();
 		JeiViewerGroupIndex.instance().updateUniverse(universe);
 		Map<ViewerIngredientIdentity, List<String>> candidates = new LinkedHashMap<>();
 		long edges = 0;
@@ -205,7 +207,18 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		}
 		Map<String, GroupDefinition> snapshot = new LinkedHashMap<>();
 		for (GroupDefinition group : groups) snapshot.put(group.id(), group);
-		return new GroupCandidateIndex(candidates, snapshot, edges, candidates.size(), maxCandidates);
+		return new PreparedOwnershipBuild(context,
+			new GroupCandidateIndex(candidates, snapshot, edges, candidates.size(), maxCandidates));
+	}
+
+	public record PreparedOwnershipBuild(
+		ProjectionContext projectionContext,
+		GroupCandidateIndex candidates
+	) {
+		public PreparedOwnershipBuild {
+			Objects.requireNonNull(projectionContext, "projectionContext");
+			Objects.requireNonNull(candidates, "candidates");
+		}
 	}
 
 	public ViewerProjection<ITypedIngredient<?>> project(
@@ -217,7 +230,23 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		GroupExpansionState expansionState,
 		GroupCandidateIndex ownershipIndex
 	) {
-		CanonicalizedFiltered canonical = bootstrapContext.canonicalizeFiltered(filtered);
+		ProjectionContext context = Objects.requireNonNull(
+			bootstrapContext.current(), "JEI bootstrap context is not available");
+		return project(filtered, searchText, ungroupSmallGroups, ungroupThreshold, groups,
+			expansionState, context, ownershipIndex);
+	}
+
+	public ViewerProjection<ITypedIngredient<?>> project(
+		List<ITypedIngredient<?>> filtered,
+		String searchText,
+		boolean ungroupSmallGroups,
+		int ungroupThreshold,
+		List<GroupDefinition> groups,
+		GroupExpansionState expansionState,
+		ProjectionContext context,
+		GroupCandidateIndex ownershipIndex
+	) {
+		CanonicalizedFiltered canonical = context.canonicalizeFiltered(filtered);
 		ViewerSearchSnapshot<ITypedIngredient<?>> snapshot = new ViewerSearchSnapshot<>(
 			searchText,
 			canonical.entries(),
@@ -302,12 +331,33 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		List<ViewerIngredient<ITypedIngredient<?>>> entries
 	) {}
 
-	private record BootstrapSnapshot(
-		@Nullable IIngredientManager manager,
+	public record ProjectionContext(
+		IIngredientManager manager,
 		ViewerIngredientUniverse<ITypedIngredient<?>> universe,
 		Map<ITypedIngredient<?>, ViewerIngredient<ITypedIngredient<?>>> byEntry,
 		List<ViewerIngredientType<ITypedIngredient<?>>> types
-	) {}
+	) {
+		public ProjectionContext {
+			Objects.requireNonNull(manager, "manager");
+			Objects.requireNonNull(universe, "universe");
+			Objects.requireNonNull(byEntry, "byEntry");
+			Objects.requireNonNull(types, "types");
+		}
+
+		private CanonicalizedFiltered canonicalizeFiltered(List<ITypedIngredient<?>> filtered) {
+			Map<ViewerIngredientIdentity, ViewerIngredient<ITypedIngredient<?>>> canonical =
+				new LinkedHashMap<>();
+			for (ITypedIngredient<?> ingredient : filtered) {
+				ViewerIngredient<ITypedIngredient<?>> resolved = byEntry.get(ingredient);
+				if (resolved == null) {
+					ViewerIngredient<ITypedIngredient<?>> created = createIngredient(ingredient, manager);
+					resolved = universe.byIdentity().getOrDefault(created.identity(), created);
+				}
+				canonical.putIfAbsent(resolved.identity(), resolved);
+			}
+			return new CanonicalizedFiltered(universe, List.copyOf(canonical.values()));
+		}
+	}
 
 	private final class JeiPresentation implements ViewerPresentation<ITypedIngredient<?>, Component> {
 		private final GroupIconRenderer groupIconRenderer = new GroupIconRenderer();
@@ -394,9 +444,9 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	}
 
 	private final class JeiBootstrapContext implements ViewerBootstrapContext<ITypedIngredient<?>> {
-		private volatile BootstrapSnapshot snapshot = emptySnapshot();
+		private volatile @Nullable ProjectionContext snapshot;
 
-		private synchronized ViewerIngredientUniverse<ITypedIngredient<?>> update(
+		private synchronized ProjectionContext update(
 			List<ITypedIngredient<?>> ingredients,
 			IIngredientManager manager
 		) {
@@ -408,44 +458,30 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 				indexed.put(ingredient.entry(), ingredient);
 			}
 			List<ViewerIngredientType<ITypedIngredient<?>>> types = buildTypes(universe);
-			this.snapshot = new BootstrapSnapshot(
+			ProjectionContext next = new ProjectionContext(
 				manager, universe, Collections.unmodifiableMap(indexed), types);
-			return universe;
+			this.snapshot = next;
+			return next;
 		}
 
 		private synchronized void clear() {
-			snapshot = emptySnapshot();
+			snapshot = null;
 		}
 
-		private BootstrapSnapshot emptySnapshot() {
-			return new BootstrapSnapshot(null, new ViewerIngredientUniverse<>(List.of()), Map.of(), List.of());
-		}
-
-		private CanonicalizedFiltered canonicalizeFiltered(List<ITypedIngredient<?>> filtered) {
-			BootstrapSnapshot current = snapshot;
-			IIngredientManager manager = Objects.requireNonNull(
-				current.manager(), "JEI bootstrap context is not available");
-			Map<ViewerIngredientIdentity, ViewerIngredient<ITypedIngredient<?>>> canonical =
-				new LinkedHashMap<>();
-			for (ITypedIngredient<?> ingredient : filtered) {
-				ViewerIngredient<ITypedIngredient<?>> resolved = current.byEntry().get(ingredient);
-				if (resolved == null) {
-					ViewerIngredient<ITypedIngredient<?>> created = createIngredient(ingredient, manager);
-					resolved = current.universe().byIdentity().getOrDefault(created.identity(), created);
-				}
-				canonical.putIfAbsent(resolved.identity(), resolved);
-			}
-			return new CanonicalizedFiltered(current.universe(), List.copyOf(canonical.values()));
+		private @Nullable ProjectionContext current() {
+			return snapshot;
 		}
 
 		@Override
 		public List<ViewerIngredientType<ITypedIngredient<?>>> ingredientTypes() {
-			return snapshot.types();
+			ProjectionContext current = snapshot;
+			return current == null ? List.of() : current.types();
 		}
 
 		@Override
 		public ViewerIngredientUniverse<ITypedIngredient<?>> universe() {
-			return snapshot.universe();
+			ProjectionContext current = snapshot;
+			return current == null ? new ViewerIngredientUniverse<>(List.of()) : current.universe();
 		}
 
 		private List<ViewerIngredientType<ITypedIngredient<?>>> buildTypes(
