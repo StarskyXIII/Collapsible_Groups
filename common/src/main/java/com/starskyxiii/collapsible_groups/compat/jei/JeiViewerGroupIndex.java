@@ -1,5 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei;
 
+import com.starskyxiii.collapsible_groups.Constants;
+
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
@@ -46,9 +48,25 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		@Nullable Map<String, List<Object>> fullMatchFluids,
 		@Nullable Map<String, List<GenericIngredientRef>> fullMatchGeneric,
 		@Nullable Map<String, Set<String>> itemReverseIndex,
-		@Nullable Map<String, Set<String>> fluidReverseIndex
+		@Nullable Map<String, Set<String>> fluidReverseIndex,
+		@Nullable JeiViewerAdapter.ProjectionContext projectionContext
 	) {
+		public Generation(
+			GroupCandidateIndex candidates,
+			@Nullable Map<String, List<ItemStack>> resolvedItems,
+			@Nullable Map<String, List<Object>> resolvedFluids,
+			@Nullable Map<String, List<ItemStack>> fullMatchItems,
+			@Nullable Map<String, List<Object>> fullMatchFluids,
+			@Nullable Map<String, List<GenericIngredientRef>> fullMatchGeneric,
+			@Nullable Map<String, Set<String>> itemReverseIndex,
+			@Nullable Map<String, Set<String>> fluidReverseIndex
+		) {
+			this(candidates, resolvedItems, resolvedFluids, fullMatchItems, fullMatchFluids,
+				fullMatchGeneric, itemReverseIndex, fluidReverseIndex, null);
+		}
+
 		public Generation {
+			if (candidates == null) throw new NullPointerException("candidates");
 			resolvedItems = freezeNullableListMap(resolvedItems);
 			resolvedFluids = freezeNullableListMap(resolvedFluids);
 			fullMatchItems = freezeNullableListMap(fullMatchItems);
@@ -147,7 +165,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		desiredRevision++;
 		published = new Generation(index, resolved.items(), resolved.fluids(),
 			old == null ? null : old.fullMatchItems(), old == null ? null : old.fullMatchFluids(),
-			old == null ? null : old.fullMatchGeneric(), resolved.itemIds(), resolved.fluidIds());
+			old == null ? null : old.fullMatchGeneric(), resolved.itemIds(), resolved.fluidIds(), null);
 	}
 
 	@Override public Optional<GroupCandidateIndex> candidates() {
@@ -159,6 +177,17 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		Generation current = published;
 		return readyFuture.isDone() && current != null
 			&& current.resolvedItems() != null && current.resolvedFluids() != null;
+	}
+
+	/** Returns a complete, same-generation projection input for the overlay render path. */
+	public synchronized Optional<Generation> readyGenerationSnapshot() {
+		Generation current = published;
+		if (!readyFuture.isDone() || readyFuture.isCompletedExceptionally() || readyFuture.isCancelled()
+			|| current == null || current.projectionContext() == null
+			|| current.resolvedItems() == null || current.resolvedFluids() == null) {
+			return Optional.empty();
+		}
+		return Optional.of(current);
 	}
 
 	@Override public CompletableFuture<Void> whenReady() { return readyFuture; }
@@ -184,7 +213,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 					Resolved resolved = resolve(current.candidates(), groups);
 					published = new Generation(current.candidates(), resolved.items(), resolved.fluids(),
 						current.fullMatchItems(), current.fullMatchFluids(), current.fullMatchGeneric(),
-						resolved.itemIds(), resolved.fluidIds());
+						resolved.itemIds(), resolved.fluidIds(), current.projectionContext());
 				}
 			}
 			case STRUCTURE -> { }
@@ -194,7 +223,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 				if (current != null) {
 					published = new Generation(current.candidates(), null, null,
 						current.fullMatchItems(), current.fullMatchFluids(), current.fullMatchGeneric(),
-						null, null);
+						null, null, current.projectionContext());
 				}
 				desiredRevision++;
 				startConfiguredRebuild();
@@ -204,7 +233,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 				Generation current = published;
 				if (current != null) {
 					published = new Generation(current.candidates(), null, null,
-						null, null, null, null, null);
+						null, null, null, null, null, current.projectionContext());
 				}
 				desiredRevision++;
 				startConfiguredRebuild();
@@ -253,6 +282,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 					return;
 				}
 				if (failure != null) {
+					Constants.LOG.error("JEI group index rebuild failed", failure);
 					loop.completeExceptionally(failure);
 					return;
 				}
@@ -303,7 +333,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		Resolved resolved = resolve(generation.candidates(), currentGroups);
 		return new Generation(generation.candidates(), resolved.items(), resolved.fluids(),
 			generation.fullMatchItems(), generation.fullMatchFluids(), generation.fullMatchGeneric(),
-			resolved.itemIds(), resolved.fluidIds());
+			resolved.itemIds(), resolved.fluidIds(), generation.projectionContext());
 	}
 
 	private Resolved resolve(GroupCandidateIndex index, List<GroupDefinition> groups) {
@@ -383,18 +413,20 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 
 	public synchronized void setResolvedItemsByGroup(Map<String, List<ItemStack>> values) {
 		Generation g = baseGeneration(); published = new Generation(g.candidates(), values, g.resolvedFluids(),
-			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex());
+			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex(),
+			g.projectionContext());
 	}
 	public synchronized void setResolvedFluidsByGroup(Map<String, List<Object>> values) {
 		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), values,
-			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex());
+			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex(),
+			g.projectionContext());
 	}
 	public synchronized void setFullMatchCachesByGroup(Map<String, List<ItemStack>> items,
 		Map<String, List<Object>> fluids, Map<String, List<GenericIngredientRef>> generic) {
 		Generation g = baseGeneration();
 		desiredRevision++;
 		published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
-			items, fluids, generic, g.itemReverseIndex(), g.fluidReverseIndex());
+			items, fluids, generic, g.itemReverseIndex(), g.fluidReverseIndex(), g.projectionContext());
 	}
 	public synchronized void setItemCaches(Map<String, List<ItemStack>> resolvedItems,
 		Map<String, List<ItemStack>> fullMatchItems, Map<String, Set<String>> itemReverseIndex) {
@@ -402,27 +434,29 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		desiredRevision++;
 		published = new Generation(g.candidates(), resolvedItems, g.resolvedFluids(),
 			fullMatchItems, g.fullMatchFluids(), g.fullMatchGeneric(),
-			itemReverseIndex, g.fluidReverseIndex());
+			itemReverseIndex, g.fluidReverseIndex(), g.projectionContext());
 	}
 	public synchronized void setItemReverseIndex(Map<String, Set<String>> values) {
 		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
-			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), values, g.fluidReverseIndex());
+			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), values, g.fluidReverseIndex(),
+			g.projectionContext());
 	}
 	public synchronized void setFluidReverseIndex(Map<String, Set<String>> values) {
 		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
-			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), values);
+			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), values,
+			g.projectionContext());
 	}
 
 	public synchronized void clearResolvedCaches() {
 		if (published == null) return; Generation g = published;
 		published = new Generation(g.candidates(), null, null, g.fullMatchItems(), g.fullMatchFluids(),
-			g.fullMatchGeneric(), null, null);
+			g.fullMatchGeneric(), null, null, g.projectionContext());
 	}
 	public synchronized void clearPreviewCaches() {
 		if (published == null) return; Generation g = published;
 		desiredRevision++;
 		published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(), null, null, null,
-			g.itemReverseIndex(), g.fluidReverseIndex());
+			g.itemReverseIndex(), g.fluidReverseIndex(), g.projectionContext());
 	}
 	public synchronized void invalidateFirstMatch(String groupId) {
 		if (published == null) return;
@@ -431,7 +465,8 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		Map<String, List<Object>> fluids = copyWithout(g.resolvedFluids(), groupId);
 		desiredRevision++;
 		published = new Generation(g.candidates(), items, fluids, g.fullMatchItems(),
-			g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex());
+			g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex(),
+			g.projectionContext());
 	}
 	public synchronized void invalidateFullMatch(String groupId) {
 		if (published == null) return;
@@ -439,7 +474,8 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		desiredRevision++;
 		published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
 			copyWithout(g.fullMatchItems(), groupId), copyWithout(g.fullMatchFluids(), groupId),
-			copyWithout(g.fullMatchGeneric(), groupId), g.itemReverseIndex(), g.fluidReverseIndex());
+			copyWithout(g.fullMatchGeneric(), groupId), g.itemReverseIndex(), g.fluidReverseIndex(),
+			g.projectionContext());
 	}
 
 	public synchronized void updateFullMatchEntry(String groupId, List<ItemStack> items,
@@ -451,7 +487,8 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 			copyWith(g.fullMatchGeneric(), groupId, generic);
 		desiredRevision++;
 		published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
-			nextItems, nextFluids, nextGeneric, g.itemReverseIndex(), g.fluidReverseIndex());
+			nextItems, nextFluids, nextGeneric, g.itemReverseIndex(), g.fluidReverseIndex(),
+			g.projectionContext());
 	}
 
 	private Generation baseGeneration() {

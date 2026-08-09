@@ -13,7 +13,6 @@ import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
-import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
 import mezz.jei.api.ingredients.IIngredientHelper;
@@ -33,10 +32,10 @@ import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -211,17 +210,19 @@ public final class JeiIngredientFilterController {
 				if (id != null) fluidIds.computeIfAbsent(id, ignored -> new HashSet<>()).add(entry.getKey());
 			}
 		}
-		GroupCandidateIndex candidates = JeiViewerAdapter.instance().buildOwnershipIndexFromMatches(
+		JeiViewerAdapter.PreparedOwnershipBuild prepared =
+			JeiViewerAdapter.instance().buildOwnershipIndexFromMatches(
 			all, ingredientManager, allGroups, candidateGroups);
 		JeiViewerGroupIndex.Generation generation = new JeiViewerGroupIndex.Generation(
-			candidates,
+			prepared.candidates(),
 			IngredientFilterHelper.toStackMap(itemResult.resolvedEntriesByGroup()),
 			fluidsByGroup,
 			IngredientFilterHelper.toStackMap(itemResult.fullMatchEntriesByGroup()),
 			fullMatchFluidsByGroup,
 			fullMatchGenericByGroup,
 			itemResult.itemIdToGroupIds(),
-			fluidIds
+			fluidIds,
+			prepared.projectionContext()
 		);
 		if (hooks.traceBuilds()) {
 			PerformanceTrace.logIfSlow("MixinIngredientFilter.buildIngredientGroupIndex", traceStart, 20,
@@ -263,16 +264,23 @@ public final class JeiIngredientFilterController {
 		}
 		List<GroupDefinition> groups = GroupRegistry.getAllIncludingKubeJs();
 		viewerIndex.ensureReadyAsync(groups);
-		GroupCandidateIndex ingredientGroupIndex = viewerIndex.candidates().orElse(null);
-		if (ingredientGroupIndex == null) {
-			ingredientGroupIndex = new GroupCandidateIndex(Map.of(),
-				groups.stream().collect(java.util.stream.Collectors.toMap(GroupDefinition::id,
-					Function.identity(), (left, right) -> left, LinkedHashMap::new)), 0, 0, 0);
+		JeiViewerGroupIndex.Generation readyGeneration = viewerIndex.readyGenerationSnapshot().orElse(null);
+		if (readyGeneration == null) {
+			installRawStructure(ingredients);
+			if (hooks.traceBuilds()) {
+				PerformanceTrace.logIfSlow("MixinIngredientFilter.buildStructureCache", traceStart, 20,
+					"filtered=" + ingredients.size() + " cachedFull=" + (all == null ? 0 : all.size())
+						+ " base=" + ingredients.size() + " groups=0"
+						+ " enabledGroups=" + groups.stream().filter(GroupDefinition::enabled).count()
+						+ " pending=" + (!viewerIndex.whenReady().isDone()) + " indexReady=false rawFallback=true");
+			}
+			return;
 		}
 
 		ViewerProjection<ITypedIngredient<?>> projected = JeiViewerAdapter.instance().project(
 			ingredients, searchTextForCache, Services.CONFIG.searchUngroupSmallGroups(),
-			Services.CONFIG.searchUngroupThreshold(), groups, GroupRegistry::isExpandedById, ingredientGroupIndex);
+			Services.CONFIG.searchUngroupThreshold(), groups, GroupRegistry::isExpandedById,
+			readyGeneration.projectionContext(), readyGeneration.candidates());
 		List<IElement<?>> newBaseList = new ArrayList<>();
 		List<String> newGroupIds = new ArrayList<>();
 		Map<String, List<IElement<?>>> newChildren = new HashMap<>();
@@ -301,6 +309,30 @@ public final class JeiIngredientFilterController {
 					+ " pending=" + (!viewerIndex.whenReady().isDone()) + " indexReady=" + viewerIndex.ready());
 		}
 	}
+
+	private void installRawStructure(List<ITypedIngredient<?>> ingredients) {
+		RawStructure rawStructure = buildRawStructure(ingredients);
+		baseList = rawStructure.elements();
+		baseListGroupIds = rawStructure.groupIds();
+		childrenByGroupId = rawStructure.childrenByGroupId();
+		projection = null;
+	}
+
+	static RawStructure buildRawStructure(List<ITypedIngredient<?>> ingredients) {
+		List<IElement<?>> raw = new ArrayList<>(ingredients.size());
+		List<String> groupIds = new ArrayList<>(ingredients.size());
+		for (ITypedIngredient<?> ingredient : ingredients) {
+			raw.add(new IngredientElement<>(ingredient));
+			groupIds.add(null);
+		}
+		return new RawStructure(List.copyOf(raw), Collections.unmodifiableList(groupIds), Map.of());
+	}
+
+	record RawStructure(
+		List<IElement<?>> elements,
+		List<String> groupIds,
+		Map<String, List<IElement<?>>> childrenByGroupId
+	) {}
 
 	private List<Object> extractFluids(List<ITypedIngredient<?>> all) {
 		List<Object> fluids = new ArrayList<>();
