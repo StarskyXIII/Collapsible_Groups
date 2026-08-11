@@ -1,1 +1,1 @@
-com.starskyxiii.collapsible_groups.compat.kubejs.CollapsibleGroupsKubeJSPlugin
+com.starskyxiii.collapsible_groups.compat.kubejs.CollapsibleGroupsKubeJSPlugin client

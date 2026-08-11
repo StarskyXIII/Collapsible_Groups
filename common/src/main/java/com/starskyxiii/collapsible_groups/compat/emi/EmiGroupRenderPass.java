@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.emi;
 
-import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
 import com.starskyxiii.collapsible_groups.client.preview.ConnectedSlotBorderRenderer;
+import com.starskyxiii.collapsible_groups.client.preview.GroupSlotPosition;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.platform.Services;
@@ -17,20 +17,18 @@ import java.util.Map;
 public final class EmiGroupRenderPass {
 	private EmiGroupRenderPass() {}
 
-	public static GroupBackgroundRenderer.BackgroundPosition positionFor(EmiIngredient ingredient, int x, int y) {
+	public static GroupSlotPosition positionFor(EmiIngredient ingredient, int x, int y) {
 		if (ingredient instanceof GroupHeaderEmiStack header) {
-			return new GroupBackgroundRenderer.BackgroundPosition(
-				GroupBackgroundRenderer.Kind.HEADER, header.groupId(), x, y);
+			return new GroupSlotPosition(GroupSlotPosition.Kind.HEADER, header.groupId(), x, y);
 		}
 		if (ingredient instanceof ProjectedChildEmiIngredient child) {
-			return new GroupBackgroundRenderer.BackgroundPosition(
-				GroupBackgroundRenderer.Kind.CHILD, child.parentGroupId(), x, y);
+			return new GroupSlotPosition(GroupSlotPosition.Kind.CHILD, child.parentGroupId(), x, y);
 		}
 		return null;
 	}
 
 	public static void drawTints(GuiGraphics graphics,
-		List<GroupBackgroundRenderer.BackgroundPosition> positions) {
+		List<GroupSlotPosition> positions) {
 		if (!Services.CONFIG.showGroupBackgrounds()) return;
 		for (var position : positions) {
 			int color = switch (position.kind()) {
@@ -44,10 +42,10 @@ public final class EmiGroupRenderPass {
 	}
 
 	public static void drawBorders(GuiGraphics graphics,
-		List<GroupBackgroundRenderer.BackgroundPosition> positions) {
+		List<GroupSlotPosition> positions) {
 		Map<String, List<int[]>> childrenByGroup = new LinkedHashMap<>();
 		for (var position : positions) {
-			if (position.kind() == GroupBackgroundRenderer.Kind.CHILD) {
+			if (position.kind() == GroupSlotPosition.Kind.CHILD) {
 				childrenByGroup.computeIfAbsent(position.groupId(), ignored -> new ArrayList<>())
 					.add(new int[]{position.x(), position.y()});
 			}

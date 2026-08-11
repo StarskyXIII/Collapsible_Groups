@@ -80,7 +80,9 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		Map<EditorGenericIngredientView, List<String>> ownership = new java.util.IdentityHashMap<>();
 		for (EditorGenericIngredientView entry : entries) {
 			String groupId = resolved.get(
-				new ViewerIngredientIdentity(entry.typeId(), EditorGenericIngredientHelper.identityValueId(entry)));
+				new ViewerIngredientIdentity(entry.typeId(),
+					EditorGenericIngredientHelper.identityValueId(entry),
+					EditorGenericIngredientHelper.identityKey(entry)));
 			GroupDefinition owner = byId.get(groupId);
 			if (owner != null) ownership.put(entry,
 				List.of(com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper.displayName(owner)));
@@ -120,10 +122,6 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		return JeiViewerGroupIndex.instance().prepareEditorAsync(GroupRegistry.getAllIncludingKubeJs(), () -> {
 			GroupRegistry.warmEditorItemIndex();
 			GroupRegistry.populateFullMatchCacheFromSaved(definition);
-			// EditorRightPanel consumes all three maps atomically; empty is ready, null is loading.
-			JeiViewerGroupIndex.instance().ensureFullMatchItems();
-			JeiViewerGroupIndex.instance().ensureFullMatchFluids();
-			JeiViewerGroupIndex.instance().ensureFullMatchGeneric();
 		}).whenComplete((ignored, error) -> PerformanceTrace.logIfSlow("GroupEditorScreen.entry", startedAt, 0,
 			"group=" + definition.id() + " ready=" + (error == null)
 				+ " elapsedMillis=" + PerformanceTrace.elapsedMillis(startedAt)));

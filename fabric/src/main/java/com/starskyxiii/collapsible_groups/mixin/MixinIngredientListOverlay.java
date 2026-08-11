@@ -24,7 +24,15 @@ public abstract class MixinIngredientListOverlay {
 	@Shadow public abstract boolean isListDisplayed();
 	@Unique private JeiIngredientListOverlayController cg$controller;
 
-	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
+	@Inject(
+		method = "<init>(Lmezz/jei/gui/overlay/ingredients/IIngredientGridSource;Lmezz/jei/gui/filter/IFilterTextSource;" +
+			"Lmezz/jei/api/runtime/IScreenHelper;Lmezz/jei/gui/overlay/ingredients/IIngredientListOverlayContents;" +
+			"Lmezz/jei/gui/overlay/bookmarks/history/LookupHistoryOverlay;" +
+			"Lmezz/jei/common/config/IIngredientGridConfig;Lmezz/jei/common/config/IClientConfig;" +
+			"Lmezz/jei/common/config/IClientToggleState;Lmezz/jei/common/input/IInternalKeyMappings;)V",
+		at = @At("TAIL"),
+		require = 1
+	)
 	private void cg$onInit(CallbackInfo ci) {
 		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		this.cg$controller = new JeiIngredientListOverlayController(
@@ -33,27 +41,43 @@ public abstract class MixinIngredientListOverlay {
 			this::isListDisplayed, Services.CONFIG::showManagerButton);
 	}
 
-	@Inject(method = "drawScreen", at = @At("HEAD"), require = 0)
-	private void cg$beforeDraw(Minecraft minecraft, GuiGraphics graphics, int mouseX, int mouseY,
-		float partialTicks, CallbackInfo ci) {
+	@Inject(
+		method = "drawBackground",
+		at = @At("HEAD"),
+		require = 1
+	)
+	private void cg$drawBackgroundPhase(GuiGraphics graphics, CallbackInfo ci) {
 		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
-		this.cg$controller.beforeDraw(graphics);
+		this.cg$controller.drawBackgroundPhase(graphics);
 	}
 
-	@Inject(method = "drawScreen", at = @At("TAIL"), require = 0)
-	private void cg$afterDraw(Minecraft minecraft, GuiGraphics graphics, int mouseX, int mouseY,
+	@Inject(
+		method = "drawForeground",
+		at = @At("TAIL"),
+		require = 1
+	)
+	private void cg$drawForegroundPhase(Minecraft minecraft, GuiGraphics graphics, int mouseX, int mouseY,
 		float partialTicks, CallbackInfo ci) {
 		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
-		this.cg$controller.afterDraw(graphics, mouseX, mouseY, partialTicks);
+		this.cg$controller.drawForegroundPhase(graphics, mouseX, mouseY, partialTicks);
 	}
 
-	@Inject(method = "drawTooltips", at = @At("TAIL"), require = 0)
+	@Inject(
+		method = "drawTooltips",
+		at = @At("TAIL"),
+		require = 1
+	)
 	private void cg$drawTooltips(Minecraft minecraft, GuiGraphics graphics, int mouseX, int mouseY, CallbackInfo ci) {
 		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
 		this.cg$controller.drawTooltips(graphics, mouseX, mouseY);
 	}
 
-	@Inject(method = "createInputHandler", at = @At("RETURN"), cancellable = true, require = 0)
+	@Inject(
+		method = "createInputHandler()Lmezz/jei/gui/input/IUserInputHandler;",
+		at = @At("RETURN"),
+		cancellable = true,
+		require = 1
+	)
 	private void cg$wrapInputHandler(CallbackInfoReturnable<IUserInputHandler> cir) {
 		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
 		cir.setReturnValue(this.cg$controller.wrapInputHandler(cir.getReturnValue()));

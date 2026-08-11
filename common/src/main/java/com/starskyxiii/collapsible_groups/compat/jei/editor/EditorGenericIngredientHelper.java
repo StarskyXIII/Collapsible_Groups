@@ -1,7 +1,9 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
-import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper;
+import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientIdentityResolver;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientRenderBridge;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
@@ -12,7 +14,6 @@ import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchQuery;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
-import mezz.jei.api.ingredients.subtypes.UidContext;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.network.chat.Component;
@@ -40,11 +41,14 @@ final class EditorGenericIngredientHelper {
 			IIngredientHelper<Object> helper = manager.getIngredientHelper(type);
 			IIngredientRenderer<Object> renderer = manager.getIngredientRenderer(type);
 			var resourceLocation = helper.getResourceLocation(ref.ingredient());
-			Object uid = helper.getUid(ref.ingredient(), UidContext.Ingredient);
+			JeiIngredientIdentityResolver.ResolvedUid uid = manager
+				.createTypedIngredient(type, ref.ingredient(), false)
+				.map(typed -> JeiIngredientIdentityResolver.resolve(helper, typed))
+				.orElseGet(() -> JeiIngredientIdentityResolver.fallback(helper, ref.ingredient()));
 			String resourceId = resourceLocation != null
 				? resourceLocation.toString()
-				: uid != null ? uid.toString() : helper.getErrorInfo(ref.ingredient());
-			String identityValueId = uid == null ? resourceId : uid.toString();
+				: uid.valueId();
+			String identityValueId = uid.valueId();
 			List<Component> tooltipLines = renderer.getTooltip(ref.ingredient(), TooltipFlag.Default.NORMAL);
 			Component displayName = tooltipLines.isEmpty() ? Component.literal(resourceId) : tooltipLines.get(0);
 			Set<String> tagIds = helper.getTagStream(ref.ingredient())
@@ -55,7 +59,7 @@ final class EditorGenericIngredientHelper {
 			IngredientSearchDocument searchDocument = IngredientSearchDocument.of(
 				List.of(displayName.getString(), resourceId, ref.typeId()), List.of(namespace), tagIds);
 			result.add(new EditorGenericIngredientView(ref.typeId(), ref.ingredient(),
-				new JeiData(type, helper, renderer), displayName, resourceId, identityValueId,
+				new JeiData(type, helper, renderer, uid.runtimeKey()), displayName, resourceId, identityValueId,
 				Set.copyOf(tagIds), searchDocument));
 		}
 		List<EditorGenericIngredientView> copy = List.copyOf(result);
@@ -99,11 +103,7 @@ final class EditorGenericIngredientHelper {
 	}
 
 	static void render(GuiGraphics g, EditorGenericIngredientView entry, int x, int y) {
-		g.pose().pushPose();
-		g.pose().translate(x, y, 0);
-		data(entry).renderer().render(g, entry.ingredient());
-		g.pose().popPose();
-		g.flush();
+		JeiIngredientRenderBridge.render(g, data(entry).renderer(), entry.ingredient(), x, y);
 	}
 
 	static String dragKey(EditorGenericIngredientView entry) {
@@ -112,6 +112,10 @@ final class EditorGenericIngredientHelper {
 
 	static String identityValueId(EditorGenericIngredientView entry) {
 		return entry.identityValueId();
+	}
+
+	static Object identityKey(EditorGenericIngredientView entry) {
+		return data(entry).identityKey();
 	}
 
 	// Winner semantics: groups are priority-ordered, so the first match is the JEI
@@ -134,5 +138,5 @@ final class EditorGenericIngredientHelper {
 	}
 
 	private record JeiData(IIngredientType<Object> type, IIngredientHelper<Object> helper,
-	                       IIngredientRenderer<Object> renderer) {}
+	                       IIngredientRenderer<Object> renderer, Object identityKey) {}
 }

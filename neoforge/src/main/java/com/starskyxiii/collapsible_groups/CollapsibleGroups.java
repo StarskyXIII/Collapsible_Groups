@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.client.preview.PreviewTooltipComponent
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import com.starskyxiii.collapsible_groups.viewer.JeiSoftDependencyBootstrap;
+import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
 import net.neoforged.fml.ModList;
@@ -25,7 +26,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import java.util.function.Function;
 import java.util.List;
 
-@Mod(Constants.MOD_ID)
+@Mod(value = Constants.MOD_ID, dist = Dist.CLIENT)
 public class CollapsibleGroups {
 
 	public CollapsibleGroups(IEventBus eventBus, ModContainer modContainer) {

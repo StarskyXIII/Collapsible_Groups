@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.emi;
 
-import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
+import com.starskyxiii.collapsible_groups.client.preview.GroupSlotPosition;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.client.gui.GuiGraphics;
@@ -19,7 +19,7 @@ class EmiGroupRenderPassTest {
 		var position = EmiGroupRenderPass.positionFor(
 			new ProjectedChildEmiIngredient(ordinary, "mixed"), 11, 21);
 		assertNotNull(position);
-		assertEquals(GroupBackgroundRenderer.Kind.CHILD, position.kind());
+		assertEquals(GroupSlotPosition.Kind.CHILD, position.kind());
 		assertEquals("mixed", position.groupId());
 		assertEquals(11, position.x());
 		assertEquals(21, position.y());

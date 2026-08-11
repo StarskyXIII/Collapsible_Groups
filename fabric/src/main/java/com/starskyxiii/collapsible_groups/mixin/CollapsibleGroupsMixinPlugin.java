@@ -14,7 +14,8 @@ public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
 		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientFilter",
 		"com.starskyxiii.collapsible_groups.mixin.MixinBookmarkList",
 		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientListOverlay",
-		"com.starskyxiii.collapsible_groups.mixin.MixinGuiTextFieldFilterAccessor"
+		"com.starskyxiii.collapsible_groups.mixin.MixinGuiTextFieldFilterAccessor",
+		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientListRenderer"
 	);
 	private static final Set<String> EMI_INTERNAL_MIXINS = Set.of(
 		"com.starskyxiii.collapsible_groups.mixin.MixinEmiScreenSpace",

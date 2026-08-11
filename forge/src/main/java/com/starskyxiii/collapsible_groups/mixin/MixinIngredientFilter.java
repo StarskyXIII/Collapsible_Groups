@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.mixin;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.element.FluidChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterController;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterHook;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
@@ -36,6 +37,8 @@ public abstract class MixinIngredientFilter {
 	protected abstract Stream<ITypedIngredient<?>> cg$getIngredientListUncached(String filterText);
 	@org.spongepowered.asm.mixin.gen.Invoker("notifyListenersOfChange")
 	protected abstract void cg$notifyListenersOfChange();
+	@org.spongepowered.asm.mixin.gen.Invoker("updateDirtyState")
+	protected abstract void cg$updateDirtyState();
 
 	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
@@ -74,6 +77,9 @@ public abstract class MixinIngredientFilter {
 	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true, require = 0)
 	private void cg$onGetElements(CallbackInfoReturnable<List<IElement<?>>> cir) {
 		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
-		cir.setReturnValue(this.cg$controller.getElements());
+		cir.setReturnValue(JeiIngredientFilterHook.getElementsAfterDirtyStateUpdate(
+			this::cg$updateDirtyState,
+			this.cg$controller::getElements
+		));
 	}
 }

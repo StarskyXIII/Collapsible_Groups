@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.mixin;
 
 import com.starskyxiii.collapsible_groups.compat.emi.EmiProjectionController;
 import com.starskyxiii.collapsible_groups.compat.emi.EmiGroupRenderPass;
-import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBackgroundRenderer;
+import com.starskyxiii.collapsible_groups.client.preview.GroupSlotPosition;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.config.SidebarType;
@@ -27,7 +27,7 @@ public abstract class MixinEmiScreenSpace {
 	@Shadow public abstract int getX(int x, int y);
 	@Shadow public abstract int getY(int x, int y);
 	@Shadow @Final public int th;
-	@Unique private List<GroupBackgroundRenderer.BackgroundPosition> cg$groupPositions = List.of();
+	@Unique private List<GroupSlotPosition> cg$groupPositions = List.of();
 
 	@Inject(method = "getStacks", at = @At("RETURN"), cancellable = true, require = 1)
 	private void cg$projectIndex(CallbackInfoReturnable<List<? extends EmiIngredient>> cir) {
@@ -43,7 +43,7 @@ public abstract class MixinEmiScreenSpace {
 			cg$groupPositions = List.of();
 			return;
 		}
-		List<GroupBackgroundRenderer.BackgroundPosition> positions = new java.util.ArrayList<>();
+		List<GroupSlotPosition> positions = new java.util.ArrayList<>();
 		List<? extends EmiIngredient> stacks = getStacks();
 		int i = startIndex;
 		outer: for (int yo = 0; yo < th; yo++) {
