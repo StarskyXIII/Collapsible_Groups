@@ -59,7 +59,7 @@ public final class CompiledFilter {
 			case GroupFilter.ItemPathContains contains -> new ItemPathContainsNode(contains.needle());
 			case GroupFilter.ItemPathEndsWith endsWith -> new ItemPathEndsWithNode(endsWith.suffix());
 			case GroupFilter.Namespace namespace -> new NamespaceNode(canonicalType(namespace.ingredientType()), namespace.namespace());
-			case GroupFilter.ExactStack exactStack -> new ExactStackNode(exactStack.encodedStack());
+			case GroupFilter.ExactStack exactStack -> new ExactStackSetNode(List.of(exactStack.encodedStack()));
 			case GroupFilter.HasComponent hc -> new HasComponentNode(hc.componentTypeId(), hc.encodedValue());
 			case GroupFilter.ComponentPath cp -> new ComponentPathNode(cp.componentTypeId(), cp.path(), cp.expectedValue());
 			case GroupFilter.Unsupported ignored -> UnavailableNode.INSTANCE;
@@ -125,7 +125,7 @@ public final class CompiledFilter {
 	}
 
 	private sealed interface CompiledNode
-		permits AnyNode, AllNode, NotNode, IdNode, IdSetNode, TagNode, BlockTagNode, ItemPathStartsWithNode, ItemPathContainsNode, ItemPathEndsWithNode, NamespaceNode, ExactStackNode, ExactStackSetNode, HasComponentNode, ComponentPathNode, UnavailableNode {
+		permits AnyNode, AllNode, NotNode, IdNode, IdSetNode, TagNode, BlockTagNode, ItemPathStartsWithNode, ItemPathContainsNode, ItemPathEndsWithNode, NamespaceNode, ExactStackSetNode, HasComponentNode, ComponentPathNode, UnavailableNode {
 		default Evaluation evaluate(IngredientView view) {
 			return matches(view) ? Evaluation.MATCH : Evaluation.NO_MATCH;
 		}
@@ -266,19 +266,12 @@ public final class CompiledFilter {
 		}
 	}
 
-	private record ExactStackNode(String encodedStack) implements CompiledNode {
-		@Override
-		public boolean matches(IngredientView view) {
-			return sameType("item", view) && view.matchesExactStack(encodedStack);
-		}
-	}
-
 	/**
 	 * Folded representation of a maximal contiguous run of {@code ExactStack} children
 	 * within an {@code Any}. The run's encoded selectors are decoded at most once (lazily, on the
 	 * first {@code item}-typed evaluation) into a base-id → decoded-reference bucket, replacing the
-	 * per-evaluation JSON+codec decode and paired {@code normalizedCopy} that {@link ExactStackNode}
-	 * performed for every ingredient. A match is then an O(1) map lookup on the candidate's item id
+	 * former per-evaluation JSON+codec decode and paired {@code normalizedCopy}. A match is then an
+	 * O(1) map lookup on the candidate's item id
 	 * plus a component deep-compare against the (usually single) reference for that id.
 	 *
 	 * <p><b>Type gate:</b> {@link #matches} short-circuits on a non-{@code item} view <em>before</em>
@@ -294,8 +287,8 @@ public final class CompiledFilter {
 	 * invalid selectors (dropped from the bucket, never matching).
 	 *
 	 * <p><b>Publication:</b> the fully-built, deeply-immutable bucket ({@link Map#copyOf} of
-	 * {@link List#copyOf} lists) is published once through the {@code volatile} {@link #bucket}
-	 * field via double-checked locking; a reader observes either {@code null} (not yet built /
+	 * {@link List#copyOf} lists) is published once through a volatile field via double-checked
+	 * locking; a reader observes either {@code null} (not yet built /
 	 * awaiting a live registry) or the complete immutable map — never a partially populated one.
 	 *
 	 * <p><b>Observable side-effect change:</b> the immutable bucket is successfully built and
@@ -309,11 +302,20 @@ public final class CompiledFilter {
 	private static final class ExactStackSetNode implements CompiledNode {
 		private static final String STACK_PREFIX = "stack:";
 
-		private final List<String> encodedStacks;
-		private volatile Map<ResourceLocation, List<ItemStack>> bucket;
+		private final ExactStackMatcherCache<ItemStack> cache;
 
 		ExactStackSetNode(List<String> encodedStacks) {
-			this.encodedStacks = encodedStacks;
+			this.cache = new ExactStackMatcherCache<>(encodedStacks, () -> {
+				GroupItemSelector.ExactDecodeContext context = GroupItemSelector.exactDecodeContext();
+				return new ExactStackMatcherCache.DecodeAttempt<>() {
+					@Override public boolean liveRegistry() { return context.liveRegistry(); }
+					@Override public Optional<ExactStackMatcherCache.Decoded<ItemStack>> decode(String encodedStack) {
+						return GroupItemSelector.decodeExactSelector(STACK_PREFIX + encodedStack, context)
+							.map(stack -> new ExactStackMatcherCache.Decoded<>(
+								BuiltInRegistries.ITEM.getKey(stack.getItem()), stack));
+					}
+				};
+			});
 		}
 
 		@Override
@@ -322,73 +324,8 @@ public final class CompiledFilter {
 			if (!sameType("item", view)) {
 				return false;
 			}
-			Map<ResourceLocation, List<ItemStack>> resolved = resolveBucket();
-			if (resolved == null) {
-				return false; // registry not ready yet; retried on a later evaluation.
-			}
 			ResourceLocation resourceLocation = view.resourceLocation();
-			if (resourceLocation == null) {
-				return false;
-			}
-			List<ItemStack> references = resolved.get(resourceLocation);
-			if (references == null) {
-				return false;
-			}
-			for (ItemStack reference : references) {
-				if (view.matchesDecodedExactStack(reference)) {
-					return true;
-				}
-			}
-			return false;
-		}
-
-		private Map<ResourceLocation, List<ItemStack>> resolveBucket() {
-			Map<ResourceLocation, List<ItemStack>> local = bucket;
-			if (local != null) {
-				return local;
-			}
-			synchronized (this) {
-				local = bucket;
-				if (local != null) {
-					return local;
-				}
-				Map<ResourceLocation, List<ItemStack>> built = buildBucket();
-				if (built != null) {
-					bucket = built; // one-shot publish of a fully immutable map.
-				}
-				return built;
-			}
-		}
-
-		private Map<ResourceLocation, List<ItemStack>> buildBucket() {
-			// Capture the registry resolution ONCE and use that same snapshot for every decode in
-			// the run AND for the publication decision below. Re-observing Minecraft state after
-			// the decodes would race game startup (TOCTOU): the connection could appear between an
-			// all-failed fallback decode and the readiness check, permanently publishing an empty
-			// bucket that never got a live-registry decode attempt.
-			GroupItemSelector.ExactDecodeContext context = GroupItemSelector.exactDecodeContext();
-			Map<ResourceLocation, List<ItemStack>> mutable = new LinkedHashMap<>();
-			int decoded = 0;
-			for (String encodedStack : encodedStacks) {
-				Optional<ItemStack> reference = GroupItemSelector.decodeExactSelector(STACK_PREFIX + encodedStack, context);
-				if (reference.isEmpty()) {
-					continue;
-				}
-				ItemStack stack = reference.get(); // decode already applied normalizedCopy.
-				ResourceLocation baseId = BuiltInRegistries.ITEM.getKey(stack.getItem());
-				mutable.computeIfAbsent(baseId, id -> new ArrayList<>()).add(stack);
-				decoded++;
-			}
-			// Don't cache an all-failed result when THIS batch actually decoded against the
-			// fallback registries; retry on a later evaluation once a live registry is available.
-			if (decoded == 0 && !context.liveRegistry()) {
-				return null;
-			}
-			Map<ResourceLocation, List<ItemStack>> immutable = new LinkedHashMap<>();
-			for (Map.Entry<ResourceLocation, List<ItemStack>> entry : mutable.entrySet()) {
-				immutable.put(entry.getKey(), List.copyOf(entry.getValue()));
-			}
-			return Map.copyOf(immutable);
+			return cache.matches(resourceLocation, view::matchesDecodedExactStack);
 		}
 	}
 
