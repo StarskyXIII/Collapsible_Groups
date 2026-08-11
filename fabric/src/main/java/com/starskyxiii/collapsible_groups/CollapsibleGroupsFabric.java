@@ -18,6 +18,8 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
 
     @Override
     public void onInitializeClient() {
+        com.starskyxiii.collapsible_groups.viewer.LoaderViewerEnvironment.detect()
+            .requireCompatibleSelectedViewer();
         Constants.LOG.info("Initializing {} on Fabric", Constants.MOD_NAME);
         CommonClass.init();
         FabricConfig.load();

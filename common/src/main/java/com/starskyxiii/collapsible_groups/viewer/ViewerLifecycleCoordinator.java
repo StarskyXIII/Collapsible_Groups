@@ -11,9 +11,9 @@ import java.util.function.Consumer;
 
 /** Selects and owns the single active recipe-viewer adapter for the process lifetime. */
 public final class ViewerLifecycleCoordinator {
-	public static final String JEI = "jei";
-	public static final String EMI = "emi";
-	public static final String TMRV_MOD_ID = "toomanyrecipeviewers";
+	public static final String JEI = ViewerSelectionPolicy.JEI;
+	public static final String EMI = ViewerSelectionPolicy.EMI;
+	public static final String TMRV_MOD_ID = ViewerSelectionPolicy.TMRV;
 	private static final Set<String> SUPPORTED_VIEWERS = Set.of(JEI, EMI);
 
 	private final ViewerAdapterRegistry registry = new ViewerAdapterRegistry();
@@ -81,9 +81,14 @@ public final class ViewerLifecycleCoordinator {
 		Set<String> supported = Set.copyOf(Objects.requireNonNull(supportedViewerIds, "supportedViewerIds"));
 		boolean realJei = environment.jeiPresent() && !environment.tmrvPresent();
 		boolean effectiveEmi = environment.emiPresent() || environment.tmrvPresent();
-		boolean supportedJei = realJei && supported.contains(JEI);
-		boolean supportedEmi = effectiveEmi && supported.contains(EMI);
-		String selected = supportedEmi ? EMI : supportedJei ? JEI : null;
+		ViewerSelectionPolicy.Viewer viewer = ViewerSelectionPolicy.select(
+			environment.jeiPresent(), environment.emiPresent(), environment.tmrvPresent(),
+			supported.contains(JEI), supported.contains(EMI));
+		String selected = switch (viewer) {
+			case JEI -> JEI;
+			case EMI -> EMI;
+			case NONE -> null;
+		};
 		String warning = null;
 		if (selected == null && (realJei || effectiveEmi)) {
 			warning = "Detected recipe viewer mods do not have a supported adapter in this version; "

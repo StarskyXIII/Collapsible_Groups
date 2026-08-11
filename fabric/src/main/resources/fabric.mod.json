@@ -35,7 +35,7 @@
         "java": ">=${java_version}"
     },
     "suggests": {
-		"jei": ">=${jei_version}",
+		"jei": "*",
 		"emi": ">=${emi_version}"
     }
 }

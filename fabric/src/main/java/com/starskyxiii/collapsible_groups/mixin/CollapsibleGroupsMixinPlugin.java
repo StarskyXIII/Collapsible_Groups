@@ -1,7 +1,8 @@
 package com.starskyxiii.collapsible_groups.mixin;
 
-// Keep this mixin plugin byte-identical across Fabric, Forge, and NeoForge.
-
+import com.starskyxiii.collapsible_groups.viewer.LoaderViewerEnvironment;
+import com.starskyxiii.collapsible_groups.viewer.ViewerCompatibilityEnvironment;
+import com.starskyxiii.collapsible_groups.viewer.ViewerSelectionPolicy;
 import org.objectweb.asm.tree.ClassNode;
 import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
 import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Set;
 
 public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
+	private final ViewerCompatibilityEnvironment environment = LoaderViewerEnvironment.detect();
 	private static final Set<String> JEI_INTERNAL_MIXINS = Set.of(
 		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientFilter",
 		"com.starskyxiii.collapsible_groups.mixin.MixinBookmarkList",
@@ -33,10 +35,12 @@ public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
 	@Override
 	public boolean shouldApplyMixin(String targetClassName, String mixinClassName) {
 		if (JEI_INTERNAL_MIXINS.contains(mixinClassName)) {
-			return !isClassPresent("dev.nolij.toomanyrecipeviewers.TooManyRecipeViewers")
-				&& isClassPresent(targetClassName);
+			return environment.mayApplyJeiInternals() && isClassPresent(targetClassName);
 		}
-		if (EMI_INTERNAL_MIXINS.contains(mixinClassName)) return shouldApplyEmiTarget(targetClassName, mixinClassName);
+		if (EMI_INTERNAL_MIXINS.contains(mixinClassName)) {
+			return environment.selectedViewer() == ViewerSelectionPolicy.Viewer.EMI
+				&& shouldApplyEmiTarget(targetClassName, mixinClassName);
+		}
 		return true;
 	}
 

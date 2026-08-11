@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.client.preview.PreviewTooltipComponent
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import com.starskyxiii.collapsible_groups.viewer.JeiSoftDependencyBootstrap;
+import com.starskyxiii.collapsible_groups.viewer.LoaderViewerEnvironment;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -30,6 +31,7 @@ import java.util.List;
 public class CollapsibleGroups {
 
 	public CollapsibleGroups(IEventBus eventBus, ModContainer modContainer) {
+		LoaderViewerEnvironment.detectRuntime().requireCompatibleSelectedViewer();
 		// Register mod configuration (config/collapsiblegroups/collapsiblegroups.toml)
 		modContainer.registerConfig(ModConfig.Type.CLIENT, NeoForgeConfig.SPEC,
 			"collapsiblegroups/collapsiblegroups.toml");

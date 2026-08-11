@@ -23,6 +23,8 @@ import java.util.function.Function;
 public class CollapsibleGroupsForge {
 
     public CollapsibleGroupsForge() {
+        com.starskyxiii.collapsible_groups.viewer.LoaderViewerEnvironment.detectRuntime()
+            .requireCompatibleSelectedViewer();
         Constants.LOG.info("Initializing {} on Forge", Constants.MOD_NAME);
         CommonClass.init();
         // Register config file: config/collapsiblegroups/collapsiblegroups.toml
