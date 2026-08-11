@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import com.starskyxiii.collapsible_groups.viewer.ViewerOverlayHook;
 import dev.emi.emi.screen.EmiScreenManager;
 import dev.emi.emi.screen.EmiScreenBase;
+import dev.emi.emi.runtime.EmiReloadManager;
 import dev.emi.emi.screen.widget.SizedButtonWidget;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -34,22 +35,11 @@ public final class EmiOverlayController implements ViewerOverlayHook {
 	public static EmiOverlayController instance() { return INSTANCE; }
 
 	public void layout(Screen screen) {
-		if (!ViewerLifecycleCoordinator.isEmiSelected()) {
-			visible = false;
-			enabled = false;
-			button.visible = false;
-			return;
-		}
-		x = EmiScreenManager.tree.getX() + EmiScreenManager.tree.getWidth() + 2;
-		y = EmiScreenManager.tree.getY();
-		visible = shouldShowButton(Services.CONFIG.showManagerButton(), !EmiScreenBase.getCurrent().isEmpty());
-		enabled = !EmiScreenManager.isDisabled();
-		button.setX(x);
-		button.setY(y);
-		button.visible = visible;
+		syncState();
 	}
 
 	public void render(GuiGraphics graphics, int mouseX, int mouseY) {
+		syncState();
 		if (!visible) return;
 		button.render(graphics, mouseX, mouseY, 0);
 		graphics.pose().pushPose();
@@ -70,12 +60,40 @@ public final class EmiOverlayController implements ViewerOverlayHook {
 
 	@Override
 	public boolean handleInput(Input input) {
+		syncState();
 		if (!ViewerLifecycleCoordinator.isEmiSelected() || !visible || !enabled) return false;
 		return switch (input.type()) {
 			case MOUSE_CLICK -> button.mouseClicked(input.mouseX(), input.mouseY(), input.button());
 			case KEY_PRESS -> false;
 		};
 	}
+
+	private void syncState() {
+		OverlayState state = resolveState(
+			ViewerLifecycleCoordinator.isEmiSelected(),
+			EmiReloadManager.isLoaded(),
+			!EmiScreenBase.getCurrent().isEmpty(),
+			EmiScreenManager.isDisabled(),
+			Services.CONFIG.showManagerButton()
+		);
+		visible = state.visible();
+		enabled = state.enabled();
+		button.visible = visible;
+		if (!visible) return;
+
+		x = EmiScreenManager.tree.getX() + EmiScreenManager.tree.getWidth() + 2;
+		y = EmiScreenManager.tree.getY();
+		button.setX(x);
+		button.setY(y);
+	}
+
+	static OverlayState resolveState(boolean selected, boolean reloadLoaded,
+		boolean currentScreenBase, boolean screenManagerDisabled, boolean configuredVisible) {
+		boolean ready = selected && reloadLoaded && currentScreenBase && !screenManagerDisabled;
+		return new OverlayState(ready && configuredVisible, ready && configuredVisible);
+	}
+
+	record OverlayState(boolean visible, boolean enabled) {}
 
 	private static void openManager() {
 		Minecraft minecraft = Minecraft.getInstance();
