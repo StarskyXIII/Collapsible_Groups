@@ -8,6 +8,7 @@ import net.minecraft.resources.ResourceLocation;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /** Converts JEI's opaque UID into separate runtime and persistent identity values. */
 public final class JeiIngredientIdentityResolver {
@@ -22,6 +23,29 @@ public final class JeiIngredientIdentityResolver {
 		}
 		String fallback = fallbackValueId(helper, ingredient);
 		return new ResolvedUid(uid == null ? fallback : uid, fallback);
+	}
+
+	/**
+	 * Resolves an identity only when JEI supplies its raw ingredient UID.
+	 *
+	 * <p>This stricter form is used for runtime equality lookups. Falling back to a
+	 * registry ID here would merge component-bearing variants that share one item.
+	 */
+	public static <T> Optional<ResolvedUid> resolveStrict(
+		IIngredientHelper<T> helper,
+		ITypedIngredient<T> typed
+	) {
+		Object uid;
+		try {
+			uid = helper.getUid(typed, UidContext.Ingredient);
+		} catch (RuntimeException | LinkageError ignored) {
+			return Optional.empty();
+		}
+		if (uid == null) return Optional.empty();
+
+		String valueId = safeUidString(uid);
+		if (valueId == null) valueId = fallbackValueId(helper, typed.getIngredient());
+		return Optional.of(new ResolvedUid(uid, valueId));
 	}
 
 	public static <T> ResolvedUid fallback(IIngredientHelper<T> helper, @Nullable T ingredient) {

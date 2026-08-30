@@ -11,9 +11,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SuppressWarnings("removal")
 class JeiIngredientIdentityResolverTest {
+	private static final Object THROWING_UID = new Object();
+
 	@Test
 	void typedUidIsTheRuntimeKeyInsteadOfTheValueOverload() {
 		Object rawUid = new Object() {
@@ -45,6 +48,30 @@ class JeiIngredientIdentityResolverTest {
 		}
 	}
 
+	@Test
+	void strictResolutionNeverReplacesAMissingRawUidWithARegistryId() {
+		IIngredientType<String> type = type();
+
+		assertTrue(JeiIngredientIdentityResolver.resolveStrict(
+			helper(type, null), typed(type, "value")).isEmpty());
+		assertTrue(JeiIngredientIdentityResolver.resolveStrict(
+			helper(type, THROWING_UID), typed(type, "value")).isEmpty());
+	}
+
+	@Test
+	void strictResolutionPreservesTheRawRuntimeUid() {
+		Object rawUid = new Object() {
+			@Override public String toString() { return "component-aware-uid"; }
+		};
+		IIngredientType<String> type = type();
+
+		JeiIngredientIdentityResolver.ResolvedUid resolved = JeiIngredientIdentityResolver.resolveStrict(
+			helper(type, rawUid), typed(type, "value")).orElseThrow();
+
+		assertSame(rawUid, resolved.runtimeKey());
+		assertEquals("component-aware-uid", resolved.valueId());
+	}
+
 	private static IIngredientType<String> type() {
 		return new IIngredientType<>() {
 			@Override public Class<? extends String> getIngredientClass() { return String.class; }
@@ -58,7 +85,10 @@ class JeiIngredientIdentityResolverTest {
 			@Override public String getDisplayName(String ingredient) { return ingredient; }
 			@Override public String getUniqueId(String ingredient, UidContext context) { return "legacy:" + ingredient; }
 			@Override public Object getUid(String ingredient, UidContext context) { return "value-overload"; }
-			@Override public Object getUid(ITypedIngredient<String> ingredient, UidContext context) { return typedUid; }
+			@Override public Object getUid(ITypedIngredient<String> ingredient, UidContext context) {
+				if (typedUid == THROWING_UID) throw new IllegalStateException("broken uid");
+				return typedUid;
+			}
 			@Override public ResourceLocation getResourceLocation(String ingredient) {
 				return ResourceLocation.fromNamespaceAndPath("test", ingredient);
 			}
@@ -68,9 +98,10 @@ class JeiIngredientIdentityResolverTest {
 	}
 
 	private static ITypedIngredient<String> typed(IIngredientType<String> type, String value) {
-		return new ITypedIngredient<>() {
+		return new ITypedIngredient<String>() {
 			@Override public IIngredientType<String> getType() { return type; }
 			@Override public String getIngredient() { return value; }
+			public ITypedIngredient<String> normalize(IIngredientHelper<String> helper) { return this; }
 		};
 	}
 }
