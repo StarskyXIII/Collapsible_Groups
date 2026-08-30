@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
+import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import org.junit.jupiter.api.Test;
@@ -35,9 +36,11 @@ class JeiIngredientFilterControllerTest {
 	}
 
 	private static ITypedIngredient<String> typed(IIngredientType<String> type, String value) {
-		return new ITypedIngredient<>() {
+		return new ITypedIngredient<String>() {
 			@Override public IIngredientType<String> getType() { return type; }
 			@Override public String getIngredient() { return value; }
+			// Present in JEI 29.33, absent from the 29.20 baseline.
+			public ITypedIngredient<String> normalize(IIngredientHelper<String> helper) { return this; }
 		};
 	}
 }

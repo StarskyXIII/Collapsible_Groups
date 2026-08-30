@@ -67,9 +67,11 @@ class JeiIngredientIdentityResolverTest {
 	}
 
 	private static ITypedIngredient<String> typed(IIngredientType<String> type, String value) {
-		return new ITypedIngredient<>() {
+		return new ITypedIngredient<String>() {
 			@Override public IIngredientType<String> getType() { return type; }
 			@Override public String getIngredient() { return value; }
+			// Present in JEI 29.33, absent from the 29.20 baseline.
+			public ITypedIngredient<String> normalize(IIngredientHelper<String> helper) { return this; }
 		};
 	}
 }

@@ -21,14 +21,10 @@ import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.elements.IngredientElement;
-import mezz.jei.library.ingredients.TypedIngredient;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
-import net.minecraft.resources.Identifier;
-import net.minecraft.world.item.Item;
-import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -366,7 +362,10 @@ public final class JeiIngredientFilterController {
 		List<ITypedIngredient<?>> display = JeiViewerAdapter.instance().assembleHeaderIcons(
 			header.iconIds(), header.fallbackIconIngredients());
 		GroupIcon icon = new GroupIcon(group.id(), group.displayName().key(), group.displayName().fallback(), display);
-		ITypedIngredient<GroupIcon> typedIcon = TypedIngredient.createUnvalidated(GroupIcon.TYPE, icon);
+		ITypedIngredient<GroupIcon> typedIcon = ingredientManager
+			.createTypedIngredient(GroupIcon.TYPE, icon, false)
+			.orElseThrow(() -> new IllegalStateException(
+				"JEI could not create a GroupIcon typed ingredient; GroupIcon.TYPE must be registered first"));
 		List<GroupPreviewEntry> preview = new ArrayList<>(header.children().size());
 		List<ITypedIngredient<?>> generic = new ArrayList<>();
 		for (ViewerIngredient<ITypedIngredient<?>> child : header.children()) {
@@ -394,19 +393,6 @@ public final class JeiIngredientFilterController {
 			}
 		}
 		return children;
-	}
-
-	private static List<ITypedIngredient<?>> resolveIconIds(List<String> iconIds) {
-		List<ITypedIngredient<?>> result = new ArrayList<>(iconIds.size());
-		for (String iconId : iconIds) {
-			Identifier location = Identifier.tryParse(iconId);
-			if (location == null) continue;
-			Item item = net.minecraft.core.registries.BuiltInRegistries.ITEM.getValue(location);
-			if (item == net.minecraft.world.item.Items.AIR) continue;
-			result.add(TypedIngredient.createUnvalidated(mezz.jei.api.constants.VanillaTypes.ITEM_STACK,
-				new ItemStack(item)));
-		}
-		return result;
 	}
 
 	private static Component buildCountLabel(int itemCount, int fluidCount, int genericCount) {

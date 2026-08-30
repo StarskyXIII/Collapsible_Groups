@@ -36,13 +36,10 @@ public abstract class MixinIngredientListOverlay {
 	@Unique private JeiIngredientListOverlayController cg$controller;
 
 	@Inject(
-		method = "<init>(Lmezz/jei/gui/overlay/ingredients/IIngredientGridSource;Lmezz/jei/gui/filter/IFilterTextSource;" +
-			"Lmezz/jei/api/runtime/IScreenHelper;Lmezz/jei/gui/overlay/ingredients/IIngredientListOverlayContents;" +
-			"Lmezz/jei/gui/overlay/bookmarks/history/LookupHistoryOverlay;" +
-			"Lmezz/jei/common/config/IClientConfig;" +
-			"Lmezz/jei/common/config/IClientToggleState;Lmezz/jei/common/input/IInternalKeyMappings;)V",
+		method = "<init>",
 		at = @At("TAIL"),
-		require = 1
+		require = 1,
+		allow = 1
 	)
 	private void cg$onInit(CallbackInfo ci) {
 		this.cg$controller = new JeiIngredientListOverlayController(

@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import org.junit.jupiter.api.Test;
@@ -108,6 +109,11 @@ class IngredientFilterHelperOwnershipTest {
 		@Override
 		public Object getIngredient() {
 			return value;
+		}
+
+		// Present in JEI 29.33, absent from the 29.20 baseline.
+		public ITypedIngredient<Object> normalize(IIngredientHelper<Object> helper) {
+			return this;
 		}
 	}
 }

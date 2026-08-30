@@ -1,20 +1,15 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import mezz.jei.api.gui.handlers.IGuiProperties;
-import mezz.jei.api.runtime.IScreenHelper;
-import mezz.jei.common.config.IClientConfig;
-import mezz.jei.common.config.IClientToggleState;
 import mezz.jei.common.input.IInternalKeyMappings;
 import mezz.jei.gui.bookmarks.BookmarkList;
+import mezz.jei.gui.elements.IconButton;
 import mezz.jei.gui.input.GuiTextFieldFilter;
 import mezz.jei.gui.input.IUserInputHandler;
 import mezz.jei.gui.input.UserInput;
 import mezz.jei.gui.overlay.IngredientListOverlay;
 import mezz.jei.gui.overlay.bookmarks.BookmarkOverlay;
-import mezz.jei.gui.overlay.bookmarks.history.LookupHistoryOverlay;
 import mezz.jei.gui.overlay.elements.IElement;
-import mezz.jei.gui.overlay.ingredients.IIngredientGridSource;
-import mezz.jei.gui.overlay.ingredients.IIngredientListOverlayContents;
 import mezz.jei.gui.overlay.ingredients.IngredientListRenderer;
 import mezz.jei.gui.overlay.ingredients.IngredientListSlot;
 import net.minecraft.client.Minecraft;
@@ -22,7 +17,6 @@ import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.Screen;
 import org.junit.jupiter.api.Test;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -34,19 +28,6 @@ class JeiInternalAbiTest {
 	void ingredientFilterRetainsEveryPrivateMemberUsedByMixins() throws ReflectiveOperationException {
 		Class<?> filter = Class.forName("mezz.jei.gui.ingredients.IngredientFilter");
 
-		assertNotNull(filter.getDeclaredConstructor(
-			Class.forName("mezz.jei.gui.filter.IFilterTextSource"),
-			IClientConfig.class,
-			Class.forName("mezz.jei.common.config.IIngredientFilterConfig"),
-			Class.forName("mezz.jei.api.runtime.IIngredientManager"),
-			Comparator.class,
-			List.class,
-			Class.forName("mezz.jei.api.helpers.IModIdHelper"),
-			Class.forName("mezz.jei.api.runtime.IIngredientVisibility"),
-			Class.forName("mezz.jei.api.helpers.IColorHelper"),
-			Class.forName("mezz.jei.api.search.ISearchStorageBuilderFactory"),
-			IClientToggleState.class
-		));
 		assertEquals(List.class, filter.getDeclaredField("ingredientListCached").getType());
 		assertEquals(
 			Class.forName("mezz.jei.gui.filter.IFilterTextSource"),
@@ -64,17 +45,12 @@ class JeiInternalAbiTest {
 	}
 
 	@Test
-	void ingredientOverlayRetainsExactConstructorAndRenderContracts() throws ReflectiveOperationException {
-		assertNotNull(IngredientListOverlay.class.getDeclaredConstructor(
-			IIngredientGridSource.class,
-			Class.forName("mezz.jei.gui.filter.IFilterTextSource"),
-			IScreenHelper.class,
-			IIngredientListOverlayContents.class,
-			LookupHistoryOverlay.class,
-			IClientConfig.class,
-			IClientToggleState.class,
-			IInternalKeyMappings.class
-		));
+	void ingredientOverlayRetainsShadowAndHookContracts() throws ReflectiveOperationException {
+		assertEquals(IconButton.class, IngredientListOverlay.class.getDeclaredField("configButton").getType());
+		assertEquals(GuiTextFieldFilter.class, IngredientListOverlay.class.getDeclaredField("searchField").getType());
+		assertNotNull(IngredientListOverlay.class.getDeclaredMethod("isListDisplayed"));
+		assertNotNull(IngredientListOverlay.class.getDeclaredMethod(
+			"getIngredientUnderMouse", double.class, double.class));
 		assertNotNull(IngredientListOverlay.class.getDeclaredMethod(
 			"drawBackground", GuiGraphicsExtractor.class));
 		assertNotNull(IngredientListOverlay.class.getDeclaredMethod(
