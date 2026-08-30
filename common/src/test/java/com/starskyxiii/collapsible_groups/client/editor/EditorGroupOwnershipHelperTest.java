@@ -18,7 +18,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * regression: both branches of {@link EditorGroupOwnershipHelper#buildOwnership}
  * must share the "single JEI winner" semantics — the reverseIndex (live) path and
  * the priority-ordered first-match fallback path produce the same output for the
- * same inputs. Uses the registry-free generic core with string entries.
+ * same ID-addressable inputs. Component-sensitive items intentionally use a
+ * separate exact viewer-identity path. Uses the registry-free generic core with string entries.
  */
 class EditorGroupOwnershipHelperTest {
 
@@ -63,7 +64,7 @@ class EditorGroupOwnershipHelperTest {
 
 	@Test
 	void reverseIndexPathKeysToSingleWinner() {
-		// The live reverseIndex is already deduped to one owner per id; even if a
+		// A reverseIndex is already deduped to one owner per id; even if a
 		// stale index carried several ids, only the first named group is reported.
 		Map<String, Set<String>> reverseIndex = Map.of(
 			"[high][low]", Set.of("high"),
@@ -83,7 +84,7 @@ class EditorGroupOwnershipHelperTest {
 		List<GroupDefinition> others = List.of(group("high", "High"), group("low", "Low"));
 		List<String> entries = List.of("[high][low]", "[low]", "[high]", "none");
 		Map<String, String> names = Map.of("high", "High", "low", "Low");
-		// Reverse index mirroring the live builder: single first-match winner per id.
+		// Reverse index mirroring an identifier-based builder: one first-match winner per id.
 		Map<String, Set<String>> reverseIndex = Map.of(
 			"[high][low]", Set.of("high"),
 			"[low]", Set.of("low"),

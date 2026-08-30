@@ -24,8 +24,8 @@ public interface EditorRuntimeAccess {
 	List<EditorFluidIngredientView> allFluids(String traceName);
 	List<EditorGenericIngredientView> allGenericIngredients(String traceName);
 	List<GroupDefinition> allGroups();
-	Map<String, Set<String>> itemReverseIndex();
 	Map<String, Set<String>> fluidReverseIndex();
+	Map<ItemStack, List<String>> itemOwnership(List<ItemStack> entries, List<GroupDefinition> otherGroups);
 
 	List<EditorFluidIngredientView> filterFluids(List<EditorFluidIngredientView> entries,
 		Map<EditorFluidIngredientView, List<String>> ownership, boolean hideUsed, IngredientSearchQuery query);

@@ -11,9 +11,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SuppressWarnings("removal")
 class JeiIngredientIdentityResolverTest {
+	private static final Object THROWING_UID = new Object();
+
 	@Test
 	void typedUidIsTheRuntimeKeyInsteadOfTheValueOverload() {
 		Object rawUid = new Object() {
@@ -45,6 +48,30 @@ class JeiIngredientIdentityResolverTest {
 		}
 	}
 
+	@Test
+	void strictResolutionNeverReplacesAMissingRawUidWithAnIdentifier() {
+		IIngredientType<String> type = type();
+
+		assertTrue(JeiIngredientIdentityResolver.resolveStrict(
+			helper(type, null), typed(type, "value")).isEmpty());
+		assertTrue(JeiIngredientIdentityResolver.resolveStrict(
+			helper(type, THROWING_UID), typed(type, "value")).isEmpty());
+	}
+
+	@Test
+	void strictResolutionPreservesTheRawRuntimeUid() {
+		Object rawUid = new Object() {
+			@Override public String toString() { return "component-aware-uid"; }
+		};
+		IIngredientType<String> type = type();
+
+		JeiIngredientIdentityResolver.ResolvedUid resolved = JeiIngredientIdentityResolver.resolveStrict(
+			helper(type, rawUid), typed(type, "value")).orElseThrow();
+
+		assertSame(rawUid, resolved.runtimeKey());
+		assertEquals("component-aware-uid", resolved.valueId());
+	}
+
 	private static IIngredientType<String> type() {
 		return new IIngredientType<>() {
 			@Override public Class<? extends String> getIngredientClass() { return String.class; }
@@ -57,7 +84,10 @@ class JeiIngredientIdentityResolverTest {
 			@Override public IIngredientType<String> getIngredientType() { return type; }
 			@Override public String getDisplayName(String ingredient) { return ingredient; }
 			@Override public Object getUid(String ingredient, UidContext context) { return "value-overload"; }
-			@Override public Object getUid(ITypedIngredient<String> ingredient, UidContext context) { return typedUid; }
+			@Override public Object getUid(ITypedIngredient<String> ingredient, UidContext context) {
+				if (typedUid == THROWING_UID) throw new IllegalStateException("broken uid");
+				return typedUid;
+			}
 			@Override public Identifier getIdentifier(String ingredient) {
 				return Identifier.parse("test:" + ingredient);
 			}

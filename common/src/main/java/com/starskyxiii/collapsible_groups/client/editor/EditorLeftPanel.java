@@ -101,9 +101,7 @@ final class EditorLeftPanel {
 		Map<String, String> groupNames = EditorGroupOwnershipHelper.enabledGroupDisplayNames(allGroups, state.editId);
 		List<GroupDefinition> others = EditorGroupOwnershipHelper.enabledOtherGroups(allGroups, state.editId);
 
-		Map<String, Set<String>> itemReverseIndex = EditorRuntimeServices.get().itemReverseIndex();
-		otherItemGroupsCache.putAll(EditorGroupOwnershipHelper.buildItemOwnership(
-			allItems, groupNames, others, itemReverseIndex));
+		otherItemGroupsCache.putAll(EditorRuntimeServices.get().itemOwnership(allItems, others));
 
 		Map<String, Set<String>> fluidReverseIndex = EditorRuntimeServices.get().fluidReverseIndex();
 		otherFluidGroupsCache.putAll(EditorRuntimeServices.get().fluidOwnership(

@@ -49,8 +49,21 @@ public final class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	@Override public List<GroupDefinition> allGroups() { return GroupRegistry.getAllIncludingKubeJs(); }
-	@Override public Map<String, Set<String>> itemReverseIndex() { return GroupRegistry.getItemIdToGroupIds(); }
 	@Override public Map<String, Set<String>> fluidReverseIndex() { return GroupRegistry.getFluidIdToGroupIds(); }
+
+	@Override
+	public Map<ItemStack, List<String>> itemOwnership(List<ItemStack> entries, List<GroupDefinition> groups) {
+		Map<String, GroupDefinition> byId = new java.util.LinkedHashMap<>();
+		groups.forEach(group -> byId.put(group.id(), group));
+		Map<ItemStack, String> resolved = JeiViewerGroupIndex.instance().resolveItemOwnership(entries, groups);
+		Map<ItemStack, List<String>> ownership = new java.util.IdentityHashMap<>();
+		for (Map.Entry<ItemStack, String> entry : resolved.entrySet()) {
+			GroupDefinition owner = byId.get(entry.getValue());
+			if (owner != null) ownership.put(entry.getKey(),
+				List.of(com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper.displayName(owner)));
+		}
+		return ownership;
+	}
 
 	@Override
 	public List<EditorFluidIngredientView> filterFluids(List<EditorFluidIngredientView> entries,

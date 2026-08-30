@@ -1,10 +1,6 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
-import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeServices;
-
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.world.item.ItemStack;
 
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -34,14 +30,15 @@ public final class EditorGroupOwnershipHelper {
 	}
 
 	/**
-	 * Ownership of source-grid ingredients by <em>other</em> groups, keyed to the
-	 * single JEI winner (never all matches). Both branches share this "winner"
+	 * Ownership of ID-addressable source-grid ingredients by <em>other</em> groups,
+	 * keyed to the single JEI winner (never all matches). Component-sensitive item
+	 * stacks use the viewer runtime's exact identity path instead. Both branches share this "winner"
 	 * semantics so the overlap corner-tab and its tooltip name the group that JEI
 	 * actually displays the ingredient under:
 	 * <ul>
 	 *   <li>{@code reverseIndex} (live path): built from resolved first-match
 	 *       owners in {@link com.starskyxiii.collapsible_groups.compat.jei.runtime.IngredientFilterHelper},
-	 *       already deduped to one owner per ingredient id.</li>
+	 *       already deduped to one owner per supplied identifier.</li>
 	 *   <li>{@code otherGroups} fallback: priority-ordered (see
 	 *       {@code EditorRuntimeServices.get().getAllIncludingKubeJs}); the first group whose
 	 *       {@code matches} predicate succeeds is the winner, matching
@@ -86,19 +83,6 @@ public final class EditorGroupOwnershipHelper {
 			}
 		}
 		return ownership;
-	}
-
-	/** Item specialization of {@link #buildOwnership}; see its winner-semantics contract. */
-	static Map<ItemStack, List<String>> buildItemOwnership(
-		List<ItemStack> items,
-		Map<String, String> groupNames,
-		List<GroupDefinition> otherGroups,
-		Map<String, Set<String>> reverseIndex
-	) {
-		return buildOwnership(items, groupNames, otherGroups, reverseIndex,
-			stack -> BuiltInRegistries.ITEM.getKey(stack.getItem()).toString(),
-			GroupDefinition::matchesIgnoringEnabled,
-			EditorGroupOwnershipHelper::displayName);
 	}
 
 	public static String displayName(GroupDefinition group) {
