@@ -174,6 +174,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	@Override public List<ItemStack> resolveItems(GroupDefinition definition) {
+		if (!definition.enabled()) return List.of();
 		var generation = index.readyGenerationSnapshot();
 		if (generation.isEmpty()) {
 			closeEditor();
@@ -204,6 +205,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	private List<ViewerIngredient<EmiIngredient>> matching(GroupDefinition definition, ViewerIngredient.Kind kind) {
+		if (!definition.enabled()) return List.of();
 		return adapter.bootstrapContext().universe().ordered().stream()
 			.filter(value -> value.kind() == kind && definition.compiledFilter().matches(value.view())).toList();
 	}
