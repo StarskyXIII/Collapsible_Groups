@@ -19,6 +19,26 @@ import java.util.concurrent.Executor;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmiViewerGroupIndexTest {
+	@Test void ownershipSnapshotRejectsPendingCancelledAndReplacedSources() {
+		ControlledExecutor executor = new ControlledExecutor();
+		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor);
+		var universe = new ViewerIngredientUniverse<>(List.of(ingredient("stone", "minecraft:stone")));
+		index.requestRebuild(1, universe, List.of(group("stone", "minecraft:stone")));
+		assertTrue(index.readyGenerationSnapshot().isEmpty());
+		executor.runNext();
+		assertSame(universe, index.readyGenerationSnapshot().orElseThrow().universe());
+		index.updateSource(1, new ViewerIngredientUniverse<>(List.of()));
+		assertTrue(index.readyGenerationSnapshot().isEmpty());
+		var cancelled = index.requestRebuild(2, universe, List.of());
+		cancelled.cancel(false);
+		executor.runNext();
+		assertTrue(index.readyGenerationSnapshot().isEmpty());
+		index.requestRebuild(3, universe, List.of());
+		executor.runNext();
+		assertTrue(index.readyGenerationSnapshot().isPresent());
+		index.reset();
+		assertTrue(index.readyGenerationSnapshot().isEmpty());
+	}
 	@Test void coalescesBuildsAndSuppressesAnObsoleteBuildInTheSameEpoch() {
 		ControlledExecutor executor = new ControlledExecutor();
 		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor);

@@ -45,6 +45,8 @@
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadAE2.tooltip": "Whether to load built-in AE2 groups.\nHas no effect if AE2 is not installed.",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadApotheosis": "Load Apotheosis Groups",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadApotheosis.tooltip": "Whether to load built-in Apotheosis groups.\nHas no effect if Apotheosis is not installed.",
+  "collapsible_groups.configuration.defaultGroups.ModIntegration.loadIronsApothic": "Load Iron's Apothic Groups",
+  "collapsible_groups.configuration.defaultGroups.ModIntegration.loadIronsApothic.tooltip": "Whether to load built-in Iron's Apothic gem groups (one group per gem type).\nHas no effect if Iron's Apothic is not installed.",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadChipped": "Load Chipped Groups",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadChipped.tooltip": "Whether to load built-in Chipped block-variant groups.\nHas no effect if Chipped is not installed.",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadChisel": "Load Chisel Modern Groups",

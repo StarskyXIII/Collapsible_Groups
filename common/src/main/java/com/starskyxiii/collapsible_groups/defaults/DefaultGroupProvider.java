@@ -84,6 +84,11 @@ public interface DefaultGroupProvider {
 		return Filters.itemComponent(componentTypeId, encodedValue);
 	}
 
+	/** Restricts a component match to one item ID so the query planner can use its item bucket. */
+	static GroupFilter itemWithComponent(String itemId, String componentTypeId, String encodedValue) {
+		return Filters.all(Filters.itemId(itemId), Filters.itemComponent(componentTypeId, encodedValue));
+	}
+
 	/**
 	 * Creates an {@code all(itemId(...), componentPath(...))} filter suitable for
 	 * built-in groups that need a pre-filter by item ID for query-planning efficiency.

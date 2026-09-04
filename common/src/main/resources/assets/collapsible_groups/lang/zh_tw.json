@@ -45,6 +45,8 @@
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadAE2.tooltip": "是否載入內建的 AE2 群組。\n若未安裝 AE2，此設定不會生效。",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadApotheosis": "載入 Apotheosis 群組",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadApotheosis.tooltip": "是否載入內建的 Apotheosis 群組。\n若未安裝 Apotheosis，此設定不會生效。",
+  "collapsible_groups.configuration.defaultGroups.ModIntegration.loadIronsApothic": "載入 Iron's Apothic 群組",
+  "collapsible_groups.configuration.defaultGroups.ModIntegration.loadIronsApothic.tooltip": "是否載入內建的 Iron's Apothic 寶石群組（每種寶石一個群組）。\n若未安裝 Iron's Apothic，此設定不會生效。",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadChipped": "載入 Chipped 群組",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadChipped.tooltip": "是否載入內建的 Chipped 方塊變體群組。\n若未安裝 Chipped，此設定不會生效。",
   "collapsible_groups.configuration.defaultGroups.ModIntegration.loadChisel": "載入 Chisel Modern 群組",

@@ -13,7 +13,8 @@ import net.neoforged.neoforge.common.ModConfigSpec;
  *       enabled, loadGeneric, loadVanilla
  *       [defaultGroups.ModIntegration]
  *           loadModIntegration, loadAE2, loadRS2, loadEnderIO,
- *           loadChipped, loadRechiseled, loadMacawsSeries, loadChisel, loadApotheosis
+ *           loadChipped, loadRechiseled, loadMacawsSeries, loadChisel, loadApotheosis,
+ *           loadIronsApothic, loadIronsSpellbooks
  *   [ui]
  *       showManagerButton
  *       showGroupBackgrounds
@@ -131,6 +132,12 @@ public final class NeoForgeConfig implements IConfigProvider {
 	 * Ignored if Apotheosis is not installed; the setting cannot take effect without the mod.
 	 */
 	public static final ModConfigSpec.BooleanValue LOAD_APOTHEOSIS;
+
+	/**
+	 * Whether to load built-in Iron's Apothic gem groups.
+	 * Ignored if Iron's Apothic is not installed; the setting cannot take effect without the mod.
+	 */
+	public static final ModConfigSpec.BooleanValue LOAD_IRONS_APOTHIC;
 
 	/**
 	 * Whether to load built-in Iron's Spellbooks scroll groups.
@@ -261,6 +268,13 @@ public final class NeoForgeConfig implements IConfigProvider {
 			)
 			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadApotheosis")
 			.define("loadApotheosis", true);
+		LOAD_IRONS_APOTHIC = builder
+			.comment(
+				"Whether to load built-in Iron's Apothic gem groups (one group per gem type).",
+				"Has no effect if Iron's Apothic is not installed."
+			)
+			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadIronsApothic")
+			.define("loadIronsApothic", true);
 		LOAD_IRONS_SPELLBOOKS = builder
 			.comment(
 				"Whether to load built-in Iron's Spellbooks scroll groups (one group per spell).",
@@ -436,6 +450,17 @@ public final class NeoForgeConfig implements IConfigProvider {
 			&& LOAD_MOD_INTEGRATION_GROUPS.get()
 			&& LOAD_APOTHEOSIS.get()
 			&& ModList.get().isLoaded("apotheosis");
+	}
+
+	/**
+	 * Returns true only when the Iron's Apothic config flag is enabled AND Iron's Apothic is installed.
+	 * Always false when Iron's Apothic is absent, regardless of the stored config value.
+	 */
+	public static boolean shouldLoadIronsApothic() {
+		return LOAD_DEFAULT_GROUPS.get()
+			&& LOAD_MOD_INTEGRATION_GROUPS.get()
+			&& LOAD_IRONS_APOTHIC.get()
+			&& ModList.get().isLoaded("irons_apothic");
 	}
 
 	/**

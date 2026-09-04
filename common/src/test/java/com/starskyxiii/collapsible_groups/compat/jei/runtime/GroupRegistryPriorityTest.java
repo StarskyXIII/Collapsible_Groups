@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess;
+import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import org.junit.jupiter.api.AfterEach;
@@ -156,6 +157,10 @@ class GroupRegistryPriorityTest {
 		@Override
 		public Object getIngredient() {
 			return value;
+		}
+
+		public ITypedIngredient<Object> normalize(IIngredientHelper<Object> helper) {
+			return this;
 		}
 	}
 }

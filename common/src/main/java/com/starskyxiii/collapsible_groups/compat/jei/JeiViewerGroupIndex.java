@@ -16,12 +16,16 @@ import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
 import com.starskyxiii.collapsible_groups.viewer.ViewerPreviewValue;
+import mezz.jei.api.constants.VanillaTypes;
+import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -32,6 +36,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 /** JEI cache/index implementation of the neutral {@link ViewerGroupIndex} seam. */
@@ -225,6 +230,67 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		Generation current = published;
 		return current == null ? Map.of()
 			: GroupProjectionEngine.resolveOwnership(current.candidates(), groups);
+	}
+
+	/**
+	 * Resolves editor ItemStack ownership using JEI's component-aware ingredient UID.
+	 * Every input used here comes from one ready generation, so a rebuild can never
+	 * combine candidates, ingredient helpers, and universe entries from different snapshots.
+	 */
+	public Map<ItemStack, String> resolveItemOwnership(
+		List<ItemStack> entries,
+		List<GroupDefinition> groups
+	) {
+		Generation generation = readyGenerationSnapshot().orElse(null);
+		if (generation == null) return Map.of();
+		JeiViewerAdapter.ProjectionContext context = generation.projectionContext();
+		if (context == null) return Map.of();
+
+		IIngredientHelper<ItemStack> helper;
+		try {
+			helper = context.manager().getIngredientHelper(VanillaTypes.ITEM_STACK);
+		} catch (RuntimeException | LinkageError ignored) {
+			return Map.of();
+		}
+
+		Map<ViewerIngredientIdentity, String> ownership =
+			GroupProjectionEngine.resolveOwnership(generation.candidates(), groups);
+		Map<ItemStack, ViewerIngredientIdentity> canonical = new IdentityHashMap<>();
+		for (ViewerIngredient<ITypedIngredient<?>> ingredient : context.universe().items()) {
+			try {
+				ingredient.entry().getItemStack().ifPresent(stack ->
+					canonical.putIfAbsent(stack, ingredient.identity()));
+			} catch (RuntimeException | LinkageError ignored) {
+				// A broken third-party ingredient must not make the editor unusable.
+			}
+		}
+
+		return resolveExactOwnership(entries, ownership, canonical, stack -> {
+			try {
+				return context.manager().createTypedIngredient(VanillaTypes.ITEM_STACK, stack, false)
+					.flatMap(typed -> JeiIngredientIdentityResolver.resolveStrict(helper, typed))
+					.map(uid -> uid.identity("item"));
+			} catch (RuntimeException | LinkageError ignored) {
+				return Optional.empty();
+			}
+		});
+	}
+
+	static <T> Map<T, String> resolveExactOwnership(
+		List<T> entries,
+		Map<ViewerIngredientIdentity, String> ownership,
+		Map<T, ViewerIngredientIdentity> canonicalIdentities,
+		Function<T, Optional<ViewerIngredientIdentity>> copiedIdentity
+	) {
+		Map<T, String> result = new IdentityHashMap<>();
+		for (T entry : entries) {
+			ViewerIngredientIdentity identity = canonicalIdentities.get(entry);
+			if (identity == null) identity = copiedIdentity.apply(entry).orElse(null);
+			if (identity == null) continue;
+			String groupId = ownership.get(identity);
+			if (groupId != null) result.put(entry, groupId);
+		}
+		return Collections.unmodifiableMap(result);
 	}
 
 	@Override public synchronized void onGroupChange(GroupChangeEvent.Kind kind,

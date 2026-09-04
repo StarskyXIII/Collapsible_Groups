@@ -67,7 +67,17 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 		return GroupRepository.getAllIncludingScripted();
 	}
 
-	@Override public Map<String, Set<String>> itemReverseIndex() { return reverseIndex(ViewerIngredient.Kind.ITEM); }
+	@Override public Map<ItemStack, List<String>> itemOwnership(List<ItemStack> entries,
+		List<GroupDefinition> otherGroups) {
+		Map<String, GroupDefinition> groups = new LinkedHashMap<>();
+		otherGroups.forEach(group -> groups.put(group.id(), group));
+		Map<ItemStack, List<String>> result = new IdentityHashMap<>();
+		index.resolveItemOwnership(entries, otherGroups).forEach((stack, owner) -> {
+			GroupDefinition group = groups.get(owner);
+			if (group != null) result.put(stack, List.of(EditorGroupOwnershipHelper.displayName(group)));
+		});
+		return result;
+	}
 	@Override public Map<String, Set<String>> fluidReverseIndex() { return reverseIndex(ViewerIngredient.Kind.FLUID); }
 
 	private Map<String, Set<String>> reverseIndex(ViewerIngredient.Kind kind) {

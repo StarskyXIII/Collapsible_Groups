@@ -21,7 +21,6 @@ import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.elements.IngredientElement;
-import mezz.jei.library.ingredients.TypedIngredient;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
@@ -364,7 +363,10 @@ public final class JeiIngredientFilterController {
 		List<ITypedIngredient<?>> display = JeiViewerAdapter.instance().assembleHeaderIcons(
 			header.iconIds(), header.fallbackIconIngredients());
 		GroupIcon icon = new GroupIcon(group.id(), group.displayName().key(), group.displayName().fallback(), display);
-		ITypedIngredient<GroupIcon> typedIcon = TypedIngredient.createUnvalidated(GroupIcon.TYPE, icon);
+		ITypedIngredient<GroupIcon> typedIcon = ingredientManager
+			.createTypedIngredient(GroupIcon.TYPE, icon, false)
+			.orElseThrow(() -> new IllegalStateException(
+				"JEI could not create a GroupIcon typed ingredient; GroupIcon.TYPE must be registered first"));
 		List<GroupPreviewEntry> preview = new ArrayList<>(header.children().size());
 		List<ITypedIngredient<?>> generic = new ArrayList<>();
 		for (ViewerIngredient<ITypedIngredient<?>> child : header.children()) {

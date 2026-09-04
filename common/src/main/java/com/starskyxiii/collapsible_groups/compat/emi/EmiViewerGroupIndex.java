@@ -12,6 +12,7 @@ import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
 import com.starskyxiii.collapsible_groups.viewer.ViewerPreviewValue;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
 import dev.emi.emi.api.stack.EmiIngredient;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -158,6 +159,18 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	@Override public CompletableFuture<Void> whenReady() { return readyFuture; }
+
+	synchronized Optional<Generation> readyGenerationSnapshot() {
+		return ready() && published.universe() == sourceUniverse && readyFuture.isDone()
+			&& !readyFuture.isCompletedExceptionally() && !readyFuture.isCancelled()
+			? Optional.of(published) : Optional.empty();
+	}
+
+	Map<ItemStack, String> resolveItemOwnership(List<ItemStack> entries, List<GroupDefinition> groups) {
+		return readyGenerationSnapshot().map(generation -> EmiItemOwnership.resolve(entries,
+			generation.universe(), GroupProjectionEngine.resolveOwnership(generation.candidates(), groups)))
+			.orElseGet(Map::of);
+	}
 
 	@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
 		Generation current = published;
