@@ -96,6 +96,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		ScriptedGroupStore.invalidate();
 		bootstrapContext.clear();
 		groupIndex.reset();
+		editorRuntimeAccess.closeEditor();
 		refreshScheduled = false;
 		searchState.clear();
 		IngredientTypeIds.clearDiscovered();

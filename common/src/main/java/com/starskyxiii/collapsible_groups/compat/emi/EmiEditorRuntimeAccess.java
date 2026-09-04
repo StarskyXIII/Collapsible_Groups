@@ -5,6 +5,9 @@ import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientVie
 import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper;
 import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
+import com.starskyxiii.collapsible_groups.client.editor.ExactItemPreviewIndex;
+import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewTooltip;
@@ -40,6 +43,8 @@ import java.util.concurrent.TimeUnit;
 final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	private final EmiViewerAdapter adapter;
 	private final EmiViewerGroupIndex index;
+	private ViewerIngredientUniverse<EmiIngredient> previewUniverse;
+	private ExactItemPreviewIndex previewIndex;
 
 	EmiEditorRuntimeAccess(EmiViewerAdapter adapter, EmiViewerGroupIndex index) {
 		this.adapter = adapter;
@@ -169,9 +174,24 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	@Override public List<ItemStack> resolveItems(GroupDefinition definition) {
-		return matching(definition, ViewerIngredient.Kind.ITEM).stream()
-			.map(ViewerIngredient::entry).map(EmiIngredient::getEmiStacks).map(values -> values.get(0).getItemStack())
-			.filter(stack -> !stack.isEmpty()).toList();
+		var generation = index.readyGenerationSnapshot();
+		if (generation.isEmpty()) {
+			closeEditor();
+			return List.of();
+		}
+		var universe = generation.get().universe();
+		if (previewUniverse != universe) {
+			previewUniverse = universe;
+			previewIndex = new ExactItemPreviewIndex(universe.items().stream().map(ViewerIngredient::entry)
+				.map(EmiIngredient::getEmiStacks).map(values -> values.get(0).getItemStack())
+				.filter(stack -> !stack.isEmpty()).toList());
+		}
+		return previewIndex.resolve(definition.filter(), GroupItemSelector.exactDecodeContext());
+	}
+
+	@Override public void closeEditor() {
+		previewUniverse = null;
+		previewIndex = null;
 	}
 
 	@Override public List<EditorFluidIngredientView> resolveFluids(GroupDefinition definition, String traceName) {

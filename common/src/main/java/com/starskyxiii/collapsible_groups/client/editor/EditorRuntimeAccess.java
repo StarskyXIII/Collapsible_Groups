@@ -20,6 +20,7 @@ import java.util.concurrent.CompletableFuture;
 
 /** Viewer-backed operations consumed by the viewer-neutral group editor. */
 public interface EditorRuntimeAccess {
+	default void closeEditor() {}
 	List<ItemStack> allItems();
 	List<EditorFluidIngredientView> allFluids(String traceName);
 	List<EditorGenericIngredientView> allGenericIngredients(String traceName);

@@ -282,6 +282,12 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
+	public void removed() {
+		EditorRuntimeServices.get().closeEditor();
+		super.removed();
+	}
+
+	@Override
 	public boolean isPauseScreen() {
 		return false;
 	}

@@ -78,16 +78,17 @@ public final class GroupItemSelector {
 	 * otherwise the game state can change between decode and decision (TOCTOU) and an all-failed
 	 * fallback decode could be cached permanently.
 	 */
-	public record ExactDecodeContext(RegistryOps<JsonElement> ops, boolean liveRegistry) {}
+	public record ExactDecodeContext(RegistryOps<JsonElement> ops, boolean liveRegistry, Object registryIdentity) {}
 
 	/** captures the current registry resolution once, for use across a batch of decodes. */
 	public static ExactDecodeContext exactDecodeContext() {
 		RegistryAccess live = liveRegistryAccess();
 		if (live != null) {
-			return new ExactDecodeContext(live.createSerializationContext(JsonOps.INSTANCE), true);
+			return new ExactDecodeContext(live.createSerializationContext(JsonOps.INSTANCE), true, live);
 		}
 		warnFallbackOnce();
-		return new ExactDecodeContext(FALLBACK_REGISTRY_ACCESS.createSerializationContext(JsonOps.INSTANCE), false);
+		return new ExactDecodeContext(FALLBACK_REGISTRY_ACCESS.createSerializationContext(JsonOps.INSTANCE), false,
+			FALLBACK_REGISTRY_ACCESS);
 	}
 
 	/**
@@ -121,6 +122,7 @@ public final class GroupItemSelector {
 
 	private static RegistryAccess liveRegistryAccess() {
 		Minecraft minecraft = Minecraft.getInstance();
+		if (minecraft == null) return null;
 		if (minecraft.level != null) {
 			return minecraft.level.registryAccess();
 		}
