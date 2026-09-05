@@ -474,7 +474,10 @@ final class EditorRulesPanel {
 	// Render
 	// ─────────────────────────────────────────────────────────────────────
 
+	private boolean tagWarningHovered;
+
 	void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+		tagWarningHovered = false;
 		boolean modalUp = isModalOpen();
 		int listMouseX = modalUp ? Integer.MIN_VALUE : mouseX;
 		int listMouseY = modalUp ? Integer.MIN_VALUE : mouseY;
@@ -484,6 +487,10 @@ final class EditorRulesPanel {
 		// float over the whole body. The Screen owns modal rendering through renderModals().
 		if (dragNode != null) {
 			renderDragGhost(g, mouseX, mouseY);
+		}
+		if (tagWarningHovered && !modalUp && dragNode == null) {
+			g.renderTooltip(font, font.split(Component.translatable(
+				ModTranslationKeys.EDITOR_TAG_WARNING_DETAIL), 240), mouseX, mouseY);
 		}
 	}
 
@@ -649,8 +656,7 @@ final class EditorRulesPanel {
 			g.fill(list.x() + 1, y, list.right() - 1, y + ROW_H, COL_ROW_HOVER);
 		}
 
-		boolean unresolved = !node.kind().compound()
-			&& RuleTagResolution.isUnresolved(node, RuleTagResolution.RegistryLookup.INSTANCE);
+		String tagWarning = node.kind().compound() ? null : EditorTagDiagnostics.warning(node, EditorRuntimeServices.get());
 
 		if (node.kind().compound()) {
 			renderCollapseGlyph(g, rowIndent(row), y, row.collapsed());
@@ -706,14 +712,15 @@ final class EditorRulesPanel {
 				UiSkinRenderer.drawOutline(g, list.x() + 1, y, list.width() - 2, ROW_H, UiPalette.DANGER);
 			}
 		} else {
-			String warn = unresolved
-				? Component.translatable(ModTranslationKeys.EDITOR_RULES_UNRESOLVED_ROW).getString()
+			String warn = tagWarning != null
+				? Component.translatable(tagWarning).getString()
 				: "";
 			int warnW = warn.isEmpty() ? 0 : font.width(warn) + 6;
 			String value = RuleNodePresentation.valueText(node);
 			g.drawString(font, font.plainSubstrByWidth(value, Math.max(0, textRight - x - warnW)),
 				x, textY, UiPalette.TEXT_PRIMARY, false);
 			if (!warn.isEmpty()) {
+				if (rowHover) tagWarningHovered = true;
 				g.drawString(font, warn, textRight - font.width(warn), textY, COL_UNRESOLVED, false);
 				UiSkinRenderer.drawOutline(g, list.x() + 1, y, list.width() - 2, ROW_H, UiPalette.DANGER);
 			}

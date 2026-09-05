@@ -4,6 +4,12 @@ package com.starskyxiii.collapsible_groups.i18n;
 public final class ModTranslationKeys {
 	private ModTranslationKeys() {}
 
+	public static final String EDITOR_TAG_PENDING = "collapsible_groups.editor.tag.pending";
+	public static final String EDITOR_TAG_PARTIAL = "collapsible_groups.editor.tag.partial";
+	public static final String EDITOR_TAG_UNAVAILABLE = "collapsible_groups.editor.tag.unavailable";
+	public static final String EDITOR_TAG_WARNING_DETAIL = "collapsible_groups.editor.tag.warning_detail";
+	public static final String EDITOR_TAG_WARNING_COUNT = "collapsible_groups.editor.tag.warning_count";
+
 	public static final String BUTTON_CANCEL = "collapsible_groups.button.cancel";
 
 	public static final String BUTTON_MANAGE_TOOLTIP = "collapsible_groups.button.manage_tooltip";

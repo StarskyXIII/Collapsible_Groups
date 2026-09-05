@@ -344,7 +344,9 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 
 	@Override
 	public int unresolvedRuleCount() {
-		return core.unresolvedRuleCount(RuleTagResolution.RegistryLookup.INSTANCE);
+		var runtime = EditorRuntimeServices.get();
+		return (int) core.flattenedRuleNodes().stream().filter(flat ->
+			EditorTagDiagnostics.warning(flat.node(), runtime) != null).count();
 	}
 
 	@Override

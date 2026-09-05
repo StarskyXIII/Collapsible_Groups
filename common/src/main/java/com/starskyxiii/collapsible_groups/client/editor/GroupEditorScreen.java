@@ -865,8 +865,8 @@ public class GroupEditorScreen extends Screen {
 
 	private void renderFooter(GuiGraphics g) {
 		int y = shell.footerStatus().y() + UiSkinRenderer.centeredTextY(font, 0, shell.footerStatus().height());
-		Component status = footerStatus();
 		int unresolvedCount = state.unresolvedRuleCount();
+		Component status = footerStatus(unresolvedCount);
 		int color = !state.canSave() ? ERROR_TEXT_COLOR
 			: unresolvedCount > 0 ? UNRESOLVED_TEXT_COLOR
 			: dirty ? READY_TEXT_COLOR : UiPalette.TEXT_HINT;
@@ -881,13 +881,12 @@ public class GroupEditorScreen extends Screen {
 			UiPalette.TEXT_HINT, false);
 	}
 
-	private Component footerStatus() {
+	private Component footerStatus(int unresolved) {
 		if (!state.canSave()) {
 			return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_SAVE_BLOCKED, saveDisabledReason().getString());
 		}
-		int unresolved = state.unresolvedRuleCount();
 		if (unresolved > 0) {
-			return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_UNRESOLVED, unresolved);
+			return Component.translatable(ModTranslationKeys.EDITOR_TAG_WARNING_COUNT, unresolved);
 		}
 		if (hasPendingSave()) return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_READY);
 		return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_CLEAN);

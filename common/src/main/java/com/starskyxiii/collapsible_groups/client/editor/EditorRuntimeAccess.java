@@ -1,5 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
+import net.minecraft.resources.ResourceLocation;
+import com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
@@ -22,6 +24,10 @@ import java.util.concurrent.CompletableFuture;
 public interface EditorRuntimeAccess {
 	default void closeEditor() {}
 	default Object previewGeneration() { return this; }
+	default TagQueryDiagnostics tagDiagnostics(
+		String type, ResourceLocation tag) {
+		return TagQueryDiagnostics.UNREPORTED;
+	}
 	List<ItemStack> allItems();
 	List<EditorFluidIngredientView> allFluids(String traceName);
 	List<EditorGenericIngredientView> allGenericIngredients(String traceName);

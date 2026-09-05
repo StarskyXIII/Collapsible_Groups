@@ -1,4 +1,9 @@
 {
+  "collapsible_groups.editor.tag.pending": "Tag query pending",
+  "collapsible_groups.editor.tag.partial": "Partly queryable",
+  "collapsible_groups.editor.tag.unavailable": "Tag query unavailable",
+  "collapsible_groups.editor.tag.warning_detail": "Some tag rules cannot be fully checked. The preview shows confirmed matches; valid rules can still be saved.",
+  "collapsible_groups.editor.tag.warning_count": "%s tag rules need attention; rules can still be saved.",
   "collapsible_groups.button.cancel": "Cancel",
   "collapsible_groups.button.manage_tooltip": "Manage Collapsible Groups",
   "collapsible_groups.button.save": "Save",

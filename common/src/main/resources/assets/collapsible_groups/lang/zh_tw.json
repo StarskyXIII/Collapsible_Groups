@@ -1,4 +1,9 @@
 {
+  "collapsible_groups.editor.tag.pending": "Tag 尚待查詢",
+  "collapsible_groups.editor.tag.partial": "部分素材無法查詢",
+  "collapsible_groups.editor.tag.unavailable": "無法查詢 Tag",
+  "collapsible_groups.editor.tag.warning_detail": "部分 Tag 規則目前無法完整判定。預覽只顯示確定符合的素材；合法規則仍可保存。",
+  "collapsible_groups.editor.tag.warning_count": "%s 條 Tag 規則需要留意；仍可保存規則。",
   "collapsible_groups.button.cancel": "取消",
   "collapsible_groups.button.manage_tooltip": "管理可收合群組",
   "collapsible_groups.button.save": "儲存",

@@ -1,5 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.emi;
 
+import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
+import net.minecraft.resources.ResourceLocation;
+import com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics;
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
@@ -47,6 +50,38 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	private ExactItemPreviewIndex previewIndex;
 	private final com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache renderCache =
 		new com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache();
+
+	private Object tagGeneration;
+	private Map<String, TagQueryDiagnostics.Summary> tagSummaries = Map.of();
+	private static final TagQueryDiagnostics.Summary UNKNOWN_TAGS = TagQueryDiagnostics.summarize(List.of());
+
+	@Override public synchronized TagQueryDiagnostics tagDiagnostics(
+		String type, ResourceLocation tag) {
+		String canonical = IngredientTypeIds.getCanonicalId(type);
+		if (canonical == null) canonical = type;
+		if (canonical.equals("item") || canonical.equals("fluid")) return EditorRuntimeAccess.super.tagDiagnostics(type, tag);
+		var generation = index.readyGenerationSnapshot();
+		if (generation.isEmpty()) {
+			tagGeneration = null;
+			tagSummaries = Map.of();
+			return TagQueryDiagnostics.PENDING;
+		}
+		var universe = generation.get().universe();
+		if (tagGeneration != universe) {
+			Map<String, List<TagQueryDiagnostics.Source>> sources = new LinkedHashMap<>();
+			for (var ingredient : universe.ordered()) {
+				if (ingredient.kind() != ViewerIngredient.Kind.GENERIC) continue;
+				var tags = ((EmiIngredientView) ingredient.view()).tags();
+				sources.computeIfAbsent(ingredient.identity().typeId(), ignored -> new ArrayList<>())
+					.add(new TagQueryDiagnostics.Source(tags.available(), tags.existing()));
+			}
+			Map<String, TagQueryDiagnostics.Summary> summaries = new LinkedHashMap<>();
+			sources.forEach((id, values) -> summaries.put(id, TagQueryDiagnostics.summarize(values)));
+			tagSummaries = Map.copyOf(summaries);
+			tagGeneration = universe;
+		}
+		return tagSummaries.getOrDefault(canonical, UNKNOWN_TAGS).query(tag);
+	}
 
 	@Override public Object previewGeneration() {
 		if (!adapter.pollEditorReady()) return null;
@@ -201,7 +236,9 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 		return previewIndex.resolve(definition.filter(), GroupItemSelector.exactDecodeContext());
 	}
 
-	@Override public void closeEditor() {
+	@Override public synchronized void closeEditor() {
+		tagGeneration = null;
+		tagSummaries = Map.of();
 		renderCache.clear();
 		previewUniverse = null;
 		previewIndex = null;
