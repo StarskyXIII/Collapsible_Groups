@@ -26,6 +26,48 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ExactItemPreviewIndexTest {
+	@Test void invalidIdKeepsReferenceParseFailure() {
+		var filter = new GroupFilter.Id("item", "invalid ID");
+		var index = new ExactItemPreviewIndex(List.of(new ItemStack(Items.STONE)));
+		var expected = assertThrows(RuntimeException.class, () -> CompiledFilter.compile(filter));
+		var actual = assertThrows(RuntimeException.class, () -> index.resolve(filter, context));
+		assertEquals(expected.getClass(), actual.getClass());
+	}
+	@ParameterizedTest @ValueSource(ints = {1, 10, 100, 252, 1000})
+	void ordinaryIdDraftsUseOrdinalsWithoutPerSelectorUniverseScans(int size) {
+		List<ItemStack> items = BuiltInRegistries.ITEM.stream().filter(item -> item != Items.AIR)
+			.map(ItemStack::new).toList();
+		List<GroupFilter> leaves = items.stream().limit(size).map(stack -> (GroupFilter)
+			new GroupFilter.Id("item", BuiltInRegistries.ITEM.getKey(stack.getItem()).toString())).toList();
+		GroupFilter filter = GroupFilterEditorDraft.decode(new GroupFilter.Any(leaves)).draft().toFilter().orElseThrow();
+		CompiledFilter oracle = CompiledFilter.compile(filter);
+		List<ItemStack> expected = items.stream().filter(stack -> oracle.matches(new ItemStackIngredientView(stack))).toList();
+		var index = new ExactItemPreviewIndex(items);
+		assertEquals(expected, index.resolve(filter, context));
+		assertEquals(expected, index.resolve(filter, context));
+		assertEquals(0, index.leafEvaluations());
+		assertEquals(2L * size, index.idLookups());
+		assertEquals(items.size(), index.candidateViews());
+	}
+
+	@Test
+	void idOptimizationPreservesVariantsOrderAndThreeValuedNestedRules() {
+		var items = List.of(named("second"), new ItemStack(Items.OAK_PLANKS), named("first"));
+		var index = new ExactItemPreviewIndex(items);
+		GroupFilter id = new GroupFilter.Id("item", "minecraft:stone");
+		GroupFilter missing = new GroupFilter.Id("item", "test:missing");
+		GroupFilter fluid = new GroupFilter.Id("fluid", "minecraft:stone");
+		GroupFilter unknown = new GroupFilter.Unsupported(new JsonObject(), "future");
+		for (GroupFilter filter : List.of(id, missing, fluid, new GroupFilter.Id("unknown:type", "minecraft:stone"),
+			new GroupFilter.Any(List.of()), new GroupFilter.All(List.of()),
+			new GroupFilter.Any(List.of(id, id, unknown)), new GroupFilter.Not(new GroupFilter.Any(List.of(id, unknown))),
+			new GroupFilter.All(List.of(id, unknown)), new GroupFilter.Any(List.of(fluid, exact(items.get(0)), id)),
+			new GroupFilter.Not(new GroupFilter.All(List.of(id, new GroupFilter.Not(exact(items.get(0)))))))) {
+			CompiledFilter oracle = CompiledFilter.compile(filter);
+			assertEquals(items.stream().filter(stack -> oracle.matches(new ItemStackIngredientView(stack))).toList(),
+				index.resolve(filter, context));
+		}
+	}
 	private static GroupItemSelector.ExactDecodeContext context;
 
 	@BeforeAll static void bootstrap() {

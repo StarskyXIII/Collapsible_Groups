@@ -4,6 +4,8 @@ import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
+import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.ArrayList;
@@ -19,6 +21,10 @@ public final class ExactItemPreviewIndex {
 	static final long MAX_BYTES = 32L * 1024 * 1024;
 	private final List<ItemStack> items;
 	private final List<ItemStack> snapshots;
+	private final List<ItemStackIngredientView> views;
+	private final Map<ResourceLocation, List<Integer>> ids = new HashMap<>();
+	private long leafEvaluations;
+	private long idLookups;
 	private final Map<Integer, List<Integer>> buckets = new HashMap<>();
 	private final LinkedHashMap<String, int[]> selectors = new LinkedHashMap<>(16, 0.75f, true);
 	private final ToIntFunction<ItemStack> hash;
@@ -36,7 +42,9 @@ public final class ExactItemPreviewIndex {
 		this.items = List.copyOf(items);
 		this.hash = hash;
 		this.snapshots = items.stream().map(GroupItemSelector::normalizedCopy).toList();
+		this.views = snapshots.stream().map(ItemStackIngredientView::new).toList();
 		for (int i = 0; i < snapshots.size(); i++) {
+			ids.computeIfAbsent(views.get(i).resourceLocation(), ignored -> new ArrayList<>()).add(i);
 			buckets.computeIfAbsent(hash.applyAsInt(snapshots.get(i)), ignored -> new ArrayList<>()).add(i);
 		}
 	}
@@ -52,6 +60,11 @@ public final class ExactItemPreviewIndex {
 	}
 
 	private Result evaluate(GroupFilter filter, GroupItemSelector.ExactDecodeContext context) {
+		if (filter instanceof GroupFilter.Id id) {
+			BitSet matches = new BitSet();
+			addId(matches, id);
+			return new Result(matches, new BitSet());
+		}
 		if (filter instanceof GroupFilter.ExactStack exact) {
 			BitSet matches = new BitSet();
 			for (int ordinal : exactMatches(exact.encodedStack(), context)) matches.set(ordinal);
@@ -70,6 +83,10 @@ public final class ExactItemPreviewIndex {
 			BitSet matches = any ? new BitSet() : all();
 			BitSet possible = any ? new BitSet() : all();
 			for (GroupFilter child : children) {
+				if (any && child instanceof GroupFilter.Id id) {
+					addId(matches, id);
+					continue;
+				}
 				Result result = evaluate(child, context);
 				BitSet childPossible = (BitSet) result.matches().clone();
 				childPossible.or(result.unavailable());
@@ -88,13 +105,22 @@ public final class ExactItemPreviewIndex {
 		BitSet matches = new BitSet();
 		BitSet unavailable = new BitSet();
 		for (int i = 0; i < snapshots.size(); i++) {
-			switch (compiled.evaluate(new ItemStackIngredientView(snapshots.get(i)))) {
+			leafEvaluations++;
+			switch (compiled.evaluate(views.get(i))) {
 				case MATCH -> matches.set(i);
 				case UNAVAILABLE -> unavailable.set(i);
 				case NO_MATCH -> { }
 			}
 		}
 		return new Result(matches, unavailable);
+	}
+
+	private void addId(BitSet matches, GroupFilter.Id id) {
+		ResourceLocation resource = ResourceLocation.parse(id.id());
+		String type = IngredientTypeIds.getCanonicalId(id.ingredientType());
+		if (!"item".equals(type != null ? type : id.ingredientType())) return;
+		idLookups++;
+		for (int ordinal : ids.getOrDefault(resource, List.of())) matches.set(ordinal);
 	}
 
 	private int[] exactMatches(String selector, GroupItemSelector.ExactDecodeContext context) {
@@ -140,6 +166,9 @@ public final class ExactItemPreviewIndex {
 	}
 
 	long decodes() { return decodes; }
+	long leafEvaluations() { return leafEvaluations; }
+	long idLookups() { return idLookups; }
+	int candidateViews() { return views.size(); }
 	long comparisons() { return comparisons; }
 	long cacheHits() { return cacheHits; }
 	int cachedSelectors() { return selectors.size(); }
