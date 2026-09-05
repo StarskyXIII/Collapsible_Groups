@@ -210,8 +210,13 @@ public final class CompiledFilter {
 
 	private record TagNode(String ingredientType, ResourceLocation tagId) implements CompiledNode {
 		@Override
-		public boolean matches(IngredientView view) {
-			return sameType(ingredientType, view) && view.hasTag(tagId);
+		public Evaluation evaluate(IngredientView view) {
+			if (!sameType(ingredientType, view)) return Evaluation.NO_MATCH;
+			return switch (view.queryTag(tagId)) {
+				case MATCH -> Evaluation.MATCH;
+				case NO_MATCH -> Evaluation.NO_MATCH;
+				case UNAVAILABLE -> Evaluation.UNAVAILABLE;
+			};
 		}
 	}
 

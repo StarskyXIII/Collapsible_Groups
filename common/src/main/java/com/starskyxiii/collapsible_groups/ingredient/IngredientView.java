@@ -14,6 +14,10 @@ public interface IngredientView {
 
 	boolean hasTag(ResourceLocation tagId);
 
+	default TagQueryResult queryTag(ResourceLocation tagId) {
+		return hasTag(tagId) ? TagQueryResult.MATCH : TagQueryResult.NO_MATCH;
+	}
+
 	default boolean hasBlockTag(ResourceLocation tagId) {
 		return false;
 	}
