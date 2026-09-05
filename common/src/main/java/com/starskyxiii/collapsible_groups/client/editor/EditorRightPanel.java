@@ -65,7 +65,7 @@ final class EditorRightPanel {
 		long traceStart = EditorRuntimeServices.get().beginTrace();
 		GroupDefinition temp = state.buildPreviewDefinition();
 		if (state.canUseIndexedItemPreview()) {
-			List<ItemStack> indexed = EditorRuntimeServices.get().resolveEditorDraftItems(state.draft, state.editEnabled);
+			List<ItemStack> indexed = EditorRuntimeServices.get().resolvePreviewItems(temp, state.draft, true);
 			if (EditorRuntimeServices.get().verifyItemIndex()) {
 				List<ItemStack> scanned = EditorRuntimeServices.get().resolveItems(temp);
 				verifyIndexResult(indexed, scanned);
@@ -75,7 +75,7 @@ final class EditorRightPanel {
 			// Hybrid drafts with preserved subtrees are not flat-index safe. Resolve the union of the
 			// indexed flat matches and the memoised preserved-subtree full scan — item-for-item and
 			// order-for-order identical to resolveItems(temp).
-			List<ItemStack> union = EditorRuntimeServices.get().resolveHybridEditorDraftItems(state.draft, state.editEnabled);
+			List<ItemStack> union = EditorRuntimeServices.get().resolvePreviewItems(temp, state.draft, false);
 			if (EditorRuntimeServices.get().verifyItemIndex()) {
 				List<ItemStack> scanned = EditorRuntimeServices.get().resolveItems(temp);
 				verifyIndexResult(union, scanned);

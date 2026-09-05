@@ -319,6 +319,16 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+		var frame = performanceTrace.beginFrame(activeMode.name(), rightPanel.groupItems().size(),
+			minecraft.isWindowActive());
+		try {
+			renderEditor(g, mouseX, mouseY, partialTicks);
+		} finally {
+			performanceTrace.endFrame(frame);
+		}
+	}
+
+	private void renderEditor(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
 		refreshPreviewGeneration();
 		renderBackground(g, mouseX, mouseY, partialTicks);
 		UiSkinRenderer.drawScreenBars(g, this.width, this.height,
@@ -646,6 +656,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private final EditorPreviewCache previewCache = new EditorPreviewCache();
+	private final EditorPerformanceTrace performanceTrace = new EditorPerformanceTrace();
 	private Object editorPreviewGeneration;
 	private EditorRuntimeAccess previewRuntime;
 	private long previewRevision;
@@ -920,6 +931,15 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		var click = performanceTrace.beginClick(activeMode.name(), rightPanel.groupItems().size());
+		try {
+			return handleEditorClick(mouseX, mouseY, button);
+		} finally {
+			performanceTrace.endClick(click);
+		}
+	}
+
+	private boolean handleEditorClick(double mouseX, double mouseY, int button) {
 		if (discardDialogOpen) {
 			handleDiscardDialogClick(mouseX, mouseY, button);
 			return true;

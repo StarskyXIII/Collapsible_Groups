@@ -38,6 +38,12 @@ class EmiDisabledEditorPreviewTest {
 		var draft = GroupFilterEditorDraft.decode(group.filter()).draft();
 		assertTrue(runtime.resolveEditorDraftItems(draft, false).isEmpty());
 		assertTrue(runtime.resolveHybridEditorDraftItems(draft, false).isEmpty());
+		assertTrue(runtime.resolvePreviewItems(group, draft, true).isEmpty());
+		assertTrue(runtime.resolvePreviewItems(group, draft, false).isEmpty());
+		var enabled = new GroupDefinition("stone", "Stone", true, group.filter());
+		var emptyDraft = GroupFilterEditorDraft.decode(new GroupFilter.Id("item", "minecraft:dirt")).draft();
+		assertEquals(runtime.resolveItems(enabled), runtime.resolvePreviewItems(enabled, emptyDraft, true));
+		assertEquals(runtime.resolveItems(enabled), runtime.resolvePreviewItems(enabled, emptyDraft, false));
 		assertEquals(1, runtime.resolveEditorDraftItems(draft, true).size());
 		assertTrue(runtime.resolveEditorDraftItems(draft, false).isEmpty());
 		runtime.closeEditor();

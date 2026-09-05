@@ -20,6 +20,57 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorStateCoreTest {
 	@Test
+	void stableLargeExactDraftReusesValidation() {
+		List<GroupFilter> filters = java.util.stream.IntStream.range(0, 6165)
+			.<GroupFilter>mapToObj(i -> new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\",\"count\":" + (i + 1) + "}"))
+			.toList();
+		EditorStateCore core = new EditorStateCore(new GroupDefinition("large", "Large", true,
+			new GroupFilter.Any(filters)), () -> {});
+		int initial = core.validationRuns();
+		for (int i = 0; i < 100; i++) {
+			assertTrue(core.canSave("Large"));
+			assertTrue(core.currentValidationErrors().isEmpty());
+		}
+		assertEquals(initial, core.validationRuns());
+		assertFalse(core.canSave(" "));
+		assertTrue(core.canSave("Renamed"));
+	}
+
+	@Test
+	void validationDetectsUnannouncedEditsAndDoesNotAdvancePreviewFallback() {
+		GroupFilter original = new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\"}");
+		EditorStateCore core = new EditorStateCore(new GroupDefinition("test", "Test", true, original), () -> {});
+		GroupFilterRuleDraft.Node node = core.selectedRuleNode();
+		node.setPrimaryValue("{\"id\":\"minecraft:dirt\"}");
+		assertTrue(core.canSave("Test"));
+		node.setPrimaryValue("[]");
+		assertFalse(core.canSave("Test"));
+		assertEquals(original, core.buildPreviewDefinition("test", "Test", true).filter());
+		List<net.minecraft.network.chat.Component> errors = core.currentValidationErrors();
+		((net.minecraft.network.chat.MutableComponent) errors.getFirst()).append("modified");
+		assertFalse(core.currentValidationErrors().getFirst().getString().endsWith("modified"));
+		node.setPrimaryValue("{\"id\":\"minecraft:dirt\"}");
+		assertTrue(core.canSave("Test"));
+		GroupFilter updated = core.buildPreviewDefinition("test", "Test", true).filter();
+		node.setPrimaryValue("[]");
+		assertEquals(updated, core.buildPreviewDefinition("test", "Test", true).filter());
+		core.deleteSelectedRule();
+		assertFalse(core.canSave("Test"));
+		assertTrue(core.currentValidationErrors().isEmpty());
+	}
+
+	@Test
+	void validationDetectsDirectChildListMutation() {
+		EditorStateCore core = new EditorStateCore(new GroupDefinition("test", "Test", true,
+			new GroupFilter.Any(List.of(Filters.itemId("minecraft:stone"), Filters.itemId("minecraft:dirt")))), () -> {});
+		assertTrue(core.canSave("Test"));
+		int initial = core.validationRuns();
+		core.selectedRuleNode().children().clear();
+		core.currentValidationErrors();
+		assertEquals(initial + 1, core.validationRuns());
+	}
+
+	@Test
 	void launchStateTracksNewEditAndCopySourceIdentity() {
 		GroupDefinition existing = new GroupDefinition("existing_group", "Existing Group", true,
 			Filters.itemId("minecraft:stone"));

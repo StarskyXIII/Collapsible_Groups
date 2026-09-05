@@ -46,6 +46,10 @@ public interface EditorRuntimeAccess {
 
 	List<ItemStack> resolveEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled);
 	List<ItemStack> resolveHybridEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled);
+	default List<ItemStack> resolvePreviewItems(GroupDefinition prepared, GroupFilterEditorDraft draft, boolean indexed) {
+		return indexed ? resolveEditorDraftItems(draft, prepared.enabled())
+			: resolveHybridEditorDraftItems(draft, prepared.enabled());
+	}
 	List<ItemStack> resolveItems(GroupDefinition definition);
 	List<EditorFluidIngredientView> resolveFluids(GroupDefinition definition, String traceName);
 	List<EditorGenericIngredientView> resolveGenericIngredients(GroupDefinition definition, String traceName);

@@ -170,6 +170,10 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 		return resolveDraftItems(draft, enabled);
 	}
 
+	@Override public List<ItemStack> resolvePreviewItems(GroupDefinition prepared, GroupFilterEditorDraft draft, boolean indexed) {
+		return resolveItems(prepared);
+	}
+
 	@Override public List<ItemStack> resolveHybridEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled) {
 		return resolveDraftItems(draft, enabled);
 	}

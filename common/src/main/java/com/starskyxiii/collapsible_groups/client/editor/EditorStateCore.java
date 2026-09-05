@@ -40,6 +40,9 @@ final class EditorStateCore {
 	// indexed item preview must not be used for it — see canUseIndexedItemPreview().
 	private boolean flatIndexPreviewSafe;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
+	private Optional<GroupFilter> validatedFilter;
+	private List<Component> validationErrors = List.of();
+	private int validationRuns;
 
 	// id sets of everything the current group's rules fully match, keyed the
 	// same way the source-grid ownership caches are (item registry id, fluid
@@ -76,7 +79,7 @@ final class EditorStateCore {
 		this.selectedRuleNode = ruleDraft.root();
 
 		buildCurrentFilter()
-			.filter(filter -> GroupFilterValidator.validate(filter).isEmpty())
+			.filter(filter -> validationErrors(Optional.of(filter)).isEmpty())
 			.ifPresent(filter -> lastValidPreviewFilter = filter);
 	}
 
@@ -121,7 +124,7 @@ final class EditorStateCore {
 			previewFilter = EMPTY_PREVIEW_FILTER;
 		} else {
 			previewFilter = currentFilter
-				.filter(filter -> GroupFilterValidator.validate(filter).isEmpty())
+				.filter(filter -> validationErrors(currentFilter).isEmpty())
 				.map(filter -> {
 					lastValidPreviewFilter = filter;
 					return filter;
@@ -238,9 +241,9 @@ final class EditorStateCore {
 	}
 
 	boolean canSave(String editName) {
-		return !(editName == null || editName.isBlank())
-			&& buildCurrentFilter().isPresent()
-			&& currentValidationErrors().isEmpty();
+		if (editName == null || editName.isBlank()) return false;
+		Optional<GroupFilter> filter = buildCurrentFilter();
+		return filter.isPresent() && validationErrors(filter).isEmpty();
 	}
 
 	List<Component> saveBlockedTooltip(String editName) {
@@ -414,9 +417,22 @@ final class EditorStateCore {
 	}
 
 	List<Component> currentValidationErrors() {
-		return buildCurrentFilter()
-			.map(GroupFilterValidator::validateComponents)
-			.orElse(List.of());
+		return validationErrors(buildCurrentFilter()).stream()
+			.<Component>map(Component::copy)
+			.toList();
+	}
+
+	private List<Component> validationErrors(Optional<GroupFilter> filter) {
+		if (!filter.equals(validatedFilter)) {
+			validationErrors = filter.map(GroupFilterValidator::validateComponents).orElse(List.of());
+			validatedFilter = filter;
+			validationRuns++;
+		}
+		return validationErrors;
+	}
+
+	int validationRuns() {
+		return validationRuns;
 	}
 
 	private String currentOrGeneratedId(String editId, String editName) {
