@@ -197,13 +197,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		List<com.starskyxiii.collapsible_groups.group.GroupIconDefinition> configured,
 		List<com.starskyxiii.collapsible_groups.group.GroupIconDefinition> fallback
 	) {
-		List<ViewerIngredient<EmiIngredient>> resolvedFallback = new ArrayList<>(fallback.size());
-		for (var icon : fallback) {
-			ViewerIngredient<EmiIngredient> resolved = ViewerHeaderIconResolver.find(
-				icon, bootstrapContext.universe());
-			if (resolved != null) resolvedFallback.add(resolved);
-		}
-		return resolveHeaderIcons(configured, resolvedFallback);
+		return ViewerHeaderIconResolver.resolveDefinitions(configured, fallback, bootstrapContext.universe());
 	}
 
 	public void observeIndexSearch(List<? extends EmiIngredient> original) {

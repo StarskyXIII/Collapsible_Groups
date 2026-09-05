@@ -32,6 +32,16 @@ import java.util.concurrent.CompletableFuture;
 
 /** JEI implementation of the neutral editor runtime boundary. */
 public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
+	private final com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache renderCache =
+		new com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache();
+
+	@Override public Object previewGeneration() {
+		return JeiViewerGroupIndex.instance().readyGenerationSnapshot()
+			.map(JeiViewerGroupIndex.Generation::projectionContext)
+			.map(context -> (Object) context.universe()).orElse(null);
+	}
+
+	@Override public void closeEditor() { renderCache.clear(); }
 	@Override
 	public List<ItemStack> allItems() {
 		return List.copyOf(EditorItemUniverseProvider.INSTANCE.allStacks());
@@ -223,19 +233,15 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		return layout(layout);
 	}
 
-	private static List<GroupPreviewEntry> convertPreviewEntries(List<PreviewEntry> entries) {
-		List<GroupPreviewEntry> converted = new ArrayList<>(entries.size());
-		for (PreviewEntry entry : entries) {
-			converted.add(switch (entry.kind()) {
+	private List<GroupPreviewEntry> convertPreviewEntries(List<PreviewEntry> entries) {
+		return renderCache.resolve(previewGeneration(), entries, entry -> switch (entry.kind()) {
 				case ITEM -> GroupPreviewEntry.ofItem((ItemStack) entry.value());
 				case FLUID -> JeiGroupPreviewEntries.ofFluid(((EditorFluidIngredientView) entry.value()).ingredient());
 				case GENERIC -> {
 					EditorGenericIngredientView generic = (EditorGenericIngredientView) entry.value();
 					yield JeiGroupPreviewEntries.ofGeneric(EditorGenericIngredientHelper.type(generic), generic.ingredient());
 				}
-			});
-		}
-		return List.copyOf(converted);
+		});
 	}
 
 	@Override
@@ -246,19 +252,8 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	@Override
 	public PreviewTooltip previewTooltip(String displayName, int nameColorRgb, int itemCount, int fluidCount,
 		int genericCount, boolean expanded, List<PreviewEntry> entries) {
-		List<GroupPreviewEntry> converted = new ArrayList<>(entries.size());
-		for (PreviewEntry entry : entries) {
-			converted.add(switch (entry.kind()) {
-				case ITEM -> GroupPreviewEntry.ofItem((ItemStack) entry.value());
-				case FLUID -> JeiGroupPreviewEntries.ofFluid(((EditorFluidIngredientView) entry.value()).ingredient());
-				case GENERIC -> {
-					EditorGenericIngredientView generic = (EditorGenericIngredientView) entry.value();
-					yield JeiGroupPreviewEntries.ofGeneric(EditorGenericIngredientHelper.type(generic), generic.ingredient());
-				}
-			});
-		}
 		GroupPreviewTooltip.Result result = GroupPreviewTooltip.build(displayName, nameColorRgb, itemCount,
-			fluidCount, genericCount, expanded, converted);
+			fluidCount, genericCount, expanded, convertPreviewEntries(entries));
 		return new PreviewTooltip(result.lines(), result.visual());
 	}
 

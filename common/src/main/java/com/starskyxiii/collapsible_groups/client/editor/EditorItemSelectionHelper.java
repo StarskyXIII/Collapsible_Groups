@@ -23,6 +23,8 @@ final class EditorItemSelectionHelper {
 		return exactSelectorCache.computeIfAbsent(stack, GroupItemSelector::tryExactSelector);
 	}
 
+	void clearCache() { exactSelectorCache.clear(); }
+
 	boolean isWholeItemSelected(ItemStack stack) {
 		return explicitSet.contains(GroupItemSelector.wholeItemSelector(stack));
 	}

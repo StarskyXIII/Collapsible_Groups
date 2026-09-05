@@ -27,6 +27,7 @@ final class EditorRightPanel {
 	// -----------------------------------------------------------------------
 
 	private List<ItemStack> groupItems = List.of();
+	private List<EditorRuntimeAccess.PreviewEntry> previewEntries;
 	private List<EditorFluidIngredientView> groupFluids = List.of();
 	private List<EditorGenericIngredientView> groupGenericIngredients = List.of();
 
@@ -60,6 +61,7 @@ final class EditorRightPanel {
 	// -----------------------------------------------------------------------
 
 	void rebuild() {
+		previewEntries = null;
 		long traceStart = EditorRuntimeServices.get().beginTrace();
 		GroupDefinition temp = state.buildPreviewDefinition();
 		if (state.canUseIndexedItemPreview()) {
@@ -106,6 +108,7 @@ final class EditorRightPanel {
 			temp, "EditorRightPanel.cachedGenericViews");
 		if (items == null || fluids == null || generic == null) return false;
 		groupItems = items;
+		previewEntries = null;
 		groupFluids = fluids;
 		groupGenericIngredients = generic;
 		state.updateRuleCoverage(
@@ -113,6 +116,24 @@ final class EditorRightPanel {
 			EditorRuleCoverageKeys.fluidIds(groupFluids),
 			EditorRuleCoverageKeys.genericKeys(groupGenericIngredients));
 		return true;
+	}
+
+	List<EditorRuntimeAccess.PreviewEntry> previewEntries() {
+		if (previewEntries == null) {
+			var entries = new java.util.ArrayList<EditorRuntimeAccess.PreviewEntry>();
+			for (var item : groupItems) entries.add(EditorRuntimeAccess.PreviewEntry.item(item));
+			for (var fluid : groupFluids) entries.add(EditorRuntimeAccess.PreviewEntry.fluid(fluid));
+			for (var generic : groupGenericIngredients) entries.add(EditorRuntimeAccess.PreviewEntry.generic(generic));
+			previewEntries = List.copyOf(entries);
+		}
+		return previewEntries;
+	}
+
+	void clear() {
+		groupItems = List.of();
+		groupFluids = List.of();
+		groupGenericIngredients = List.of();
+		previewEntries = null;
 	}
 
 	private static void verifyIndexResult(List<ItemStack> indexed, List<ItemStack> scanned) {

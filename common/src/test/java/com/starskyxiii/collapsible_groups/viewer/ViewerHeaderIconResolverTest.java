@@ -11,6 +11,52 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class ViewerHeaderIconResolverTest {
 	@Test
+	void indexedLookupNeverReadsCandidateViewsAfterConstruction() {
+		var reads = new java.util.concurrent.atomic.AtomicInteger();
+		var entries = java.util.stream.IntStream.range(0, 6166).mapToObj(i ->
+			new ViewerIngredient<>(new ViewerIngredientIdentity("item", "variant:" + i),
+				ViewerIngredient.Kind.ITEM, i, new IngredientView() {
+					@Override public String ingredientType() { return "item"; }
+					@Override public ResourceLocation resourceLocation() {
+						reads.incrementAndGet();
+						return ResourceLocation.parse("ae2:facade");
+					}
+					@Override public boolean hasTag(ResourceLocation tag) { return false; }
+					@Override public boolean matchesExactStack(String stack) { return false; }
+				})).toList();
+		var universe = new ViewerIngredientUniverse<>(entries);
+		ViewerHeaderIconResolver.find(GroupIconDefinition.item("ae2:facade"), universe);
+		int initial = reads.get();
+		for (int i = 0; i < 100; i++) {
+			assertEquals(entries.get(0), ViewerHeaderIconResolver.find(GroupIconDefinition.item("ae2:facade"), universe));
+		}
+		assertEquals(initial, reads.get());
+	}
+
+	@Test
+	void fallbackIsLazyAndSkipsRepeatedResolvedIdentities() {
+		var first = ingredient("item", "variant:1", "ae2:facade");
+		var second = ingredient("item", "variant:2", "minecraft:stone");
+		var universe = new ViewerIngredientUniverse<>(List.of(first, second));
+		Iterable<GroupIconDefinition> forbidden = () -> { throw new AssertionError("fallback evaluated"); };
+		assertEquals(List.of(first, second), ViewerHeaderIconResolver.resolveDefinitions(
+			List.of(GroupIconDefinition.item("ae2:facade"), GroupIconDefinition.item("minecraft:stone")), forbidden, universe));
+		var fallback = new java.util.ArrayList<GroupIconDefinition>(java.util.Collections.nCopies(6166,
+			GroupIconDefinition.item("ae2:facade")));
+		fallback.add(GroupIconDefinition.item("minecraft:stone"));
+		assertEquals(List.of(first, second), ViewerHeaderIconResolver.resolveDefinitions(List.of(), fallback, universe));
+	}
+
+	@Test
+	void persistentValueLookupDoesNotUseRuntimeIdentityEquality() {
+		var first = new ViewerIngredient<>(new ViewerIngredientIdentity("item", "same:value", "runtime:1"),
+			ViewerIngredient.Kind.ITEM, "first", new FakeView("item", ResourceLocation.parse("test:first")));
+		var second = new ViewerIngredient<>(new ViewerIngredientIdentity("item", "same:value", "runtime:2"),
+			ViewerIngredient.Kind.ITEM, "second", new FakeView("item", ResourceLocation.parse("test:second")));
+		assertEquals(first, ViewerHeaderIconResolver.find(GroupIconDefinition.item("same:value"),
+			new ViewerIngredientUniverse<>(List.of(first, second))));
+	}
+	@Test
 	void exactIdentityOutranksEarlierResourceLocationFallback() {
 		ViewerIngredient<String> resourceMatch = ingredient("item", "serialized:first", "minecraft:oak_planks");
 		ViewerIngredient<String> exactMatch = ingredient("item", "minecraft:oak_planks", "minecraft:other");

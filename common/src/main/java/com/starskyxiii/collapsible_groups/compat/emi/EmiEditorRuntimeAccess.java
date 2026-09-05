@@ -45,6 +45,12 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	private final EmiViewerGroupIndex index;
 	private ViewerIngredientUniverse<EmiIngredient> previewUniverse;
 	private ExactItemPreviewIndex previewIndex;
+	private final com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache renderCache =
+		new com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache();
+
+	@Override public Object previewGeneration() {
+		return index.readyGenerationSnapshot().map(value -> (Object) value.universe()).orElse(null);
+	}
 
 	EmiEditorRuntimeAccess(EmiViewerAdapter adapter, EmiViewerGroupIndex index) {
 		this.adapter = adapter;
@@ -191,6 +197,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	@Override public void closeEditor() {
+		renderCache.clear();
 		previewUniverse = null;
 		previewIndex = null;
 	}
@@ -251,8 +258,11 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 
 	@Override public List<PreviewEntry> resolveHeaderIcons(List<GroupIconDefinition> iconIds,
 		List<PreviewEntry> fallbackEntries) {
-		return adapter.resolveHeaderIconsFromDefinitions(iconIds,
-			fallbackEntries.stream().map(PreviewEntry::icon).toList()).stream()
+		var generation = index.readyGenerationSnapshot();
+		if (generation.isEmpty()) return List.of();
+		Iterable<GroupIconDefinition> fallback = () -> fallbackEntries.stream().map(PreviewEntry::icon).iterator();
+		return com.starskyxiii.collapsible_groups.viewer.ViewerHeaderIconResolver.resolveDefinitions(
+			iconIds, fallback, generation.get().universe()).stream()
 			.map(EmiEditorRuntimeAccess::previewEntry).toList();
 	}
 
@@ -332,13 +342,13 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	private List<GroupPreviewEntry> previewEntries(List<PreviewEntry> entries) {
-		return entries.stream().map(entry -> switch (entry.kind()) {
+		return renderCache.resolve(previewGeneration(), entries, entry -> switch (entry.kind()) {
 			case ITEM -> GroupPreviewEntry.ofItem((ItemStack) entry.value());
 			case FLUID -> GroupPreviewEntry.ofRenderer((graphics, x, y) ->
 				renderFluid(graphics, (EditorFluidIngredientView) entry.value(), x, y));
 			case GENERIC -> GroupPreviewEntry.ofRenderer((graphics, x, y) ->
 				renderGeneric(graphics, (EditorGenericIngredientView) entry.value(), x, y));
-		}).toList();
+		});
 	}
 
 	private static PreviewLayout previewLayout(GroupSampleRenderer.Layout layout) {

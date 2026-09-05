@@ -34,6 +34,11 @@ final class EditorItemSearchSession {
 		return documents.computeIfAbsent(stack, EditorItemSearchHelper::document);
 	}
 
+	void clear() {
+		documents.clear();
+		tooltips.clear();
+	}
+
 	boolean matches(ItemStack stack, IngredientSearchQuery query) {
 		return query.matches(document(stack), () -> tooltipLines(stack));
 	}

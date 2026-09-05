@@ -8,6 +8,7 @@ import java.util.Map;
 public final class ViewerIngredientUniverse<E> {
 	private final List<ViewerIngredient<E>> ordered;
 	private final Map<ViewerIngredientIdentity, ViewerIngredient<E>> byIdentity;
+	private IconIndex<E> iconIndex;
 
 	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered) {
 		Map<ViewerIngredientIdentity, ViewerIngredient<E>> indexed = new LinkedHashMap<>();
@@ -15,6 +16,31 @@ public final class ViewerIngredientUniverse<E> {
 		this.ordered = List.copyOf(indexed.values());
 		this.byIdentity = Map.copyOf(indexed);
 	}
+
+	private synchronized IconIndex<E> iconIndex() {
+		if (iconIndex != null) return iconIndex;
+		Map<IconKey, ViewerIngredient<E>> byValue = new LinkedHashMap<>();
+		Map<IconKey, ViewerIngredient<E>> byResource = new LinkedHashMap<>();
+		for (ViewerIngredient<E> ingredient : ordered) {
+			String type = ingredient.identity().typeId();
+			byValue.putIfAbsent(new IconKey(type, ingredient.identity().valueId()), ingredient);
+			var resource = ingredient.view().resourceLocation();
+			if (resource != null) byResource.putIfAbsent(new IconKey(type, resource.toString()), ingredient);
+		}
+		iconIndex = new IconIndex<>(Map.copyOf(byValue), Map.copyOf(byResource));
+		return iconIndex;
+	}
+
+	ViewerIngredient<E> findIcon(String type, String value) {
+		IconKey key = new IconKey(type, value);
+		IconIndex<E> index = iconIndex();
+		ViewerIngredient<E> exact = index.byValue().get(key);
+		return exact != null ? exact : index.byResource().get(key);
+	}
+
+	private record IconKey(String type, String value) {}
+	private record IconIndex<E>(Map<IconKey, ViewerIngredient<E>> byValue,
+		Map<IconKey, ViewerIngredient<E>> byResource) {}
 
 	public List<ViewerIngredient<E>> ordered() {
 		return ordered;

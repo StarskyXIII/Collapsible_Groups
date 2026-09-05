@@ -36,16 +36,22 @@ public final class ViewerHeaderIconResolver {
 		GroupIconDefinition icon,
 		ViewerIngredientUniverse<E> universe
 	) {
-		String type = icon.canonicalIngredientType();
-		ViewerIngredient<E> resourceFallback = null;
-		for (ViewerIngredient<E> candidate : universe.ordered()) {
-			if (!candidate.identity().typeId().equals(type)) continue;
-			if (candidate.identity().valueId().equals(icon.valueId())) return candidate;
-			if (resourceFallback == null && candidate.view().resourceLocation() != null
-				&& candidate.view().resourceLocation().toString().equals(icon.valueId())) {
-				resourceFallback = candidate;
+		return universe.findIcon(icon.canonicalIngredientType(), icon.valueId());
+	}
+
+	public static <E> List<ViewerIngredient<E>> resolveDefinitions(
+		List<GroupIconDefinition> configured, Iterable<GroupIconDefinition> fallback,
+		ViewerIngredientUniverse<E> universe
+	) {
+		List<ViewerIngredient<E>> result = new ArrayList<>(MAX_ICONS);
+		Set<ViewerIngredientIdentity> seen = new LinkedHashSet<>();
+		for (var definitions : List.of(configured, fallback)) {
+			for (GroupIconDefinition icon : definitions) {
+				ViewerIngredient<E> resolved = find(icon, universe);
+				if (resolved != null && seen.add(resolved.identity())) result.add(resolved);
+				if (result.size() == MAX_ICONS) return List.copyOf(result);
 			}
 		}
-		return resourceFallback;
+		return List.copyOf(result);
 	}
 }

@@ -152,6 +152,11 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	protected void init() {
+		editorItemUniverse = List.of();
+		itemSearchSession.clear();
+		state.itemSelection.clearCache();
+		previewCache.clear();
+		EditorRuntimeServices.get().closeEditor();
 		int loadGeneration = ++editorLoadGeneration;
 		shell = computeShellLayout();
 		layout = shell.panelLayout();
@@ -173,12 +178,22 @@ public class GroupEditorScreen extends Screen {
 		rightPanel.clampScroll(previewLayout());
 		updateWidgetVisibility();
 		GroupDefinition entryDefinition = state.buildPreviewDefinition();
-		EditorRuntimeServices.get().prepareEditorEntry(entryDefinition).whenComplete((ignored, error) ->
-			minecraft.execute(() -> finishEditorEntryLoad(loadGeneration, error)));
+		var runtime = EditorRuntimeServices.get();
+		long revision = previewRevision;
+		runtime.prepareEditorEntry(entryDefinition).whenComplete((ignored, error) -> {
+			Object generation = runtime.previewGeneration();
+			minecraft.execute(() -> finishEditorEntryLoad(loadGeneration, revision, runtime, generation, error));
+		});
 	}
 
-	private void finishEditorEntryLoad(int loadGeneration, Throwable error) {
+	private void finishEditorEntryLoad(int loadGeneration, long revision, EditorRuntimeAccess runtime,
+		Object generation, Throwable error) {
 		if (loadGeneration != editorLoadGeneration || minecraft.screen != this) return;
+		if (runtime != EditorRuntimeServices.get() || generation == null || generation != runtime.previewGeneration()) {
+			editorDataLoading = false;
+			editorPreviewGeneration = new Object();
+			return;
+		}
 		if (error != null) {
 			editorDataLoading = false;
 			return;
@@ -189,11 +204,13 @@ public class GroupEditorScreen extends Screen {
 			"EditorLeftPanel.buildGenericViews");
 		hasGenericIngredients = !allGenericIngredients.isEmpty();
 		leftPanel.init(editorItems(), allFluids, allGenericIngredients);
-		rightPanel.rebuildFromPreparedCache();
+		if (revision != previewRevision || !rightPanel.rebuildFromPreparedCache()) rightPanel.rebuild();
 		applyContentFilter(activeContentFilter);
 		leftPanel.clampScroll(layout);
 		rightPanel.clampScroll(previewLayout());
 		editorDataLoading = false;
+		editorPreviewGeneration = generation;
+		previewRuntime = runtime;
 	}
 
 	private List<ItemStack> editorItems() {
@@ -283,6 +300,9 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public void removed() {
+		previewCache.clear();
+		itemSearchSession.clear();
+		state.itemSelection.clearCache();
 		EditorRuntimeServices.get().closeEditor();
 		super.removed();
 	}
@@ -299,6 +319,7 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+		refreshPreviewGeneration();
 		renderBackground(g, mouseX, mouseY, partialTicks);
 		UiSkinRenderer.drawScreenBars(g, this.width, this.height,
 			EditorShellLayout.HEADER_HEIGHT, EditorShellLayout.FOOTER_HEIGHT);
@@ -621,13 +642,38 @@ public class GroupEditorScreen extends Screen {
 	/** Non-empty group items — same filter GroupSampleRenderer uses for child cells. */
 	/** Live-aligned preview entries for the collapsed header preview grid. */
 	private List<EditorRuntimeAccess.PreviewEntry> settingsPreviewEntries() {
-		List<EditorRuntimeAccess.PreviewEntry> entries = new java.util.ArrayList<>();
-		for (ItemStack stack : rightPanel.groupItems()) entries.add(EditorRuntimeAccess.PreviewEntry.item(stack));
-		for (var fluid : rightPanel.groupFluids()) entries.add(EditorRuntimeAccess.PreviewEntry.fluid(fluid));
-		for (var generic : rightPanel.groupGeneric()) {
-			entries.add(EditorRuntimeAccess.PreviewEntry.generic(generic));
-		}
-		return entries;
+		return rightPanel.previewEntries();
+	}
+
+	private final EditorPreviewCache previewCache = new EditorPreviewCache();
+	private Object editorPreviewGeneration;
+	private EditorRuntimeAccess previewRuntime;
+	private long previewRevision;
+
+	private void refreshPreviewGeneration() {
+		if (editorDataLoading) return;
+		var runtime = EditorRuntimeServices.get();
+		Object generation = runtime.previewGeneration();
+		if (generation == editorPreviewGeneration && previewRuntime == runtime) return;
+		editorPreviewGeneration = generation;
+		if (previewRuntime != null && previewRuntime != runtime) previewRuntime.closeEditor();
+		previewRuntime = runtime;
+		previewCache.clear();
+		runtime.closeEditor();
+		editorItemUniverse = List.of();
+		itemSearchSession.clear();
+		state.itemSelection.clearCache();
+		leftPanel.init(List.of(), List.of(), List.of());
+		applyContentFilter(activeContentFilter);
+		rightPanel.clear();
+		if (generation == null) return;
+		var fluids = runtime.allFluids("EditorReload.fluids");
+		var generic = runtime.allGenericIngredients("EditorReload.generic");
+		hasGenericIngredients = !generic.isEmpty();
+		leftPanel.init(editorItems(), fluids, generic);
+		rightPanel.rebuild();
+		applyContentFilter(activeContentFilter);
+		rightPanel.clampScroll(previewLayout());
 	}
 
 	private void recordPreviewEntryTooltip(EditorRuntimeAccess.PreviewEntry entry) {
@@ -660,7 +706,7 @@ public class GroupEditorScreen extends Screen {
 	private List<EditorRuntimeAccess.PreviewEntry> settingsSampleHeaderIcons(
 		List<EditorRuntimeAccess.PreviewEntry> fallbackEntries
 	) {
-		return EditorRuntimeServices.get().resolveHeaderIcons(
+		return previewCache.icons(EditorRuntimeServices.get(),
 			state.appearanceDraft.toIconIds(), fallbackEntries);
 	}
 
@@ -1292,6 +1338,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private void onGroupChanged() {
+		previewRevision++;
 		markDirty();
 		state.ensureRuleSelection();
 		rightPanel.rebuild();
