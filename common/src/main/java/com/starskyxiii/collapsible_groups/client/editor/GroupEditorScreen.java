@@ -662,9 +662,9 @@ public class GroupEditorScreen extends Screen {
 	private long previewRevision;
 
 	private void refreshPreviewGeneration() {
-		if (editorDataLoading) return;
 		var runtime = EditorRuntimeServices.get();
 		Object generation = runtime.previewGeneration();
+		if (editorDataLoading) return;
 		if (generation == editorPreviewGeneration && previewRuntime == runtime) return;
 		editorPreviewGeneration = generation;
 		if (previewRuntime != null && previewRuntime != runtime) previewRuntime.closeEditor();

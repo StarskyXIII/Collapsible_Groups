@@ -69,7 +69,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 	private final BootstrapContext bootstrapContext = new BootstrapContext();
 	private final SearchState searchState = new SearchState();
 	private final ViewerPresentation<EmiIngredient, ClientTooltipComponent> presentation = new Presentation();
-	private final EmiViewerGroupIndex groupIndex = new EmiViewerGroupIndex();
+	private final EmiViewerGroupIndex groupIndex = new EmiViewerGroupIndex(this::runtimeCurrent);
 	private final EditorRuntimeAccess editorRuntimeAccess = new EmiEditorRuntimeAccess(this, groupIndex);
 	private final Set<String> fallbackWarnings = new LinkedHashSet<>();
 	private volatile @Nullable ViewerRegistration registration;
@@ -119,6 +119,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 
 	@Override
 	public synchronized void onGroupChange(GroupChangeEvent.Kind kind) {
+		if (!runtimeCurrent()) return;
 		if (kind == GroupChangeEvent.Kind.KUBEJS_REPLACE && bootstrapGate.ready()) {
 			ViewerLifecycleCoordinator.global().activeUniverseReady(id(), bootstrapContext);
 		}
@@ -136,8 +137,8 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		for (EmiIngredient ingredient : original) {
 			ViewerIngredient<EmiIngredient> mapped = bootstrapContext.resolve(ingredient);
 			if (mapped == null && ingredient instanceof EmiStack stack) {
-				mapped = createIngredient(stack);
 				scheduleUniverseRefresh();
+				return original;
 			}
 			if (mapped == null) return original;
 			filtered.add(mapped);
@@ -166,11 +167,13 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 
 	private void scheduleUniverseRefresh() {
 		if (refreshScheduled) return;
+		long scheduledEpoch = bootstrapGate.epoch();
 		refreshScheduled = true;
-		Minecraft.getInstance().execute(() -> {
+		Minecraft.getInstance().tell(() -> {
 			try {
-				bootstrapContext.update(ownershipSource());
-				startIndexBuild(bootstrapGate.epoch());
+				if (scheduledEpoch != bootstrapGate.epoch()) return;
+				markDirty();
+				ensureUniverseReady();
 			} finally {
 				refreshScheduled = false;
 			}
@@ -201,7 +204,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 	}
 
 	public void observeIndexSearch(List<? extends EmiIngredient> original) {
-		if (!ViewerLifecycleCoordinator.isEmiSelected() || !bootstrapGate.ready()) return;
+		if (!ViewerLifecycleCoordinator.isEmiSelected() || !runtimeCurrent()) return;
 		List<ViewerIngredient<EmiIngredient>> filtered = new ArrayList<>(original.size());
 		for (EmiIngredient ingredient : original) {
 			ViewerIngredient<EmiIngredient> mapped = bootstrapContext.resolve(ingredient);
@@ -211,40 +214,72 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 			Services.CONFIG.searchUngroupSmallGroups(), Services.CONFIG.searchUngroupThreshold()));
 	}
 
-	private synchronized boolean ensureUniverseReady() {
-		if (bootstrapGate.ready()) {
-			if (!groupIndex.ready() && groupIndex.whenReady().isDone()) {
-				startIndexBuild(bootstrapGate.epoch());
-			}
+	boolean runtimeCurrent() {
+		BootstrapData current = bootstrapContext.data;
+		return current.source() != null && EmiReloadManager.isLoaded()
+			&& current.source() == EmiStackList.stacks && current.epoch() == bootstrapGate.epoch()
+			&& current.registration() == registration;
+	}
+
+	boolean pollEditorReady() {
+		return Minecraft.getInstance().isSameThread() ? ensureUniverseReady() : runtimeCurrent();
+	}
+
+	boolean ensureUniverseReady() {
+		if (!Minecraft.getInstance().isSameThread()) return false;
+		if (!EmiReloadManager.isLoaded()) {
+			if (bootstrapContext.data.source() != null) markDirty();
+			return false;
+		}
+		if (bootstrapGate.ready() && runtimeCurrent()) {
+			if (!groupIndex.ready() && groupIndex.whenReady().isDone()) startIndexBuild(bootstrapGate.epoch());
 			return true;
 		}
-		if (!bootstrapGate.tryClaim(EmiReloadManager.isLoaded(), true)) return false;
+		if (bootstrapContext.data.source() != null) markDirty();
+		var transaction = EmiSnapshotTransaction.capture(this, EmiReloadManager.class,
+			() -> EmiReloadManager.isLoaded() ? new EmiSnapshotTransaction.Stamp(
+				bootstrapGate.epoch(), EmiStackList.stacks, registration) : null,
+			() -> bootstrapGate.tryClaim(true, true) ? new BootstrapCapture(
+				List.copyOf(EmiStackList.stacks), EmiRegistryTagBridge.capture(), EmiStackList.stacks,
+				bootstrapGate.epoch(), registration) : null);
+		if (transaction == null) return false;
+		long epoch = transaction.epoch();
 		try {
-			bootstrapContext.update(ownershipSource());
+			if (!transaction.prepareAndPublish(capture -> bootstrapContext.prepare(capture.entries(),
+				capture.bridge(), capture.source(), capture.epoch(), capture.session()), candidate -> {
+					bootstrapContext.data = candidate;
+					bootstrapGate.complete();
+				})) {
+				synchronized (this) {
+					if (epoch == bootstrapGate.epoch()) bootstrapGate.releaseFailedClaim();
+				}
+				return false;
+			}
 			ViewerLifecycleCoordinator.global().activeUniverseReady(id(), bootstrapContext);
-			bootstrapGate.complete();
-			startIndexBuild(bootstrapGate.epoch());
-			return false; // raw fallback until the candidate generation publishes.
+			startIndexBuild(epoch);
+			return false;
 		} catch (RuntimeException exception) {
-			bootstrapGate.releaseFailedClaim();
+			synchronized (this) {
+				if (epoch == bootstrapGate.epoch()) markDirty();
+			}
 			Constants.LOG.error("[CollapsibleGroups] Failed to bootstrap the EMI universe", exception);
 			return false;
 		}
 	}
 
 	private synchronized void startIndexBuild(long epoch) {
-		if (!bootstrapGate.ready() || bootstrapContext.universe().ordered().isEmpty()) return;
+		if (epoch != bootstrapGate.epoch() || !runtimeCurrent() || !bootstrapGate.ready()) return;
 		ViewerIngredientUniverse<EmiIngredient> universe = bootstrapContext.universe();
 		List<GroupDefinition> groups = GroupRepository.getAllIncludingScripted();
 		groupIndex.requestRebuild(epoch, universe, groups).thenRun(() -> Minecraft.getInstance().execute(() -> {
-			if (bootstrapGate.epoch() != epoch || !groupIndex.ready()) return;
+			if (!runtimeCurrent() || bootstrapGate.epoch() != epoch || !groupIndex.ready()) return;
 			EmiProjectionController.clearCache();
 			EmiScreenManager.forceRecalculate();
 		}));
 	}
 
 	public ProjectionCacheKey projectionCacheKey() {
-		return new ProjectionCacheKey(bootstrapGate.epoch(), bootstrapGate.ready(), groupIndex.ready(),
+		return new ProjectionCacheKey(bootstrapGate.epoch(), runtimeCurrent() && bootstrapGate.ready(), groupIndex.ready(),
 			groupIndex.revision());
 	}
 
@@ -252,6 +287,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 
 	/** Editor-visible order: EMI's stable configured order with user-hidden entries removed. */
 	public List<ViewerIngredient<EmiIngredient>> editorDisplayIngredients() {
+		if (!ensureUniverseReady()) return List.of();
 		List<EmiStack> source = editorDisplaySource();
 		List<ViewerIngredient<EmiIngredient>> result = new ArrayList<>(source.size());
 		for (EmiStack stack : source) {
@@ -265,7 +301,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 	static List<EmiStack> editorDisplaySource() { return EmiIndexSources.snapshot().editorDisplay(); }
 
 	public @Nullable ViewerIngredient<EmiIngredient> resolveIdentity(ViewerIngredientIdentity identity) {
-		return bootstrapContext.byIdentity.get(identity);
+		return runtimeCurrent() ? bootstrapContext.data.byIdentity().get(identity) : null;
 	}
 
 	public ViewerIngredientIdentity identityFor(EmiStack stack) {
@@ -279,6 +315,11 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 	}
 
 	private ViewerIngredient<EmiIngredient> createIngredient(EmiStack stack) {
+		return createIngredient(stack, bootstrapContext.data.tags().getOrDefault(stack.getKey(),
+			EmiRegistryTagBridge.Tags.UNPREPARED));
+	}
+
+	private ViewerIngredient<EmiIngredient> createIngredient(EmiStack stack, EmiRegistryTagBridge.Tags tags) {
 		EmiStack normalized = stack.copy().setAmount(1).setChance(1).setRemainder(EmiStack.EMPTY);
 		JsonElement serialized = EmiIngredientSerializer.getSerialized(normalized);
 		Object key = stack.getKey();
@@ -289,7 +330,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		var identity = EmiIdentityNormalizer.identify(standardKind, serialized, stack.getClass().getName(),
 			stack.getId().toString(), canonicalExtraData(stack.getComponentChanges()));
 		if (!identity.serializable() && fallbackWarnings.add(identity.typeId())) {
-			Constants.LOG.warn("[CollapsibleGroups] EMI stack type {} has no serializer; using an unstable class/id identity and leaving tag capability unavailable.", identity.typeId());
+			Constants.LOG.warn("[CollapsibleGroups] EMI stack type {} has no serializer; using an unstable class/id identity for persistence.", identity.typeId());
 		}
 		registerDiscoveredType(identity);
 		ViewerIngredient.Kind kind;
@@ -300,7 +341,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		} else {
 			kind = standardKind == EmiIdentityNormalizer.StandardKind.FLUID
 				? ViewerIngredient.Kind.FLUID : ViewerIngredient.Kind.GENERIC;
-			view = new EmiIngredientView(identity.typeId(), stack.getId(), key);
+			view = new EmiIngredientView(identity.typeId(), stack.getId(), key, tags);
 		}
 		return new ViewerIngredient<>(new ViewerIngredientIdentity(identity.typeId(), identity.valueId()),
 			kind, stack, view);
@@ -328,25 +369,45 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		}
 	}
 
-	private final class BootstrapContext implements ViewerBootstrapContext<EmiIngredient> {
-		private volatile ViewerIngredientUniverse<EmiIngredient> universe = new ViewerIngredientUniverse<>(List.of());
-		private volatile List<ViewerIngredientType<EmiIngredient>> types = List.of();
-		private volatile IdentityHashMap<EmiIngredient, ViewerIngredient<EmiIngredient>> byEntry = new IdentityHashMap<>();
-		private volatile Map<ViewerIngredientIdentity, ViewerIngredient<EmiIngredient>> byIdentity = Map.of();
+	private record BootstrapCapture(List<EmiStack> entries, EmiRegistryTagBridge bridge,
+		List<EmiStack> source, long epoch, ViewerRegistration session) {}
 
-		synchronized void update(List<EmiStack> stacks) {
+	private record BootstrapData(
+		ViewerIngredientUniverse<EmiIngredient> universe, List<ViewerIngredientType<EmiIngredient>> types,
+		Map<EmiIngredient, ViewerIngredient<EmiIngredient>> byEntry,
+		Map<ViewerIngredientIdentity, ViewerIngredient<EmiIngredient>> byIdentity,
+		Map<Object, EmiRegistryTagBridge.Tags> tags, List<EmiStack> source, long epoch,
+		ViewerRegistration registration
+	) {
+		static BootstrapData empty() {
+			return new BootstrapData(new ViewerIngredientUniverse<>(List.of()), List.of(), Map.of(),
+				Map.of(), Map.of(), null, -1, null);
+		}
+	}
+
+	private final class BootstrapContext implements ViewerBootstrapContext<EmiIngredient> {
+		private volatile BootstrapData data = BootstrapData.empty();
+
+		BootstrapData prepare(List<EmiStack> stacks, EmiRegistryTagBridge bridge,
+			List<EmiStack> source, long epoch, ViewerRegistration session) {
 			List<ViewerIngredient<EmiIngredient>> entries = new ArrayList<>(stacks.size());
 			IdentityHashMap<EmiIngredient, ViewerIngredient<EmiIngredient>> identities = new IdentityHashMap<>();
 			Map<ViewerIngredientIdentity, ViewerIngredient<EmiIngredient>> stable = new LinkedHashMap<>();
+			Set<String> diagnostics = new LinkedHashSet<>();
 			for (EmiStack stack : stacks) {
-				ViewerIngredient<EmiIngredient> ingredient = createIngredient(stack);
+				Object key = stack.getKey();
+				EmiRegistryTagBridge.Tags tags = key instanceof Item || key instanceof Fluid
+					? EmiRegistryTagBridge.Tags.STANDARD : bridge.resolve(key);
+				ViewerIngredient<EmiIngredient> ingredient = createIngredient(stack, tags);
+				if (ingredient.kind() == ViewerIngredient.Kind.GENERIC && !tags.available()
+					&& diagnostics.add(ingredient.identity().typeId() + ":" + tags.reason())) {
+					Constants.LOG.warn("[CollapsibleGroups] EMI tag query unavailable for {}: {}",
+						ingredient.identity().typeId(), tags.reason());
+				}
 				entries.add(ingredient);
 				identities.put(stack, ingredient);
 				stable.putIfAbsent(ingredient.identity(), ingredient);
 			}
-			universe = new ViewerIngredientUniverse<>(entries);
-			byEntry = identities;
-			byIdentity = Map.copyOf(stable);
 			Map<String, List<ViewerIngredient<EmiIngredient>>> buckets = new LinkedHashMap<>();
 			for (ViewerIngredient<EmiIngredient> entry : entries) {
 				buckets.computeIfAbsent(entry.identity().typeId(), ignored -> new ArrayList<>()).add(entry);
@@ -355,26 +416,28 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 			buckets.forEach((id, values) -> discovered.add(new ViewerIngredientType<>(id,
 				IngredientTypeIds.getAliases().entrySet().stream().filter(e -> e.getValue().equals(id))
 					.map(Map.Entry::getKey).toList(), values)));
-			types = List.copyOf(discovered);
+			return new BootstrapData(new ViewerIngredientUniverse<>(entries), List.copyOf(discovered),
+				java.util.Collections.unmodifiableMap(identities), Map.copyOf(stable), bridge.snapshot(), source, epoch, session);
 		}
 
-		synchronized void clear() {
-			universe = new ViewerIngredientUniverse<>(List.of());
-			types = List.of();
-			byEntry = new IdentityHashMap<>();
-			byIdentity = Map.of();
-		}
+		void clear() { data = BootstrapData.empty(); }
 
 		@Nullable ViewerIngredient<EmiIngredient> resolve(EmiIngredient ingredient) {
-			ViewerIngredient<EmiIngredient> direct = byEntry.get(ingredient);
+			if (!runtimeCurrent()) return null;
+			BootstrapData current = data;
+			ViewerIngredient<EmiIngredient> direct = current.byEntry().get(ingredient);
 			if (direct != null) return direct;
 			if (ingredient instanceof ProjectedChildEmiIngredient child) return resolve(child.delegate());
 			if (!(ingredient instanceof EmiStack stack)) return null;
-			return byIdentity.get(createIngredient(stack).identity());
+			return current.byIdentity().get(createIngredient(stack).identity());
 		}
 
-		@Override public List<ViewerIngredientType<EmiIngredient>> ingredientTypes() { return types; }
-		@Override public ViewerIngredientUniverse<EmiIngredient> universe() { return universe; }
+		@Override public List<ViewerIngredientType<EmiIngredient>> ingredientTypes() {
+			return runtimeCurrent() ? data.types() : List.of();
+		}
+		@Override public ViewerIngredientUniverse<EmiIngredient> universe() {
+			return runtimeCurrent() ? data.universe() : BootstrapData.empty().universe();
+		}
 	}
 
 	private static final class SearchState implements ViewerSearchState<EmiIngredient> {

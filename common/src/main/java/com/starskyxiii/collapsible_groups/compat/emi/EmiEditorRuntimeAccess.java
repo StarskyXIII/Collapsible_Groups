@@ -49,6 +49,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 		new com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache();
 
 	@Override public Object previewGeneration() {
+		if (!adapter.pollEditorReady()) return null;
 		return index.readyGenerationSnapshot().map(value -> (Object) value.universe()).orElse(null);
 	}
 

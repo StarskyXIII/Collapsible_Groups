@@ -19,6 +19,30 @@ import java.util.concurrent.Executor;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmiViewerGroupIndexTest {
+	@Test void reloadGateHidesPublishedResultsAndRejectsLateBuilds() {
+		ControlledExecutor executor = new ControlledExecutor();
+		var loaded = new java.util.concurrent.atomic.AtomicBoolean(true);
+		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor, loaded::get);
+		var universe = new ViewerIngredientUniverse<>(List.of(ingredient("stone", "minecraft:stone")));
+		var group = group("stone", "minecraft:stone");
+		index.requestRebuild(1, universe, List.of(group));
+		executor.runNext();
+		assertTrue(index.ready());
+		loaded.set(false);
+		assertFalse(index.ready());
+		assertTrue(index.candidates().isEmpty());
+		assertTrue(index.fullMatchSnapshot(group).isEmpty());
+		assertTrue(index.resolveOwnership(List.of(group)).isEmpty());
+		index.reset();
+		index.requestRebuild(2, universe, List.of(group));
+		executor.runNext();
+		loaded.set(true);
+		assertFalse(index.ready());
+		assertTrue(index.candidates().isEmpty());
+		index.requestRebuild(3, universe, List.of(group));
+		executor.runNext();
+		assertTrue(index.ready());
+	}
 	@Test void ownershipSnapshotRejectsPendingCancelledAndReplacedSources() {
 		ControlledExecutor executor = new ControlledExecutor();
 		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor);

@@ -50,6 +50,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	private final Executor executor;
+	private final java.util.function.BooleanSupplier runtimeCurrent;
 	private volatile @Nullable Generation published;
 	private volatile ViewerIngredientUniverse<EmiIngredient> sourceUniverse = emptyUniverse();
 	private volatile List<GroupDefinition> currentGroups = List.of();
@@ -63,8 +64,15 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 
 	public EmiViewerGroupIndex() { this(EXECUTOR); }
 
+	EmiViewerGroupIndex(java.util.function.BooleanSupplier runtimeCurrent) { this(EXECUTOR, runtimeCurrent); }
+
 	EmiViewerGroupIndex(Executor executor) {
+		this(executor, () -> true);
+	}
+
+	EmiViewerGroupIndex(Executor executor, java.util.function.BooleanSupplier runtimeCurrent) {
 		this.executor = executor;
+		this.runtimeCurrent = runtimeCurrent;
 		readinessWaiters.add(readyFuture);
 	}
 
@@ -99,7 +107,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 		computation.handle((generation, error) -> {
 			List<CompletableFuture<Void>> settled = List.of();
 			synchronized (this) {
-				if (error == null && build == requestedBuildGeneration && epoch == sourceEpoch) {
+				if (error == null && build == requestedBuildGeneration && epoch == sourceEpoch && runtimeCurrent.getAsBoolean()) {
 					published = withCurrentEnabledState(generation);
 					revision++;
 					settled = drainReadinessWaiters();
@@ -148,12 +156,12 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	@Override public Optional<GroupCandidateIndex> candidates() {
-		Generation current = published;
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		return current == null ? Optional.empty() : Optional.of(current.candidates());
 	}
 
 	@Override public boolean ready() {
-		Generation current = published;
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		return current != null && current.epoch() == sourceEpoch
 			&& current.buildGeneration() == requestedBuildGeneration && runningBuildGeneration < 0;
 	}
@@ -173,7 +181,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
-		Generation current = published;
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		if (current == null) return Optional.empty();
 		String groupId = group.id();
 		if (!current.fullMatchItems().containsKey(groupId)
@@ -206,7 +214,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	@Override public Map<ViewerIngredientIdentity, String> resolveOwnership(List<GroupDefinition> groups) {
-		Generation current = published;
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		return current == null ? Map.of() : GroupProjectionEngine.resolveOwnership(current.candidates(), groups);
 	}
 
@@ -232,23 +240,23 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	public List<ViewerIngredient<EmiIngredient>> fullMatchItems(String groupId) {
-		Generation current = published;
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		return current == null ? List.of() : current.fullMatchItems().getOrDefault(groupId, List.of());
 	}
 
 	public List<ViewerIngredient<EmiIngredient>> fullMatchFluids(String groupId) {
-		Generation current = published;
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		return current == null ? List.of() : current.fullMatchFluids().getOrDefault(groupId, List.of());
 	}
 
 	public List<ViewerIngredient<EmiIngredient>> fullMatchGeneric(String groupId) {
-		Generation current = published;
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		return current == null ? List.of() : current.fullMatchGeneric().getOrDefault(groupId, List.of());
 	}
 
 	/** Replaces one editor draft's three entries together, including explicit empty lists. */
 	public synchronized void prepareFullMatch(GroupDefinition definition) {
-		Generation current = published;
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		if (current == null) return;
 		Generation draft = buildGeneration(current.epoch(), current.buildGeneration(), current.universe(),
 			List.of(definition));
@@ -264,7 +272,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	public synchronized void invalidateFullMatch(String groupId) {
-		Generation current = published;
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		if (current == null) return;
 		Map<String, List<ViewerIngredient<EmiIngredient>>> items = mutable(current.fullMatchItems());
 		Map<String, List<ViewerIngredient<EmiIngredient>>> fluids = mutable(current.fullMatchFluids());
