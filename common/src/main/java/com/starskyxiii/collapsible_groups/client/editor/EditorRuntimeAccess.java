@@ -24,6 +24,9 @@ import java.util.concurrent.CompletableFuture;
 public interface EditorRuntimeAccess {
 	default void closeEditor() {}
 	default EditorIngredientTypes ingredientTypes() { return EditorIngredientTypes.UNAVAILABLE; }
+	default void updateIngredientTags(String type) {}
+	default EditorIngredientTags ingredientTags(String type) { return EditorIngredientTags.UNAVAILABLE; }
+	default void cancelIngredientTags() {}
 	default Object previewGeneration() { return this; }
 	default TagQueryDiagnostics tagDiagnostics(
 		String type, ResourceLocation tag) {

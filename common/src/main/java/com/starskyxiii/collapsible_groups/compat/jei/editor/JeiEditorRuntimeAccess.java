@@ -4,6 +4,8 @@ import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientVie
 import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
 import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTypes;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTags;
+import com.starskyxiii.collapsible_groups.client.editor.EditorTagCatalog;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries;
@@ -37,6 +39,39 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		new com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache();
 
 	private final EditorIngredientTypes.Cache typeCache = new EditorIngredientTypes.Cache();
+	private final EditorTagCatalog tagCatalog = new EditorTagCatalog();
+
+	@Override public void updateIngredientTags(String requested) {
+		var context = JeiViewerGroupIndex.instance().readyGenerationSnapshot()
+			.map(JeiViewerGroupIndex.Generation::projectionContext).orElse(null);
+		var type = context == null ? null : context.types().stream()
+			.filter(value -> value.matchesId(requested)).findFirst().orElse(null);
+		tagCatalog.update(context, type == null ? requested : type.canonicalId(),
+			context == null ? EditorIngredientTags.Status.PENDING
+				: type == null ? EditorIngredientTags.Status.TYPE_MISSING : EditorIngredientTags.Status.READY,
+			EditorIngredientTags.Coverage.OBSERVED_ONLY,
+			() -> type.ingredients().stream().map(ingredient -> new EditorTagCatalog.Source(null,
+				() -> ingredient.kind() == com.starskyxiii.collapsible_groups.viewer.ViewerIngredient.Kind.GENERIC
+					? ingredientTagStream(context.manager(), ingredient.entry()) : null)).iterator(),
+			() -> JeiViewerGroupIndex.instance().readyGenerationSnapshot()
+				.map(value -> value.projectionContext() == context).orElse(false));
+	}
+
+	private static <T> java.util.stream.Stream<String> ingredientTagStream(
+		mezz.jei.api.runtime.IIngredientManager manager, mezz.jei.api.ingredients.ITypedIngredient<T> ingredient) {
+		var stream = manager.getIngredientHelper(ingredient.getType()).getTagStream(ingredient.getIngredient());
+		return stream == null ? null : stream.map(value -> value == null ? null : value.toString());
+	}
+
+	@Override public EditorIngredientTags ingredientTags(String requested) {
+		var context = JeiViewerGroupIndex.instance().readyGenerationSnapshot()
+			.map(JeiViewerGroupIndex.Generation::projectionContext).orElse(null);
+		String canonical = context == null ? requested : context.types().stream()
+			.filter(value -> value.matchesId(requested)).map(value -> value.canonicalId()).findFirst().orElse(requested);
+		return tagCatalog.snapshot(context, canonical);
+	}
+
+	@Override public void cancelIngredientTags() { tagCatalog.cancel(); }
 
 	@Override public EditorIngredientTypes ingredientTypes() {
 		var context = JeiViewerGroupIndex.instance().readyGenerationSnapshot()
@@ -51,7 +86,7 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 			.map(context -> (Object) context.universe()).orElse(null);
 	}
 
-	@Override public void closeEditor() { renderCache.clear(); typeCache.clear(); }
+	@Override public void closeEditor() { renderCache.clear(); typeCache.clear(); tagCatalog.clear(); }
 	@Override
 	public List<ItemStack> allItems() {
 		return List.copyOf(EditorItemUniverseProvider.INSTANCE.allStacks());

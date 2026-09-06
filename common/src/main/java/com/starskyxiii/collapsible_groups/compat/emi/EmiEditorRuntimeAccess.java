@@ -2,6 +2,8 @@ package com.starskyxiii.collapsible_groups.compat.emi;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTypes;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTags;
+import com.starskyxiii.collapsible_groups.client.editor.EditorTagCatalog;
 import net.minecraft.resources.ResourceLocation;
 import com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics;
 import com.starskyxiii.collapsible_groups.Constants;
@@ -53,6 +55,36 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 		new com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache();
 
 	private final EditorIngredientTypes.Cache typeCache = new EditorIngredientTypes.Cache();
+	private final EditorTagCatalog tagCatalog = new EditorTagCatalog();
+
+	@Override public void updateIngredientTags(String requested) {
+		var generation = index.readyGenerationSnapshot();
+		var universe = generation.map(value -> value.universe()).orElse(null);
+		var types = universe == null ? null : adapter.editorIngredientTypes(universe);
+		var type = types == null ? null : types.stream().filter(value -> value.matchesId(requested)).findFirst().orElse(null);
+		String canonical = type == null ? requested : type.canonicalId();
+		tagCatalog.update(universe, canonical, types == null ? EditorIngredientTags.Status.PENDING
+			: type == null ? EditorIngredientTags.Status.TYPE_MISSING : EditorIngredientTags.Status.READY,
+			EditorIngredientTags.Coverage.REGISTRY_BACKED,
+			() -> type.ingredients().stream().map(ingredient -> {
+				if (ingredient.kind() != ViewerIngredient.Kind.GENERIC)
+					return new EditorTagCatalog.Source(null, () -> null);
+				var tags = ((EmiIngredientView) ingredient.view()).tags();
+				return new EditorTagCatalog.Source(tags.available() ? tags.existing() : null,
+					() -> tags.available() ? tags.existing().stream().map(ResourceLocation::toString) : null);
+			}).iterator(),
+			() -> index.readyGenerationSnapshot().map(value -> value.universe() == universe).orElse(false));
+	}
+
+	@Override public EditorIngredientTags ingredientTags(String requested) {
+		var universe = index.readyGenerationSnapshot().map(value -> value.universe()).orElse(null);
+		var types = universe == null ? null : adapter.editorIngredientTypes(universe);
+		String canonical = types == null ? requested : types.stream().filter(value -> value.matchesId(requested))
+			.map(value -> value.canonicalId()).findFirst().orElse(requested);
+		return tagCatalog.snapshot(universe, canonical);
+	}
+
+	@Override public void cancelIngredientTags() { tagCatalog.cancel(); }
 
 	@Override public EditorIngredientTypes ingredientTypes() {
 		var generation = index.readyGenerationSnapshot();
@@ -248,6 +280,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	@Override public synchronized void closeEditor() {
+		tagCatalog.clear();
 		typeCache.clear();
 		tagGeneration = null;
 		tagSummaries = Map.of();
