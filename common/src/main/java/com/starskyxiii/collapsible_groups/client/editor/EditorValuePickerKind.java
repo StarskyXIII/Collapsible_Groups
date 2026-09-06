@@ -7,7 +7,8 @@ import java.util.List;
 
 enum EditorValuePickerKind {
 	TAG(ModTranslationKeys.EDITOR_RULES_TAG_TITLE, ModTranslationKeys.EDITOR_RULES_TAG_MANUAL, ModTranslationKeys.EDITOR_RULES_TAG_EMPTY),
-	ID(ModTranslationKeys.EDITOR_RULES_ID_TITLE, ModTranslationKeys.EDITOR_RULES_ID_MANUAL, ModTranslationKeys.EDITOR_RULES_ID_EMPTY);
+	ID(ModTranslationKeys.EDITOR_RULES_ID_TITLE, ModTranslationKeys.EDITOR_RULES_ID_MANUAL, ModTranslationKeys.EDITOR_RULES_ID_EMPTY),
+	NAMESPACE(ModTranslationKeys.EDITOR_RULES_NAMESPACE_TITLE, ModTranslationKeys.EDITOR_RULES_NAMESPACE_MANUAL, ModTranslationKeys.EDITOR_RULES_NAMESPACE_EMPTY);
 
 	final String titleKey;
 	final String manualKey;
@@ -23,6 +24,7 @@ enum EditorValuePickerKind {
 		return switch (kind) {
 			case TAG -> TAG;
 			case ID -> ID;
+			case NAMESPACE -> NAMESPACE;
 			default -> throw new IllegalArgumentException(kind.name());
 		};
 	}
@@ -36,8 +38,24 @@ enum EditorValuePickerKind {
 	}
 
 	Snapshot snapshot(EditorRuntimeAccess runtime, String type) {
-		return this == TAG ? fromTags(runtime == null ? EditorIngredientTags.UNAVAILABLE : runtime.ingredientTags(type))
-			: fromIds(runtime == null ? EditorIngredientIds.UNAVAILABLE : runtime.ingredientIds(type));
+		return snapshot(runtime, type, null);
+	}
+
+	Snapshot snapshot(EditorRuntimeAccess runtime, String type, EditorNamespaceCatalog namespaces) {
+		if (this == TAG) return fromTags(runtime == null ? EditorIngredientTags.UNAVAILABLE : runtime.ingredientTags(type));
+		var ids = runtime == null ? EditorIngredientIds.UNAVAILABLE : runtime.ingredientIds(type);
+		return this == ID ? fromIds(ids) : fromNamespaces((namespaces == null ? new EditorNamespaceCatalog() : namespaces).snapshot(ids));
+	}
+
+	static Snapshot fromNamespaces(EditorNamespaceCatalog.Snapshot catalog) {
+		String key = switch (catalog.status()) {
+			case PENDING -> ModTranslationKeys.EDITOR_RULES_NAMESPACE_PENDING;
+			case UNAVAILABLE -> ModTranslationKeys.EDITOR_RULES_NAMESPACE_UNAVAILABLE;
+			case TYPE_MISSING -> ModTranslationKeys.EDITOR_RULES_TYPE_MISSING;
+			case READY -> catalog.partial() ? ModTranslationKeys.EDITOR_RULES_NAMESPACE_PARTIAL : ModTranslationKeys.EDITOR_RULES_NAMESPACE_AVAILABLE;
+		};
+		boolean ready = catalog.status() == EditorIngredientIds.Status.READY;
+		return new Snapshot(NAMESPACE, ready ? catalog : catalog.sourceToken(), ready, catalog.values(), key);
 	}
 
 	static Snapshot fromTags(EditorIngredientTags catalog) {

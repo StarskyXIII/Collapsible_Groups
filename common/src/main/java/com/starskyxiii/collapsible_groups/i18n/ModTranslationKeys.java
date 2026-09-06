@@ -681,4 +681,16 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_RULES_TAG_OBSERVED = "collapsible_groups.editor.rules.tag.observed";
 	public static final String EDITOR_RULES_TAG_REGISTRY = "collapsible_groups.editor.rules.tag.registry";
 
+	public static final String EDITOR_RULES_OTHER_NAMESPACE = "collapsible_groups.editor.rules.other_namespace";
+	public static final String EDITOR_RULES_NAMESPACE_TITLE = "collapsible_groups.editor.rules.namespace.title";
+	public static final String EDITOR_RULES_NAMESPACE_MANUAL = "collapsible_groups.editor.rules.namespace.manual";
+	public static final String EDITOR_RULES_NAMESPACE_EMPTY = "collapsible_groups.editor.rules.namespace.empty";
+	public static final String EDITOR_RULES_NAMESPACE_PENDING = "collapsible_groups.editor.rules.namespace.pending";
+	public static final String EDITOR_RULES_NAMESPACE_UNAVAILABLE = "collapsible_groups.editor.rules.namespace.unavailable";
+	public static final String EDITOR_RULES_NAMESPACE_PARTIAL = "collapsible_groups.editor.rules.namespace.partial";
+	public static final String EDITOR_RULES_NAMESPACE_AVAILABLE = "collapsible_groups.editor.rules.namespace.available";
+	public static final String EDITOR_RULES_CHIP_ITEM_NAMESPACE = "collapsible_groups.editor.rules.chip.item_namespace";
+	public static final String EDITOR_RULES_CHIP_FLUID_NAMESPACE = "collapsible_groups.editor.rules.chip.fluid_namespace";
+	public static final String EDITOR_RULES_PICKER_TITLE_ITEM_NAMESPACE = "collapsible_groups.editor.rules.picker.title.item_namespace";
+	public static final String EDITOR_RULES_PICKER_TITLE_FLUID_NAMESPACE = "collapsible_groups.editor.rules.picker.title.fluid_namespace";
 }

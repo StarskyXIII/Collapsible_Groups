@@ -51,7 +51,11 @@ public final class RuleNodePresentation {
 				default -> ModTranslationKeys.EDITOR_RULES_CHIP_TAG;
 			};
 			case BLOCK_TAG -> ModTranslationKeys.EDITOR_RULES_CHIP_BLOCK_TAG;
-			case NAMESPACE -> ModTranslationKeys.EDITOR_RULES_CHIP_NAMESPACE;
+			case NAMESPACE -> switch (type) {
+				case TYPE_ITEM -> ModTranslationKeys.EDITOR_RULES_CHIP_ITEM_NAMESPACE;
+				case TYPE_FLUID -> ModTranslationKeys.EDITOR_RULES_CHIP_FLUID_NAMESPACE;
+				default -> ModTranslationKeys.EDITOR_RULES_CHIP_NAMESPACE;
+			};
 			case ITEM_PATH_STARTS_WITH -> ModTranslationKeys.EDITOR_RULES_CHIP_PATH_STARTS;
 			case ITEM_PATH_CONTAINS -> ModTranslationKeys.EDITOR_RULES_CHIP_PATH_CONTAINS;
 			case ITEM_PATH_ENDS_WITH -> ModTranslationKeys.EDITOR_RULES_CHIP_PATH_ENDS;
@@ -71,7 +75,7 @@ public final class RuleNodePresentation {
 				default -> PickerKind.NONE;
 			};
 			case BLOCK_TAG -> PickerKind.BLOCK_TAG;
-			case NAMESPACE -> PickerKind.NAMESPACE;
+			case NAMESPACE -> type.equals(TYPE_ITEM) || type.equals(TYPE_FLUID) ? PickerKind.NAMESPACE : PickerKind.NONE;
 			default -> PickerKind.NONE;
 		};
 	}

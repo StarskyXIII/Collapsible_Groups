@@ -390,5 +390,17 @@
   "collapsible_groups.editor.rules.id.pending": "Collecting ingredient IDs… You can also enter an ID manually.",
   "collapsible_groups.editor.rules.id.unavailable": "Ingredient IDs unavailable. You can enter an ID manually.",
   "collapsible_groups.editor.rules.id.partial": "Some IDs could not be listed. All variants with the same ID match.",
-  "collapsible_groups.editor.rules.id.available": "IDs from current ingredients. All variants with the same ID match."
+  "collapsible_groups.editor.rules.id.available": "IDs from current ingredients. All variants with the same ID match.",
+  "collapsible_groups.editor.rules.other_namespace": "Other ingredient namespace",
+  "collapsible_groups.editor.rules.namespace.title": "Select ingredient namespace",
+  "collapsible_groups.editor.rules.namespace.manual": "Enter namespace manually",
+  "collapsible_groups.editor.rules.namespace.empty": "No ingredient namespaces could be listed",
+  "collapsible_groups.editor.rules.namespace.pending": "Collecting namespaces… You can also enter one manually.",
+  "collapsible_groups.editor.rules.namespace.unavailable": "Namespaces unavailable. You can enter one manually.",
+  "collapsible_groups.editor.rules.namespace.partial": "Some resource IDs could not be read; more namespaces may exist.",
+  "collapsible_groups.editor.rules.namespace.available": "Namespaces from resource IDs of current ingredients of this type.",
+  "collapsible_groups.editor.rules.chip.item_namespace": "Item namespace",
+  "collapsible_groups.editor.rules.chip.fluid_namespace": "Fluid namespace",
+  "collapsible_groups.editor.rules.picker.title.item_namespace": "Select item namespace",
+  "collapsible_groups.editor.rules.picker.title.fluid_namespace": "Select fluid namespace"
 }

@@ -11,6 +11,22 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EditorValuePickerTransactionTest {
+	@Test void namespaceManualInputUsesNamespaceValidationAndKeepsValidDraft() throws Exception {
+		var node = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.NAMESPACE);
+		node.setIngredientType("emi:chemical");
+		edit(node, true);
+		modal("FORM");
+		for (String invalid : List.of("test:oxygen", "test/path", "Invalid")) {
+			setValue(invalid);
+			assertFalse(core.currentValidationErrors().isEmpty(), invalid);
+		}
+		setValue("test_mod");
+		assertTrue(core.currentValidationErrors().isEmpty());
+		invoke("confirmEditor");
+		assertFalse(core.hasPendingRuleNode());
+		assertEquals("test_mod", node.primaryValue());
+	}
+
 	private final EditorStateCore core = new EditorStateCore(null, () -> {});
 	private final EditorRulesState state = (EditorRulesState) Proxy.newProxyInstance(EditorRulesState.class.getClassLoader(),
 		new Class<?>[] {EditorRulesState.class}, (proxy, method, args) -> {
@@ -59,7 +75,7 @@ class EditorValuePickerTransactionTest {
 	@EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"ALL", "ANY", "NOT"})
 	void pendingValueCancelAndConfirmRespectParent(GroupFilterRuleDraft.NodeKind kind) throws Exception {
 		var parent = core.insertRuleRelative(kind);
-		for (var leaf : List.of(GroupFilterRuleDraft.NodeKind.TAG, GroupFilterRuleDraft.NodeKind.ID)) {
+		for (var leaf : List.of(GroupFilterRuleDraft.NodeKind.TAG, GroupFilterRuleDraft.NodeKind.ID, GroupFilterRuleDraft.NodeKind.NAMESPACE)) {
 		core.selectRuleNode(parent);
 		var node = core.insertRuleRelativePending(leaf);
 		node.setIngredientType("Mekanism.ChemicalStack");
@@ -70,11 +86,11 @@ class EditorValuePickerTransactionTest {
 		node = core.insertRuleRelativePending(leaf);
 		node.setIngredientType("Mekanism.ChemicalStack");
 		edit(node, true);
-		node.setPrimaryValue("mekanism:clean");
+		node.setPrimaryValue(leaf == GroupFilterRuleDraft.NodeKind.NAMESPACE ? "mekanism" : "mekanism:clean");
 		invoke("confirmEditor");
 		assertFalse(core.hasPendingRuleNode());
 		assertEquals(List.of(node), parent.children());
-		assertEquals("mekanism:clean", node.primaryValue());
+		assertEquals(leaf == GroupFilterRuleDraft.NodeKind.NAMESPACE ? "mekanism" : "mekanism:clean", node.primaryValue());
 		core.cancelPendingRuleNode();
 		assertEquals(List.of(node), parent.children());
 		core.selectRuleNode(node);
@@ -82,7 +98,7 @@ class EditorValuePickerTransactionTest {
 		}
 	}
 
-	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID"})
+	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID", "NAMESPACE"})
 	void manualDraftDoesNotCommitPendingAndCancelStillDeletesIt(GroupFilterRuleDraft.NodeKind kind) throws Exception {
 		var node = core.insertRuleRelativePending(kind);
 		node.setIngredientType("Mekanism.ChemicalStack");
@@ -95,7 +111,7 @@ class EditorValuePickerTransactionTest {
 		assertFalse(core.hasRulesRoot());
 	}
 
-	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID"})
+	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID", "NAMESPACE"})
 	void blankManualDraftCannotBeConfirmed(GroupFilterRuleDraft.NodeKind kind) throws Exception {
 		var node = core.insertRuleRelativePending(kind);
 		node.setIngredientType("Mekanism.ChemicalStack");
@@ -107,7 +123,7 @@ class EditorValuePickerTransactionTest {
 		assertTrue(panel.isModalOpen());
 	}
 
-	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID"})
+	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID", "NAMESPACE"})
 	void childSelectionDoesNotReplaceOriginalCancelSnapshot(GroupFilterRuleDraft.NodeKind kind) throws Exception {
 		var node = core.insertRuleRelative(kind);
 		node.setIngredientType("missing:original");
@@ -126,7 +142,7 @@ class EditorValuePickerTransactionTest {
 		assertEquals("exact tertiary", node.tertiaryValue());
 	}
 
-	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID"})
+	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID", "NAMESPACE"})
 	void deactivationAbortsPendingTransaction(GroupFilterRuleDraft.NodeKind kind) throws Exception {
 		var node = core.insertRuleRelativePending(kind);
 		node.setIngredientType("Mekanism.ChemicalStack");
@@ -137,10 +153,11 @@ class EditorValuePickerTransactionTest {
 		assertFalse(panel.isModalOpen());
 	}
 
-	@Test void genericIdsUseTheGenericPickerEligibilityWhileBuiltinsKeepTheirExistingFlow() throws Exception {
+	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"ID", "TAG", "NAMESPACE"})
+	void genericValuesUseTheGenericPickerEligibilityWhileBuiltinsKeepTheirExistingFlow(GroupFilterRuleDraft.NodeKind kind) throws Exception {
 		var method = EditorRulesPanel.class.getDeclaredMethod("canChangeType");
 		method.setAccessible(true);
-		var node = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.ID);
+		var node = core.insertRuleRelative(kind);
 		edit(node, false);
 		for (String type : List.of("Mekanism.ChemicalStack", "emi:mekanism_chemical", "missing:custom")) {
 			node.setIngredientType(type);
@@ -163,7 +180,7 @@ class EditorValuePickerTransactionTest {
 			kind.setAccessible(true);
 			if (Boolean.TRUE.equals(other.invoke(entry))) kinds.add(kind.invoke(entry));
 		}
-		assertEquals(List.of(GroupFilterRuleDraft.NodeKind.ID, GroupFilterRuleDraft.NodeKind.TAG), kinds);
+		assertEquals(List.of(GroupFilterRuleDraft.NodeKind.ID, GroupFilterRuleDraft.NodeKind.TAG, GroupFilterRuleDraft.NodeKind.NAMESPACE), kinds);
 	}
 
 	@Test void invalidManualIdRemainsSubjectToRuleValidation() throws Exception {

@@ -20,6 +20,7 @@ final class EditorIngredientValuePicker {
 	private final EditorValuePickerKind kind;
 	private final EditBox search;
 	private final EditorValueSelection selection = new EditorValueSelection();
+	private final EditorNamespaceCatalog namespaces = new EditorNamespaceCatalog();
 	private final EditorValuePickerLayout footer;
 	private final Consumer<String> confirm;
 	private final Consumer<String> manual;
@@ -61,9 +62,12 @@ final class EditorIngredientValuePicker {
 		var previous = runtime.get();
 		if (next != previous) {
 			if (previous != null) kind.cancel(previous);
+			namespaces.clear();
 			runtime = new WeakReference<>(next);
 		}
 		if (next != null) kind.update(next, type);
+		if (kind == EditorValuePickerKind.NAMESPACE)
+			namespaces.update(next == null ? EditorIngredientIds.UNAVAILABLE : next.ingredientIds(type));
 		refresh();
 	}
 
@@ -71,10 +75,11 @@ final class EditorIngredientValuePicker {
 		var previous = runtime.get();
 		if (previous != null) kind.cancel(previous);
 		runtime.clear();
+		namespaces.clear();
 	}
 
 	private boolean refresh() {
-		var next = kind.snapshot(EditorRuntimeServices.find().orElse(null), type);
+		var next = kind.snapshot(EditorRuntimeServices.find().orElse(null), type, namespaces);
 		if (!selection.update(next)) return false;
 		offset = 0;
 		lastClicked = null;

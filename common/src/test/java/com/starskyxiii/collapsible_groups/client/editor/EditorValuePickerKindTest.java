@@ -10,6 +10,47 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EditorValuePickerKindTest {
+	@Test void namespacePendingBecomesReadyAndNeverSharesIdSelection() {
+		var source = new EditorIngredientIds(new Object(), "type:chemical", EditorIngredientIds.Status.READY, false,
+			List.of("resource:oxygen", "resource:hydrogen"));
+		var projection = new EditorNamespaceCatalog();
+		var selection = new EditorValueSelection();
+		assertTrue(selection.update(EditorValuePickerKind.fromNamespaces(projection.snapshot(source))));
+		assertFalse(selection.catalog().ready());
+		assertFalse(selection.update(EditorValuePickerKind.fromNamespaces(projection.snapshot(source))));
+		projection.update(source);
+		assertTrue(selection.update(EditorValuePickerKind.fromNamespaces(projection.snapshot(source))));
+		assertEquals(List.of("resource"), selection.rows());
+		selection.select(0);
+		assertFalse(selection.update(EditorValuePickerKind.fromNamespaces(projection.snapshot(source))));
+		assertEquals("resource", selection.selected());
+		assertTrue(selection.update(EditorValuePickerKind.fromIds(source)));
+		assertNull(selection.selected());
+		assertTrue(selection.update(EditorValuePickerKind.fromNamespaces(projection.snapshot(source))));
+		selection.select(0);
+		var reloaded = new EditorIngredientIds(new Object(), source.type(), source.status(), false, List.of("new:oxygen"));
+		assertTrue(selection.update(EditorValuePickerKind.fromNamespaces(projection.snapshot(reloaded))));
+		assertNull(selection.selected());
+		assertTrue(selection.rows().isEmpty());
+	}
+
+	@Test void namespaceStatusesUseTheirOwnMessagesAndRetainManualFallback() {
+		var projection = new EditorNamespaceCatalog();
+		for (var status : EditorIngredientIds.Status.values()) {
+			var source = new EditorIngredientIds(new Object(), "type", status, true, List.of("test:one"));
+			projection.update(source);
+			var snapshot = EditorValuePickerKind.fromNamespaces(projection.snapshot(source));
+			assertEquals(status == EditorIngredientIds.Status.READY, snapshot.ready());
+			assertEquals(switch (status) {
+				case READY -> ModTranslationKeys.EDITOR_RULES_NAMESPACE_PARTIAL;
+				case PENDING -> ModTranslationKeys.EDITOR_RULES_NAMESPACE_PENDING;
+				case UNAVAILABLE -> ModTranslationKeys.EDITOR_RULES_NAMESPACE_UNAVAILABLE;
+				case TYPE_MISSING -> ModTranslationKeys.EDITOR_RULES_TYPE_MISSING;
+			}, snapshot.statusKey());
+		}
+		assertEquals(EditorValuePickerKind.NAMESPACE, EditorValuePickerKind.forNode(GroupFilterRuleDraft.NodeKind.NAMESPACE));
+	}
+
 	@Test void idAndTagDispatchUseIndependentRuntimeApis() {
 		List<String> calls = new ArrayList<>();
 		var runtime = (EditorRuntimeAccess) Proxy.newProxyInstance(getClass().getClassLoader(), new Class<?>[] {EditorRuntimeAccess.class},
@@ -27,7 +68,7 @@ class EditorValuePickerKindTest {
 			kind.update(runtime, "test:chemical");
 			var snapshot = kind.snapshot(runtime, "test:chemical");
 			kind.cancel(runtime);
-			String suffix = kind == EditorValuePickerKind.ID ? "Ids" : "Tags";
+			String suffix = kind == EditorValuePickerKind.TAG ? "Tags" : "Ids";
 			assertEquals(List.of("updateIngredient" + suffix, "ingredient" + suffix, "cancelIngredient" + suffix), calls);
 			assertEquals(kind, snapshot.kind());
 		}

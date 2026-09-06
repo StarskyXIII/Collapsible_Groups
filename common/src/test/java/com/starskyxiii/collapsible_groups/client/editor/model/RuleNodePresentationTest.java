@@ -12,6 +12,21 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 class RuleNodePresentationTest {
+	@Test void namespacePresetsAreDistinguishableAndGenericRulesNeverOpenBuiltinPicker() {
+		assertEquals(ModTranslationKeys.EDITOR_RULES_CHIP_ITEM_NAMESPACE,
+			RuleNodePresentation.chipLabelKey(GroupFilterRuleDraft.NodeKind.NAMESPACE, "item"));
+		assertEquals(ModTranslationKeys.EDITOR_RULES_CHIP_FLUID_NAMESPACE,
+			RuleNodePresentation.chipLabelKey(GroupFilterRuleDraft.NodeKind.NAMESPACE, "fluid"));
+		assertEquals(RuleNodePresentation.PickerKind.NAMESPACE,
+			RuleNodePresentation.pickerKind(GroupFilterRuleDraft.NodeKind.NAMESPACE, "fluid"));
+		for (String type : List.of("Mekanism.ChemicalStack", "emi:chemical", "missing:custom")) {
+			assertEquals(RuleNodePresentation.PickerKind.NONE,
+				RuleNodePresentation.pickerKind(GroupFilterRuleDraft.NodeKind.NAMESPACE, type));
+			assertEquals(ModTranslationKeys.EDITOR_RULES_CHIP_NAMESPACE,
+				RuleNodePresentation.chipLabelKey(GroupFilterRuleDraft.NodeKind.NAMESPACE, type));
+		}
+	}
+
 	@Test
 	void chipLabelIsDerivedFromKindAndIngredientType() {
 		assertEquals(ModTranslationKeys.EDITOR_RULES_CHIP_ITEM_TAG,

@@ -116,6 +116,8 @@ final class EditorRulesPanel {
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.TAG, null, false, true),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.BLOCK_TAG, null, false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.NAMESPACE, "item", false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.NAMESPACE, "fluid", false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.NAMESPACE, null, false, true),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_STARTS_WITH, null, false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_CONTAINS, null, false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_ENDS_WITH, null, false),
@@ -825,8 +827,12 @@ final class EditorRulesPanel {
 	}
 
 	private String menuEntryLabel(MenuEntry entry) {
-		if (entry.otherIngredient()) return Component.translatable(entry.kind() == GroupFilterRuleDraft.NodeKind.ID
-			? ModTranslationKeys.EDITOR_RULES_OTHER_ID : ModTranslationKeys.EDITOR_RULES_OTHER_TAG).getString();
+		if (entry.otherIngredient()) return Component.translatable(switch (entry.kind()) {
+			case ID -> ModTranslationKeys.EDITOR_RULES_OTHER_ID;
+			case TAG -> ModTranslationKeys.EDITOR_RULES_OTHER_TAG;
+			case NAMESPACE -> ModTranslationKeys.EDITOR_RULES_OTHER_NAMESPACE;
+			default -> throw new IllegalArgumentException(entry.kind().name());
+		}).getString();
 		String base = Component.translatable(
 			RuleNodePresentation.chipLabelKey(entry.kind(), entry.presetType() == null ? "item" : entry.presetType()))
 			.getString();
@@ -973,7 +979,8 @@ final class EditorRulesPanel {
 
 	private boolean canChangeType() {
 		return editingNode != null && (editingNode.kind() == GroupFilterRuleDraft.NodeKind.TAG
-			|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.ID)
+			|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.ID
+			|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.NAMESPACE)
 			&& isExoticIngredientType(editingNode.ingredientType());
 	}
 
@@ -1115,7 +1122,7 @@ final class EditorRulesPanel {
 	private void openPicker() {
 		modal = ModalKind.PICKER;
 		modalScrollOffset = 0;
-		pickerSnapshot = snapshotFor(pickerKind);
+		pickerSnapshot = snapshotFor(pickerKind, editingNode.ingredientType());
 		EditorChrome.Rect search = pickerSearchRect(pickerModalRect());
 		pickerSearch = new EditBox(font, search.x() + 4, search.y() + (search.height() - font.lineHeight) / 2,
 			search.width() - 8, font.lineHeight + 2, Component.empty());
@@ -1134,7 +1141,8 @@ final class EditorRulesPanel {
 		scrollPickerToCurrent();
 	}
 
-	private static List<String> snapshotFor(RuleNodePresentation.PickerKind kind) {
+	private static List<String> snapshotFor(RuleNodePresentation.PickerKind kind, String type) {
+		type = type == null ? "" : type.trim();
 		return switch (kind) {
 			case ITEM_TAG -> BuiltInRegistries.ITEM.getTagNames()
 				.map(tag -> tag.location().toString()).sorted().toList();
@@ -1142,9 +1150,8 @@ final class EditorRulesPanel {
 				.map(tag -> tag.location().toString()).sorted().toList();
 			case BLOCK_TAG -> BuiltInRegistries.BLOCK.getTagNames()
 				.map(tag -> tag.location().toString()).sorted().toList();
-			case NAMESPACE -> Stream.concat(
-					BuiltInRegistries.ITEM.keySet().stream(),
-					BuiltInRegistries.FLUID.keySet().stream())
+			case NAMESPACE -> ("fluid".equalsIgnoreCase(type) ? BuiltInRegistries.FLUID.keySet().stream()
+					: "item".equalsIgnoreCase(type) ? BuiltInRegistries.ITEM.keySet().stream() : Stream.<ResourceLocation>empty())
 				.map(ResourceLocation::getNamespace).distinct().sorted().toList();
 			case DATA_COMPONENT_TYPE -> BuiltInRegistries.DATA_COMPONENT_TYPE.keySet().stream()
 				.map(ResourceLocation::toString).sorted().toList();
@@ -1203,7 +1210,8 @@ final class EditorRulesPanel {
 			case ITEM_TAG -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_ITEM_TAG;
 			case FLUID_TAG -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_FLUID_TAG;
 			case BLOCK_TAG -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_BLOCK_TAG;
-			case NAMESPACE -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_NAMESPACE;
+			case NAMESPACE -> "fluid".equalsIgnoreCase(editingNode.ingredientType().trim())
+				? ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_FLUID_NAMESPACE : ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_ITEM_NAMESPACE;
 			case DATA_COMPONENT_TYPE -> ModTranslationKeys.EDITOR_RULES_PICKER_TITLE_DATA_COMPONENT_TYPE;
 			case NONE -> ModTranslationKeys.EDITOR_RULES_EDIT_TITLE;
 		};
