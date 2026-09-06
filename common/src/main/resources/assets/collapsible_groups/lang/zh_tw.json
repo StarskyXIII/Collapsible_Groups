@@ -367,5 +367,12 @@
   "collapsible_groups.screen.copy_group_named": "建立「%s」的副本",
   "collapsible_groups.screen.title": "可收合群組",
   "collapsible_groups.tooltip.collapse": "點擊左鍵將群組收合",
-  "collapsible_groups.tooltip.expand": "點擊左鍵將群組展開"
+  "collapsible_groups.tooltip.expand": "點擊左鍵將群組展開",
+  "collapsible_groups.editor.rules.other_tag": "其他素材標籤",
+  "collapsible_groups.editor.rules.type.title": "選擇素材類型",
+  "collapsible_groups.editor.rules.type.change": "更換素材類型",
+  "collapsible_groups.editor.rules.type.empty": "目前沒有其他素材類型",
+  "collapsible_groups.editor.rules.type.pending": "素材類型準備中",
+  "collapsible_groups.editor.rules.type.unavailable": "目前無法取得素材類型",
+  "collapsible_groups.editor.rules.type.missing": "目前素材清單中沒有此類型"
 }

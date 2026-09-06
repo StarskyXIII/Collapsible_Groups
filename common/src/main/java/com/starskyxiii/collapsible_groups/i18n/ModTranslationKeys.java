@@ -657,4 +657,12 @@ public final class ModTranslationKeys {
 
 	public static final String TOOLTIP_EXPAND = "collapsible_groups.tooltip.expand";
 
+	public static final String EDITOR_RULES_OTHER_TAG = "collapsible_groups.editor.rules.other_tag";
+	public static final String EDITOR_RULES_TYPE_TITLE = "collapsible_groups.editor.rules.type.title";
+	public static final String EDITOR_RULES_TYPE_CHANGE = "collapsible_groups.editor.rules.type.change";
+	public static final String EDITOR_RULES_TYPE_EMPTY = "collapsible_groups.editor.rules.type.empty";
+	public static final String EDITOR_RULES_TYPE_PENDING = "collapsible_groups.editor.rules.type.pending";
+	public static final String EDITOR_RULES_TYPE_UNAVAILABLE = "collapsible_groups.editor.rules.type.unavailable";
+	public static final String EDITOR_RULES_TYPE_MISSING = "collapsible_groups.editor.rules.type.missing";
+
 }

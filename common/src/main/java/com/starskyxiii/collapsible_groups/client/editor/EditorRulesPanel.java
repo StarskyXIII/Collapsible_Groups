@@ -90,7 +90,7 @@ final class EditorRulesPanel {
 	private static final int COL_DROP_TARGET = 0x553C8527;
 	private static final int COL_GHOST_BG = 0xE01A1D24;
 
-	private enum ModalKind { NONE, MENU, PICKER, FORM, REFERENCE_PICKER }
+	private enum ModalKind { NONE, MENU, PICKER, FORM, REFERENCE_PICKER, TYPE_PICKER }
 
 	private enum ReferencePickerMode { NONE, REFERENCE_ITEM, REFERENCE_COMPONENT, REFERENCE_PATH }
 
@@ -99,14 +99,20 @@ final class EditorRulesPanel {
 	private record MenuEntry(
 		GroupFilterRuleDraft.NodeKind kind,
 		@Nullable String presetType,
-		boolean wrap
-	) {}
+		boolean wrap,
+		boolean otherTag
+	) {
+		MenuEntry(GroupFilterRuleDraft.NodeKind kind, String presetType, boolean wrap) {
+			this(kind, presetType, wrap, false);
+		}
+	}
 
 	private static final List<MenuEntry> CONDITION_ENTRIES = List.of(
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.ID, "item", false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.ID, "fluid", false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.TAG, "item", false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.TAG, "fluid", false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.TAG, null, false, true),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.BLOCK_TAG, null, false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.NAMESPACE, "item", false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_STARTS_WITH, null, false),
@@ -274,6 +280,9 @@ final class EditorRulesPanel {
 	private RuleFieldRole pickerTargetField;
 
 	// ── Field form state ──────────────────────────────────────────────────
+	private EditorIngredientTypePicker typePicker;
+	private boolean formTypeButtonFocused;
+	private boolean suppressTypeSpace;
 	private EditBox formType;
 	private EditBox formPrimary;
 	private EditBox formSecondary;
@@ -368,10 +377,11 @@ final class EditorRulesPanel {
 	 * paths (see confirmPickerSelection / keyPressed / pickerMouseClicked).
 	 */
 	private void abortModal() {
-		if (modal == ModalKind.PICKER || modal == ModalKind.FORM || modal == ModalKind.REFERENCE_PICKER) {
+		if (modal == ModalKind.PICKER || modal == ModalKind.FORM || modal == ModalKind.REFERENCE_PICKER || modal == ModalKind.TYPE_PICKER) {
 			cancelEditor();
 		}
 		modal = ModalKind.NONE;
+		typePicker = null;
 		modalScrollOffset = 0;
 		modalDragging = false;
 		pickerSearch = null;
@@ -510,6 +520,7 @@ final class EditorRulesPanel {
 			case PICKER -> renderPicker(g, mouseX, mouseY);
 			case FORM -> renderForm(g, mouseX, mouseY);
 			case REFERENCE_PICKER -> renderReferencePicker(g, mouseX, mouseY);
+			case TYPE_PICKER -> typePicker.render(g, mouseX, mouseY);
 			default -> {}
 		}
 		g.pose().popPose();
@@ -800,6 +811,7 @@ final class EditorRulesPanel {
 	}
 
 	private String menuEntryLabel(MenuEntry entry) {
+		if (entry.otherTag()) return Component.translatable(ModTranslationKeys.EDITOR_RULES_OTHER_TAG).getString();
 		String base = Component.translatable(
 			RuleNodePresentation.chipLabelKey(entry.kind(), entry.presetType() == null ? "item" : entry.presetType()))
 			.getString();
@@ -890,6 +902,7 @@ final class EditorRulesPanel {
 		}
 		modal = ModalKind.NONE;
 		modalScrollOffset = 0;
+		if (entry.otherTag()) { openTypePicker(); return true; }
 		if (entry.wrap()) {
 			if (state.wrapSelectedRule(entry.kind()) != null) {
 				onChanged.run();
@@ -917,6 +930,43 @@ final class EditorRulesPanel {
 	// ─────────────────────────────────────────────────────────────────────
 	// Edit lifecycle
 	// ─────────────────────────────────────────────────────────────────────
+
+	private void openTypePicker() {
+		clearFocus();
+		formTypeButtonFocused = false;
+		modal = ModalKind.TYPE_PICKER;
+		typePicker = new EditorIngredientTypePicker(font, typeModalRect(340, 230), id -> {
+			typePicker = null;
+			if (editingNode == null) {
+				var node = state.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+				if (node == null) { modal = ModalKind.NONE; return; }
+				node.setIngredientType(id);
+				beginEditor(node, true);
+				onChanged.run();
+			} else {
+				editingNode.setIngredientType(id);
+				state.markRulesChanged();
+				onChanged.run();
+				openForm();
+			}
+		}, () -> {
+			typePicker = null;
+			if (editingNode != null) openForm(); else modal = ModalKind.NONE;
+		});
+	}
+
+	private boolean canChangeType() {
+		return editingNode != null && editingNode.kind() == GroupFilterRuleDraft.NodeKind.TAG
+			&& isExoticIngredientType(editingNode.ingredientType());
+	}
+
+	private EditorChrome.Rect typeModalRect(int desiredWidth, int desiredHeight) {
+		var window = net.minecraft.client.Minecraft.getInstance().getWindow();
+		int width = Math.min(desiredWidth, window.getGuiScaledWidth() - GAP * 2);
+		int height = Math.min(desiredHeight, window.getGuiScaledHeight() - GAP * 2);
+		return new EditorChrome.Rect((window.getGuiScaledWidth() - width) / 2,
+			(window.getGuiScaledHeight() - height) / 2, width, height);
+	}
 
 	private void beginEditor(GroupFilterRuleDraft.Node node, boolean isNew) {
 		editingNode = node;
@@ -972,6 +1022,9 @@ final class EditorRulesPanel {
 			return true;
 		}
 		RuleNodeUiContract contract = RuleNodeUiContract.forKind(editingNode.kind());
+		if (contract.requiresField(RuleFieldRole.INGREDIENT_TYPE) && editingNode.ingredientType().isBlank()) {
+			formInvalidRoles.add(RuleFieldRole.INGREDIENT_TYPE);
+		}
 		if (contract.requiresField(RuleFieldRole.PRIMARY_VALUE) && editingNode.primaryValue().isBlank()) {
 			formInvalidRoles.add(RuleFieldRole.PRIMARY_VALUE);
 		}
@@ -1811,6 +1864,7 @@ final class EditorRulesPanel {
 	// ─────────────────────────────────────────────────────────────────────
 
 	private void openForm() {
+		formTypeButtonFocused = false;
 		resetReferencePickerState();
 		modal = ModalKind.FORM;
 		modalScrollOffset = 0;
@@ -1840,8 +1894,13 @@ final class EditorRulesPanel {
 
 		formType = null;
 		if (showType) {
-			formType = buildFormField(fx, fy, fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_TYPE),
-				editingNode.ingredientType(), editingNode::setIngredientType);
+			formType = buildFormField(fx, fy, canChangeType() ? fw - ICON_BTN_W - FIELD_GAP : fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_TYPE),
+				editingNode.ingredientType(), ignored -> {});
+			updatingFields = true;
+			try {
+				formType.setMaxLength(Math.max(512, editingNode.ingredientType().length()));
+				formType.setValue(editingNode.ingredientType());
+			} finally { updatingFields = false; }
 			formType.setEditable(false);
 			formType.setTextColorUneditable(UiPalette.TEXT_DISABLED);
 			fy += FIELD_H + FIELD_GAP;
@@ -2061,8 +2120,8 @@ final class EditorRulesPanel {
 		int fields = Math.max(1, formVisibleFields);
 		int referenceHeight = hasReferenceSlot() ? REFERENCE_ROW_H : 0;
 		int desiredH = GAP + font.lineHeight + 6 + referenceHeight
-			+ fields * (FIELD_H + FIELD_GAP) + BTN_H + GAP * 2;
-		return modalRect(250, desiredH);
+			+ fields * (FIELD_H + FIELD_GAP) + (canChangeType() ? font.lineHeight + GAP : 0) + BTN_H + GAP * 2;
+		return canChangeType() ? typeModalRect(250, desiredH) : modalRect(250, desiredH);
 	}
 
 	private EditorChrome.Rect formConfirmRect(EditorChrome.Rect m) {
@@ -2110,7 +2169,8 @@ final class EditorRulesPanel {
 
 		int fy = formFieldsY(m);
 		for (FormFieldEntry entry : formFieldEntries()) {
-			boolean hasPickerButton = entry.field() == formPrimary && formPrimaryHasPickerButton;
+			boolean typeButton = entry.field() == formType && canChangeType();
+			boolean hasPickerButton = typeButton || entry.field() == formPrimary && formPrimaryHasPickerButton;
 			int fieldWidth = hasPickerButton
 				? m.width() - GAP * 2 - ICON_BTN_W - FIELD_GAP
 				: m.width() - GAP * 2;
@@ -2123,15 +2183,30 @@ final class EditorRulesPanel {
 				drawFieldChrome(g, fieldRect, entry.field().isFocused(), fieldRect.contains(mouseX, mouseY));
 			}
 			entry.field().render(g, mouseX, mouseY, 0);
+			if (entry.field() == formType && fieldRect.contains(mouseX, mouseY)) g.renderTooltip(font, font.split(Component.literal(editingNode.ingredientType()), 300), mouseX, mouseY);
 			if (hasPickerButton) {
 				EditorChrome.Rect pickerBtn = formFieldPickerButtonRect(m, fy);
 				UiSkinRenderer.drawButton(g, font, pickerBtn.x(), pickerBtn.y(), pickerBtn.width(), pickerBtn.height(),
 					Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PICKER_BUTTON).getString(),
-					buttonState(true, pickerBtn.contains(mouseX, mouseY)));
+					buttonState(true, pickerBtn.contains(mouseX, mouseY) || typeButton && formTypeButtonFocused));
+				if (typeButton && pickerBtn.contains(mouseX, mouseY)) g.renderTooltip(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_TYPE_CHANGE), mouseX, mouseY);
 			}
 			fy += FIELD_H + FIELD_GAP;
 		}
 
+		if (canChangeType()) {
+			var catalog = EditorRuntimeServices.get().ingredientTypes();
+			String type = editingNode.ingredientType();
+			String message = catalog.status() == EditorIngredientTypes.Status.PENDING ? ModTranslationKeys.EDITOR_RULES_TYPE_PENDING
+				: catalog.status() != EditorIngredientTypes.Status.READY ? ModTranslationKeys.EDITOR_RULES_TYPE_UNAVAILABLE
+				: catalog.options().stream().noneMatch(option -> option.identifies(type)) ? ModTranslationKeys.EDITOR_RULES_TYPE_MISSING : null;
+			if (message != null) {
+				String text = Component.translatable(message).getString();
+				g.drawString(font, font.plainSubstrByWidth(text, m.width() - GAP * 2), m.x() + GAP, fy, COL_UNRESOLVED, false);
+				if (hoverIn(mouseX, mouseY, m.x() + GAP, fy, m.width() - GAP * 2, font.lineHeight))
+					g.renderTooltip(font, font.split(Component.literal(text), 300), mouseX, mouseY);
+			}
+		}
 		EditorChrome.Rect confirm = formConfirmRect(m);
 		EditorChrome.Rect cancel = formCancelRect(m);
 		UiSkinRenderer.drawButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
@@ -2171,9 +2246,10 @@ final class EditorRulesPanel {
 		}
 		int fy = formFieldsY(m);
 		for (FormFieldEntry entry : formFieldEntries()) {
-			boolean hasPickerButton = entry.field() == formPrimary && formPrimaryHasPickerButton;
+			boolean typeButton = entry.field() == formType && canChangeType();
+			boolean hasPickerButton = typeButton || entry.field() == formPrimary && formPrimaryHasPickerButton;
 			if (hasPickerButton && formFieldPickerButtonRect(m, fy).contains(mx, my)) {
-				openFieldPicker(RuleFieldRole.PRIMARY_VALUE);
+				if (typeButton) openTypePicker(); else openFieldPicker(RuleFieldRole.PRIMARY_VALUE);
 				return true;
 			}
 			if (my >= fy && my < fy + FIELD_H && mx >= m.x() + GAP && mx < m.right() - GAP) {
@@ -2209,6 +2285,7 @@ final class EditorRulesPanel {
 	}
 
 	private void setFocusedField(EditBox field) {
+		formTypeButtonFocused = false;
 		if (focusedField != null && focusedField != field) {
 			focusedField.setFocused(false);
 		}
@@ -2245,6 +2322,7 @@ final class EditorRulesPanel {
 		if (button != 0) {
 			return false;
 		}
+		if (modal == ModalKind.TYPE_PICKER) return typePicker.click(mx, my);
 		if (modal == ModalKind.MENU) {
 			return menuMouseClicked(mx, my);
 		}
@@ -2358,6 +2436,7 @@ final class EditorRulesPanel {
 	}
 
 	boolean mouseDragged(double mx, double my, int button) {
+		if (modal == ModalKind.TYPE_PICKER) { typePicker.drag(my); return true; }
 		if (isModalOpen()) {
 			if (modalDragging) {
 				EditorChrome.Rect list = switch (modal) {
@@ -2471,6 +2550,7 @@ final class EditorRulesPanel {
 	}
 
 	boolean mouseReleased(double mx, double my, int button) {
+		if (modal == ModalKind.TYPE_PICKER) { typePicker.release(); return true; }
 		draggingScroll = false;
 		modalDragging = false;
 		if (dragNode != null) {
@@ -2501,6 +2581,7 @@ final class EditorRulesPanel {
 	}
 
 	boolean mouseScrolled(double mx, double my, double deltaY) {
+		if (modal == ModalKind.TYPE_PICKER) { typePicker.scroll(deltaY); return true; }
 		if (dragNode != null) {
 			// Scroll stays unlocked mid-drag so long lists can be scrolled to reach an off-screen
 			// drop position; recompute the slot afterwards. (Scrollbar-drag / selection / collapse
@@ -2573,6 +2654,10 @@ final class EditorRulesPanel {
 	}
 
 	boolean keyPressed(int key, int scan, int mods) {
+		suppressTypeSpace = key == 32 && (modal == ModalKind.TYPE_PICKER && !typePicker.textFocused()
+			|| modal == ModalKind.FORM && formTypeButtonFocused);
+		if (modal == ModalKind.TYPE_PICKER) return typePicker.key(key, scan, mods);
+		if (modal == ModalKind.FORM && formTypeButtonFocused && (key == 257 || key == 335 || key == 32)) { openTypePicker(); return true; }
 		// Esc aborts an in-progress reparent drag first, before any modal / close-editor
 		// handling. This branch only fires while a drag is live (modal is NONE then), so it
 		// never contends with the modal-Esc / Screen-close-editor paths below or upstream.
@@ -2631,6 +2716,13 @@ final class EditorRulesPanel {
 
 	/** Tab focus cycling within FORM's visible, editable fields (Shift+Tab reverses). */
 	private void cycleFormFocus(boolean reverse) {
+		if (canChangeType()) {
+			int current = formTypeButtonFocused ? 1 : focusedField == formType ? 0 : 2;
+			int next = Math.floorMod(current + (reverse ? -1 : 1), 3);
+			if (next == 1) { clearFocus(); formTypeButtonFocused = true; }
+			else setFocusedField(next == 0 ? formType : formPrimary);
+			return;
+		}
 		List<EditBox> fields = new ArrayList<>(4);
 		// formType is always read-only (setEditable(false) in openForm) so it's excluded
 		// here; EditBox#isEditable() isn't visible to us, so we track it structurally
@@ -2654,6 +2746,8 @@ final class EditorRulesPanel {
 	}
 
 	boolean charTyped(char c, int mods) {
+		if (suppressTypeSpace) { suppressTypeSpace = false; if (c == ' ') return true; }
+		if (modal == ModalKind.TYPE_PICKER) return typePicker.character(c, mods);
 		if (focusedField != null && focusedField.isFocused()) {
 			return focusedField.charTyped(c, mods);
 		}

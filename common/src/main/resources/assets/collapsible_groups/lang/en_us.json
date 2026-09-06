@@ -367,5 +367,12 @@
   "collapsible_groups.screen.copy_group_named": "New copy of \"%s\"",
   "collapsible_groups.screen.title": "Collapsible Groups",
   "collapsible_groups.tooltip.collapse": "Left-click to collapse",
-  "collapsible_groups.tooltip.expand": "Left-click to expand"
+  "collapsible_groups.tooltip.expand": "Left-click to expand",
+  "collapsible_groups.editor.rules.other_tag": "Other ingredient tag",
+  "collapsible_groups.editor.rules.type.title": "Select ingredient type",
+  "collapsible_groups.editor.rules.type.change": "Change ingredient type",
+  "collapsible_groups.editor.rules.type.empty": "No other ingredient types are currently available",
+  "collapsible_groups.editor.rules.type.pending": "Ingredient types are being prepared",
+  "collapsible_groups.editor.rules.type.unavailable": "Ingredient types are currently unavailable",
+  "collapsible_groups.editor.rules.type.missing": "This type is not in the current ingredient list"
 }
