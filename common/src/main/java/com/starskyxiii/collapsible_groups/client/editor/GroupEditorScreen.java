@@ -188,8 +188,8 @@ public class GroupEditorScreen extends Screen {
 
 	private void finishEditorEntryLoad(int loadGeneration, long revision, EditorRuntimeAccess runtime,
 		Object generation, Throwable error) {
-		if (loadGeneration != editorLoadGeneration || minecraft.screen != this) return;
-		if (runtime != EditorRuntimeServices.get() || generation == null || generation != runtime.previewGeneration()) {
+		if (!minecraft.isRunning() || loadGeneration != editorLoadGeneration || minecraft.screen != this) return;
+		if (runtime != EditorRuntimeServices.find().orElse(null) || generation == null || generation != runtime.previewGeneration()) {
 			editorDataLoading = false;
 			editorPreviewGeneration = new Object();
 			return;
@@ -303,7 +303,10 @@ public class GroupEditorScreen extends Screen {
 		previewCache.clear();
 		itemSearchSession.clear();
 		state.itemSelection.clearCache();
-		EditorRuntimeServices.get().closeEditor();
+		if (previewRuntime != null) previewRuntime.closeEditor();
+		EditorRuntimeServices.find().filter(runtime -> runtime != previewRuntime)
+			.ifPresent(EditorRuntimeAccess::closeEditor);
+		previewRuntime = null;
 		super.removed();
 	}
 
@@ -319,6 +322,7 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+		if (!minecraft.isRunning()) return;
 		var frame = performanceTrace.beginFrame(activeMode.name(), rightPanel.groupItems().size(),
 			minecraft.isWindowActive());
 		try {

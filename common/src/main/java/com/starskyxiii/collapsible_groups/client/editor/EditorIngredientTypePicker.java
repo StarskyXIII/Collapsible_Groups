@@ -42,7 +42,8 @@ final class EditorIngredientTypePicker {
 	}
 
 	private boolean refresh() {
-		if (!selection.update(EditorRuntimeServices.get().ingredientTypes())) return false;
+		if (!selection.update(EditorRuntimeServices.find().map(EditorRuntimeAccess::ingredientTypes)
+			.orElse(EditorIngredientTypes.UNAVAILABLE))) return false;
 		offset = 0;
 		lastClicked = null;
 		dragging = false;
