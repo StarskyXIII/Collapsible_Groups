@@ -122,6 +122,7 @@ final class EditorStateCore {
 		GroupFilter previewFilter;
 		if (currentFilter.isEmpty()) {
 			previewFilter = EMPTY_PREVIEW_FILTER;
+			lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
 		} else {
 			previewFilter = currentFilter
 				.filter(filter -> validationErrors(currentFilter).isEmpty())

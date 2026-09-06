@@ -20,6 +20,62 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorStateCoreTest {
 	@Test
+	void deletingLastTagClearsFallbackBeforeOpeningAnotherPicker() {
+		for (String nextType : List.of("item", "fluid", "emi:mekanism_chemical")) {
+			EditorStateCore core = new EditorStateCore(null, () -> {});
+			GroupFilter empty = core.buildPreviewDefinition(null, "", true).filter();
+			var tag = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+			tag.setIngredientType("emi:mekanism_chemical");
+			tag.setPrimaryValue("mekanism:clean");
+			core.commitPendingRuleNode();
+			assertEquals(Filters.tag("emi:mekanism_chemical", "mekanism:clean"),
+				core.buildPreviewDefinition(null, "", true).filter());
+			core.deleteSelectedRule();
+			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
+			var pending = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+			pending.setIngredientType(nextType);
+			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter(), nextType);
+			core.cancelPendingRuleNode();
+			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
+		}
+	}
+
+	@Test
+	void incompleteEditStillKeepsCurrentValidPreview() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		var tag = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.TAG);
+		tag.setIngredientType("emi:mekanism_chemical");
+		tag.setPrimaryValue("mekanism:clean");
+		GroupFilter valid = core.buildPreviewDefinition(null, "", true).filter();
+		tag.setPrimaryValue("");
+		assertEquals(valid, core.buildPreviewDefinition(null, "", true).filter());
+	}
+
+	@Test
+	void deletingLastCompoundChildClearsFallbackBeforeAnotherPendingRule() {
+		for (var kind : List.of(GroupFilterRuleDraft.NodeKind.ALL, GroupFilterRuleDraft.NodeKind.ANY,
+			GroupFilterRuleDraft.NodeKind.NOT)) {
+			EditorStateCore core = new EditorStateCore(null, () -> {});
+			GroupFilter empty = core.buildPreviewDefinition(null, "", true).filter();
+			var tag = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.TAG);
+			tag.setIngredientType("emi:mekanism_chemical");
+			tag.setPrimaryValue("mekanism:clean");
+			var parent = core.wrapSelectedRule(kind);
+			core.buildPreviewDefinition(null, "", true);
+			core.selectRuleNode(tag);
+			core.deleteSelectedRule();
+			assertTrue(parent.children().isEmpty());
+			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
+			core.selectRuleNode(parent);
+			var pending = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+			pending.setIngredientType("fluid");
+			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter(), kind.name());
+			core.cancelPendingRuleNode();
+			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
+		}
+	}
+
+	@Test
 	void stableLargeExactDraftReusesValidation() {
 		List<GroupFilter> filters = java.util.stream.IntStream.range(0, 6165)
 			.<GroupFilter>mapToObj(i -> new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\",\"count\":" + (i + 1) + "}"))
