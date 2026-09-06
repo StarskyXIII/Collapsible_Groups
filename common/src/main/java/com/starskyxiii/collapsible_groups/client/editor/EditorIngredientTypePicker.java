@@ -32,7 +32,9 @@ final class EditorIngredientTypePicker {
 		this.bounds = bounds;
 		this.confirm = confirm;
 		this.cancel = cancel;
-		search = new EditBox(font, bounds.x() + 10, bounds.y() + 23, bounds.width() - 20, 16, Component.empty());
+		var rect = searchRect();
+		search = new EditBox(font, rect.x() + 4, rect.y() + (rect.height() - font.lineHeight) / 2,
+			rect.width() - 8, font.lineHeight, Component.empty());
 		search.setBordered(false);
 		search.setMaxLength(512);
 		search.setHint(Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH));
@@ -50,7 +52,8 @@ final class EditorIngredientTypePicker {
 		return true;
 	}
 
-	private EditorChrome.Rect list() { return new EditorChrome.Rect(bounds.x() + 6, bounds.y() + 44, bounds.width() - 22, Math.max(16, bounds.height() - 76)); }
+	private EditorChrome.Rect searchRect() { return new EditorChrome.Rect(bounds.x() + 6, bounds.y() + 19, bounds.width() - 12, 14); }
+	private EditorChrome.Rect list() { return new EditorChrome.Rect(bounds.x() + 6, searchRect().bottom() + 3, bounds.width() - 22, Math.max(16, back().y() - searchRect().bottom() - 9)); }
 	private EditorChrome.Rect ok() { return new EditorChrome.Rect(bounds.right() - 62, bounds.bottom() - 26, 56, 20); }
 	private EditorChrome.Rect back() { return new EditorChrome.Rect(bounds.right() - 124, bounds.bottom() - 26, 56, 20); }
 	private int maxOffset() { return Math.max(0, selection.rows().size() * 18 - list().height()); }
@@ -60,7 +63,8 @@ final class EditorIngredientTypePicker {
 		refresh();
 		UiSkinRenderer.drawPanel(g, bounds.x(), bounds.y(), bounds.width(), bounds.height());
 		g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_TYPE_TITLE), bounds.x() + 6, bounds.y() + 6, UiPalette.TEXT_PRIMARY, false);
-		UiSkinRenderer.drawOutline(g, bounds.x() + 6, bounds.y() + 19, bounds.width() - 12, 22,
+		var searchBounds = searchRect();
+		UiSkinRenderer.drawOutline(g, searchBounds.x(), searchBounds.y(), searchBounds.width(), searchBounds.height(),
 			focus == 0 ? UiPalette.OUTLINE_SELECTED : UiPalette.OUTLINE_DARK);
 		search.render(g, mx, my, 0);
 		var list = list();
@@ -103,7 +107,12 @@ final class EditorIngredientTypePicker {
 		if (refresh()) return true;
 		if (!bounds.contains(mx, my) || back().contains(mx, my)) { cancel.run(); return true; }
 		if (ok().contains(mx, my)) { accept(); return true; }
-		if (my >= bounds.y() + 19 && my < bounds.y() + 41) { focus(0); search.mouseClicked(mx, my, 0); return true; }
+		if (searchRect().contains(mx, my)) {
+			focus(0);
+			search.mouseClicked(Math.max(search.getX(), Math.min(search.getX() + search.getWidth() - 1, mx)),
+				Math.max(search.getY(), Math.min(search.getY() + search.getHeight() - 1, my)), 0);
+			return true;
+		}
 		var list = list();
 		if (mx >= list.right() && mx < bounds.right() - 6 && my >= list.y() && my < list.bottom()) {
 			offset = ScrollbarHelper.trackClickToOffset(my, list.y(), list.height(), selection.rows().size() * 18, list.height(), offset);
