@@ -20,6 +20,24 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorStateCoreTest {
 	@Test
+	void deletingGenericIdDoesNotRestoreItWhileAnotherIdPickerIsPending() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		GroupFilter empty = core.buildPreviewDefinition(null, "", true).filter();
+		var id = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.ID);
+		id.setIngredientType("emi:mekanism_chemical");
+		id.setPrimaryValue("mekanism:oxygen");
+		assertEquals(Filters.id("emi:mekanism_chemical", "mekanism:oxygen"),
+			core.buildPreviewDefinition(null, "", true).filter());
+		core.deleteSelectedRule();
+		assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
+		var pending = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.ID);
+		pending.setIngredientType("emi:mekanism_chemical");
+		assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
+		core.cancelPendingRuleNode();
+		assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
+	}
+
+	@Test
 	void deletingLastTagClearsFallbackBeforeOpeningAnotherPicker() {
 		for (String nextType : List.of("item", "fluid", "emi:mekanism_chemical")) {
 			EditorStateCore core = new EditorStateCore(null, () -> {});

@@ -151,4 +151,49 @@ class EditorIdCatalogTest {
 			assertEquals(status, catalog.snapshot(generation, "missing").status());
 		}
 	}
+
+	@Test void replacingGenerationDiscardsThePendingCursor() {
+		AtomicInteger oldCalls = new AtomicInteger();
+		update(IntStream.range(0, 100).<Supplier<String>>mapToObj(i -> () -> {
+			oldCalls.incrementAndGet(); return "old:" + i;
+		}).toList());
+		Object next = new Object();
+		catalog.update(next, "chemical", EditorIngredientIds.Status.READY,
+			() -> List.<Supplier<String>>of(() -> "new:oxygen").iterator(), () -> true);
+		assertEquals(16, oldCalls.get());
+		assertEquals(List.of("new:oxygen"), catalog.snapshot(next, "chemical").ids());
+		assertSame(EditorIngredientIds.UNAVAILABLE, catalog.snapshot(generation, "chemical"));
+	}
+
+	@Test void largeVariantCatalogIsBatchedAndReopeningUsesOnlyCompletedStrings() {
+		for (int limit : List.of(16, 256)) {
+			var measured = new EditorIdCatalog(limit);
+			AtomicInteger calls = new AtomicInteger();
+			List<Supplier<String>> sources = IntStream.range(0, 10000).<Supplier<String>>mapToObj(i -> () -> {
+				calls.incrementAndGet(); return "test:ingredient/" + i / 2;
+			}).toList();
+			int ticks = 0;
+			long total = 0;
+			long longest = 0;
+			do {
+				int before = calls.get();
+				long started = System.nanoTime();
+				measured.update(generation, "chemical", EditorIngredientIds.Status.READY, sources::iterator, () -> true);
+				long elapsed = System.nanoTime() - started;
+				total += elapsed;
+				longest = Math.max(longest, elapsed);
+				assertTrue(calls.get() - before <= limit);
+				assertTrue(++ticks < 10000);
+			} while (measured.snapshot(generation, "chemical").status() == EditorIngredientIds.Status.PENDING);
+			var result = measured.snapshot(generation, "chemical");
+			assertEquals(10000, calls.get());
+			assertEquals(5000, result.ids().size());
+			measured.cancel();
+			measured.update(generation, "chemical", EditorIngredientIds.Status.READY,
+				() -> { fail("completed cache rescanned"); return null; }, () -> true);
+			assertSame(result, measured.snapshot(generation, "chemical"));
+			System.out.printf("ID catalog 10k variants / 5k IDs: limit=%d ticks=%d total=%.3fms maxUpdate=%.3fms%n",
+				limit, ticks, total / 1e6, longest / 1e6);
+		}
+	}
 }
