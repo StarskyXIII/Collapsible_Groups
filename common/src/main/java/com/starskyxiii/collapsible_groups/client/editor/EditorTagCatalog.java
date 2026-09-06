@@ -74,10 +74,10 @@ public final class EditorTagCatalog {
 				} else {
 					advancing = true;
 					if (!active.exhausted && active.sources.hasNext()) {
-						calls++;
 						Source source = active.sources.next();
 						advancing = false;
 						if (source.identity() != null && !active.seen.add(source.identity())) continue;
+						calls++;
 						active.stream = source.tags().get();
 						if (job != active) { active.closeStream(); return; }
 						if (!valid.getAsBoolean()) { clear(); return; }
@@ -94,6 +94,8 @@ public final class EditorTagCatalog {
 						cancel();
 						snapshot = next;
 						completed = true;
+						if (active.failures > 0) com.starskyxiii.collapsible_groups.Constants.LOG.debug(
+							"Tag catalog for {} retained {} tags with {} source errors", requested, next.tags().size(), active.failures);
 						return;
 					}
 				}

@@ -42,6 +42,7 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	private final EditorTagCatalog tagCatalog = new EditorTagCatalog();
 
 	@Override public void updateIngredientTags(String requested) {
+		long started = beginTrace();
 		var context = JeiViewerGroupIndex.instance().readyGenerationSnapshot()
 			.map(JeiViewerGroupIndex.Generation::projectionContext).orElse(null);
 		var type = context == null ? null : context.types().stream()
@@ -55,6 +56,7 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 					? ingredientTagStream(context.manager(), ingredient.entry()) : null)).iterator(),
 			() -> JeiViewerGroupIndex.instance().readyGenerationSnapshot()
 				.map(value -> value.projectionContext() == context).orElse(false));
+		logIfSlow("editor.tags", started, 50, requested);
 	}
 
 	private static <T> java.util.stream.Stream<String> ingredientTagStream(
@@ -86,7 +88,12 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 			.map(context -> (Object) context.universe()).orElse(null);
 	}
 
-	@Override public void closeEditor() { renderCache.clear(); typeCache.clear(); tagCatalog.clear(); }
+	@Override public void closeEditor() {
+		renderCache.clear();
+		typeCache.clear();
+		var client = net.minecraft.client.Minecraft.getInstance();
+		if (client == null || client.isSameThread()) tagCatalog.clear(); else client.execute(tagCatalog::clear);
+	}
 	@Override
 	public List<ItemStack> allItems() {
 		return List.copyOf(EditorItemUniverseProvider.INSTANCE.allStacks());

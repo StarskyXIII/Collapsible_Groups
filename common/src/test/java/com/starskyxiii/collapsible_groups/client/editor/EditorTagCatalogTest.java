@@ -197,4 +197,46 @@ class EditorTagCatalogTest {
 		assertEquals(EditorIngredientTags.Status.PENDING, catalog.snapshot(null, "chemical").status());
 		assertTrue(catalog.snapshot(null, "chemical").tags().isEmpty());
 	}
+
+	@Test void sharedSourcesDoNotConsumeHelperBudget() {
+		AtomicInteger calls = new AtomicInteger();
+		Object shared = new Object();
+		var sources = IntStream.range(0, 100).mapToObj(i -> new EditorTagCatalog.Source(shared,
+			() -> { calls.incrementAndGet(); return Stream.of("c:a"); })).toList();
+		update(sources);
+		assertEquals(1, calls.get());
+		assertEquals(EditorIngredientTags.Status.READY, catalog.snapshot(generation, "chemical").status());
+	}
+
+	@Test void largeSharedCatalogRemainsIncrementalAndReopensWithoutRescanning() {
+		var measured = new EditorTagCatalog();
+		Object shared = new Object();
+		AtomicInteger calls = new AtomicInteger();
+		AtomicInteger closes = new AtomicInteger();
+		var sources = IntStream.range(0, 10000).mapToObj(i -> new EditorTagCatalog.Source(shared,
+			() -> { calls.incrementAndGet(); return IntStream.range(0, 10000).mapToObj(tag -> "c:tag/" + tag)
+				.onClose(closes::incrementAndGet); })).toList();
+		int ticks = 0;
+		long longest = 0;
+		long total = 0;
+		do {
+			long started = System.nanoTime();
+			measured.update(generation, "chemical", EditorIngredientTags.Status.READY, EditorIngredientTags.Coverage.REGISTRY_BACKED,
+				sources::iterator, () -> true);
+			long elapsed = System.nanoTime() - started;
+			total += elapsed;
+			longest = Math.max(longest, elapsed);
+			assertTrue(++ticks < 10000);
+		} while (measured.snapshot(generation, "chemical").status() == EditorIngredientTags.Status.PENDING);
+		var snapshot = measured.snapshot(generation, "chemical");
+		assertEquals(10000, snapshot.tags().size());
+		assertTrue(ticks > 1);
+		assertEquals(1, calls.get());
+		assertEquals(1, closes.get());
+		measured.cancel();
+		measured.update(generation, "chemical", EditorIngredientTags.Status.READY, EditorIngredientTags.Coverage.REGISTRY_BACKED,
+			() -> { fail("cached result rescanned"); return null; }, () -> true);
+		assertSame(snapshot, measured.snapshot(generation, "chemical"));
+		System.out.printf("10k shared sources / 10k tags: ticks=%d total=%.3fms maxUpdate=%.3fms%n", ticks, total / 1e6, longest / 1e6);
+	}
 }

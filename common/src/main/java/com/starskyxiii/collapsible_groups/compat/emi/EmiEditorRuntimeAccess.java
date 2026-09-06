@@ -58,6 +58,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	private final EditorTagCatalog tagCatalog = new EditorTagCatalog();
 
 	@Override public void updateIngredientTags(String requested) {
+		long started = beginTrace();
 		var generation = index.readyGenerationSnapshot();
 		var universe = generation.map(value -> value.universe()).orElse(null);
 		var types = universe == null ? null : adapter.editorIngredientTypes(universe);
@@ -74,6 +75,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 					() -> tags.available() ? tags.existing().stream().map(ResourceLocation::toString) : null);
 			}).iterator(),
 			() -> index.readyGenerationSnapshot().map(value -> value.universe() == universe).orElse(false));
+		logIfSlow("editor.tags", started, 50, requested);
 	}
 
 	@Override public EditorIngredientTags ingredientTags(String requested) {
@@ -280,7 +282,8 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	@Override public synchronized void closeEditor() {
-		tagCatalog.clear();
+		var client = net.minecraft.client.Minecraft.getInstance();
+		if (client == null || client.isSameThread()) tagCatalog.clear(); else client.execute(tagCatalog::clear);
 		typeCache.clear();
 		tagGeneration = null;
 		tagSummaries = Map.of();
