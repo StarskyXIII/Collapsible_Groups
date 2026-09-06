@@ -25,10 +25,12 @@ public final class CompiledFilter {
 
 	private final GroupFilter source;
 	private final CompiledNode root;
+	private final FilterTypeScope candidateTypes;
 
 	private CompiledFilter(GroupFilter source, CompiledNode root) {
 		this.source = source;
 		this.root = root;
+		this.candidateTypes = FilterTypeScope.candidates(source);
 	}
 
 	public static CompiledFilter compile(GroupFilter filter) {
@@ -47,11 +49,15 @@ public final class CompiledFilter {
 		return source;
 	}
 
+	public FilterTypeScope candidateTypes() {
+		return candidateTypes;
+	}
+
 	private static CompiledNode compileNode(GroupFilter filter) {
 		return switch (filter) {
 			case GroupFilter.Any any -> compileAny(any);
 			case GroupFilter.All all -> new AllNode(all.children().stream().map(CompiledFilter::compileNode).toList());
-			case GroupFilter.Not not -> new NotNode(compileNode(not.child()));
+			case GroupFilter.Not not -> new NotNode(compileNode(not.child()), FilterTypeScope.declared(not.child()));
 			case GroupFilter.Id id -> new IdNode(canonicalType(id.ingredientType()), ResourceLocation.parse(id.id()));
 			case GroupFilter.Tag tag -> new TagNode(canonicalType(tag.ingredientType()), ResourceLocation.parse(tag.tag()));
 			case GroupFilter.BlockTag blockTag -> new BlockTagNode(ResourceLocation.parse(blockTag.tag()));
@@ -161,9 +167,11 @@ public final class CompiledFilter {
 		}
 	}
 
-	private record NotNode(CompiledNode child) implements CompiledNode {
+	private record NotNode(CompiledNode child, FilterTypeScope domain) implements CompiledNode {
 		@Override
 		public Evaluation evaluate(IngredientView view) {
+			if (domain.isEmpty()) return Evaluation.UNAVAILABLE;
+			if (!domain.contains(view.ingredientType())) return Evaluation.NO_MATCH;
 			return switch (child.evaluate(view)) {
 				case MATCH -> Evaluation.NO_MATCH;
 				case NO_MATCH -> Evaluation.MATCH;

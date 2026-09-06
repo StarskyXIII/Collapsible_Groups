@@ -26,6 +26,11 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ExactItemPreviewIndexTest {
+	@Test void nonItemNegationDoesNotScanItemCandidates() {
+		var index = new ExactItemPreviewIndex(List.of(new ItemStack(Items.STONE), new ItemStack(Items.DIRT)));
+		assertEquals(List.of(), index.resolve(new GroupFilter.Not(new GroupFilter.Tag("fluid", "test:missing")), context));
+		assertEquals(0, index.leafEvaluations());
+	}
 	@Test void invalidIdKeepsReferenceParseFailure() {
 		var filter = new GroupFilter.Id("item", "invalid ID");
 		var index = new ExactItemPreviewIndex(List.of(new ItemStack(Items.STONE)));

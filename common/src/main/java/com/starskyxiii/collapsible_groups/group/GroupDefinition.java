@@ -14,7 +14,6 @@ import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Predicate;
 
 /**
  * Immutable definition of a collapsible ingredient group: ID, display name, enabled state, filter, icons, theme, priority, and extra metadata.
@@ -182,18 +181,15 @@ public final class GroupDefinition {
 	}
 
 	public boolean hasItemFilters() {
-		return hasFilterForType("item");
+		return compiledFilter.candidateTypes().contains("item");
 	}
 
 	public boolean hasFluidFilters() {
-		return hasFilterForType("fluid");
+		return compiledFilter.candidateTypes().contains("fluid");
 	}
 
 	public boolean hasGenericFilters() {
-		return hasAtomicNodeMatching(filter, node -> {
-			String type = atomicType(node);
-			return type != null && !"item".equals(type) && !"fluid".equals(type);
-		});
+		return compiledFilter.candidateTypes().containsGeneric();
 	}
 
 	public GroupDefinition withEnabled(boolean enabled) {
@@ -234,35 +230,6 @@ public final class GroupDefinition {
 
 	public boolean isStructurallyEditable() {
 		return !hasUnavailableFilter() && GroupFilterEditorDraft.decode(filter).structurallyEditable();
-	}
-
-	private boolean hasFilterForType(String type) {
-		return hasAtomicNodeMatching(filter, node -> type.equals(atomicType(node)));
-	}
-
-	private static boolean hasAtomicNodeMatching(GroupFilter filter, Predicate<GroupFilter> test) {
-		return switch (filter) {
-			case GroupFilter.Any any -> any.children().stream().anyMatch(child -> hasAtomicNodeMatching(child, test));
-			case GroupFilter.All all -> all.children().stream().anyMatch(child -> hasAtomicNodeMatching(child, test));
-			case GroupFilter.Not not -> hasAtomicNodeMatching(not.child(), test);
-			default -> test.test(filter);
-		};
-	}
-
-	private static String atomicType(GroupFilter node) {
-		return switch (node) {
-			case GroupFilter.Id id -> id.ingredientType();
-			case GroupFilter.Tag tag -> tag.ingredientType();
-			case GroupFilter.BlockTag ignored -> "item";
-			case GroupFilter.ItemPathStartsWith ignored -> "item";
-			case GroupFilter.ItemPathContains ignored -> "item";
-			case GroupFilter.ItemPathEndsWith ignored -> "item";
-			case GroupFilter.Namespace namespace -> namespace.ingredientType();
-			case GroupFilter.ExactStack ignored -> "item";
-			case GroupFilter.HasComponent ignored -> "item";
-			case GroupFilter.ComponentPath ignored -> "item";
-			default -> null;
-		};
 	}
 
 	private static JsonObject copyExtra(JsonObject extra) {

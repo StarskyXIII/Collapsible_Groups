@@ -158,7 +158,7 @@
   "collapsible_groups.editor.rules.chip.component_path": "Component Path",
   "collapsible_groups.editor.rules.kind_desc.all": "Matches when every child condition matches",
   "collapsible_groups.editor.rules.kind_desc.any": "Matches when any child condition matches",
-  "collapsible_groups.editor.rules.kind_desc.not": "Inverts the result of its child condition",
+  "collapsible_groups.editor.rules.kind_desc.not": "Excludes matches within the ingredient types used by its child condition",
   "collapsible_groups.editor.rules.kind_desc.id": "Match a single entry by exact ID",
   "collapsible_groups.editor.rules.kind_desc.tag": "Match every entry in a tag",
   "collapsible_groups.editor.rules.kind_desc.block_tag": "Match block items for a block tag",

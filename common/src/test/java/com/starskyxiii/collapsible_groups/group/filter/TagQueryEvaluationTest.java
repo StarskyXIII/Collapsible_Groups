@@ -58,7 +58,7 @@ class TagQueryEvaluationTest {
 		};
 		GroupFilter other = new GroupFilter.Tag("fluid", "test:tag");
 		assertResult(other, view, CompiledFilter.Evaluation.NO_MATCH);
-		assertResult(new GroupFilter.Not(other), view, CompiledFilter.Evaluation.MATCH);
+		assertResult(new GroupFilter.Not(other), view, CompiledFilter.Evaluation.NO_MATCH);
 	}
 
 	@Test

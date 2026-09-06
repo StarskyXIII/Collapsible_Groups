@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.client.editor;
 
 import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.FilterTypeScope;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
@@ -71,6 +72,9 @@ public final class ExactItemPreviewIndex {
 			return new Result(matches, new BitSet());
 		}
 		if (filter instanceof GroupFilter.Not not) {
+			FilterTypeScope domain = FilterTypeScope.declared(not.child());
+			if (domain.isEmpty()) return new Result(new BitSet(), all());
+			if (!domain.contains("item")) return new Result(new BitSet(), new BitSet());
 			Result child = evaluate(not.child(), context);
 			BitSet matches = all();
 			matches.andNot(child.matches());

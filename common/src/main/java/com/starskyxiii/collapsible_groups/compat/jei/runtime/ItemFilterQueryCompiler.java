@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.FilterTypeScope;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterNormalizer;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import net.minecraft.core.registries.BuiltInRegistries;
@@ -114,12 +115,7 @@ public final class ItemFilterQueryCompiler {
 	}
 
 	private static ItemQueryPlan compileNot(GroupFilter child) {
-		return switch (compileNormalized(child)) {
-			case EmptyPlan ignored -> ALL_ITEMS;
-			case AllItemsPlan ignored -> EMPTY;
-			case CandidatePlan ignored -> FULL_SCAN;
-			case FullScanPlan ignored -> FULL_SCAN;
-		};
+		return FilterTypeScope.declared(child).contains("item") ? FULL_SCAN : EMPTY;
 	}
 
 	private static ItemQueryPlan compileId(GroupFilter.Id id) {

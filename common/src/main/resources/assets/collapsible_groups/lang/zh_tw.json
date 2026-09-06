@@ -158,7 +158,7 @@
   "collapsible_groups.editor.rules.chip.component_path": "元件路徑",
   "collapsible_groups.editor.rules.kind_desc.all": "所有子條件都符合才算符合",
   "collapsible_groups.editor.rules.kind_desc.any": "任一子條件符合即算符合",
-  "collapsible_groups.editor.rules.kind_desc.not": "反轉子條件的結果",
+  "collapsible_groups.editor.rules.kind_desc.not": "在子條件所使用的素材類型內排除符合的項目",
   "collapsible_groups.editor.rules.kind_desc.id": "以完整 ID 精確比對單一項目",
   "collapsible_groups.editor.rules.kind_desc.tag": "比對標籤內的所有項目",
   "collapsible_groups.editor.rules.kind_desc.block_tag": "比對方塊標籤對應的方塊物品",

@@ -49,9 +49,6 @@ public final class GroupFilterNormalizer {
 
 	private static GroupFilter normalizeNot(GroupFilter child) {
 		GroupFilter normalizedChild = normalize(child);
-		if (normalizedChild instanceof GroupFilter.Not nested) {
-			return normalize(nested.child());
-		}
 		return new GroupFilter.Not(normalizedChild);
 	}
 }
