@@ -382,5 +382,13 @@
   "collapsible_groups.editor.rules.tag.empty": "No tags could be listed for this type",
   "collapsible_groups.editor.rules.tag.partial": "Some tags could not be read. You can enter an ID manually.",
   "collapsible_groups.editor.rules.tag.observed": "Tags provided by current ingredients; this list may be incomplete.",
-  "collapsible_groups.editor.rules.tag.registry": "Registered tags from available sources"
+  "collapsible_groups.editor.rules.tag.registry": "Registered tags from available sources",
+  "collapsible_groups.editor.rules.other_id": "Other ingredient ID",
+  "collapsible_groups.editor.rules.id.title": "Select ingredient ID",
+  "collapsible_groups.editor.rules.id.manual": "Enter ingredient ID manually",
+  "collapsible_groups.editor.rules.id.empty": "No ingredient IDs could be listed",
+  "collapsible_groups.editor.rules.id.pending": "Collecting ingredient IDs… You can also enter an ID manually.",
+  "collapsible_groups.editor.rules.id.unavailable": "Ingredient IDs unavailable. You can enter an ID manually.",
+  "collapsible_groups.editor.rules.id.partial": "Some IDs could not be listed. All variants with the same ID match.",
+  "collapsible_groups.editor.rules.id.available": "IDs from current ingredients. All variants with the same ID match."
 }

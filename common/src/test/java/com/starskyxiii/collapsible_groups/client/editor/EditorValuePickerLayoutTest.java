@@ -5,12 +5,12 @@ import org.junit.jupiter.api.Test;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
-class EditorTagPickerLayoutTest {
+class EditorValuePickerLayoutTest {
 	@Test void translatedButtonsFitWideAndNarrowViewportsWithoutOverlap() {
 		for (int width : List.of(200, 280, 360)) {
 			for (int manualWidth : List.of(90, 125, 250)) {
 				var bounds = new Rect(10, 10, width, 228);
-				var layout = EditorTagPickerLayout.create(bounds, 40, manualWidth, 45);
+				var layout = EditorValuePickerLayout.create(bounds, 40, manualWidth, 45);
 				var buttons = List.of(layout.cancel(), layout.manual(), layout.confirm());
 				for (var button : buttons) {
 					assertTrue(button.x() >= bounds.x() + 6);

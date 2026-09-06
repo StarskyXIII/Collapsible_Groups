@@ -13,13 +13,14 @@ import net.minecraft.network.chat.Component;
 import java.lang.ref.WeakReference;
 import java.util.function.Consumer;
 
-final class EditorIngredientTagPicker {
+final class EditorIngredientValuePicker {
 	private final Font font;
 	private final EditorChrome.Rect bounds;
 	private final String type;
+	private final EditorValuePickerKind kind;
 	private final EditBox search;
-	private final EditorTagSelection selection = new EditorTagSelection();
-	private final EditorTagPickerLayout footer;
+	private final EditorValueSelection selection = new EditorValueSelection();
+	private final EditorValuePickerLayout footer;
 	private final Consumer<String> confirm;
 	private final Consumer<String> manual;
 	private final Runnable cancel;
@@ -32,16 +33,17 @@ final class EditorIngredientTagPicker {
 	private double dragY;
 	private int dragOffset;
 
-	EditorIngredientTagPicker(Font font, EditorChrome.Rect bounds, String type,
+	EditorIngredientValuePicker(Font font, EditorChrome.Rect bounds, String type, EditorValuePickerKind kind,
 		Consumer<String> confirm, Consumer<String> manual, Runnable cancel) {
 		this.font = font;
 		this.bounds = bounds;
 		this.type = type;
+		this.kind = kind;
 		this.confirm = confirm;
 		this.manual = manual;
 		this.cancel = cancel;
-		footer = EditorTagPickerLayout.create(bounds, font.width(Component.translatable(ModTranslationKeys.BUTTON_CANCEL)),
-			font.width(Component.translatable(ModTranslationKeys.EDITOR_RULES_TAG_MANUAL)),
+		footer = EditorValuePickerLayout.create(bounds, font.width(Component.translatable(ModTranslationKeys.BUTTON_CANCEL)),
+			font.width(Component.translatable(kind.manualKey)),
 			font.width(Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM)));
 		var rect = searchRect();
 		search = new EditBox(font, rect.x() + 4, rect.y() + (rect.height() - font.lineHeight) / 2,
@@ -58,21 +60,21 @@ final class EditorIngredientTagPicker {
 		var next = EditorRuntimeServices.find().orElse(null);
 		var previous = runtime.get();
 		if (next != previous) {
-			if (previous != null) previous.cancelIngredientTags();
+			if (previous != null) kind.cancel(previous);
 			runtime = new WeakReference<>(next);
 		}
-		if (next != null) next.updateIngredientTags(type);
+		if (next != null) kind.update(next, type);
 		refresh();
 	}
 
 	void close() {
 		var previous = runtime.get();
-		if (previous != null) previous.cancelIngredientTags();
+		if (previous != null) kind.cancel(previous);
 		runtime.clear();
 	}
 
 	private boolean refresh() {
-		var next = EditorRuntimeServices.find().map(value -> value.ingredientTags(type)).orElse(EditorIngredientTags.UNAVAILABLE);
+		var next = kind.snapshot(EditorRuntimeServices.find().orElse(null), type);
 		if (!selection.update(next)) return false;
 		offset = 0;
 		lastClicked = null;
@@ -86,29 +88,17 @@ final class EditorIngredientTagPicker {
 		return new EditorChrome.Rect(bounds.x() + 6, top, bounds.width() - 22, Math.max(0, footer.top() - top - 6));
 	}
 	private int maxOffset() { return Math.max(0, selection.rows().size() * 18 - list().height()); }
-	private boolean canConfirm() { return selection.catalog().status() == EditorIngredientTags.Status.READY && selection.selected() != null; }
-
-	private String statusKey() {
-		var catalog = selection.catalog();
-		return switch (catalog.status()) {
-			case PENDING -> ModTranslationKeys.EDITOR_RULES_TAG_PENDING;
-			case UNAVAILABLE -> ModTranslationKeys.EDITOR_RULES_TAG_UNAVAILABLE;
-			case TYPE_MISSING -> ModTranslationKeys.EDITOR_RULES_TYPE_MISSING;
-			case READY -> catalog.partial() ? ModTranslationKeys.EDITOR_RULES_TAG_PARTIAL
-				: catalog.coverage() == EditorIngredientTags.Coverage.OBSERVED_ONLY
-					? ModTranslationKeys.EDITOR_RULES_TAG_OBSERVED : ModTranslationKeys.EDITOR_RULES_TAG_REGISTRY;
-		};
-	}
+	private boolean canConfirm() { return selection.catalog().ready() && selection.selected() != null; }
 
 	void render(GuiGraphics g, int mx, int my) {
 		refresh();
 		UiSkinRenderer.drawPanel(g, bounds.x(), bounds.y(), bounds.width(), bounds.height());
-		g.drawString(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_TAG_TITLE), bounds.x() + 6, bounds.y() + 6, UiPalette.TEXT_PRIMARY, false);
+		g.drawString(font, Component.translatable(kind.titleKey), bounds.x() + 6, bounds.y() + 6, UiPalette.TEXT_PRIMARY, false);
 		g.drawString(font, font.plainSubstrByWidth(type, bounds.width() - 12), bounds.x() + 6, bounds.y() + 19, UiPalette.TEXT_MUTED, false);
 		var rect = searchRect();
 		UiSkinRenderer.drawOutline(g, rect.x(), rect.y(), rect.width(), rect.height(), focus == 0 ? UiPalette.OUTLINE_SELECTED : UiPalette.OUTLINE_DARK);
 		search.render(g, mx, my, 0);
-		var message = Component.translatable(statusKey());
+		var message = Component.translatable(selection.catalog().statusKey());
 		var lines = font.split(message, bounds.width() - 12);
 		for (int i = 0; i < Math.min(2, lines.size()); i++)
 			g.drawString(font, lines.get(i), bounds.x() + 6, rect.bottom() + 4 + i * font.lineHeight, UiPalette.TEXT_MUTED, false);
@@ -125,15 +115,15 @@ final class EditorIngredientTagPicker {
 				g.drawString(font, font.plainSubstrByWidth(id, list.width() - 6), list.x() + 3, y + 5, UiPalette.TEXT_PRIMARY, false);
 				if (hover) hovered = id;
 			}
-			if (selection.rows().isEmpty() && selection.catalog().status() == EditorIngredientTags.Status.READY)
-				g.drawWordWrap(font, Component.translatable(selection.catalog().tags().isEmpty()
-					? ModTranslationKeys.EDITOR_RULES_TAG_EMPTY : ModTranslationKeys.EDITOR_RULES_PICKER_EMPTY),
+			if (selection.rows().isEmpty() && selection.catalog().ready())
+				g.drawWordWrap(font, Component.translatable(selection.catalog().values().isEmpty()
+					? kind.emptyKey : ModTranslationKeys.EDITOR_RULES_PICKER_EMPTY),
 					list.x() + 3, list.y() + 5, list.width() - 6, UiPalette.TEXT_MUTED);
 		} finally { g.disableScissor(); }
 		if (focus == 1) UiSkinRenderer.drawOutline(g, list.x(), list.y(), list.width(), list.height(), UiPalette.OUTLINE_SELECTED);
 		ScrollbarHelper.renderPixels(g, list.right() + ScrollbarHelper.GAP, list.y(), list.height(), list.height(), selection.rows().size() * 18, offset);
 		button(g, footer.cancel(), ModTranslationKeys.BUTTON_CANCEL, true, focus == 2, mx, my);
-		button(g, footer.manual(), ModTranslationKeys.EDITOR_RULES_TAG_MANUAL, true, focus == 3, mx, my);
+		button(g, footer.manual(), kind.manualKey, true, focus == 3, mx, my);
 		button(g, footer.confirm(), ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM, canConfirm(), focus == 4, mx, my);
 		if (hovered != null) g.renderTooltip(font, font.split(Component.literal(hovered), Math.max(100, bounds.width())), mx, my);
 		else if (mx >= bounds.x() + 6 && mx < bounds.right() - 6) {

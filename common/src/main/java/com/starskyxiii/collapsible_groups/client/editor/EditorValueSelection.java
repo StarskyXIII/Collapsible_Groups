@@ -3,14 +3,14 @@ package com.starskyxiii.collapsible_groups.client.editor;
 import java.util.List;
 import java.util.Locale;
 
-final class EditorTagSelection {
-	private EditorIngredientTags catalog = EditorIngredientTags.UNAVAILABLE;
+final class EditorValueSelection {
+	private EditorValuePickerKind.Snapshot catalog = EditorValuePickerKind.TAG.snapshot(null, "");
 	private List<String> rows = List.of();
 	private String query = "";
 	private String selected;
 
-	boolean update(EditorIngredientTags next) {
-		if (catalog.token() == next.token()) return false;
+	boolean update(EditorValuePickerKind.Snapshot next) {
+		if (catalog.kind() == next.kind() && catalog.token() == next.token()) return false;
 		catalog = next;
 		selected = null;
 		filter();
@@ -25,11 +25,11 @@ final class EditorTagSelection {
 
 	private void filter() {
 		String needle = query.toLowerCase(Locale.ROOT);
-		rows = catalog.status() == EditorIngredientTags.Status.READY
-			? catalog.tags().stream().filter(tag -> tag.toLowerCase(Locale.ROOT).contains(needle)).toList() : List.of();
+		rows = catalog.ready()
+			? catalog.values().stream().filter(value -> value.toLowerCase(Locale.ROOT).contains(needle)).toList() : List.of();
 	}
 
-	EditorIngredientTags catalog() { return catalog; }
+	EditorValuePickerKind.Snapshot catalog() { return catalog; }
 	List<String> rows() { return rows; }
 	String selected() { return selected; }
 	int selectedIndex() { return selected == null ? -1 : rows.indexOf(selected); }

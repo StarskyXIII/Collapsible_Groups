@@ -10,7 +10,7 @@ import java.lang.reflect.Proxy;
 import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
-class EditorTagPickerTransactionTest {
+class EditorValuePickerTransactionTest {
 	private final EditorStateCore core = new EditorStateCore(null, () -> {});
 	private final EditorRulesState state = (EditorRulesState) Proxy.newProxyInstance(EditorRulesState.class.getClassLoader(),
 		new Class<?>[] {EditorRulesState.class}, (proxy, method, args) -> {
@@ -35,7 +35,8 @@ class EditorTagPickerTransactionTest {
 	private void modal(String name) throws Exception {
 		var field = EditorRulesPanel.class.getDeclaredField("modal");
 		field.setAccessible(true);
-		for (var kind : field.getType().getEnumConstants()) if (kind.toString().equals(name)) field.set(panel, kind);
+		field.set(panel, java.util.Arrays.stream(field.getType().getEnumConstants())
+			.filter(kind -> kind.toString().equals(name)).findFirst().orElseThrow());
 	}
 
 	private void edit(GroupFilterRuleDraft.Node node, boolean isNew) throws Exception {
@@ -45,10 +46,10 @@ class EditorTagPickerTransactionTest {
 		field("snapPrimary", node.primaryValue());
 		field("snapSecondary", node.secondaryValue());
 		field("snapTertiary", node.tertiaryValue());
-		modal("TAG_PICKER");
+		modal("VALUE_PICKER");
 	}
 
-	private void setTag(String value) throws Exception {
+	private void setValue(String value) throws Exception {
 		var method = EditorRulesPanel.class.getDeclaredMethod("setFormFieldValue", RuleFieldRole.class, String.class);
 		method.setAccessible(true);
 		method.invoke(panel, RuleFieldRole.PRIMARY_VALUE, value);
@@ -56,15 +57,17 @@ class EditorTagPickerTransactionTest {
 
 	@ParameterizedTest
 	@EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"ALL", "ANY", "NOT"})
-	void pendingTagCancelAndConfirmRespectParent(GroupFilterRuleDraft.NodeKind kind) throws Exception {
+	void pendingValueCancelAndConfirmRespectParent(GroupFilterRuleDraft.NodeKind kind) throws Exception {
 		var parent = core.insertRuleRelative(kind);
-		var node = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+		for (var leaf : List.of(GroupFilterRuleDraft.NodeKind.TAG, GroupFilterRuleDraft.NodeKind.ID)) {
+		core.selectRuleNode(parent);
+		var node = core.insertRuleRelativePending(leaf);
 		node.setIngredientType("Mekanism.ChemicalStack");
 		edit(node, true);
 		invoke("cancelEditor");
 		assertFalse(core.hasPendingRuleNode());
 		assertTrue(parent.children().isEmpty());
-		node = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+		node = core.insertRuleRelativePending(leaf);
 		node.setIngredientType("Mekanism.ChemicalStack");
 		edit(node, true);
 		node.setPrimaryValue("mekanism:clean");
@@ -74,40 +77,46 @@ class EditorTagPickerTransactionTest {
 		assertEquals("mekanism:clean", node.primaryValue());
 		core.cancelPendingRuleNode();
 		assertEquals(List.of(node), parent.children());
+		core.selectRuleNode(node);
+		core.deleteSelectedRule();
+		}
 	}
 
-	@Test void manualDraftDoesNotCommitPendingAndCancelStillDeletesIt() throws Exception {
-		var node = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID"})
+	void manualDraftDoesNotCommitPendingAndCancelStillDeletesIt(GroupFilterRuleDraft.NodeKind kind) throws Exception {
+		var node = core.insertRuleRelativePending(kind);
 		node.setIngredientType("Mekanism.ChemicalStack");
 		edit(node, true);
 		modal("FORM");
-		setTag("c:manual");
+		setValue("c:manual");
 		assertTrue(core.hasPendingRuleNode());
 		assertEquals("Mekanism.ChemicalStack", node.ingredientType());
 		invoke("cancelEditor");
 		assertFalse(core.hasRulesRoot());
 	}
 
-	@Test void blankManualDraftCannotBeConfirmed() throws Exception {
-		var node = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID"})
+	void blankManualDraftCannotBeConfirmed(GroupFilterRuleDraft.NodeKind kind) throws Exception {
+		var node = core.insertRuleRelativePending(kind);
 		node.setIngredientType("Mekanism.ChemicalStack");
 		edit(node, true);
 		modal("FORM");
-		setTag(" ");
+		setValue(" ");
 		invoke("confirmEditor");
 		assertTrue(core.hasPendingRuleNode());
 		assertTrue(panel.isModalOpen());
 	}
 
-	@Test void childTagSelectionDoesNotReplaceOriginalCancelSnapshot() throws Exception {
-		var node = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.TAG);
+	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID"})
+	void childSelectionDoesNotReplaceOriginalCancelSnapshot(GroupFilterRuleDraft.NodeKind kind) throws Exception {
+		var node = core.insertRuleRelative(kind);
 		node.setIngredientType("missing:original");
 		node.setPrimaryValue("c:unavailable");
 		node.setSecondaryValue("exact secondary");
 		node.setTertiaryValue("exact tertiary");
 		edit(node, false);
 		node.setIngredientType("Mekanism.ChemicalStack");
-		setTag("mekanism:clean");
+		setValue("mekanism:clean");
 		assertTrue(panel.isModalOpen());
 		assertEquals("mekanism:clean", node.primaryValue());
 		invoke("cancelEditor");
@@ -117,13 +126,54 @@ class EditorTagPickerTransactionTest {
 		assertEquals("exact tertiary", node.tertiaryValue());
 	}
 
-	@Test void deactivationAbortsTagPickerPendingTransaction() throws Exception {
-		var node = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+	@ParameterizedTest @EnumSource(value = GroupFilterRuleDraft.NodeKind.class, names = {"TAG", "ID"})
+	void deactivationAbortsPendingTransaction(GroupFilterRuleDraft.NodeKind kind) throws Exception {
+		var node = core.insertRuleRelativePending(kind);
 		node.setIngredientType("Mekanism.ChemicalStack");
 		edit(node, true);
 		panel.onDeactivate();
 		assertFalse(core.hasPendingRuleNode());
 		assertFalse(core.hasRulesRoot());
 		assertFalse(panel.isModalOpen());
+	}
+
+	@Test void genericIdsUseTheGenericPickerEligibilityWhileBuiltinsKeepTheirExistingFlow() throws Exception {
+		var method = EditorRulesPanel.class.getDeclaredMethod("canChangeType");
+		method.setAccessible(true);
+		var node = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.ID);
+		edit(node, false);
+		for (String type : List.of("Mekanism.ChemicalStack", "emi:mekanism_chemical", "missing:custom")) {
+			node.setIngredientType(type);
+			assertEquals(true, method.invoke(panel));
+		}
+		for (String type : List.of("item", "fluid")) {
+			node.setIngredientType(type);
+			assertEquals(false, method.invoke(panel));
+		}
+	}
+
+	@Test void menuProvidesDistinctOtherIdAndOtherTagEntries() throws Exception {
+		var field = EditorRulesPanel.class.getDeclaredField("CONDITION_ENTRIES");
+		field.setAccessible(true);
+		java.util.ArrayList<Object> kinds = new java.util.ArrayList<>();
+		for (Object entry : (List<?>) field.get(null)) {
+			var other = entry.getClass().getDeclaredMethod("otherIngredient");
+			var kind = entry.getClass().getDeclaredMethod("kind");
+			other.setAccessible(true);
+			kind.setAccessible(true);
+			if (Boolean.TRUE.equals(other.invoke(entry))) kinds.add(kind.invoke(entry));
+		}
+		assertEquals(List.of(GroupFilterRuleDraft.NodeKind.ID, GroupFilterRuleDraft.NodeKind.TAG), kinds);
+	}
+
+	@Test void invalidManualIdRemainsSubjectToRuleValidation() throws Exception {
+		var node = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.ID);
+		node.setIngredientType("emi:mekanism_chemical");
+		edit(node, true);
+		modal("FORM");
+		setValue("Invalid ID!");
+		assertFalse(core.currentValidationErrors().isEmpty());
+		invoke("cancelEditor");
+		assertFalse(core.hasPendingRuleNode());
 	}
 }

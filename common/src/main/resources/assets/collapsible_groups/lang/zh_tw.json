@@ -382,5 +382,13 @@
   "collapsible_groups.editor.rules.tag.empty": "未找到可列出的標籤",
   "collapsible_groups.editor.rules.tag.partial": "部分標籤無法讀取；清單可能不完整，可手動輸入 ID。",
   "collapsible_groups.editor.rules.tag.observed": "目前素材提供的標籤；清單可能不完整。",
-  "collapsible_groups.editor.rules.tag.registry": "可用來源中的登錄標籤"
+  "collapsible_groups.editor.rules.tag.registry": "可用來源中的登錄標籤",
+  "collapsible_groups.editor.rules.other_id": "其他素材 ID",
+  "collapsible_groups.editor.rules.id.title": "選擇素材 ID",
+  "collapsible_groups.editor.rules.id.manual": "手動輸入素材 ID",
+  "collapsible_groups.editor.rules.id.empty": "未找到可列出的素材 ID",
+  "collapsible_groups.editor.rules.id.pending": "素材 ID 收集中，也可以手動輸入 ID。",
+  "collapsible_groups.editor.rules.id.unavailable": "目前無法取得素材 ID 清單，可以手動輸入 ID。",
+  "collapsible_groups.editor.rules.id.partial": "部分素材無法列出 ID；相同 ID 的所有變體都會符合。",
+  "collapsible_groups.editor.rules.id.available": "目前素材提供的 ID；相同 ID 的所有變體都會符合。"
 }
