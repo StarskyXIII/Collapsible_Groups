@@ -20,6 +20,34 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorStateCoreTest {
 	@Test
+	void deletingNamespaceKeepsPreviewEmptyAcrossPendingPickerKinds() {
+		for (String type : List.of("item", "fluid", "emi:mekanism_chemical")) {
+			EditorStateCore core = new EditorStateCore(null, () -> {});
+			var view = new com.starskyxiii.collapsible_groups.ingredient.IngredientView() {
+				public String ingredientType() { return type; }
+				public net.minecraft.resources.ResourceLocation resourceLocation() { return net.minecraft.resources.ResourceLocation.parse("mekanism:oxygen"); }
+				public boolean hasTag(net.minecraft.resources.ResourceLocation tag) { return false; }
+				public boolean matchesExactStack(String value) { return false; }
+			};
+			GroupFilter empty = core.buildPreviewDefinition(null, "", true).filter();
+			var node = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.NAMESPACE);
+			node.setIngredientType(type);
+			node.setPrimaryValue("mekanism");
+			assertEquals(Filters.namespace(type, "mekanism"), core.buildPreviewDefinition(null, "", true).filter());
+			assertTrue(com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.compile(core.buildPreviewDefinition(null, "", true).filter()).matches(view));
+			core.deleteSelectedRule();
+			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
+			for (var kind : List.of(GroupFilterRuleDraft.NodeKind.NAMESPACE, GroupFilterRuleDraft.NodeKind.ID, GroupFilterRuleDraft.NodeKind.TAG)) {
+				var pending = core.insertRuleRelativePending(kind);
+				pending.setIngredientType(type);
+				assertFalse(com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.compile(core.buildPreviewDefinition(null, "", true).filter()).matches(view));
+				core.cancelPendingRuleNode();
+				assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
+			}
+		}
+	}
+
+	@Test
 	void deletingGenericIdDoesNotRestoreItWhileAnotherIdPickerIsPending() {
 		EditorStateCore core = new EditorStateCore(null, () -> {});
 		GroupFilter empty = core.buildPreviewDefinition(null, "", true).filter();
