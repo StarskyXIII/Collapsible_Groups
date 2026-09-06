@@ -374,5 +374,13 @@
   "collapsible_groups.editor.rules.type.empty": "No other ingredient types are currently available",
   "collapsible_groups.editor.rules.type.pending": "Ingredient types are being prepared",
   "collapsible_groups.editor.rules.type.unavailable": "Ingredient types are currently unavailable",
-  "collapsible_groups.editor.rules.type.missing": "This type is not in the current ingredient list"
+  "collapsible_groups.editor.rules.type.missing": "This type is not in the current ingredient list",
+  "collapsible_groups.editor.rules.tag.title": "Select tag",
+  "collapsible_groups.editor.rules.tag.manual": "Enter tag ID manually",
+  "collapsible_groups.editor.rules.tag.pending": "Collecting tags… You can also enter an ID manually.",
+  "collapsible_groups.editor.rules.tag.unavailable": "Tag list unavailable. You can enter an ID manually.",
+  "collapsible_groups.editor.rules.tag.empty": "No tags could be listed for this type",
+  "collapsible_groups.editor.rules.tag.partial": "Some tags could not be read. You can enter an ID manually.",
+  "collapsible_groups.editor.rules.tag.observed": "Tags provided by current ingredients; this list may be incomplete.",
+  "collapsible_groups.editor.rules.tag.registry": "Registered tags from available sources"
 }

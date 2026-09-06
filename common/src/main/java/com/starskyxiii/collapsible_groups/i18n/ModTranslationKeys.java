@@ -664,5 +664,13 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_RULES_TYPE_PENDING = "collapsible_groups.editor.rules.type.pending";
 	public static final String EDITOR_RULES_TYPE_UNAVAILABLE = "collapsible_groups.editor.rules.type.unavailable";
 	public static final String EDITOR_RULES_TYPE_MISSING = "collapsible_groups.editor.rules.type.missing";
+	public static final String EDITOR_RULES_TAG_TITLE = "collapsible_groups.editor.rules.tag.title";
+	public static final String EDITOR_RULES_TAG_MANUAL = "collapsible_groups.editor.rules.tag.manual";
+	public static final String EDITOR_RULES_TAG_PENDING = "collapsible_groups.editor.rules.tag.pending";
+	public static final String EDITOR_RULES_TAG_UNAVAILABLE = "collapsible_groups.editor.rules.tag.unavailable";
+	public static final String EDITOR_RULES_TAG_EMPTY = "collapsible_groups.editor.rules.tag.empty";
+	public static final String EDITOR_RULES_TAG_PARTIAL = "collapsible_groups.editor.rules.tag.partial";
+	public static final String EDITOR_RULES_TAG_OBSERVED = "collapsible_groups.editor.rules.tag.observed";
+	public static final String EDITOR_RULES_TAG_REGISTRY = "collapsible_groups.editor.rules.tag.registry";
 
 }

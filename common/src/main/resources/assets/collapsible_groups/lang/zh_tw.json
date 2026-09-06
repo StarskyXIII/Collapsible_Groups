@@ -374,5 +374,13 @@
   "collapsible_groups.editor.rules.type.empty": "目前沒有其他素材類型",
   "collapsible_groups.editor.rules.type.pending": "素材類型準備中",
   "collapsible_groups.editor.rules.type.unavailable": "目前無法取得素材類型",
-  "collapsible_groups.editor.rules.type.missing": "目前素材清單中沒有此類型"
+  "collapsible_groups.editor.rules.type.missing": "目前素材清單中沒有此類型",
+  "collapsible_groups.editor.rules.tag.title": "選擇標籤",
+  "collapsible_groups.editor.rules.tag.manual": "手動輸入標籤 ID",
+  "collapsible_groups.editor.rules.tag.pending": "標籤收集中，也可以手動輸入 ID。",
+  "collapsible_groups.editor.rules.tag.unavailable": "目前無法取得標籤清單，可以手動輸入 ID。",
+  "collapsible_groups.editor.rules.tag.empty": "未找到可列出的標籤",
+  "collapsible_groups.editor.rules.tag.partial": "部分標籤無法讀取；清單可能不完整，可手動輸入 ID。",
+  "collapsible_groups.editor.rules.tag.observed": "目前素材提供的標籤；清單可能不完整。",
+  "collapsible_groups.editor.rules.tag.registry": "可用來源中的登錄標籤"
 }

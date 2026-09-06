@@ -316,6 +316,13 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
+	public void tick() {
+		super.tick();
+		if (!minecraft.isRunning()) return;
+		if (rulesPanel != null) rulesPanel.tick();
+	}
+
+	@Override
 	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
 		g.fill(0, 0, this.width, this.height, UiPalette.SCREEN_SCRIM);
 	}
