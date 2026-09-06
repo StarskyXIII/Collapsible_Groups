@@ -6,6 +6,8 @@ import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
 import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTypes;
 import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTags;
 import com.starskyxiii.collapsible_groups.client.editor.EditorTagCatalog;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientIds;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIdCatalog;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries;
@@ -40,6 +42,31 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 
 	private final EditorIngredientTypes.Cache typeCache = new EditorIngredientTypes.Cache();
 	private final EditorTagCatalog tagCatalog = new EditorTagCatalog();
+	private final EditorIdCatalog idCatalog = new EditorIdCatalog(16);
+
+	@Override public void updateIngredientIds(String requested) {
+		long started = beginTrace();
+		var context = JeiViewerGroupIndex.instance().readyGenerationSnapshot()
+			.map(JeiViewerGroupIndex.Generation::projectionContext).orElse(null);
+		var type = EditorIngredientIds.findType(context == null ? null : context.types(), requested);
+		idCatalog.update(context, type == null ? requested : type.canonicalId(),
+			context == null ? EditorIngredientIds.Status.PENDING
+				: type == null ? EditorIngredientIds.Status.TYPE_MISSING : EditorIngredientIds.Status.READY,
+			() -> EditorIngredientIds.sources(type),
+			() -> JeiViewerGroupIndex.instance().readyGenerationSnapshot()
+				.map(value -> value.projectionContext() == context).orElse(false));
+		logIfSlow("editor.ids", started, 50, requested);
+	}
+
+	@Override public EditorIngredientIds ingredientIds(String requested) {
+		var context = JeiViewerGroupIndex.instance().readyGenerationSnapshot()
+			.map(JeiViewerGroupIndex.Generation::projectionContext).orElse(null);
+		if (context == null) return EditorIngredientIds.PENDING;
+		var type = EditorIngredientIds.findType(context == null ? null : context.types(), requested);
+		return idCatalog.snapshot(context, type == null ? requested : type.canonicalId());
+	}
+
+	@Override public void cancelIngredientIds() { idCatalog.cancel(); }
 
 	@Override public void updateIngredientTags(String requested) {
 		long started = beginTrace();
@@ -92,7 +119,8 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		renderCache.clear();
 		typeCache.clear();
 		var client = net.minecraft.client.Minecraft.getInstance();
-		if (client == null || client.isSameThread()) tagCatalog.clear(); else client.execute(tagCatalog::clear);
+		Runnable clearCatalogs = () -> { tagCatalog.clear(); idCatalog.clear(); };
+		if (client == null || client.isSameThread()) clearCatalogs.run(); else client.execute(clearCatalogs);
 	}
 	@Override
 	public List<ItemStack> allItems() {

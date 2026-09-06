@@ -4,6 +4,8 @@ import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTypes;
 import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTags;
 import com.starskyxiii.collapsible_groups.client.editor.EditorTagCatalog;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientIds;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIdCatalog;
 import net.minecraft.resources.ResourceLocation;
 import com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics;
 import com.starskyxiii.collapsible_groups.Constants;
@@ -56,6 +58,31 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 
 	private final EditorIngredientTypes.Cache typeCache = new EditorIngredientTypes.Cache();
 	private final EditorTagCatalog tagCatalog = new EditorTagCatalog();
+	private final EditorIdCatalog idCatalog = new EditorIdCatalog(256);
+
+	@Override public void updateIngredientIds(String requested) {
+		long started = beginTrace();
+		var universe = index.readyGenerationSnapshot().map(value -> value.universe()).orElse(null);
+		var types = universe == null ? null : adapter.editorIngredientTypes(universe);
+		var type = EditorIngredientIds.findType(types, requested);
+		idCatalog.update(universe, type == null ? requested : type.canonicalId(),
+			types == null ? EditorIngredientIds.Status.PENDING
+				: type == null ? EditorIngredientIds.Status.TYPE_MISSING : EditorIngredientIds.Status.READY,
+			() -> EditorIngredientIds.sources(type),
+			() -> index.readyGenerationSnapshot().map(value -> value.universe() == universe).orElse(false)
+				&& adapter.editorIngredientTypes(universe) != null);
+		logIfSlow("editor.ids", started, 50, requested);
+	}
+
+	@Override public EditorIngredientIds ingredientIds(String requested) {
+		var universe = index.readyGenerationSnapshot().map(value -> value.universe()).orElse(null);
+		var types = universe == null ? null : adapter.editorIngredientTypes(universe);
+		if (types == null) return EditorIngredientIds.PENDING;
+		var type = EditorIngredientIds.findType(types, requested);
+		return idCatalog.snapshot(universe, type == null ? requested : type.canonicalId());
+	}
+
+	@Override public void cancelIngredientIds() { idCatalog.cancel(); }
 
 	@Override public void updateIngredientTags(String requested) {
 		long started = beginTrace();
@@ -283,7 +310,8 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 
 	@Override public synchronized void closeEditor() {
 		var client = net.minecraft.client.Minecraft.getInstance();
-		if (client == null || client.isSameThread()) tagCatalog.clear(); else client.execute(tagCatalog::clear);
+		Runnable clearCatalogs = () -> { tagCatalog.clear(); idCatalog.clear(); };
+		if (client == null || client.isSameThread()) clearCatalogs.run(); else client.execute(clearCatalogs);
 		typeCache.clear();
 		tagGeneration = null;
 		tagSummaries = Map.of();

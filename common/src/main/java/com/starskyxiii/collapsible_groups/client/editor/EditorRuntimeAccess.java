@@ -27,6 +27,9 @@ public interface EditorRuntimeAccess {
 	default void updateIngredientTags(String type) {}
 	default EditorIngredientTags ingredientTags(String type) { return EditorIngredientTags.UNAVAILABLE; }
 	default void cancelIngredientTags() {}
+	default void updateIngredientIds(String type) {}
+	default EditorIngredientIds ingredientIds(String type) { return EditorIngredientIds.UNAVAILABLE; }
+	default void cancelIngredientIds() {}
 	default Object previewGeneration() { return this; }
 	default TagQueryDiagnostics tagDiagnostics(
 		String type, ResourceLocation tag) {
