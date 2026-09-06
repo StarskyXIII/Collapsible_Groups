@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.emi;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTypes;
 import net.minecraft.resources.ResourceLocation;
 import com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics;
 import com.starskyxiii.collapsible_groups.Constants;
@@ -50,6 +51,16 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	private ExactItemPreviewIndex previewIndex;
 	private final com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache renderCache =
 		new com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache();
+
+	private final EditorIngredientTypes.Cache typeCache = new EditorIngredientTypes.Cache();
+
+	@Override public EditorIngredientTypes ingredientTypes() {
+		var generation = index.readyGenerationSnapshot();
+		return typeCache.get(generation.map(value -> (Object) value.universe()).orElse(null), () -> {
+			var types = adapter.editorIngredientTypes(generation.orElseThrow().universe());
+			return types == null ? EditorIngredientTypes.PENDING : EditorIngredientTypes.from(types);
+		});
+	}
 
 	private Object tagGeneration;
 	private Map<String, TagQueryDiagnostics.Summary> tagSummaries = Map.of();
@@ -237,6 +248,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	@Override public synchronized void closeEditor() {
+		typeCache.clear();
 		tagGeneration = null;
 		tagSummaries = Map.of();
 		renderCache.clear();

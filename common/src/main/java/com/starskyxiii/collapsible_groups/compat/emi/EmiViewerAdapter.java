@@ -385,6 +385,11 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		}
 	}
 
+	List<ViewerIngredientType<EmiIngredient>> editorIngredientTypes(ViewerIngredientUniverse<EmiIngredient> universe) {
+		BootstrapData current = bootstrapContext.data;
+		return runtimeCurrent() && current.universe() == universe ? current.types() : null;
+	}
+
 	private final class BootstrapContext implements ViewerBootstrapContext<EmiIngredient> {
 		private volatile BootstrapData data = BootstrapData.empty();
 

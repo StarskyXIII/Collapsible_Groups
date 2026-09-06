@@ -23,6 +23,7 @@ import java.util.concurrent.CompletableFuture;
 /** Viewer-backed operations consumed by the viewer-neutral group editor. */
 public interface EditorRuntimeAccess {
 	default void closeEditor() {}
+	default EditorIngredientTypes ingredientTypes() { return EditorIngredientTypes.UNAVAILABLE; }
 	default Object previewGeneration() { return this; }
 	default TagQueryDiagnostics tagDiagnostics(
 		String type, ResourceLocation tag) {

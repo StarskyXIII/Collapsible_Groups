@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.editor;
 import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTypes;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries;
@@ -35,13 +36,22 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	private final com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache renderCache =
 		new com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache();
 
+	private final EditorIngredientTypes.Cache typeCache = new EditorIngredientTypes.Cache();
+
+	@Override public EditorIngredientTypes ingredientTypes() {
+		var context = JeiViewerGroupIndex.instance().readyGenerationSnapshot()
+			.map(JeiViewerGroupIndex.Generation::projectionContext);
+		return typeCache.get(context.map(value -> (Object) value.universe()).orElse(null),
+			() -> EditorIngredientTypes.from(context.orElseThrow().types()));
+	}
+
 	@Override public Object previewGeneration() {
 		return JeiViewerGroupIndex.instance().readyGenerationSnapshot()
 			.map(JeiViewerGroupIndex.Generation::projectionContext)
 			.map(context -> (Object) context.universe()).orElse(null);
 	}
 
-	@Override public void closeEditor() { renderCache.clear(); }
+	@Override public void closeEditor() { renderCache.clear(); typeCache.clear(); }
 	@Override
 	public List<ItemStack> allItems() {
 		return List.copyOf(EditorItemUniverseProvider.INSTANCE.allStacks());
