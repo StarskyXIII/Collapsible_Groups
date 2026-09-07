@@ -155,12 +155,18 @@ public final class GroupConfig {
 	}
 
 	public static void saveEnabledOverrides(Map<String, Boolean> overrides) {
+		saveEnabledOverridesChecked(overrides);
+	}
+
+	static boolean saveEnabledOverridesChecked(Map<String, Boolean> overrides) {
 		Path file = getEnabledOverridesFile();
 		try {
 			Files.createDirectories(file.getParent());
 			writeAtomically(file, serializeEnabledOverrides(overrides));
+			return true;
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save enabled overrides", e);
+			return false;
 		}
 	}
 
@@ -245,17 +251,27 @@ public final class GroupConfig {
 
 	/** Saves a group definition to disk. Creates or overwrites the file. */
 	public static void save(GroupDefinition group) {
+		saveChecked(group);
+	}
+
+	static boolean saveChecked(GroupDefinition group) {
 		Path dir = getConfigDir();
 		try {
 			Files.createDirectories(dir);
 			writeAtomically(dir.resolve(group.id() + ".json"), toJson(group));
+			return true;
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save group: {}", group.id(), e);
+			return false;
 		}
 	}
 
 	/** Deletes a group's config file from disk. */
 	public static void delete(String id) {
+		deleteChecked(id);
+	}
+
+	static boolean deleteChecked(String id) {
 		Path dir = getConfigDir();
 		try {
 			Constants.LOG.debug("Deleting group '{}' from {}", id, dir);
@@ -266,20 +282,24 @@ public final class GroupConfig {
 				Constants.LOG.debug("Deleted canonical group file for '{}': {}", id, canonicalPath);
 			}
 			if (!Files.exists(dir)) {
-				return;
+				return true;
 			}
 			try (var stream = Files.list(dir)) {
-				stream.filter(path -> path.toString().endsWith(".json"))
+				for (Path path : stream.filter(path -> path.toString().endsWith(".json"))
 					.filter(path -> !path.getFileName().toString().equals(id + ".json"))
-					.forEach(path -> deleteIfGroupIdMatches(path, id, deletedCount));
+					.toList()) {
+					if (!deleteIfGroupIdMatches(path, id, deletedCount)) return false;
+				}
 			}
 			if (deletedCount.get() == 0) {
 				Constants.LOG.warn("No group config files were deleted for id '{}' in {}", id, dir);
 			} else {
 				Constants.LOG.debug("Deleted {} group config file(s) for id '{}'", deletedCount.get(), id);
 			}
+			return true;
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to delete group: {}", id, e);
+			return false;
 		}
 	}
 
@@ -701,18 +721,26 @@ public final class GroupConfig {
 		return "unknown";
 	}
 
-	private static void deleteIfGroupIdMatches(Path path, String id, AtomicInteger deletedCount) {
+	private static boolean deleteIfGroupIdMatches(Path path, String id, AtomicInteger deletedCount) {
+		boolean matches;
 		try {
 			String json = Files.readString(path, StandardCharsets.UTF_8);
 			JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-			if (obj.has("id") && id.equals(obj.get("id").getAsString())) {
-				if (Files.deleteIfExists(path)) {
-					deletedCount.incrementAndGet();
-					Constants.LOG.debug("Deleted matching group file for '{}': {}", id, path);
-				}
-			}
+			matches = obj.has("id") && id.equals(obj.get("id").getAsString());
 		} catch (Exception e) {
 			Constants.LOG.warn("Failed to inspect group file '{}' during delete cleanup: {}", path, e.getMessage());
+			return true;
+		}
+		if (!matches) return true;
+		try {
+			if (Files.deleteIfExists(path)) {
+				deletedCount.incrementAndGet();
+				Constants.LOG.debug("Deleted matching group file for '{}': {}", id, path);
+			}
+			return true;
+		} catch (IOException e) {
+			Constants.LOG.error("Failed to delete matching group file for '{}': {}", id, path, e);
+			return false;
 		}
 	}
 

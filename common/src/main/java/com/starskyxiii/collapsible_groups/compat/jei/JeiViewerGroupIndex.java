@@ -4,10 +4,9 @@ import com.starskyxiii.collapsible_groups.Constants;
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewIngredientRenderer;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientSourceState;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
-import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.GroupProjectionEngine;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
@@ -203,15 +202,36 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 
 	@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
 		if (published == null) return Optional.empty();
-		List<ItemStack> items = GroupRegistry.getFullMatchItemsLookup(group).values();
-		List<Object> fluids = GroupRegistry.getFullMatchFluidsLookup(group).values();
-		List<GenericIngredientRef> generic = GroupRegistry.getFullMatchGenericIngredientsLookup(group).values();
+		FullMatchEntry entry = fullMatchEntry(group);
+		List<ItemStack> items = entry.items();
+		List<Object> fluids = entry.fluids();
+		List<GenericIngredientRef> generic = entry.generic();
 		List<ViewerPreviewValue> itemValues = items.stream().map(ViewerPreviewValue::item).toList();
 		List<ViewerPreviewValue> fluidValues = fluids.stream().map(fluid -> ViewerPreviewValue.rendered(
 			(graphics, x, y) -> PreviewIngredientRenderer.renderFluid(graphics, fluid, x, y))).toList();
 		List<ViewerPreviewValue> genericValues = generic.stream().map(ref -> ViewerPreviewValue.rendered(
 			(graphics, x, y) -> renderGeneric(graphics, ref, x, y))).toList();
 		return Optional.of(new ViewerGroupPreviewSnapshot(itemValues, fluidValues, genericValues));
+	}
+
+	public FullMatchEntry fullMatchEntry(GroupDefinition group) {
+		return fullMatchEntry(group, () -> JeiIngredientSourceState.resolveFullMatch(group));
+	}
+
+	FullMatchEntry fullMatchEntry(GroupDefinition group,
+		Supplier<JeiIngredientSourceState.FullMatch> resolver) {
+		Generation captured = published;
+		FullMatchEntry cached = captured == null ? null : new FullMatchCacheSnapshot(
+			captured.fullMatchItems(), captured.fullMatchFluids(), captured.fullMatchGeneric()).entry(group.id());
+		if (cached != null) return cached;
+		JeiIngredientSourceState.FullMatch resolved = resolver.get();
+		FullMatchEntry entry = new FullMatchEntry(resolved.items(), resolved.fluids(), resolved.generic());
+		synchronized (this) {
+			if (published == captured) {
+				updateFullMatchEntry(group.id(), entry.items(), entry.fluids(), entry.generic());
+			}
+		}
+		return entry;
 	}
 
 	@SuppressWarnings("unchecked")

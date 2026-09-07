@@ -1,8 +1,6 @@
 package com.starskyxiii.collapsible_groups.group;
 
 
-import com.starskyxiii.collapsible_groups.group.GroupDefinition;
-
 import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -15,35 +13,50 @@ import java.util.function.UnaryOperator;
 
 /** Copy-on-write catalog of group definitions and domain-level group operations. */
 public final class GroupCatalog {
-	private volatile List<GroupDefinition> registrationOrder = List.of();
-	private volatile List<GroupDefinition> priorityOrder = List.of();
-	private volatile Map<String, GroupDefinition> byId = Map.of();
+	private volatile Snapshot snapshot = Snapshot.empty();
+
+	public record Snapshot(
+		List<GroupDefinition> registrationOrder,
+		List<GroupDefinition> priorityOrder,
+		Map<String, GroupDefinition> byId
+	) {
+		private static Snapshot empty() {
+			return new Snapshot(List.of(), List.of(), Map.of());
+		}
+
+		static Snapshot from(List<GroupDefinition> definitions) {
+			List<GroupDefinition> registration = definitions == null ? List.of() : List.copyOf(definitions);
+			return new Snapshot(registration, orderByPriority(registration), buildById(registration));
+		}
+	}
+
+	public Snapshot snapshot() {
+		return snapshot;
+	}
 
 	public List<GroupDefinition> registrationOrder() {
-		return registrationOrder;
+		return snapshot.registrationOrder();
 	}
 
 	public List<GroupDefinition> priorityOrder() {
-		return priorityOrder;
+		return snapshot.priorityOrder();
 	}
 
 	public Map<String, GroupDefinition> byId() {
-		return byId;
+		return snapshot.byId();
 	}
 
 	public Optional<GroupDefinition> findById(String id) {
 		if (id == null || id.isBlank()) return Optional.empty();
-		return Optional.ofNullable(byId.get(id));
+		return Optional.ofNullable(snapshot.byId().get(id));
 	}
 
 	public synchronized void publish(List<GroupDefinition> definitions) {
-		registrationOrder = definitions == null ? List.of() : List.copyOf(definitions);
-		priorityOrder = orderByPriority(registrationOrder);
-		byId = buildById(registrationOrder);
+		snapshot = Snapshot.from(definitions);
 	}
 
 	public synchronized void replace(UnaryOperator<List<GroupDefinition>> updater) {
-		publish(updater.apply(registrationOrder));
+		publish(updater.apply(snapshot.registrationOrder()));
 	}
 
 	public void saveOrReplace(GroupDefinition group) {
@@ -68,7 +81,7 @@ public final class GroupCatalog {
 	}
 
 	public boolean setEnabled(String id, boolean enabled) {
-		GroupDefinition existing = byId.get(id);
+		GroupDefinition existing = snapshot.byId().get(id);
 		if (existing == null) return false;
 		if (existing.enabled() == enabled) return true;
 		replace(snapshot -> snapshot.stream()
@@ -78,7 +91,7 @@ public final class GroupCatalog {
 	}
 
 	public String generateUniqueId(String base) {
-		return generateUniqueId(base, registrationOrder.stream().map(GroupDefinition::id).toList());
+		return generateUniqueId(base, snapshot.registrationOrder().stream().map(GroupDefinition::id).toList());
 	}
 
 	public static String generateUniqueId(String base, List<String> existingIds) {

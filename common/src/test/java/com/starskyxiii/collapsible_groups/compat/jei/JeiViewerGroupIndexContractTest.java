@@ -4,10 +4,12 @@ import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientSourceState;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
 import mezz.jei.api.runtime.IIngredientManager;
 import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.Items;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
@@ -341,6 +343,56 @@ class JeiViewerGroupIndexContractTest {
 		assertEquals(generation.fullMatchItems().keySet(), generation.fullMatchFluids().keySet());
 		assertEquals(generation.fullMatchItems().keySet(), generation.fullMatchGeneric().keySet());
 		assertTrue(generation.fullMatchItems().get(empty.id()).isEmpty());
+	}
+
+	@Test
+	void cacheMissUsesTheLegacyJeiIngredientSourceWhenProjectionUniverseIsEmpty() {
+		JeiViewerGroupIndex index = JeiViewerGroupIndex.instance();
+		index.reset();
+		GroupDefinition group = group("legacy_source", true);
+		index.publishGeneration(new JeiViewerGroupIndex.Generation(candidate(group), Map.of(), Map.of(),
+			null, null, null, Map.of(), Map.of()));
+		JeiIngredientSourceState.setItems(List.of(new ItemStack(Items.STONE)));
+		try {
+			JeiViewerGroupIndex.FullMatchEntry resolved = index.fullMatchEntry(group);
+			assertEquals(1, resolved.items().size());
+			assertSame(Items.STONE, resolved.items().getFirst().getItem());
+		} finally {
+			JeiIngredientSourceState.clearItems();
+			index.reset();
+		}
+	}
+
+	@Test
+	void cacheMissResolvedAgainstAnOldGenerationCannotPolluteTheReplacement() throws Exception {
+		JeiViewerGroupIndex index = JeiViewerGroupIndex.instance();
+		index.reset();
+		GroupDefinition group = group("stale_preview", true);
+		index.publishGeneration(new JeiViewerGroupIndex.Generation(candidate(group), Map.of(), Map.of(),
+			null, null, null, Map.of(), Map.of()));
+		CountDownLatch entered = new CountDownLatch(1);
+		CountDownLatch release = new CountDownLatch(1);
+		Object staleFluid = new Object();
+		CompletableFuture<JeiViewerGroupIndex.FullMatchEntry> lookup = CompletableFuture.supplyAsync(() ->
+			index.fullMatchEntry(group, () -> {
+				entered.countDown();
+				try {
+					assertTrue(release.await(10, TimeUnit.SECONDS));
+				} catch (InterruptedException e) {
+					throw new AssertionError(e);
+				}
+				return new JeiIngredientSourceState.FullMatch(List.of(), List.of(staleFluid), List.of());
+			}));
+		assertTrue(entered.await(10, TimeUnit.SECONDS));
+		Object currentFluid = new Object();
+		index.publishGeneration(new JeiViewerGroupIndex.Generation(candidate(group), Map.of(), Map.of(),
+			Map.of(group.id(), List.of()), Map.of(group.id(), List.of(currentFluid)),
+			Map.of(group.id(), List.of()), Map.of(), Map.of()));
+
+		release.countDown();
+		lookup.join();
+
+		assertEquals(List.of(currentFluid), index.fullMatchSnapshot().entry(group.id()).fluids());
 	}
 
 	private static JeiViewerGroupIndex.Generation generation(GroupCandidateIndex candidate,

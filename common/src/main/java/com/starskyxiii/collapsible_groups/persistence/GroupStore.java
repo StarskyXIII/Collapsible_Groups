@@ -30,17 +30,30 @@ public final class GroupStore {
 	}
 
 	public void saveEnabledOverride(String id, boolean enabled) {
+		saveEnabledOverrideChecked(id, enabled);
+	}
+
+	public boolean saveEnabledOverrideChecked(String id, boolean enabled) {
 		Map<String, Boolean> overrides = new LinkedHashMap<>(loadEnabledOverrides());
 		overrides.put(id, enabled);
-		GroupConfig.saveEnabledOverrides(overrides);
+		return GroupConfig.saveEnabledOverridesChecked(overrides);
 	}
 
 	public void save(GroupDefinition group) {
-		GroupConfig.save(group);
+		saveChecked(group);
+	}
+
+	public boolean saveChecked(GroupDefinition group) {
+		return GroupConfig.saveChecked(group);
 	}
 
 	public void delete(String id) {
-		GroupConfig.delete(id);
+		deleteChecked(id);
+	}
+
+	public boolean deleteChecked(String id) {
+		if (!GroupConfig.deleteChecked(id)) return false;
 		GroupExpandState.remove(id);
+		return true;
 	}
 }

@@ -63,12 +63,6 @@ public final class GroupRegistry {
 	 * Writers must replace the entire reference; never mutate in place.
 	 * Volatile guarantees visibility across threads.
 	 */
-	private static volatile List<ItemStack> jeiAllItems  = List.of();
-	private static volatile List<Object>    jeiAllFluids = List.of();
-
-	/** Lazily built editor item index; invalidated when jeiAllItems changes. */
-	private static volatile EditorItemIndex editorItemIndex = null;
-
 	/**
 	 * Resolved items/fluids per group ID, pre-built by MixinIngredientFilter
 	 * during {@code cg$buildIngredientGroupIndex()}. Null until JEI initialises.
@@ -192,25 +186,13 @@ public final class GroupRegistry {
 	 */
 	@SuppressWarnings("unchecked")
 	public static void populateJeiCachesIfEmpty() {
-		var runtime = JeiRuntimeHolder.get();
-		if (runtime == null) return;
-		IIngredientManager manager = runtime.getIngredientManager();
-		if (isJeiAllItemsEmpty()) {
-			setJeiAllItems(new ArrayList<>(manager.getAllIngredients(VanillaTypes.ITEM_STACK)));
-		}
-		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
-		if (fluidType != null && isJeiAllFluidsEmpty()) {
-			setJeiAllFluids(new ArrayList<>((List<Object>) (List<?>) manager.getAllIngredients(fluidType)));
-		}
+		JeiIngredientSourceState.populateIfEmpty();
 	}
 
 	/** Resolves all items from the JEI cache that match the given group. Falls back to registry scan. */
 	public static List<ItemStack> resolveItems(GroupDefinition group) {
 		long traceStart = PerformanceTrace.begin();
-		populateJeiCachesIfEmpty();
-		List<ItemStack> result = !jeiAllItems.isEmpty()
-			? jeiAllItems.stream().filter(group::matches).toList()
-			: BuiltInRegistries.ITEM.stream().map(ItemStack::new).filter(group::matches).toList();
+		List<ItemStack> result = JeiIngredientSourceState.resolveItems(group);
 		PerformanceTrace.logIfSlow("GroupRegistry.resolveItems", traceStart, 5,
 			"group=" + group.id() + " result=" + result.size() + " itemFilters=" + group.hasItemFilters());
 		return result;
@@ -219,10 +201,7 @@ public final class GroupRegistry {
 	/** Returns all fluids from the JEI fluid cache that match the given group. */
 	public static List<Object> resolveFluids(GroupDefinition group) {
 		long traceStart = PerformanceTrace.begin();
-		populateJeiCachesIfEmpty();
-		List<Object> result = !jeiAllFluids.isEmpty()
-			? jeiAllFluids.stream().filter(f -> GroupMatcher.matchesFluid(group, f)).toList()
-			: List.of();
+		List<Object> result = JeiIngredientSourceState.resolveFluids(group);
 		PerformanceTrace.logIfSlow("GroupRegistry.resolveFluids", traceStart, 5,
 			"group=" + group.id() + " result=" + result.size() + " fluidFilters=" + group.hasFluidFilters());
 		return result;
@@ -320,30 +299,18 @@ public final class GroupRegistry {
 			);
 		}
 
-		GroupDefinition previewDefinition = managerPreviewDefinition(group);
-		List<ItemStack> items = resolveItems(previewDefinition);
-		List<Object> fluids = resolveFluids(previewDefinition);
-		List<GenericIngredientRef> generic = resolveGenericIngredients(previewDefinition);
-		VIEWER_INDEX.updateFullMatchEntry(group.id(), items, fluids, generic);
+		JeiViewerGroupIndex.FullMatchEntry resolved = VIEWER_INDEX.fullMatchEntry(group);
 		return new FullMatchGroupLookup(
-			new FullMatchLookup<>(items, false, fallbackReason),
-			new FullMatchLookup<>(fluids, false, fallbackReason),
-			new FullMatchLookup<>(generic, false, fallbackReason)
+			new FullMatchLookup<>(resolved.items(), false, fallbackReason),
+			new FullMatchLookup<>(resolved.fluids(), false, fallbackReason),
+			new FullMatchLookup<>(resolved.generic(), false, fallbackReason)
 		);
 	}
 
 	/** Resolves all generic JEI ingredients that match the given group definition. */
 	public static List<GenericIngredientRef> resolveGenericIngredients(GroupDefinition group) {
 		long traceStart = PerformanceTrace.begin();
-		if (!group.hasGenericFilters()) return List.of();
-		var runtime = JeiRuntimeHolder.get();
-		if (runtime == null) return List.of();
-		IIngredientManager ingredientManager = runtime.getIngredientManager();
-		List<GenericIngredientRef> result = new ArrayList<>();
-		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
-			appendMatchingGenericIngredients(group, entry.getKey(), entry.getValue(), ingredientManager, result);
-		}
-		List<GenericIngredientRef> copy = List.copyOf(result);
+		List<GenericIngredientRef> copy = JeiIngredientSourceState.resolveGeneric(group);
 		PerformanceTrace.logIfSlow("GroupRegistry.resolveGenericIngredients", traceStart, 5,
 			"group=" + group.id() + " result=" + copy.size() + " genericFilters=" + group.hasGenericFilters());
 		return copy;
@@ -351,29 +318,22 @@ public final class GroupRegistry {
 
 	/** Returns every generic JEI ingredient registered with this mod's type registry. */
 	public static List<GenericIngredientRef> getJeiAllGenericIngredients() {
-		var runtime = JeiRuntimeHolder.get();
-		if (runtime == null) return List.of();
-		IIngredientManager ingredientManager = runtime.getIngredientManager();
-		List<GenericIngredientRef> result = new ArrayList<>();
-		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
-			appendAllGenericIngredients(entry.getKey(), entry.getValue(), ingredientManager, result);
-		}
-		return List.copyOf(result);
+		return JeiIngredientSourceState.allGeneric();
 	}
 
 	// -----------------------------------------------------------------------
 	// JEI ingredient caches
 	// -----------------------------------------------------------------------
 
-	public static void setJeiAllItems(List<ItemStack> items)   { jeiAllItems  = List.copyOf(items); editorItemIndex = null; }
-	public static boolean isJeiAllItemsEmpty()                  { return jeiAllItems.isEmpty(); }
-	public static List<ItemStack> getJeiAllItems()              { return jeiAllItems; }
-	public static void clearJeiAllItems()                       { jeiAllItems  = List.of(); editorItemIndex = null; clearResolvedCaches(); }
+	public static void setJeiAllItems(List<ItemStack> items)   { JeiIngredientSourceState.setItems(items); }
+	public static boolean isJeiAllItemsEmpty()                  { return JeiIngredientSourceState.itemsEmpty(); }
+	public static List<ItemStack> getJeiAllItems()              { return JeiIngredientSourceState.items(); }
+	public static void clearJeiAllItems()                       { JeiIngredientSourceState.clearItems(); clearResolvedCaches(); }
 
-	public static void setJeiAllFluids(List<Object> fluids)     { jeiAllFluids = List.copyOf(fluids); }
-	public static boolean isJeiAllFluidsEmpty()                  { return jeiAllFluids.isEmpty(); }
-	public static List<Object> getJeiAllFluids()                 { return jeiAllFluids; }
-	public static void clearJeiAllFluids()                       { jeiAllFluids = List.of(); clearManagerPreviewCaches(); }
+	public static void setJeiAllFluids(List<Object> fluids)     { JeiIngredientSourceState.setFluids(fluids); }
+	public static boolean isJeiAllFluidsEmpty()                  { return JeiIngredientSourceState.fluidsEmpty(); }
+	public static List<Object> getJeiAllFluids()                 { return JeiIngredientSourceState.fluids(); }
+	public static void clearJeiAllFluids()                       { JeiIngredientSourceState.clearFluids(); clearManagerPreviewCaches(); }
 
 	// -----------------------------------------------------------------------
 	// Editor item index (lazy, tied to jeiAllItems lifecycle)
@@ -384,20 +344,8 @@ public final class GroupRegistry {
 	 * The index is invalidated whenever {@link #setJeiAllItems} or {@link #clearJeiAllItems}
 	 * is called, so it always reflects the current JEI item cache generation.
 	 */
-	private static EditorItemIndex getOrCreateEditorItemIndex() {
-		EditorItemIndex index = editorItemIndex;
-		if (index != null) return index;
-		synchronized (GroupRegistry.class) {
-			if (editorItemIndex == null) {
-				editorItemIndex = EditorItemIndex.build(jeiAllItems);
-			}
-			return editorItemIndex;
-		}
-	}
-
 	public static void warmEditorItemIndex() {
-		populateJeiCachesIfEmpty();
-		getOrCreateEditorItemIndex();
+		JeiIngredientSourceState.warmEditorIndex();
 	}
 
 	/**
@@ -412,10 +360,7 @@ public final class GroupRegistry {
 	 * @return ordered, deduplicated list of matching JEI items
 	 */
 	public static List<ItemStack> resolveEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled) {
-		if (!enabled) return List.of();
-		if (draft.explicitItemSelectors().isEmpty() && draft.itemTags().isEmpty()) return List.of();
-		populateJeiCachesIfEmpty();
-		return getOrCreateEditorItemIndex().resolveDraft(draft);
+		return JeiIngredientSourceState.resolveDraft(draft, enabled);
 	}
 
 	/**
@@ -428,9 +373,7 @@ public final class GroupRegistry {
 	 * ({@code enabled && …}) so the union stays equivalent to the full scan in that case too.
 	 */
 	public static List<ItemStack> resolveHybridEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled) {
-		if (!enabled) return List.of();
-		populateJeiCachesIfEmpty();
-		return getOrCreateEditorItemIndex().resolveHybridDraft(draft, GroupRegistry::resolveItemsForPreserved);
+		return JeiIngredientSourceState.resolveHybridDraft(draft, enabled);
 	}
 
 	/**
@@ -681,23 +624,8 @@ public final class GroupRegistry {
 	 * This bridges the window before the async JEI rebuild republishes the authoritative maps.
 	 */
 	public static void populateFullMatchCacheFromSaved(GroupDefinition saved) {
-		GroupDefinition previewDefinition = managerPreviewDefinition(saved);
-		List<ItemStack> items;
-		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(saved.filter());
-		// Gate the flat-index fast path on the flat-index-safe predicate,
-		// not on editability. A hybrid draft with preserved advanced subtrees is editable but
-		// its item membership cannot be resolved from the flat index alone — resolve fully.
-		if (decoded.flatIndexSafe()) {
-			populateJeiCachesIfEmpty();
-			items = getOrCreateEditorItemIndex().resolveDraft(decoded.draft());
-		} else {
-			items = resolveItems(previewDefinition);
-		}
-
-		List<Object> fluids = resolveFluids(previewDefinition);
-		List<GenericIngredientRef> generic = resolveGenericIngredients(previewDefinition);
-
-		VIEWER_INDEX.updateFullMatchEntry(saved.id(), items, fluids, generic);
+		JeiIngredientSourceState.FullMatch resolved = JeiIngredientSourceState.resolveFullMatch(saved);
+		VIEWER_INDEX.updateFullMatchEntry(saved.id(), resolved.items(), resolved.fluids(), resolved.generic());
 	}
 
 	static List<GroupDefinition> orderByPriority(List<GroupDefinition> source) {

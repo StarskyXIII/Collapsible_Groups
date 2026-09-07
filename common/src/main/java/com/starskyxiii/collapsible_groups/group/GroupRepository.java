@@ -6,7 +6,9 @@ import com.starskyxiii.collapsible_groups.persistence.GroupExpandState;
 import com.starskyxiii.collapsible_groups.persistence.GroupStore;
 
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -16,15 +18,27 @@ import java.util.Optional;
  * to the published {@link GroupChangeEvent}; the repository never reaches into viewer caches.
  */
 public final class GroupRepository {
-	private static final GroupCatalog CATALOG = new GroupCatalog();
 	private static final GroupStore STORE = new GroupStore();
+	private static final GroupService SERVICE = new GroupService();
+	private static final GroupService.SourceKey USER_SOURCE =
+		new GroupService.SourceKey(GroupSource.USER, "persisted");
+	private static final GroupService.SourceKey BUILTIN_SOURCE =
+		new GroupService.SourceKey(GroupSource.BUILTIN, "providers");
+	private static final GroupService.SourceKey LEGACY_SCRIPT_SOURCE =
+		new GroupService.SourceKey(GroupSource.KUBEJS, "legacy");
 
 	private GroupRepository() {}
 
 	public static void load(List<DefaultGroupProvider> providers) {
-		CATALOG.publish(STORE.loadGroups(providers));
+		List<GroupDefinition> loaded = STORE.loadGroups(providers);
+		Map<GroupService.SourceKey, List<GroupDefinition>> replacements = new LinkedHashMap<>();
+		replacements.put(BUILTIN_SOURCE, loaded.stream()
+			.filter(group -> GroupSource.fromGroupId(group.id()) == GroupSource.BUILTIN).toList());
+		replacements.put(USER_SOURCE, loaded.stream()
+			.filter(group -> GroupSource.fromGroupId(group.id()) != GroupSource.BUILTIN).toList());
+		SERVICE.replaceSources(replacements, java.util.Set.of());
 		STORE.loadExpandState();
-		List<GroupDefinition> groups = CATALOG.registrationOrder();
+		List<GroupDefinition> groups = SERVICE.managedRegistrationOrder();
 		long itemGroups = groups.stream().filter(GroupDefinition::hasItemFilters).count();
 		long fluidGroups = groups.stream().filter(GroupDefinition::hasFluidFilters).count();
 		long genericGroups = groups.stream().filter(GroupDefinition::hasGenericFilters).count();
@@ -37,58 +51,110 @@ public final class GroupRepository {
 	}
 
 	public static List<GroupDefinition> getAll() {
-		return CATALOG.priorityOrder();
+		return SERVICE.managedPriorityOrder();
 	}
 
 	/** Persisted/provider groups win over scripted groups on an ID collision. */
 	public static Optional<GroupDefinition> findById(String id) {
 		if (id == null || id.isBlank()) return Optional.empty();
-		Optional<GroupDefinition> persisted = CATALOG.findById(id);
-		if (persisted.isPresent()) return persisted;
-		return ScriptedGroupStore.groups().stream().filter(group -> id.equals(group.id())).findFirst();
+		return SERVICE.findById(id);
 	}
 
 	public static List<GroupDefinition> getAllIncludingScripted() {
-		List<GroupDefinition> scripted = ScriptedGroupStore.groups();
-		if (scripted.isEmpty()) return CATALOG.priorityOrder();
-		List<GroupDefinition> combined = new ArrayList<>(CATALOG.registrationOrder().size() + scripted.size());
-		combined.addAll(CATALOG.registrationOrder());
-		combined.addAll(scripted);
-		return GroupCatalog.orderByPriority(combined);
+		return SERVICE.allPriorityOrder();
 	}
 
-	public static void setScriptedGroups(List<GroupDefinition> incoming) {
-		ScriptedGroupStore.publish(GroupCatalog.applyEnabledOverrides(incoming, STORE.loadEnabledOverrides()));
+	public static synchronized void setScriptedGroups(List<GroupDefinition> incoming) {
+		replaceScriptedSource(LEGACY_SCRIPT_SOURCE.producerId(), incoming, true);
+	}
+
+	static synchronized void replaceScriptedSource(String producerId, List<GroupDefinition> incoming,
+		boolean notify) {
+		GroupService.SourceKey key = new GroupService.SourceKey(GroupSource.KUBEJS, producerId);
+		Map<String, Boolean> overrides = STORE.loadEnabledOverrides();
+		List<GroupDefinition> effective = incoming.stream()
+			.map(group -> {
+				Boolean enabled = overrides.get(group.id());
+				return enabled != null && group.enabled() != enabled ? group.withEnabled(enabled) : group;
+			})
+			.toList();
+		SERVICE.replaceSource(key, effective);
+		if (notify) publish(GroupChangeEvent.Kind.KUBEJS_REPLACE);
+	}
+
+	static synchronized void removeScriptedSource(String producerId, boolean notify) {
+		SERVICE.removeSource(new GroupService.SourceKey(GroupSource.KUBEJS, producerId));
+		if (notify) publish(GroupChangeEvent.Kind.KUBEJS_REPLACE);
+	}
+
+	static List<GroupDefinition> scriptedSourceGroups(String producerId) {
+		return SERVICE.sourceGroups(new GroupService.SourceKey(GroupSource.KUBEJS, producerId));
+	}
+
+	static void markScriptedSourceApplied(String producerId) {
+		SERVICE.markApplied(new GroupService.SourceKey(GroupSource.KUBEJS, producerId));
+	}
+
+	static boolean isScriptedSourceApplied(String producerId) {
+		return SERVICE.isApplied(new GroupService.SourceKey(GroupSource.KUBEJS, producerId));
+	}
+
+	static boolean updateScriptedSource(String producerId, String id,
+		java.util.function.UnaryOperator<GroupDefinition> updater) {
+		return SERVICE.update(new GroupService.SourceKey(GroupSource.KUBEJS, producerId), id, updater);
+	}
+
+	static List<GroupDefinition> scriptedGroups() {
+		return SERVICE.categoryGroups(GroupSource.KUBEJS);
+	}
+
+	public static boolean areScriptedGroupsEmpty() { return SERVICE.categoryGroups(GroupSource.KUBEJS).isEmpty(); }
+
+	public static synchronized void clearScriptedGroups() {
+		SERVICE.removeCategory(GroupSource.KUBEJS);
+	}
+
+	public static boolean areScriptedGroupsApplied() { return SERVICE.isApplied(LEGACY_SCRIPT_SOURCE); }
+	public static void markScriptedGroupsApplied() { SERVICE.markApplied(LEGACY_SCRIPT_SOURCE); }
+
+	static void setLegacyScriptedGroupsQuietly(List<GroupDefinition> incoming) {
+		replaceScriptedSource(LEGACY_SCRIPT_SOURCE.producerId(), incoming, false);
+	}
+
+	static void clearLegacyScriptedGroupsQuietly() {
+		SERVICE.removeSource(LEGACY_SCRIPT_SOURCE);
+	}
+
+	static void clearLegacyScriptedGroupsAndNotify() {
+		SERVICE.removeSource(LEGACY_SCRIPT_SOURCE);
 		publish(GroupChangeEvent.Kind.KUBEJS_REPLACE);
 	}
-
-	public static boolean areScriptedGroupsEmpty() { return ScriptedGroupStore.isEmpty(); }
-
-	/** Clear without notification; used while a viewer runtime is being torn down. */
-	public static void clearScriptedGroups() { ScriptedGroupStore.invalidate(); }
-
-	public static boolean areScriptedGroupsApplied() { return ScriptedGroupStore.isApplied(); }
-	public static void markScriptedGroupsApplied() { ScriptedGroupStore.markApplied(); }
 
 	public static boolean isExpanded(GroupDefinition group) { return isExpandedById(group.id()); }
 	public static boolean isExpandedById(String id) { return GroupExpandState.isExpandedById(id); }
 	public static void toggle(GroupDefinition group) { toggleById(group.id()); }
 	public static void toggleById(String id) { GroupExpandState.toggleById(id); }
 
-	public static void save(GroupDefinition group) {
-		saveQuietly(group);
+	public static synchronized void save(GroupDefinition group) {
+		if (!saveQuietlyInternal(group)) return;
 		publish(GroupChangeEvent.Kind.FULL);
 	}
 
-	public static void saveQuietly(GroupDefinition group) {
-		CATALOG.saveOrReplace(group);
-		STORE.save(group);
+	public static synchronized void saveQuietly(GroupDefinition group) {
+		saveQuietlyInternal(group);
+	}
+
+	private static boolean saveQuietlyInternal(GroupDefinition group) {
+		SERVICE.validateGroup(group);
+		if (!STORE.saveChecked(group)) return false;
+		SERVICE.saveOrReplace(USER_SOURCE, group);
+		return true;
 	}
 
 	public static Optional<GroupDefinition> copyAsCustomQuietly(String sourceId, String copiedDisplayName) {
 		Optional<GroupDefinition> copied = createCustomCopyDraft(sourceId, copiedDisplayName);
-		copied.ifPresent(GroupRepository::saveQuietly);
-		return copied;
+		if (copied.isEmpty()) return Optional.empty();
+		return saveQuietlyInternal(copied.get()) ? copied : Optional.empty();
 	}
 
 	public static Optional<GroupDefinition> createCustomCopyDraft(String sourceId, String copiedDisplayName) {
@@ -103,45 +169,44 @@ public final class GroupRepository {
 		return changed;
 	}
 
-	public static boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
+	public static synchronized boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
 		if (id == null || id.isBlank()) return false;
-		GroupDefinition existing = CATALOG.byId().get(id);
-		if (existing != null) {
-			if (existing.enabled() == enabled) return true;
-			if (GroupSource.fromGroupId(id).usesEnabledOverride()) {
-				CATALOG.setEnabled(id, enabled);
-				STORE.saveEnabledOverride(id, enabled);
-			} else {
-				saveQuietly(existing.withEnabled(enabled));
-			}
-			return true;
+		GroupDefinition existing = SERVICE.findById(id).orElse(null);
+		if (existing == null) return false;
+		if (existing.enabled() == enabled) return true;
+		GroupSource source = SERVICE.visibleCategory(id);
+		if ((source != null && source.usesEnabledOverride())
+			|| GroupSource.fromGroupId(id).usesEnabledOverride()) {
+			if (!STORE.saveEnabledOverrideChecked(id, enabled)) return false;
+			return SERVICE.updateVisible(id, current -> current.withEnabled(enabled));
 		}
-		for (GroupDefinition group : ScriptedGroupStore.groups()) {
-			if (!id.equals(group.id())) continue;
-			if (group.enabled() == enabled) return true;
-			boolean updated = ScriptedGroupStore.update(id, current -> current.withEnabled(enabled));
-			if (updated) STORE.saveEnabledOverride(id, enabled);
-			return updated;
-		}
-		return false;
+		return saveQuietlyInternal(existing.withEnabled(enabled));
 	}
 
 	public static void notifyEnabledChanged() { publish(GroupChangeEvent.Kind.ENABLED); }
 
-	public static void delete(String id) {
-		deleteQuietly(id);
+	public static synchronized void delete(String id) {
+		if (!deleteQuietlyInternal(id)) return;
 		publish(GroupChangeEvent.Kind.FULL);
 	}
 
-	public static void deleteQuietly(String id) {
-		CATALOG.delete(id);
-		STORE.delete(id);
+	public static synchronized void deleteQuietly(String id) {
+		deleteQuietlyInternal(id);
+	}
+
+	private static boolean deleteQuietlyInternal(String id) {
+		if (!STORE.deleteChecked(id)) return false;
+		SERVICE.removeGroup(USER_SOURCE, id);
+		return true;
 	}
 
 	public static void notifyViewer() { publish(GroupChangeEvent.Kind.FULL); }
 	public static void notifyStructureChanged() { publish(GroupChangeEvent.Kind.STRUCTURE); }
 
-	public static String generateUniqueId(String base) { return CATALOG.generateUniqueId(base); }
+	public static String generateUniqueId(String base) {
+		return GroupCatalog.generateUniqueId(base,
+			SERVICE.managedRegistrationOrder().stream().map(GroupDefinition::id).toList());
+	}
 
 	public static String generateUniqueIdIncludingScripted(String base) {
 		return GroupCatalog.generateUniqueId(base,
@@ -158,7 +223,11 @@ public final class GroupRepository {
 
 	/** Test seam for deterministic repository fixtures without reflective state mutation. */
 	static void replaceForTesting(List<GroupDefinition> groups) {
-		CATALOG.publish(groups);
-		ScriptedGroupStore.invalidate();
+		Map<GroupService.SourceKey, List<GroupDefinition>> sources = new LinkedHashMap<>();
+		sources.put(BUILTIN_SOURCE, groups.stream()
+			.filter(group -> GroupSource.fromGroupId(group.id()) == GroupSource.BUILTIN).toList());
+		sources.put(USER_SOURCE, groups.stream()
+			.filter(group -> GroupSource.fromGroupId(group.id()) != GroupSource.BUILTIN).toList());
+		SERVICE.reset(sources);
 	}
 }
