@@ -332,7 +332,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	private List<ViewerIngredient<EmiIngredient>> matching(GroupDefinition definition, ViewerIngredient.Kind kind) {
 		if (!definition.enabled()) return List.of();
 		return adapter.bootstrapContext().universe().ordered().stream()
-			.filter(value -> value.kind() == kind && definition.compiledFilter().matches(value.view())).toList();
+			.filter(value -> value.kind() == kind && definition.query().matches(value.view())).toList();
 	}
 
 	@Override public CompletableFuture<Void> prepareEditorEntry(GroupDefinition definition) {

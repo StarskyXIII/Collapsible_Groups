@@ -1,20 +1,30 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
+import com.starskyxiii.collapsible_groups.internal.query.IngredientCatalog;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 
 /** Ordered item, fluid, and generic ingredient universe supplied by a viewer. */
-public final class ViewerIngredientUniverse<E> {
+public final class ViewerIngredientUniverse<E>
+	implements IngredientCatalog<ViewerIngredient<E>, ViewerIngredientIdentity> {
 	private final List<ViewerIngredient<E>> ordered;
 	private final Map<ViewerIngredientIdentity, ViewerIngredient<E>> byIdentity;
+	private final Object sourceToken;
 	private IconIndex<E> iconIndex;
 
 	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered) {
+		this(ordered, null);
+	}
+
+	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered, Object sourceToken) {
 		Map<ViewerIngredientIdentity, ViewerIngredient<E>> indexed = new LinkedHashMap<>();
 		for (ViewerIngredient<E> ingredient : ordered) indexed.putIfAbsent(ingredient.identity(), ingredient);
 		this.ordered = List.copyOf(indexed.values());
-		this.byIdentity = Map.copyOf(indexed);
+		this.byIdentity = Collections.unmodifiableMap(new LinkedHashMap<>(indexed));
+		this.sourceToken = sourceToken == null ? this : sourceToken;
 	}
 
 	private synchronized IconIndex<E> iconIndex() {
@@ -48,6 +58,11 @@ public final class ViewerIngredientUniverse<E> {
 
 	public Map<ViewerIngredientIdentity, ViewerIngredient<E>> byIdentity() {
 		return byIdentity;
+	}
+
+	@Override
+	public Object sourceToken() {
+		return sourceToken;
 	}
 
 	public List<ViewerIngredient<E>> items() {

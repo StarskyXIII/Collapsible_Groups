@@ -67,7 +67,7 @@ class ScopedNotItemPathsTest {
 			for (int warm = 0; warm < 2; warm++) assertEquals(entry.expected(), preview.resolve(entry.filter(), context), entry.filter().toString());
 			var replacementContext = new GroupItemSelector.ExactDecodeContext(context.ops(), true, new Object());
 			assertEquals(entry.expected(), preview.resolve(entry.filter(), replacementContext));
-			var plan = ItemFilterQueryCompiler.compile(entry.filter());
+			var plan = ItemFilterQueryCompiler.compile(definition.query());
 			List<IngredientFilterItemIndex.ItemEntry> candidates = switch (plan) {
 				case ItemFilterQueryCompiler.EmptyPlan ignored -> List.of();
 				case ItemFilterQueryCompiler.CandidatePlan candidate -> candidate.collectCandidates(jeiIndex);

@@ -169,7 +169,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	@Override public CompletableFuture<Void> whenReady() { return readyFuture; }
 
 	synchronized Optional<Generation> readyGenerationSnapshot() {
-		return ready() && published.universe() == sourceUniverse && readyFuture.isDone()
+		return ready() && published.universe().sourceToken() == sourceUniverse.sourceToken() && readyFuture.isDone()
 			&& !readyFuture.isCompletedExceptionally() && !readyFuture.isCancelled()
 			? Optional.of(published) : Optional.empty();
 	}

@@ -1,11 +1,11 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
-import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
-
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupCatalog;
+import com.starskyxiii.collapsible_groups.internal.query.IngredientCatalog;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -107,14 +107,14 @@ public final class GroupProjectionEngine {
 	}
 
 	public static <E> Map<ViewerIngredientIdentity, String> buildOwnership(
-		ViewerIngredientUniverse<E> universe,
+		IngredientCatalog<ViewerIngredient<E>, ViewerIngredientIdentity> universe,
 		List<GroupDefinition> groups
 	) {
 		return resolveOwnership(buildCandidateIndex(universe, groups), groups);
 	}
 
 	public static <E> GroupCandidateIndex buildCandidateIndex(
-		ViewerIngredientUniverse<E> universe,
+		IngredientCatalog<ViewerIngredient<E>, ViewerIngredientIdentity> universe,
 		List<GroupDefinition> groups
 	) {
 		List<GroupDefinition> priorityOrder = GroupCatalog.orderByPriority(groups);
@@ -134,7 +134,7 @@ public final class GroupProjectionEngine {
 			};
 			List<String> matches = new ArrayList<>();
 			for (GroupDefinition group : applicable) {
-				if (group.compiledFilter().matches(ingredient.view())) matches.add(group.id());
+				if (group.query().matches(ingredient.view())) matches.add(group.id());
 			}
 			if (!matches.isEmpty()) candidates.put(ingredient.identity(), List.copyOf(matches));
 			edges += matches.size();
@@ -159,7 +159,7 @@ public final class GroupProjectionEngine {
 				}
 			}
 		});
-		return Map.copyOf(result);
+		return Collections.unmodifiableMap(new LinkedHashMap<>(result));
 	}
 
 	private static boolean shouldUngroupForSearch(ViewerSearchSnapshot<?> search, int childCount) {

@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterNormalizer;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
+import com.starskyxiii.collapsible_groups.internal.query.CompiledGroupQuery;
 
 import com.google.gson.JsonObject;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
@@ -31,7 +32,7 @@ public final class GroupDefinition {
 	private final GroupTheme theme;
 	private final int priority;
 	private final JsonObject extra;
-	private final CompiledFilter compiledFilter;
+	private final CompiledGroupQuery query;
 
 	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter) {
 		this(id, name, enabled, filter, List.of());
@@ -99,7 +100,8 @@ public final class GroupDefinition {
 		this.id = Objects.requireNonNull(id, "id");
 		this.displayName = Objects.requireNonNull(displayName, "displayName");
 		this.enabled = enabled;
-		this.filter = GroupFilterNormalizer.normalize(Objects.requireNonNull(filter, "filter"));
+		GroupFilter sourceFilter = Objects.requireNonNull(filter, "filter");
+		this.filter = GroupFilterNormalizer.normalize(sourceFilter);
 		List<String> validationErrors = GroupFilterValidator.validate(this.filter);
 		if (!validationErrors.isEmpty()) {
 			throw new IllegalArgumentException("Invalid group filter: " + String.join("; ", validationErrors));
@@ -108,7 +110,7 @@ public final class GroupDefinition {
 		this.theme = Objects.requireNonNullElse(theme, GroupTheme.EMPTY);
 		this.priority = priority;
 		this.extra = copyExtra(extra);
-		this.compiledFilter = CompiledFilter.compile(this.filter);
+		this.query = CompiledGroupQuery.compile(this.filter, sourceFilter);
 	}
 
 	public static GroupDefinition of(String id, String name, GroupFilter filter) {
@@ -165,7 +167,11 @@ public final class GroupDefinition {
 	}
 
 	public CompiledFilter compiledFilter() {
-		return compiledFilter;
+		return query.evaluator();
+	}
+
+	public CompiledGroupQuery query() {
+		return query;
 	}
 
 	public boolean hasUnavailableFilter() {
@@ -173,7 +179,7 @@ public final class GroupDefinition {
 	}
 
 	public boolean matchesIgnoringEnabled(ItemStack stack) {
-		return compiledFilter.matches(new ItemStackIngredientView(stack));
+		return query.matches(new ItemStackIngredientView(stack));
 	}
 
 	public boolean matches(ItemStack stack) {
@@ -181,15 +187,15 @@ public final class GroupDefinition {
 	}
 
 	public boolean hasItemFilters() {
-		return compiledFilter.candidateTypes().contains("item");
+		return query.plan().mayMatchItems();
 	}
 
 	public boolean hasFluidFilters() {
-		return compiledFilter.candidateTypes().contains("fluid");
+		return query.plan().mayMatchFluids();
 	}
 
 	public boolean hasGenericFilters() {
-		return compiledFilter.candidateTypes().containsGeneric();
+		return query.plan().mayMatchGeneric();
 	}
 
 	public GroupDefinition withEnabled(boolean enabled) {

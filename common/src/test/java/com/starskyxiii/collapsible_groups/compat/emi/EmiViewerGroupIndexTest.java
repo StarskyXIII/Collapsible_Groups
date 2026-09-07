@@ -63,6 +63,20 @@ class EmiViewerGroupIndexTest {
 		index.reset();
 		assertTrue(index.readyGenerationSnapshot().isEmpty());
 	}
+	@Test void ownershipSnapshotUsesCatalogSourceTokenAcrossEquivalentWrappers() {
+		ControlledExecutor executor = new ControlledExecutor();
+		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor);
+		Object token = new Object();
+		var source = new ViewerIngredientUniverse<>(
+			List.of(ingredient("stone", "minecraft:stone")), token);
+		index.requestRebuild(1, source, List.of(group("stone", "minecraft:stone")));
+		executor.runNext();
+		var equivalent = new ViewerIngredientUniverse<>(source.ordered(), token);
+		index.updateSource(1, equivalent);
+		assertTrue(index.readyGenerationSnapshot().isPresent());
+		index.updateSource(1, new ViewerIngredientUniverse<>(source.ordered(), new Object()));
+		assertTrue(index.readyGenerationSnapshot().isEmpty());
+	}
 	@Test void coalescesBuildsAndSuppressesAnObsoleteBuildInTheSameEpoch() {
 		ControlledExecutor executor = new ControlledExecutor();
 		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor);

@@ -136,7 +136,7 @@ public final class IngredientFilterHelper {
 				continue;
 			}
 
-			List<IngredientFilterItemIndex.ItemEntry> domain = switch (ItemFilterQueryCompiler.compile(group.filter())) {
+			List<IngredientFilterItemIndex.ItemEntry> domain = switch (ItemFilterQueryCompiler.compile(group.query())) {
 				case ItemFilterQueryCompiler.EmptyPlan ignored -> List.of();
 				case ItemFilterQueryCompiler.AllItemsPlan ignored -> itemIndex.orderedEntries();
 				case ItemFilterQueryCompiler.CandidatePlan candidate -> candidate.collectCandidates(itemIndex);

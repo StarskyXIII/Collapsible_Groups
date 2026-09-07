@@ -5,6 +5,7 @@ import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.FilterTypeScope;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterNormalizer;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
+import com.starskyxiii.collapsible_groups.internal.query.CompiledGroupQuery;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -27,6 +28,10 @@ public final class ItemFilterQueryCompiler {
 
 	public static ItemQueryPlan compile(GroupFilter filter) {
 		return compileNormalized(GroupFilterNormalizer.normalize(filter));
+	}
+
+	public static ItemQueryPlan compile(CompiledGroupQuery query) {
+		return compileNormalized(query.source());
 	}
 
 	private static ItemQueryPlan compileNormalized(GroupFilter filter) {

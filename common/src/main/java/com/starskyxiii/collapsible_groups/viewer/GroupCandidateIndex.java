@@ -4,6 +4,8 @@ import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 
 /** Enabled-independent, priority-ordered group candidates for each ingredient. */
 public record GroupCandidateIndex(
@@ -14,8 +16,8 @@ public record GroupCandidateIndex(
 	int maxCandidates
 ) {
 	public GroupCandidateIndex {
-		candidates = Map.copyOf(candidates);
-		groupSnapshot = Map.copyOf(groupSnapshot);
+		candidates = Collections.unmodifiableMap(new LinkedHashMap<>(candidates));
+		groupSnapshot = Collections.unmodifiableMap(new LinkedHashMap<>(groupSnapshot));
 	}
 
 	public double averageCandidates() {
