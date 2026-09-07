@@ -1499,7 +1499,7 @@ final class EditorRulesPanel {
 		modal = ModalKind.REFERENCE_PICKER;
 		referencePickerMode = ReferencePickerMode.REFERENCE_PATH;
 		referenceSelectedComponent = component;
-		referencePaths = ComponentPathNavigator.enumerateReachable(component.encodedJson());
+		referencePaths = ComponentReferenceExtractor.enumeratePaths(component);
 		referenceFilteredComponents = List.of();
 		modalScrollOffset = 0;
 		lastReferencePickerClickMs = 0;

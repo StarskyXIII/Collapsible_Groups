@@ -8,6 +8,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.function.Predicate;
+import java.util.function.Supplier;
 
 /** Lazy immutable item-id bucket shared by singleton and folded exact-stack selectors. */
 final class ExactStackMatcherCache<T> {
@@ -17,6 +18,7 @@ final class ExactStackMatcherCache<T> {
 
 	interface DecodeAttempt<T> {
 		boolean liveRegistry();
+		default Object registryIdentity() { return this; }
 		Optional<Decoded<T>> decode(String encodedStack);
 	}
 
@@ -24,11 +26,23 @@ final class ExactStackMatcherCache<T> {
 
 	private final List<String> encodedStacks;
 	private final Decoder<T> decoder;
-	private volatile Map<ResourceLocation, List<T>> bucket;
+	private final Supplier<Object> registryIdentity;
+	private final boolean identityAware;
+	private volatile ResolvedBucket<T> bucket;
 
 	ExactStackMatcherCache(List<String> encodedStacks, Decoder<T> decoder) {
+		Object stableIdentity = new Object();
 		this.encodedStacks = List.copyOf(encodedStacks);
 		this.decoder = decoder;
+		this.registryIdentity = () -> stableIdentity;
+		this.identityAware = false;
+	}
+
+	ExactStackMatcherCache(List<String> encodedStacks, Decoder<T> decoder, Supplier<Object> registryIdentity) {
+		this.encodedStacks = List.copyOf(encodedStacks);
+		this.decoder = decoder;
+		this.registryIdentity = registryIdentity;
+		this.identityAware = true;
 	}
 
 	boolean matches(ResourceLocation itemId, Predicate<T> exactMatcher) {
@@ -44,18 +58,21 @@ final class ExactStackMatcherCache<T> {
 	}
 
 	private Map<ResourceLocation, List<T>> resolveBucket() {
-		Map<ResourceLocation, List<T>> local = bucket;
-		if (local != null) return local;
+		Object currentIdentity = registryIdentity.get();
+		ResolvedBucket<T> local = bucket;
+		if (local != null && local.registryIdentity() == currentIdentity) return local.references();
 		synchronized (this) {
+			currentIdentity = registryIdentity.get();
 			local = bucket;
-			if (local != null) return local;
-			Map<ResourceLocation, List<T>> built = buildBucket();
-			if (built != null) bucket = built;
-			return built;
+			if (local != null && local.registryIdentity() == currentIdentity) return local.references();
+			ResolvedBucket<T> built = buildBucket(currentIdentity);
+			if (built == null || (identityAware && registryIdentity.get() != built.registryIdentity())) return null;
+			bucket = built;
+			return built.references();
 		}
 	}
 
-	private Map<ResourceLocation, List<T>> buildBucket() {
+	private ResolvedBucket<T> buildBucket(Object requestedIdentity) {
 		DecodeAttempt<T> attempt = decoder.beginAttempt();
 		Map<ResourceLocation, List<T>> mutable = new LinkedHashMap<>();
 		int decoded = 0;
@@ -72,6 +89,9 @@ final class ExactStackMatcherCache<T> {
 		for (Map.Entry<ResourceLocation, List<T>> entry : mutable.entrySet()) {
 			immutable.put(entry.getKey(), List.copyOf(entry.getValue()));
 		}
-		return Map.copyOf(immutable);
+		Object publishedIdentity = identityAware ? attempt.registryIdentity() : requestedIdentity;
+		return new ResolvedBucket<>(publishedIdentity, Map.copyOf(immutable));
 	}
+
+	private record ResolvedBucket<T>(Object registryIdentity, Map<ResourceLocation, List<T>> references) {}
 }

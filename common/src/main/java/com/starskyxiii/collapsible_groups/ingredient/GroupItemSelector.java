@@ -1,23 +1,19 @@
 package com.starskyxiii.collapsible_groups.ingredient;
 
-import com.starskyxiii.collapsible_groups.Constants;
 import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
-import com.mojang.serialization.JsonOps;
-import net.minecraft.client.Minecraft;
-import net.minecraft.core.RegistryAccess;
+import com.starskyxiii.collapsible_groups.internal.version.data.ExactStackCodec;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft121ItemDataAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 public final class GroupItemSelector {
 	private static final String STACK_PREFIX = "stack:";
-	private static final RegistryAccess.Frozen FALLBACK_REGISTRY_ACCESS =
-		RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-	private static final AtomicBoolean FALLBACK_WARNING_LOGGED = new AtomicBoolean(false);
+	private static final Minecraft121ItemDataAccess DATA_ACCESS = ItemDataAccesses.minecraft121();
+	private static final ExactStackCodec<ItemStack> EXACT_STACKS = DATA_ACCESS.exactStacks();
 
 	private GroupItemSelector() {}
 
@@ -43,9 +39,7 @@ public final class GroupItemSelector {
 	}
 
 	public static ItemStack normalizedCopy(ItemStack stack) {
-		ItemStack copy = stack.copy();
-		copy.setCount(1);
-		return copy;
+		return EXACT_STACKS.normalizedCopy(stack);
 	}
 
 	public static String wholeItemSelector(ItemStack stack) {
@@ -58,11 +52,11 @@ public final class GroupItemSelector {
 	}
 
 	public static Optional<String> tryExactSelector(ItemStack stack) {
-		ItemStack normalized = normalizedCopy(stack);
-		return ItemStack.STRICT_SINGLE_ITEM_CODEC
-			.encodeStart(serializationContext(), normalized)
-			.resultOrPartial(error -> Constants.LOG.warn("Failed to encode exact group selector for {}: {}", normalized, error))
-			.map(encoded -> STACK_PREFIX + encoded);
+		return EXACT_STACKS.encodeLegacy(stack).map(encoded -> STACK_PREFIX + encoded);
+	}
+
+	public static Optional<String> tryVersionedExactSelector(ItemStack stack) {
+		return EXACT_STACKS.encodeEnvelope(stack).map(encoded -> STACK_PREFIX + encoded);
 	}
 
 	public static Optional<ItemStack> decodeExactSelector(String selector) {
@@ -82,13 +76,8 @@ public final class GroupItemSelector {
 
 	/** captures the current registry resolution once, for use across a batch of decodes. */
 	public static ExactDecodeContext exactDecodeContext() {
-		RegistryAccess live = liveRegistryAccess();
-		if (live != null) {
-			return new ExactDecodeContext(live.createSerializationContext(JsonOps.INSTANCE), true, live);
-		}
-		warnFallbackOnce();
-		return new ExactDecodeContext(FALLBACK_REGISTRY_ACCESS.createSerializationContext(JsonOps.INSTANCE), false,
-			FALLBACK_REGISTRY_ACCESS);
+		Minecraft121ItemDataAccess.RegistryContext context = DATA_ACCESS.registryContext();
+		return new ExactDecodeContext(context.ops(), context.liveRegistry(), context.registryIdentity());
 	}
 
 	/**
@@ -100,46 +89,15 @@ public final class GroupItemSelector {
 			return Optional.empty();
 		}
 
-		try {
-			JsonElement encoded = JsonParser.parseString(selector.substring(STACK_PREFIX.length()));
-			return ItemStack.STRICT_SINGLE_ITEM_CODEC.parse(context.ops(), encoded)
-				.resultOrPartial(error -> Constants.LOG.warn("Failed to decode exact group selector '{}': {}", selector, error))
-				.map(GroupItemSelector::normalizedCopy);
-		} catch (RuntimeException e) {
-			Constants.LOG.warn("Invalid exact group selector '{}'", selector, e);
-			return Optional.empty();
-		}
+		return DATA_ACCESS.decodeSnapshot(context.ops(), context.liveRegistry(), context.registryIdentity())
+			.decode(selector.substring(STACK_PREFIX.length()));
 	}
 
 	public static RegistryOps<JsonElement> serializationContext() {
-		RegistryAccess live = liveRegistryAccess();
-		if (live != null) {
-			return live.createSerializationContext(JsonOps.INSTANCE);
-		}
-		warnFallbackOnce();
-		return FALLBACK_REGISTRY_ACCESS.createSerializationContext(JsonOps.INSTANCE);
+		return DATA_ACCESS.serializationContext();
 	}
 
-	private static RegistryAccess liveRegistryAccess() {
-		Minecraft minecraft = Minecraft.getInstance();
-		if (minecraft == null) return null;
-		if (minecraft.level != null) {
-			return minecraft.level.registryAccess();
-		}
-		if (minecraft.getConnection() != null) {
-			return minecraft.getConnection().registryAccess();
-		}
-		if (minecraft.player != null) {
-			return minecraft.player.registryAccess();
-		}
-		return null;
-	}
-
-	private static void warnFallbackOnce() {
-		if (FALLBACK_WARNING_LOGGED.compareAndSet(false, true)) {
-			Constants.LOG.warn(
-				"Exact group selector serialization is using built-in fallback registries before a live client registry is available."
-			);
-		}
+	public static Object registryIdentity() {
+		return EXACT_STACKS.registryIdentity();
 	}
 }

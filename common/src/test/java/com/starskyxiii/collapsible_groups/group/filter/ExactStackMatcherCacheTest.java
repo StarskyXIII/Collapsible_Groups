@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -80,6 +81,35 @@ class ExactStackMatcherCacheTest {
 		for (int i = 0; i < 10_000; i++) assertFalse(cache.matches(FACADE, ignored -> true));
 		assertEquals(1, attempts.get());
 		assertEquals(1, decodes.get());
+	}
+
+	@Test void warmIdentityAwareCacheDoesNotBeginAnotherDecodeSnapshot() {
+		Object firstRegistry = new Object();
+		Object secondRegistry = new Object();
+		AtomicReference<Object> identity = new AtomicReference<>(firstRegistry);
+		AtomicInteger attempts = new AtomicInteger();
+		AtomicInteger decodes = new AtomicInteger();
+		var cache = new ExactStackMatcherCache<>(List.of("encoded"), () -> {
+			Object snapshotIdentity = identity.get();
+			attempts.incrementAndGet();
+			return new ExactStackMatcherCache.DecodeAttempt<String>() {
+				@Override public boolean liveRegistry() { return true; }
+				@Override public Object registryIdentity() { return snapshotIdentity; }
+				@Override public Optional<ExactStackMatcherCache.Decoded<String>> decode(String encodedStack) {
+					decodes.incrementAndGet();
+					return Optional.of(decoded(FACADE, snapshotIdentity == firstRegistry ? "first" : "second"));
+				}
+			};
+		}, identity::get);
+
+		for (int i = 0; i < 10_000; i++) assertTrue(cache.matches(FACADE, "first"::equals));
+		assertEquals(1, attempts.get());
+		assertEquals(1, decodes.get());
+
+		identity.set(secondRegistry);
+		assertTrue(cache.matches(FACADE, "second"::equals));
+		assertEquals(2, attempts.get());
+		assertEquals(2, decodes.get());
 	}
 
 	private static ExactStackMatcherCache<Map<String, Object>> liveCache(

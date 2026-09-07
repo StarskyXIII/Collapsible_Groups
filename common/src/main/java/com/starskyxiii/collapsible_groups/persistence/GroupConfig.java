@@ -17,6 +17,9 @@ import com.starskyxiii.collapsible_groups.group.filter.FilterNodeCapabilities;
 import com.starskyxiii.collapsible_groups.group.filter.FilterNodeKind;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataFormat;
+import com.starskyxiii.collapsible_groups.internal.version.data.MinecraftItemDataFormats;
+import com.starskyxiii.collapsible_groups.internal.version.data.VersionedDataEnvelope;
 import com.starskyxiii.collapsible_groups.platform.Services;
 
 import java.io.IOException;
@@ -553,6 +556,9 @@ public final class GroupConfig {
 			if (!obj.has("value")) {
 				throw new IllegalArgumentException("Component filter node requires 'value': " + obj);
 			}
+			if (hasUnsupportedEnvelope(obj.get("value"), MinecraftItemDataFormats.COMPONENT_VALUE_1_21_1)) {
+				return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
+			}
 			// Discriminator: component + path -> ComponentPath; component alone -> HasComponent.
 			// If path is present but fails grammar validation, fail fast rather than silently falling back.
 			if (obj.has("path")) {
@@ -581,6 +587,9 @@ public final class GroupConfig {
 			if (!"item".equals(type)) {
 				throw new IllegalArgumentException("ExactStack only supports type='item': " + obj);
 			}
+			if (hasUnsupportedEnvelope(obj.get("stack"), MinecraftItemDataFormats.EXACT_STACK_1_21_1)) {
+				return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
+			}
 			return new GroupFilter.ExactStack(obj.get("stack").getAsString());
 		}
 		if (obj.has("block_tag")) {
@@ -603,6 +612,13 @@ public final class GroupConfig {
 		if (obj.has("tag")) return new GroupFilter.Tag(type, obj.get("tag").getAsString());
 		if (obj.has("namespace")) return new GroupFilter.Namespace(type, obj.get("namespace").getAsString());
 		throw new IllegalArgumentException("Unknown filter node: " + obj);
+	}
+
+	private static boolean hasUnsupportedEnvelope(JsonElement encoded, ItemDataFormat current) {
+		if (!encoded.isJsonPrimitive() || !encoded.getAsJsonPrimitive().isString()) return false;
+		String value = encoded.getAsString();
+		if (!VersionedDataEnvelope.isEnvelope(value)) return false;
+		return VersionedDataEnvelope.inspect(value, current).support() != VersionedDataEnvelope.Support.CURRENT;
 	}
 
 	// package-private for testing (GroupConfigComponentPathTest)

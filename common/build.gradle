@@ -68,6 +68,10 @@ sourceSets {
 			srcDir 'src/test/java'
             include 'com/starskyxiii/collapsible_groups/group/**/*.java'
             include 'com/starskyxiii/collapsible_groups/ingredient/**/*.java'
+			include 'com/starskyxiii/collapsible_groups/internal/version/data/**/*.java'
+			include 'com/starskyxiii/collapsible_groups/internal/query/**/*.java'
+			include 'com/starskyxiii/collapsible_groups/platform/fluid/**/*.java'
+			include 'com/starskyxiii/collapsible_groups/platform/TestPlatformHelper.java'
             include 'com/starskyxiii/collapsible_groups/viewer/**/*.java'
             include 'com/starskyxiii/collapsible_groups/client/**/*.java'
         }

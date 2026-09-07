@@ -322,13 +322,14 @@ public final class CompiledFilter {
 				GroupItemSelector.ExactDecodeContext context = GroupItemSelector.exactDecodeContext();
 				return new ExactStackMatcherCache.DecodeAttempt<>() {
 					@Override public boolean liveRegistry() { return context.liveRegistry(); }
+					@Override public Object registryIdentity() { return context.registryIdentity(); }
 					@Override public Optional<ExactStackMatcherCache.Decoded<ItemStack>> decode(String encodedStack) {
 						return GroupItemSelector.decodeExactSelector(STACK_PREFIX + encodedStack, context)
 							.map(stack -> new ExactStackMatcherCache.Decoded<>(
 								BuiltInRegistries.ITEM.getKey(stack.getItem()), stack));
 					}
 				};
-			});
+			}, () -> GroupItemSelector.registryIdentity());
 		}
 
 		@Override
