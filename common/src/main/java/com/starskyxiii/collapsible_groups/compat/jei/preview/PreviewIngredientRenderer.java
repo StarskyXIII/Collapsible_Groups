@@ -2,8 +2,9 @@ package com.starskyxiii.collapsible_groups.compat.jei.preview;
 
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientRenderBridge;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiFluidIngredient;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
-import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidIngredient;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
@@ -22,11 +23,15 @@ public final class PreviewIngredientRenderer {
 	public static void renderFluid(GuiGraphics guiGraphics, Object fluid, int x, int y) {
 		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		if (JeiRuntimeHolder.get() != null && fluidType != null) {
-			renderWithJei(guiGraphics, fluidType, fluid, x, y);
+			Object viewerValue = fluid instanceof JeiFluidIngredient jei ? jei.viewerValue() : fluid;
+			renderWithJei(guiGraphics, fluidType, viewerValue, x, y);
 			return;
 		}
 
-		ItemStack fallback = Services.PLATFORM.getFluidFallbackBucket(fluid);
+		FluidIngredient converted = fluid instanceof JeiFluidIngredient jei
+			? jei.fluid() : fluid instanceof FluidIngredient nativeFluid
+				? nativeFluid : JeiIngredientTypes.convertFluid(fluid).require();
+		ItemStack fallback = converted.fallbackBucket();
 		if (fallback != null && !fallback.isEmpty()) {
 			guiGraphics.renderItem(fallback, x, y);
 		}

@@ -446,10 +446,11 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 					itemIds.computeIfAbsent(id, ignored -> new LinkedHashSet<>()).add(groupId);
 				});
 				case FLUID -> {
-					Object fluid = ingredient.entry().getIngredient();
-					fluids.computeIfAbsent(groupId, ignored -> new ArrayList<>()).add(fluid);
-					String id = Services.PLATFORM.getFluidId(fluid);
-					if (id != null) fluidIds.computeIfAbsent(id, ignored -> new LinkedHashSet<>()).add(groupId);
+					Object viewerValue = ingredient.entry().getIngredient();
+					fluids.computeIfAbsent(groupId, ignored -> new ArrayList<>()).add(viewerValue);
+					var fluidId = ingredient.view().resourceLocation();
+					if (fluidId != null) fluidIds.computeIfAbsent(fluidId.toString(), ignored -> new LinkedHashSet<>())
+						.add(groupId);
 				}
 				case GENERIC -> { }
 			}

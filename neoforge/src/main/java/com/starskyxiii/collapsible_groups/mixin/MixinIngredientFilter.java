@@ -6,12 +6,10 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilter
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterHook;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.api.ingredients.ITypedIngredient;
-import mezz.jei.api.neoforge.NeoForgeTypes;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.gui.filter.IFilterTextSource;
 import mezz.jei.gui.ingredients.IngredientFilter;
 import mezz.jei.gui.overlay.elements.IElement;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
@@ -48,17 +46,7 @@ public abstract class MixinIngredientFilter {
 			this::cg$notifyListenersOfChange, this.ingredientManager,
 			() -> this.ingredientListCached, value -> this.ingredientListCached = value,
 			new JeiIngredientFilterController.PlatformHooks() {
-				@Override public Object fluidIngredient(ITypedIngredient<?> typed) {
-					return typed.getIngredient(NeoForgeTypes.FLUID_STACK).orElse(null);
-				}
-				@Override public Object previewFluid(ITypedIngredient<?> typed) {
-					return typed.getIngredient() instanceof FluidStack fluid ? fluid : null;
-				}
 				@Override public boolean hasFluidType() { return true; }
-				@Override public String fluidId(Object fluid) {
-					return fluid instanceof FluidStack stack
-						? BuiltInRegistries.FLUID.getKey(stack.getFluid()).toString() : null;
-				}
 				@Override @SuppressWarnings("unchecked")
 				public IElement<?> createFluidChild(ITypedIngredient<?> typed, String groupId) {
 					return new FluidChildElement((ITypedIngredient<FluidStack>) typed, groupId);

@@ -5,13 +5,14 @@ import com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelp
 
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientRenderBridge;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiFluidIngredient;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupMatcher;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchDocument;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchQuery;
-import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidIngredient;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.IIngredientType;
 import net.minecraft.ChatFormatting;
@@ -32,8 +33,9 @@ final class EditorFluidIngredientHelper {
 		if (fluids.isEmpty()) return List.of();
 		List<EditorFluidIngredientView> result = new ArrayList<>(fluids.size());
 		for (Object fluid : fluids) {
-			String resourceId = Services.PLATFORM.getFluidId(fluid);
-			Component displayName = Services.PLATFORM.getFluidDisplayName(fluid);
+			FluidIngredient converted = fluid(fluid);
+			String resourceId = converted.id().toString();
+			Component displayName = converted.displayName();
 			String namespace = resourceId.contains(":") ? resourceId.substring(0, resourceId.indexOf(':')) : resourceId;
 			IngredientSearchDocument searchDocument = IngredientSearchDocument.of(
 				List.of(displayName.getString(), resourceId), List.of(namespace), Set.of());
@@ -42,7 +44,7 @@ final class EditorFluidIngredientHelper {
 				displayName,
 				resourceId,
 				searchDocument,
-				Services.PLATFORM.getFluidFallbackBucket(fluid)));
+				converted.fallbackBucket()));
 		}
 		List<EditorFluidIngredientView> copy = List.copyOf(result);
 		if (traceName != null && !traceName.isBlank()) {
@@ -90,7 +92,9 @@ final class EditorFluidIngredientHelper {
 		var runtime = JeiRuntimeHolder.get();
 		IIngredientType<?> fluidType = JeiIngredientTypes.getFluidType();
 		if (runtime != null && fluidType != null) {
-			renderWithJei(g, fluidType, entry.ingredient(), x, y);
+			Object viewerValue = entry.ingredient() instanceof JeiFluidIngredient jei
+				? jei.viewerValue() : entry.ingredient();
+			renderWithJei(g, fluidType, viewerValue, x, y);
 			return;
 		}
 
@@ -98,6 +102,11 @@ final class EditorFluidIngredientHelper {
 		if (fallback != null && !fallback.isEmpty()) {
 			g.renderItem(fallback, x, y);
 		}
+	}
+
+	private static FluidIngredient fluid(Object value) {
+		return value instanceof JeiFluidIngredient jei ? jei.fluid() : value instanceof FluidIngredient converted
+			? converted : JeiIngredientTypes.convertFluid(value).require();
 	}
 
 	static String dragKey(EditorFluidIngredientView entry) {

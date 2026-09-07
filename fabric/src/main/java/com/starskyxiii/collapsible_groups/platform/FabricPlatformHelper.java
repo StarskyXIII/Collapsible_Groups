@@ -1,14 +1,16 @@
 package com.starskyxiii.collapsible_groups.platform;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidAmountUnit;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidConversionInput;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidConversionResult;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidIngredient;
 import com.starskyxiii.collapsible_groups.platform.services.IPlatformHelper;
-import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariantAttributes;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
@@ -40,38 +42,16 @@ public class FabricPlatformHelper implements IPlatformHelper {
     }
 
     @Override
-    public String getFluidId(Object fluidStack) {
-        IJeiFluidIngredient ingredient = (IJeiFluidIngredient) fluidStack;
-        return BuiltInRegistries.FLUID.getKey(ingredient.getFluidVariant().getFluid()).toString();
-    }
-
-    @Override
-    public Component getFluidDisplayName(Object fluidStack) {
-        IJeiFluidIngredient ingredient = (IJeiFluidIngredient) fluidStack;
-        return FluidVariantAttributes.getName(ingredient.getFluidVariant());
-    }
-
-    @Override
-    public ItemStack getFluidFallbackBucket(Object fluidStack) {
-        IJeiFluidIngredient ingredient = (IJeiFluidIngredient) fluidStack;
-        var bucketItem = ingredient.getFluidVariant().getFluid().getBucket();
-        return bucketItem == Items.AIR ? ItemStack.EMPTY : new ItemStack(bucketItem);
-    }
-
-    @Override
-    public boolean fluidMatchesTag(Object fluidStack, String tagId) {
-        IJeiFluidIngredient ingredient = (IJeiFluidIngredient) fluidStack;
-        return ingredient.getFluidVariant().getFluid().builtInRegistryHolder().is(
-            TagKey.create(Registries.FLUID, ResourceLocation.parse(tagId)));
-    }
-
-    @Override
-    public IngredientView createFluidView(Object fluidStack) {
-        IJeiFluidIngredient ingredient = (IJeiFluidIngredient) fluidStack;
-        FluidVariant variant = ingredient.getFluidVariant();
+    public FluidConversionResult convertFluid(FluidConversionInput input) {
+        if (!(input.nativeValue() instanceof FluidVariant variant)) {
+            return new FluidConversionResult.Unsupported("Fabric fluid conversion requires FluidVariant");
+        }
+        if (input.amount().unit() != FluidAmountUnit.FABRIC_TRANSFER) {
+            return new FluidConversionResult.Unsupported("Fabric fluid amount unit must be FABRIC_TRANSFER");
+        }
         Fluid fluid = variant.getFluid();
         ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(fluid);
-        return new IngredientView() {
+        IngredientView view = new IngredientView() {
             @Override
             public String ingredientType() {
                 return "fluid";
@@ -92,5 +72,17 @@ public class FabricPlatformHelper implements IPlatformHelper {
                 return false;
             }
         };
+        var bucketItem = fluid.getBucket();
+        ItemStack fallback = bucketItem == Items.AIR ? ItemStack.EMPTY : new ItemStack(bucketItem);
+        return new FluidConversionResult.Success(new FluidIngredient(variant, input.amount(), fluidId,
+            FluidVariantAttributes.getName(variant), fallback, view));
+    }
+
+    @Override
+    public FluidConversionResult convertLegacyFluid(Object value) {
+        if (value instanceof FluidVariant) {
+            return new FluidConversionResult.Unsupported("Fabric FluidVariant requires an explicit FABRIC_TRANSFER amount");
+        }
+        return IPlatformHelper.super.convertLegacyFluid(value);
     }
 }

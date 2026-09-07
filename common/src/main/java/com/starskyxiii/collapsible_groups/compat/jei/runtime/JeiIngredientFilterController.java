@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiFluidIngredient;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GenericChildElement;
@@ -168,24 +169,27 @@ public final class JeiIngredientFilterController {
 		Map<String, List<Object>> fluidsByGroup = new HashMap<>();
 		Map<String, List<Object>> fullMatchFluidsByGroup = new HashMap<>();
 		Map<String, List<GenericIngredientRef>> fullMatchGenericByGroup = new HashMap<>();
+		Map<String, Set<String>> fluidIds = new HashMap<>();
 		List<GroupDefinition> fluidGroups = allGroups.stream().filter(GroupDefinition::hasFluidFilters).toList();
 		List<GroupDefinition> genericGroups = allGroups.stream().filter(GroupDefinition::hasGenericFilters).toList();
 
 		for (ITypedIngredient<?> typed : all) {
 			if (typed.getItemStack().isPresent()) continue;
-			Object fluid = (!fluidGroups.isEmpty() || hooks.probeFluidWithoutGroups())
-				&& hooks.hasFluidType() ? hooks.fluidIngredient(typed) : null;
+			JeiFluidIngredient fluid = (!fluidGroups.isEmpty() || hooks.probeFluidWithoutGroups())
+				&& hooks.hasFluidType() ? JeiIngredientTypes.fluidIngredient(typed) : null;
 			if (fluid != null) {
 				GroupDefinition firstMatch = null;
 				for (GroupDefinition group : fluidGroups) {
-					if (!GroupMatcher.matchesFluidIgnoringEnabled(group, fluid)) continue;
+					if (!GroupMatcher.matchesFluidIgnoringEnabled(group, fluid.fluid())) continue;
 					candidateGroups.computeIfAbsent(typed, ignored -> new ArrayList<>()).add(group.id());
 					if (firstMatch == null && group.enabled()) {
 						firstMatch = group;
 						index.put(typed, group);
-						fluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid);
+						fluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid.viewerValue());
+						fluidIds.computeIfAbsent(fluid.fluid().id().toString(), ignored -> new HashSet<>())
+							.add(group.id());
 					}
-					fullMatchFluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid);
+					fullMatchFluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid.viewerValue());
 				}
 				continue;
 			}
@@ -199,13 +203,6 @@ public final class JeiIngredientFilterController {
 			fluidsByGroup.putIfAbsent(group.id(), List.of());
 			fullMatchFluidsByGroup.putIfAbsent(group.id(), List.of());
 			fullMatchGenericByGroup.putIfAbsent(group.id(), List.of());
-		}
-		Map<String, Set<String>> fluidIds = new HashMap<>();
-		for (var entry : fluidsByGroup.entrySet()) {
-			for (Object fluid : entry.getValue()) {
-				String id = hooks.fluidId(fluid);
-				if (id != null) fluidIds.computeIfAbsent(id, ignored -> new HashSet<>()).add(entry.getKey());
-			}
 		}
 		JeiViewerAdapter.PreparedOwnershipBuild prepared =
 			JeiViewerAdapter.instance().buildOwnershipIndexFromMatches(
@@ -334,8 +331,8 @@ public final class JeiIngredientFilterController {
 	private List<Object> extractFluids(List<ITypedIngredient<?>> all) {
 		List<Object> fluids = new ArrayList<>();
 		for (ITypedIngredient<?> typed : all) {
-			Object fluid = hooks.fluidIngredient(typed);
-			if (fluid != null) fluids.add(fluid);
+			JeiFluidIngredient fluid = JeiIngredientTypes.fluidIngredient(typed);
+			if (fluid != null) fluids.add(fluid.viewerValue());
 		}
 		return List.copyOf(fluids);
 	}
@@ -373,8 +370,8 @@ public final class JeiIngredientFilterController {
 			switch (child.kind()) {
 				case ITEM -> child.entry().getItemStack().ifPresent(stack -> preview.add(GroupPreviewEntry.ofItem(stack)));
 				case FLUID -> {
-					Object fluid = hooks.previewFluid(child.entry());
-					if (fluid != null) preview.add(com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries.ofFluid(fluid));
+					JeiFluidIngredient fluid = JeiIngredientTypes.fluidIngredient(child.entry());
+					if (fluid != null) preview.add(com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries.ofFluid(fluid.viewerValue()));
 				}
 				case GENERIC -> generic.add(child.entry());
 			}
@@ -418,10 +415,7 @@ public final class JeiIngredientFilterController {
 	public enum FluidCachePolicy { INDEPENDENT, WITH_ITEMS }
 
 	public interface PlatformHooks {
-		@Nullable Object fluidIngredient(ITypedIngredient<?> typed);
-		default @Nullable Object previewFluid(ITypedIngredient<?> typed) { return fluidIngredient(typed); }
 		boolean hasFluidType();
-		String fluidId(Object fluid);
 		IElement<?> createFluidChild(ITypedIngredient<?> typed, String groupId);
 		GenericProbe genericProbe();
 		FluidCachePolicy fluidCachePolicy();

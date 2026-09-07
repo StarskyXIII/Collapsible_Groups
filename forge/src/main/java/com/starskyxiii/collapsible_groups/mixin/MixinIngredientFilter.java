@@ -4,7 +4,6 @@ import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.element.FluidChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterController;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterHook;
-import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.api.ingredients.ITypedIngredient;
@@ -48,15 +47,7 @@ public abstract class MixinIngredientFilter {
 			this::cg$notifyListenersOfChange, this.ingredientManager,
 			() -> this.ingredientListCached, value -> this.ingredientListCached = value,
 			new JeiIngredientFilterController.PlatformHooks() {
-				@Override public Object fluidIngredient(ITypedIngredient<?> typed) {
-					var fluid = typed.getIngredient(JeiIngredientTypes.getFluidType());
-					return fluid.orElse(null);
-				}
-				@Override public Object previewFluid(ITypedIngredient<?> typed) {
-					return typed.getIngredient() instanceof FluidStack fluid ? fluid : null;
-				}
 				@Override public boolean hasFluidType() { return JeiIngredientTypes.getFluidType() != null; }
-				@Override public String fluidId(Object fluid) { return Services.PLATFORM.getFluidId(fluid); }
 				@Override @SuppressWarnings("unchecked")
 				public IElement<?> createFluidChild(ITypedIngredient<?> typed, String groupId) {
 					return new FluidChildElement((ITypedIngredient<FluidStack>) typed, groupId);

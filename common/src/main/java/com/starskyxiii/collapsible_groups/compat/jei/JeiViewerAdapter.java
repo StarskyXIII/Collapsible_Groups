@@ -324,7 +324,9 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		} else if (typed.getType().equals(JeiIngredientTypes.getFluidType())) {
 			typeId = "fluid";
 			kind = ViewerIngredient.Kind.FLUID;
-			view = Services.PLATFORM.createFluidView(value);
+			JeiFluidIngredient fluid = JeiIngredientTypes.fluidIngredient(typed);
+			if (fluid == null) throw new IllegalArgumentException("JEI fluid type could not be converted");
+			view = fluid.fluid().view();
 		} else {
 			String registeredId = JeiIngredientTypes.getCanonicalId(typed.getType());
 			typeId = registeredId != null ? registeredId : fallbackTypeId(typed.getType());

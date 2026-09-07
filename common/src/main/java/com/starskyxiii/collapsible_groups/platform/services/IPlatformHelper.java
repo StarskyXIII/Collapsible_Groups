@@ -1,12 +1,29 @@
 package com.starskyxiii.collapsible_groups.platform.services;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidConversionInput;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidConversionResult;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidIngredient;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
 import java.nio.file.Path;
 
 public interface IPlatformHelper {
+	default FluidConversionResult convertFluid(FluidConversionInput input) {
+		return new FluidConversionResult.Unsupported(getPlatformName() + " does not support native fluid conversion");
+	}
+
+	default FluidConversionResult convertLegacyFluid(Object value) {
+		if (value instanceof FluidIngredient ingredient) return new FluidConversionResult.Success(ingredient);
+		return new FluidConversionResult.Unsupported(
+			getPlatformName() + " does not support legacy fluid value " +
+				(value == null ? "null" : value.getClass().getName()));
+	}
+
+	default FluidIngredient requireFluid(Object value) {
+		return convertLegacyFluid(value).require();
+	}
 
     /**
      * Returns the root config directory for this platform (e.g. {@code .minecraft/config}).
@@ -39,21 +56,21 @@ public interface IPlatformHelper {
      * @param fluidStack loader-specific fluid stack (e.g. NeoForge {@code FluidStack})
      */
     default String getFluidId(Object fluidStack) {
-        throw new UnsupportedOperationException("getFluidId not implemented for " + getPlatformName());
+		return requireFluid(fluidStack).id().toString();
     }
 
     /**
      * Returns the display name used for a loader-specific fluid ingredient in editor search and tooltips.
      */
     default Component getFluidDisplayName(Object fluidStack) {
-        return Component.literal(getFluidId(fluidStack));
+		return requireFluid(fluidStack).displayName();
     }
 
     /**
      * Returns a bucket item fallback for rendering when JEI runtime rendering is unavailable.
      */
     default ItemStack getFluidFallbackBucket(Object fluidStack) {
-        return ItemStack.EMPTY;
+		return requireFluid(fluidStack).fallbackBucket();
     }
 
     /**
@@ -73,13 +90,13 @@ public interface IPlatformHelper {
      * @param tagId      tag ID to match, e.g. {@code "c:water"}
      */
     default boolean fluidMatchesTag(Object fluidStack, String tagId) {
-        throw new UnsupportedOperationException("fluidMatchesTag not implemented for " + getPlatformName());
+		return requireFluid(fluidStack).view().hasTag(net.minecraft.resources.ResourceLocation.parse(tagId));
     }
 
     /**
      * Creates an {@link IngredientView} for a loader-specific fluid stack.
      */
     default IngredientView createFluidView(Object fluidStack) {
-        throw new UnsupportedOperationException("createFluidView not implemented for " + getPlatformName());
+		return requireFluid(fluidStack).view();
     }
 }

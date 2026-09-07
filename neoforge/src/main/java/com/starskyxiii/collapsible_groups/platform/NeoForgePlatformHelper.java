@@ -1,10 +1,14 @@
 package com.starskyxiii.collapsible_groups.platform;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidAmount;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidAmountUnit;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidConversionInput;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidConversionResult;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidIngredient;
 import com.starskyxiii.collapsible_groups.platform.services.IPlatformHelper;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
-import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.tags.TagKey;
 import net.minecraft.world.item.ItemStack;
@@ -42,32 +46,19 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
     }
 
     @Override
-    public String getFluidId(Object fluidStack) {
-        return BuiltInRegistries.FLUID.getKey(((FluidStack) fluidStack).getFluid()).toString();
-    }
-
-    @Override
-    public Component getFluidDisplayName(Object fluidStack) {
-        return ((FluidStack) fluidStack).getHoverName();
-    }
-
-    @Override
-    public ItemStack getFluidFallbackBucket(Object fluidStack) {
-        var bucketItem = ((FluidStack) fluidStack).getFluid().getBucket();
-        return bucketItem == Items.AIR ? ItemStack.EMPTY : new ItemStack(bucketItem);
-    }
-
-    @Override
-    public boolean fluidMatchesTag(Object fluidStack, String tagId) {
-        return ((FluidStack) fluidStack).is(
-            TagKey.create(Registries.FLUID, ResourceLocation.parse(tagId)));
-    }
-
-    @Override
-    public IngredientView createFluidView(Object fluidStack) {
-        FluidStack fs = (FluidStack) fluidStack;
+    public FluidConversionResult convertFluid(FluidConversionInput input) {
+        if (!(input.nativeValue() instanceof FluidStack source)) {
+            return new FluidConversionResult.Unsupported("NeoForge fluid conversion requires FluidStack");
+        }
+        if (input.amount().unit() != FluidAmountUnit.MILLIBUCKET) {
+            return new FluidConversionResult.Unsupported("NeoForge fluid amount unit must be MILLIBUCKET");
+        }
+        FluidStack fs = source.copy();
+        if (fs.getAmount() != input.amount().value()) {
+            return new FluidConversionResult.Unsupported("NeoForge FluidStack amount does not match conversion metadata");
+        }
         ResourceLocation fluidId = BuiltInRegistries.FLUID.getKey(fs.getFluid());
-        return new IngredientView() {
+        IngredientView view = new IngredientView() {
             @Override
             public String ingredientType() {
                 return "fluid";
@@ -88,5 +79,18 @@ public class NeoForgePlatformHelper implements IPlatformHelper {
                 return false;
             }
         };
+        var bucketItem = fs.getFluid().getBucket();
+        ItemStack fallback = bucketItem == Items.AIR ? ItemStack.EMPTY : new ItemStack(bucketItem);
+        return new FluidConversionResult.Success(new FluidIngredient(fs, input.amount(), fluidId,
+            fs.getHoverName(), fallback, view));
+    }
+
+    @Override
+    public FluidConversionResult convertLegacyFluid(Object value) {
+        if (value instanceof FluidStack stack) {
+            return convertFluid(new FluidConversionInput(stack,
+                new FluidAmount(stack.getAmount(), FluidAmountUnit.MILLIBUCKET)));
+        }
+        return IPlatformHelper.super.convertLegacyFluid(value);
     }
 }
