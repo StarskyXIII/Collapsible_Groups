@@ -11,6 +11,7 @@ import com.starskyxiii.collapsible_groups.persistence.GroupExpandState;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import com.starskyxiii.collapsible_groups.viewer.ViewerOverlayHook;
 import dev.emi.emi.api.stack.EmiIngredient;
+import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.api.stack.EmiStackInteraction;
 import dev.emi.emi.config.SidebarType;
 import dev.emi.emi.input.EmiBind;
@@ -106,6 +107,10 @@ public abstract class MixinEmiScreenManager {
 	private static void cg$mouseDraggedComplete(double mouseX, double mouseY, int button,
 		double deltaX, double deltaY, CallbackInfoReturnable<Boolean> cir) {
 		if (ViewerLifecycleCoordinator.isEmiSelected()) {
+			if (draggedStack instanceof GroupHeaderEmiStack) {
+				pressedStack = EmiStack.EMPTY;
+				draggedStack = EmiStack.EMPTY;
+			}
 			cg$traceInput("mouseDragged/return", mouseX, mouseY, button, false);
 		}
 	}

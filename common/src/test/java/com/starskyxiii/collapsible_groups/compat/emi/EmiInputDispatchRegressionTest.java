@@ -54,6 +54,23 @@ class EmiInputDispatchRegressionTest {
 		assertTrue(mouse.contains("EmiScreenManager.mouseReleased(mx, my, button)"));
 	}
 
+	@Test void syntheticHeadersCannotEnterNativeDragDispatchButChildrenKeepIt() throws IOException {
+		for (String loader : new String[]{"fabric", "neoforge"}) {
+			String mixin = source(loader + "/src/main/java/com/starskyxiii/collapsible_groups/mixin/MixinEmiScreenManager.java");
+			int start = mixin.indexOf("\t@Inject(method = \"mouseDragged\", at = @At(\"RETURN\")");
+			int end = mixin.indexOf("\n\t@Inject", start + 1);
+			String dragHook = mixin.substring(start, end);
+			assertTrue(dragHook.contains("require = 1"));
+			assertFalse(dragHook.contains("cancellable = true"));
+			assertTrue(dragHook.contains("if (ViewerLifecycleCoordinator.isEmiSelected())"));
+			assertTrue(dragHook.contains("if (draggedStack instanceof GroupHeaderEmiStack) {\n"
+				+ "\t\t\t\tpressedStack = EmiStack.EMPTY;\n"
+				+ "\t\t\t\tdraggedStack = EmiStack.EMPTY;\n\t\t\t}"));
+			assertFalse(dragHook.contains("cir.setReturnValue"));
+			assertFalse(mixin.contains("method = \"mouseReleased\""));
+		}
+	}
+
 	private static String source(String relative) throws IOException {
 		Path root = Path.of(System.getProperty("user.dir"));
 		Path path = root.resolve(relative);
