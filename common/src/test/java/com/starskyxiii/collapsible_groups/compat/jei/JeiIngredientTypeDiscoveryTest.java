@@ -4,6 +4,10 @@ import com.starskyxiii.collapsible_groups.compat.jei.api.CGApi;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
+import com.starskyxiii.collapsible_groups.persistence.GroupConfig;
+import com.starskyxiii.collapsible_groups.platform.TestPlatformHelper;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import mezz.jei.api.constants.VanillaTypes;
@@ -11,8 +15,11 @@ import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.runtime.IIngredientManager;
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 import java.lang.reflect.Proxy;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
@@ -22,6 +29,7 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 
 class JeiIngredientTypeDiscoveryTest {
 	@Test
@@ -137,6 +145,63 @@ class JeiIngredientTypeDiscoveryTest {
 		assertEquals(oldUid, ((com.starskyxiii.collapsible_groups.group.filter.GroupFilter.Id) group.filter())
 			.ingredientType());
 		assertFalse(group.compiledFilter().matches(view("example.discovery.NewUid", "test:oxygen")));
+	}
+
+	@Test
+	void missingTypeSurvivesDraftSaveAndReloadThenRecoversWithoutMatchingOtherTypes(@TempDir Path directory) throws Exception {
+		String originalProperty = System.getProperty(TestPlatformHelper.CONFIG_DIR_PROPERTY);
+		String originalType = "example.discovery.RecoverableUid";
+		String otherType = "example.discovery.OtherViewerUid";
+		List<GroupFilter> filters = List.of(
+			Filters.genericId(originalType, "test:oxygen"),
+			Filters.genericTag(originalType, "test:clean"),
+			Filters.genericNamespace(originalType, "test"),
+			new GroupFilter.Not(Filters.genericId(originalType, "test:oxygen")));
+		try {
+			System.setProperty(TestPlatformHelper.CONFIG_DIR_PROPERTY, directory.toString());
+			for (int i = 0; i < filters.size(); i++) {
+				JeiIngredientTypeDiscovery.discover(manager(List.of(type(originalType))));
+				GroupDefinition original = new GroupDefinition("recovery_" + i, "Recovery", true, filters.get(i));
+				var available = List.of(taggedView(originalType, "test:oxygen"), taggedView(originalType, "test:hydrogen"));
+				long expected = i == 2 ? 2 : 1;
+				assertEquals(expected, available.stream().filter(original.compiledFilter()::matches).count());
+				GroupConfig.save(original);
+				Path file = directory.resolve("collapsiblegroups/groups/" + original.id() + ".json");
+				byte[] saved = Files.readAllBytes(file);
+
+				JeiIngredientTypeDiscovery.discover(manager(List.of(type(otherType))));
+				GroupDefinition missing = GroupConfig.fromJson(Files.readString(file));
+				assertEquals(Set.of(originalType), JeiIngredientTypeDiscovery.unresolvedTypeIds(List.of(missing)));
+				GroupFilter draft = GroupFilterRuleDraft.decode(missing.filter()).toFilter().orElseThrow();
+				assertEquals(original.filter(), draft);
+				assertArrayEquals(saved, Files.readAllBytes(file), "opening and decoding the draft must not write");
+				for (String unrelated : List.of(otherType, "item", "fluid")) {
+					assertFalse(missing.compiledFilter().matches(taggedView(unrelated, "test:oxygen")));
+					assertFalse(missing.compiledFilter().matches(taggedView(unrelated, "test:hydrogen")));
+				}
+				GroupConfig.save(new GroupDefinition(missing.id(), "Saved while missing", true, draft));
+				GroupDefinition reloaded = GroupConfig.load().stream().filter(g -> g.id().equals(original.id())).findFirst().orElseThrow();
+				assertEquals(original.filter(), reloaded.filter());
+				assertEquals("Saved while missing", reloaded.displayName().fallback());
+
+				JeiIngredientTypeDiscovery.discover(manager(List.of(type(originalType))));
+				assertTrue(JeiIngredientTypeDiscovery.unresolvedTypeIds(List.of(reloaded)).isEmpty());
+				assertEquals(expected, available.stream().filter(reloaded.compiledFilter()::matches).count());
+			}
+		} finally {
+			JeiIngredientTypeDiscovery.clearRuntimeTypes();
+			if (originalProperty == null) System.clearProperty(TestPlatformHelper.CONFIG_DIR_PROPERTY);
+			else System.setProperty(TestPlatformHelper.CONFIG_DIR_PROPERTY, originalProperty);
+		}
+	}
+
+	private static IngredientView taggedView(String type, String id) {
+		return new IngredientView() {
+			@Override public String ingredientType() { return type; }
+			@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse(id); }
+			@Override public boolean hasTag(ResourceLocation tagId) { return id.equals("test:oxygen") && tagId.toString().equals("test:clean"); }
+			@Override public boolean matchesExactStack(String encodedStack) { return false; }
+		};
 	}
 
 	private static IIngredientType<Object> type(String uid) {
