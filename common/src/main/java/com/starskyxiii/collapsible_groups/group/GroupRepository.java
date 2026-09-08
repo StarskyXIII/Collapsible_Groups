@@ -26,6 +26,13 @@ public final class GroupRepository {
 		new GroupService.SourceKey(GroupSource.BUILTIN, "providers");
 	private static final GroupService.SourceKey LEGACY_SCRIPT_SOURCE =
 		new GroupService.SourceKey(GroupSource.KUBEJS, "legacy");
+	private static final Map<String, PublicationAttempt> SCRIPTED_PUBLICATIONS = new LinkedHashMap<>();
+	private static long scriptedGeneration;
+	private static long publicationActivity;
+	private static long lastRejectedPublicationActivity;
+	private static long materializationCapture;
+	private enum PublicationState { PENDING, ACCEPTED, REJECTED }
+	private record PublicationAttempt(long generation, PublicationState state) {}
 
 	private GroupRepository() {}
 
@@ -82,6 +89,70 @@ public final class GroupRepository {
 		if (notify) publish(GroupChangeEvent.Kind.KUBEJS_REPLACE);
 	}
 
+	static synchronized long beginScriptedPublication(String ownerId) {
+		validatePublicationPart(ownerId, "ownerId");
+		long generation = ++scriptedGeneration;
+		++publicationActivity;
+		SCRIPTED_PUBLICATIONS.put(ownerId, new PublicationAttempt(generation, PublicationState.PENDING));
+		return generation;
+	}
+
+	static synchronized long nextMaterializationCapture() {
+		return ++materializationCapture;
+	}
+
+	static synchronized boolean replaceScriptedOwner(String ownerId, long generation,
+		Map<String, List<GroupDefinition>> incoming) {
+		validatePublicationPart(ownerId, "ownerId");
+		if (incoming == null) throw new NullPointerException("incoming");
+		PublicationAttempt attempt = SCRIPTED_PUBLICATIONS.get(ownerId);
+		if (attempt == null || attempt.generation() != generation) {
+			lastRejectedPublicationActivity = ++publicationActivity;
+			return false;
+		}
+		String ownerPrefix = scriptedOwnerPrefix(ownerId);
+		Map<String, Boolean> overrides = STORE.loadEnabledOverrides();
+		Map<GroupService.SourceKey, List<GroupDefinition>> replacements = new LinkedHashMap<>();
+		for (Map.Entry<String, List<GroupDefinition>> entry : incoming.entrySet()) {
+			validatePublicationPart(entry.getKey(), "sourceId");
+			GroupService.SourceKey key = new GroupService.SourceKey(GroupSource.KUBEJS,
+				ownerPrefix + entry.getKey());
+			List<GroupDefinition> effective = entry.getValue().stream().map(group -> {
+				Boolean enabled = overrides.get(group.id());
+				return enabled != null && group.enabled() != enabled ? group.withEnabled(enabled) : group;
+			}).toList();
+			replacements.put(key, effective);
+		}
+		java.util.Set<GroupService.SourceKey> removals = SERVICE.categorySources(GroupSource.KUBEJS).stream()
+			.filter(key -> key.producerId().startsWith(ownerPrefix))
+			.filter(key -> !replacements.containsKey(key))
+			.collect(java.util.stream.Collectors.toUnmodifiableSet());
+		try {
+			SERVICE.replaceSources(replacements, removals);
+			SCRIPTED_PUBLICATIONS.put(ownerId,
+				new PublicationAttempt(generation, PublicationState.ACCEPTED));
+			++publicationActivity;
+			return true;
+		} catch (RuntimeException failure) {
+			SCRIPTED_PUBLICATIONS.put(ownerId,
+				new PublicationAttempt(generation, PublicationState.REJECTED));
+			lastRejectedPublicationActivity = ++publicationActivity;
+			throw failure;
+		}
+	}
+
+	static synchronized long scriptedPublicationCheckpoint() {
+		return publicationActivity;
+	}
+
+	static synchronized boolean markScriptedAppliedAfter(long checkpoint) {
+		boolean complete = lastRejectedPublicationActivity <= checkpoint
+			&& SCRIPTED_PUBLICATIONS.values().stream()
+				.allMatch(attempt -> attempt.state() == PublicationState.ACCEPTED);
+		if (complete) SERVICE.markApplied(LEGACY_SCRIPT_SOURCE);
+		return complete;
+	}
+
 	static synchronized void removeScriptedSource(String producerId, boolean notify) {
 		SERVICE.removeSource(new GroupService.SourceKey(GroupSource.KUBEJS, producerId));
 		if (notify) publish(GroupChangeEvent.Kind.KUBEJS_REPLACE);
@@ -111,7 +182,7 @@ public final class GroupRepository {
 	public static boolean areScriptedGroupsEmpty() { return SERVICE.categoryGroups(GroupSource.KUBEJS).isEmpty(); }
 
 	public static synchronized void clearScriptedGroups() {
-		SERVICE.removeCategory(GroupSource.KUBEJS);
+		clearScriptedGroupsQuietly();
 	}
 
 	public static boolean areScriptedGroupsApplied() { return SERVICE.isApplied(LEGACY_SCRIPT_SOURCE); }
@@ -128,6 +199,26 @@ public final class GroupRepository {
 	static void clearLegacyScriptedGroupsAndNotify() {
 		SERVICE.removeSource(LEGACY_SCRIPT_SOURCE);
 		publish(GroupChangeEvent.Kind.KUBEJS_REPLACE);
+	}
+
+	static synchronized void clearScriptedGroupsQuietly() {
+		SCRIPTED_PUBLICATIONS.clear();
+		++scriptedGeneration;
+		lastRejectedPublicationActivity = ++publicationActivity;
+		SERVICE.removeCategory(GroupSource.KUBEJS);
+	}
+
+	static synchronized void clearScriptedGroupsAndNotify() {
+		clearScriptedGroupsQuietly();
+		publish(GroupChangeEvent.Kind.KUBEJS_REPLACE);
+	}
+
+	private static String scriptedOwnerPrefix(String ownerId) {
+		return "scoped:" + ownerId.length() + ':' + ownerId + ':';
+	}
+
+	private static void validatePublicationPart(String value, String label) {
+		if (value == null || value.isBlank()) throw new IllegalArgumentException(label + " must not be blank");
 	}
 
 	public static boolean isExpanded(GroupDefinition group) { return isExpandedById(group.id()); }
@@ -229,5 +320,8 @@ public final class GroupRepository {
 		sources.put(USER_SOURCE, groups.stream()
 			.filter(group -> GroupSource.fromGroupId(group.id()) != GroupSource.BUILTIN).toList());
 		SERVICE.reset(sources);
+		SCRIPTED_PUBLICATIONS.clear();
+		++scriptedGeneration;
+		lastRejectedPublicationActivity = ++publicationActivity;
 	}
 }

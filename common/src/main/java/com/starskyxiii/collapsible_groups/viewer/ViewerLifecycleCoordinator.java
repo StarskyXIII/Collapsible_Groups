@@ -63,9 +63,9 @@ public final class ViewerLifecycleCoordinator {
 			|| scriptedBootstrapInProgress) return false;
 		scriptedBootstrapInProgress = true;
 		try {
+			long publicationCheckpoint = ScriptedGroupStore.publicationCheckpoint();
 			scriptedGroupBootstrap.apply(context);
-			ScriptedGroupStore.markApplied();
-			return true;
+			return ScriptedGroupStore.markAppliedAfter(publicationCheckpoint);
 		} finally {
 			scriptedBootstrapInProgress = false;
 		}

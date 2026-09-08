@@ -26,4 +26,17 @@ class KubeJsContractTest {
 		assertSame(first, KubeJsFilterComposition.any(List.of(first)));
 		assertEquals(Filters.any(first, second), KubeJsFilterComposition.any(List.of(first, second)));
 	}
+
+	@Test
+	void loweredGroupRetainsValueObjectSemantics() {
+		KubeJsLoweredGroup first = new KubeJsLoweredGroup(
+			"__kjs_stone", "Stone", Filters.itemId("minecraft:stone"));
+		KubeJsLoweredGroup equal = new KubeJsLoweredGroup(
+			"__kjs_stone", "Stone", Filters.itemId("minecraft:stone"));
+
+		assertEquals(first, equal);
+		assertEquals(first.hashCode(), equal.hashCode());
+		assertTrue(first.toString().contains("__kjs_stone"));
+		assertTrue(first.toString().contains("minecraft:stone"));
+	}
 }

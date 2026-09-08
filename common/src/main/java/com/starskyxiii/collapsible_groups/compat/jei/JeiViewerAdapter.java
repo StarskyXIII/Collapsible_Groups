@@ -9,6 +9,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.editor.JeiEditorRuntimeAcce
 import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupRepository;
+import com.starskyxiii.collapsible_groups.group.ScriptedGroupStore;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
@@ -93,6 +94,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 			runtimeRegistration = null;
 		}
 		INSTANCE.bootstrapContext.clear();
+		ScriptedGroupStore.invalidate();
 		JeiIngredientTypeDiscovery.clearRuntimeTypes();
 		JeiHeaderIconResolver.clearWarnings();
 	}

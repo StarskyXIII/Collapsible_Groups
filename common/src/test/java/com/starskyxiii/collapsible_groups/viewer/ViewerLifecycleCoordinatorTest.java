@@ -145,6 +145,21 @@ class ViewerLifecycleCoordinatorTest {
 		assertEquals(1, calls[0]);
 	}
 
+	@Test void rejectedPublicationDoesNotMarkBootstrapApplied() {
+		ViewerLifecycleCoordinator coordinator = new ViewerLifecycleCoordinator(
+			new ViewerLifecycleCoordinator.Environment(false, true, false), Set.of("emi"), ignored -> {});
+		FakeViewerAdapter emi = new FakeViewerAdapter("emi");
+		coordinator.register(emi);
+		coordinator.setScriptedGroupBootstrap(context -> {
+			var stale = com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupPublication.begin("owner");
+			com.starskyxiii.collapsible_groups.compat.kubejs.KubeJsGroupPublication.begin("owner");
+			assertFalse(stale.publish());
+		});
+
+		assertFalse(coordinator.activeUniverseReady("emi", emi.bootstrapContext()));
+		assertFalse(ScriptedGroupStore.isApplied());
+	}
+
 	@Test void activeAdapterExposesTheSelectedIndexAndEditorRuntimeSeams() {
 		ViewerLifecycleCoordinator coordinator = new ViewerLifecycleCoordinator(
 			new ViewerLifecycleCoordinator.Environment(false, true, false), Set.of("emi"), ignored -> {});

@@ -70,6 +70,12 @@ final class GroupService {
 		return List.copyOf(result);
 	}
 
+	Set<SourceKey> categorySources(GroupSource category) {
+		return snapshot.sources().keySet().stream()
+			.filter(key -> key.category() == category)
+			.collect(java.util.stream.Collectors.toUnmodifiableSet());
+	}
+
 	synchronized void replaceSource(SourceKey key, List<GroupDefinition> incoming) {
 		List<GroupDefinition> validated = validate(incoming);
 		LinkedHashMap<SourceKey, List<GroupDefinition>> sources = mutableSources(snapshot.sources());

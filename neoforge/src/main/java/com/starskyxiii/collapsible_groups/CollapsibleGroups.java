@@ -43,7 +43,8 @@ public class CollapsibleGroups {
 		eventBus.addListener(this::registerTooltipComponentFactories);
 		eventBus.addListener(this::onRegisterReloadListeners);
 		NeoForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
-		if (ModList.get().isLoaded("emi") || ModList.get().isLoaded(ViewerLifecycleCoordinator.TMRV_MOD_ID)) {
+		if (ModList.get().isLoaded("emi") || ModList.get().isLoaded(ViewerLifecycleCoordinator.TMRV_MOD_ID)
+			|| ModList.get().isLoaded("kubejs")) {
 			NeoForge.EVENT_BUS.addListener(this::onClientLogout);
 		}
 
@@ -82,7 +83,12 @@ public class CollapsibleGroups {
 	}
 
 	private void onClientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
-		com.starskyxiii.collapsible_groups.compat.emi.EmiViewerAdapter.unregisterRuntime();
+		if (ModList.get().isLoaded("emi") || ModList.get().isLoaded(ViewerLifecycleCoordinator.TMRV_MOD_ID)) {
+			com.starskyxiii.collapsible_groups.compat.emi.EmiViewerAdapter.unregisterRuntime();
+		}
+		if (ModList.get().isLoaded("kubejs")) {
+			com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSRemoteListener.clear();
+		}
 	}
 
 	private void onConfigReload(ModConfigEvent.Reloading event) {

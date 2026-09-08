@@ -4,9 +4,11 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
+import com.starskyxiii.collapsible_groups.group.ScriptedGroupStore;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientType;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
@@ -18,14 +20,39 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SuppressWarnings("removal")
 class JeiViewerAdapterBootstrapTest {
+	@Test
+	void runtimeTeardownMakesTheNextUniverseRecollectScriptedGroups() {
+		ViewerLifecycleCoordinator coordinator = new ViewerLifecycleCoordinator(
+			new ViewerLifecycleCoordinator.Environment(true, false, false), Set.of("jei"), ignored -> {});
+		int[] collections = {0};
+		coordinator.setScriptedGroupBootstrap(context -> {
+			collections[0]++;
+			ScriptedGroupStore.publish(List.of());
+		});
+		ScriptedGroupStore.publish(List.of());
+		ScriptedGroupStore.markApplied();
+
+		try {
+			assertFalse(coordinator.activeUniverseReady("jei", JeiViewerAdapter.instance().bootstrapContext()));
+			JeiViewerAdapter.unregisterRuntime();
+
+			assertTrue(coordinator.activeUniverseReady("jei", JeiViewerAdapter.instance().bootstrapContext()));
+			assertEquals(1, collections[0]);
+		} finally {
+			JeiViewerAdapter.unregisterRuntime();
+		}
+	}
+
 	@Test
 	@SuppressWarnings("unchecked")
 	void customTypeProjectsFromBootstrapBeforeRuntimeIsAvailable() {

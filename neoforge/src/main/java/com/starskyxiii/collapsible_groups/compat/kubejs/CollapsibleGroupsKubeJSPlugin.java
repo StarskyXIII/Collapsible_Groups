@@ -2,7 +2,10 @@ package com.starskyxiii.collapsible_groups.compat.kubejs;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import dev.latvian.mods.kubejs.plugin.KubeJSPlugin;
+import dev.latvian.mods.kubejs.event.EventGroupRegistry;
 import dev.latvian.mods.kubejs.recipe.viewer.RecipeViewerEntryType;
+import dev.latvian.mods.kubejs.script.ScriptManager;
+import dev.latvian.mods.kubejs.script.ScriptType;
 import net.neoforged.fml.ModList;
 
 import java.util.function.Consumer;
@@ -21,6 +24,17 @@ import java.util.function.Consumer;
  * KubeJS wrapping.
  */
 public class CollapsibleGroupsKubeJSPlugin implements KubeJSPlugin {
+	@Override
+	public void registerEvents(EventGroupRegistry registry) {
+		registry.register(CGEvents.GROUP);
+	}
+
+	@Override
+	public void afterScriptsLoaded(ScriptManager manager) {
+		if (manager.scriptType == ScriptType.CLIENT) {
+			com.starskyxiii.collapsible_groups.group.ScriptedGroupStore.invalidateAndNotify();
+		}
+	}
 
 	@Override
 	public void registerRecipeViewerEntryTypes(Consumer<RecipeViewerEntryType> consumer) {
