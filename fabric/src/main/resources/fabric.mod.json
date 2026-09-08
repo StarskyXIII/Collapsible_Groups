@@ -36,7 +36,8 @@
     },
     "suggests": {
 		"jei": "*",
-		"emi": ">=${emi_version}"
+		"emi": ">=${emi_version}",
+		"kubejs": "2001.6.5-build.26"
     }
 }
   

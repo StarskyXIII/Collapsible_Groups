@@ -24,18 +24,15 @@ public record ViewerProjection<E>(
 	public List<DisplayEntry<E>> displayEntries() {
 		List<DisplayEntry<E>> result = new ArrayList<>();
 		for (Entry<E> entry : entries) {
-			switch (entry) {
-				case IngredientEntry<E> ingredient -> result.add(
-					new DisplayIngredient<>(ingredient.ingredient(), Optional.empty())
-				);
-				case GroupHeader<E> header -> {
-					result.add(new DisplayHeader<>(header));
-					if (header.expanded()) {
-						for (ViewerIngredient<E> child : header.children()) {
-							result.add(new DisplayIngredient<>(child, Optional.of(header.group().id())));
-						}
+			if (entry instanceof IngredientEntry<E> ingredient) {
+				result.add(new DisplayIngredient<>(ingredient.ingredient(), Optional.empty()));
+			} else if (entry instanceof GroupHeader<E> header) {
+				result.add(new DisplayHeader<>(header));
+				if (header.expanded()) {
+					for (ViewerIngredient<E> child : header.children()) {
+						result.add(new DisplayIngredient<>(child, Optional.of(header.group().id())));
 					}
-				}
+			}
 			}
 		}
 		return List.copyOf(result);
@@ -44,9 +41,10 @@ public record ViewerProjection<E>(
 	public ViewerProjection<E> withExpansion(GroupExpansionState expansionState) {
 		List<Entry<E>> updated = new ArrayList<>(entries.size());
 		for (Entry<E> entry : entries) {
-			updated.add(switch (entry) {
-				case IngredientEntry<E> ingredient -> ingredient;
-				case GroupHeader<E> header -> new GroupHeader<>(
+			if (entry instanceof IngredientEntry<E> ingredient) {
+				updated.add(ingredient);
+			} else if (entry instanceof GroupHeader<E> header) {
+				updated.add(new GroupHeader<>(
 					header.group(),
 					header.children(),
 					header.itemCount(),
@@ -55,8 +53,8 @@ public record ViewerProjection<E>(
 					expansionState.isExpanded(header.group().id()),
 					header.iconIds(),
 					header.fallbackIconIngredients()
-				);
-			});
+				));
+			}
 		}
 		return new ViewerProjection<>(updated, ownership);
 	}

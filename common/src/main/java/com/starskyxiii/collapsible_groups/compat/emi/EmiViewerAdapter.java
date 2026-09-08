@@ -10,7 +10,6 @@ import com.starskyxiii.collapsible_groups.group.ScriptedGroupStore;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
-import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.persistence.GroupExpandState;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
@@ -42,7 +41,7 @@ import dev.emi.emi.screen.EmiScreenManager;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
-import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.level.material.Fluid;
@@ -153,13 +152,12 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		List<EmiIngredient> display = new ArrayList<>();
 		for (EmiProjectionTranslation.Entry<EmiIngredient> translated : EmiProjectionTranslation.classify(projection)) {
 			ViewerProjection.DisplayEntry<EmiIngredient> entry = translated.displayEntry();
-			switch (entry) {
-				case ViewerProjection.DisplayHeader<EmiIngredient> header ->
-					display.add(new GroupHeaderEmiStack(withResolvedIcons(header.header())));
-				case ViewerProjection.DisplayIngredient<EmiIngredient> ingredient -> display.add(
-					ingredient.parentGroupId().<EmiIngredient>map(id ->
-						new ProjectedChildEmiIngredient(ingredient.ingredient().entry(), id)).orElse(
-						ingredient.ingredient().entry()));
+			if (entry instanceof ViewerProjection.DisplayHeader<EmiIngredient> header) {
+				display.add(new GroupHeaderEmiStack(withResolvedIcons(header.header())));
+			} else if (entry instanceof ViewerProjection.DisplayIngredient<EmiIngredient> ingredient) {
+				display.add(ingredient.parentGroupId().<EmiIngredient>map(id ->
+					new ProjectedChildEmiIngredient(ingredient.ingredient().entry(), id)).orElse(
+					ingredient.ingredient().entry()));
 			}
 		}
 		return List.copyOf(display);
@@ -328,7 +326,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 			: key instanceof Fluid ? EmiIdentityNormalizer.StandardKind.FLUID
 			: EmiIdentityNormalizer.StandardKind.CUSTOM;
 		var identity = EmiIdentityNormalizer.identify(standardKind, serialized, stack.getClass().getName(),
-			stack.getId().toString(), canonicalExtraData(stack.getComponentChanges()));
+			stack.getId().toString(), canonicalExtraData(stack.getNbt()));
 		if (!identity.serializable() && fallbackWarnings.add(identity.typeId())) {
 			Constants.LOG.warn("[CollapsibleGroups] EMI stack type {} has no serializer; using an unstable class/id identity for persistence.", identity.typeId());
 		}
@@ -347,9 +345,8 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 			kind, stack, view);
 	}
 
-	private static String canonicalExtraData(DataComponentPatch patch) {
-		return DataComponentPatch.CODEC.encodeStart(GroupItemSelector.serializationContext(), patch)
-			.result().map(EmiIdentityNormalizer::canonicalJson).orElseGet(patch::toString);
+	private static String canonicalExtraData(CompoundTag nbt) {
+		return nbt == null ? "" : nbt.toString();
 	}
 
 	private static void registerDiscoveredType(EmiIdentityNormalizer.Result identity) {

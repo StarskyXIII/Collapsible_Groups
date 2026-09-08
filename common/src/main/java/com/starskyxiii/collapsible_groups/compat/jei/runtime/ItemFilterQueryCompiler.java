@@ -35,40 +35,24 @@ public final class ItemFilterQueryCompiler {
 	}
 
 	private static ItemQueryPlan compileNormalized(GroupFilter filter) {
-		return switch (filter) {
-			case GroupFilter.Any any -> compileAny(any.children());
-			case GroupFilter.All all -> compileAll(all.children());
-			case GroupFilter.Not not -> compileNot(not.child());
-			case GroupFilter.Id id -> compileId(id);
-			case GroupFilter.Tag tag -> compileTag(tag);
-			case GroupFilter.BlockTag blockTag -> compileBlockTag(blockTag);
-			case GroupFilter.ItemPathStartsWith ignored -> FULL_SCAN;
-			case GroupFilter.ItemPathContains ignored -> FULL_SCAN;
-			case GroupFilter.ItemPathEndsWith ignored -> FULL_SCAN;
-			case GroupFilter.Namespace namespace -> compileNamespace(namespace);
-			case GroupFilter.ExactStack exactStack -> compileExactStack(exactStack);
-			case GroupFilter.HasComponent ignored -> FULL_SCAN;
-			case GroupFilter.ComponentPath ignored -> FULL_SCAN;
-			case GroupFilter.Unsupported ignored -> FULL_SCAN;
-		};
+		if (filter instanceof GroupFilter.Any any) return compileAny(any.children());
+		if (filter instanceof GroupFilter.All all) return compileAll(all.children());
+		if (filter instanceof GroupFilter.Not not) return compileNot(not.child());
+		if (filter instanceof GroupFilter.Id id) return compileId(id);
+		if (filter instanceof GroupFilter.Tag tag) return compileTag(tag);
+		if (filter instanceof GroupFilter.BlockTag blockTag) return compileBlockTag(blockTag);
+		if (filter instanceof GroupFilter.Namespace namespace) return compileNamespace(namespace);
+		if (filter instanceof GroupFilter.ExactStack exactStack) return compileExactStack(exactStack);
+		return FULL_SCAN;
 	}
 
 	private static ItemQueryPlan compileAny(List<GroupFilter> children) {
 		List<CandidatePlan> candidates = new ArrayList<>();
 		for (GroupFilter child : children) {
 			ItemQueryPlan plan = compileNormalized(child);
-			switch (plan) {
-				case AllItemsPlan ignored -> {
-					return ALL_ITEMS;
-				}
-				case EmptyPlan ignored -> {
-					// no-op
-				}
-				case CandidatePlan candidate -> candidates.add(candidate);
-				case FullScanPlan ignored -> {
-					return FULL_SCAN;
-				}
-			}
+			if (plan instanceof AllItemsPlan) return ALL_ITEMS;
+			if (plan instanceof CandidatePlan candidate) candidates.add(candidate);
+			else if (plan instanceof FullScanPlan) return FULL_SCAN;
 		}
 		if (candidates.isEmpty()) return EMPTY;
 		if (candidates.size() == 1) return candidates.get(0);
@@ -87,20 +71,12 @@ public final class ItemFilterQueryCompiler {
 		boolean sawNonAllItems = false;
 		for (GroupFilter child : children) {
 			ItemQueryPlan plan = compileNormalized(child);
-			switch (plan) {
-				case EmptyPlan ignored -> {
-					return EMPTY;
-				}
-				case AllItemsPlan ignored -> {
-					// no-op
-				}
-				case CandidatePlan candidate -> {
-					sawNonAllItems = true;
-					candidates.add(candidate);
-				}
-				case FullScanPlan ignored -> {
-					sawNonAllItems = true;
-				}
+			if (plan instanceof EmptyPlan) return EMPTY;
+			if (plan instanceof CandidatePlan candidate) {
+				sawNonAllItems = true;
+				candidates.add(candidate);
+			} else if (plan instanceof FullScanPlan) {
+				sawNonAllItems = true;
 			}
 		}
 		if (!sawNonAllItems) return ALL_ITEMS;
@@ -159,7 +135,7 @@ public final class ItemFilterQueryCompiler {
 					if (bucket.isEmpty()) return List.of();
 					List<IngredientFilterItemIndex.ItemEntry> matches = new ArrayList<>();
 					for (IngredientFilterItemIndex.ItemEntry entry : bucket) {
-						if (ItemStack.isSameItemSameComponents(normalized, entry.stack())) {
+						if (ItemStack.isSameItemSameTags(normalized, entry.stack())) {
 							matches.add(entry);
 						}
 					}

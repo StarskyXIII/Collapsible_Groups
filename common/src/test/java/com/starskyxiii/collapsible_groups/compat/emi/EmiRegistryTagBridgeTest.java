@@ -5,7 +5,6 @@ import com.starskyxiii.collapsible_groups.ingredient.TagQueryResult;
 import dev.emi.emi.api.stack.EmiRegistryAdapter;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.core.MappedRegistry;
-import net.minecraft.core.RegistrationInfo;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
 import net.minecraft.resources.ResourceLocation;
@@ -19,8 +18,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmiRegistryTagBridgeTest {
-	private static final ResourceLocation TAG = ResourceLocation.parse("test:tag");
-	private static final ResourceLocation EMPTY = ResourceLocation.parse("test:empty");
+	private static final ResourceLocation TAG = new ResourceLocation("test", "tag");
+	private static final ResourceLocation EMPTY = new ResourceLocation("test", "empty");
 	interface Marker {}
 	static class Value {}
 	static class Child extends Value implements Marker {}
@@ -34,7 +33,7 @@ class EmiRegistryTagBridgeTest {
 		assertEquals(TagQueryResult.MATCH, tags.query(TAG));
 		assertEquals(TagQueryResult.NO_MATCH, tags.query(EMPTY));
 		assertTrue(tags.existing().contains(EMPTY));
-		assertFalse(tags.existing().contains(ResourceLocation.parse("test:missing")));
+		assertFalse(tags.existing().contains(new ResourceLocation("test", "missing")));
 		registry.bindTags(Map.of(TagKey.create(registry.key(), TAG), List.of()));
 		for (int i = 0; i < 1000; i++) {
 			assertSame(tags, bridge.resolve(value));
@@ -56,7 +55,7 @@ class EmiRegistryTagBridgeTest {
 		var broken = new EmiRegistryAdapter<Value>() {
 			public Class<Value> getBaseClass() { return Value.class; }
 			public Registry<Value> getRegistry() { throw new NoSuchMethodError("fixture"); }
-			public EmiStack of(Value value, net.minecraft.core.component.DataComponentPatch patch, long amount) { return null; }
+			public EmiStack of(Value value, net.minecraft.nbt.CompoundTag nbt, long amount) { return null; }
 		};
 		assertEquals(TagQueryResult.UNAVAILABLE, new EmiRegistryTagBridge(Map.of(Value.class, broken)).resolve(value).query(TAG));
 	}
@@ -106,9 +105,9 @@ class EmiRegistryTagBridgeTest {
 	}
 
 	private static <T> MappedRegistry<T> registry(T value) {
-		var key = ResourceKey.<T>createRegistryKey(ResourceLocation.parse("test:registry"));
-		var registry = new MappedRegistry<T>(key, Lifecycle.stable());
-		var holder = registry.register(ResourceKey.create(key, ResourceLocation.parse("test:value")), value, RegistrationInfo.BUILT_IN);
+		var key = ResourceKey.<T>createRegistryKey(new ResourceLocation("test", "registry"));
+		var registry = new MappedRegistry<T>(key, Lifecycle.stable(), false);
+		var holder = registry.register(ResourceKey.create(key, new ResourceLocation("test", "value")), value, Lifecycle.stable());
 		registry.freeze();
 		registry.bindTags(Map.of(TagKey.create(key, TAG), List.of(holder), TagKey.create(key, EMPTY), List.of()));
 		return registry;
@@ -118,7 +117,7 @@ class EmiRegistryTagBridgeTest {
 		return new EmiRegistryAdapter<>() {
 			public Class<T> getBaseClass() { return type; }
 			public Registry<T> getRegistry() { calls.incrementAndGet(); return registry; }
-			public EmiStack of(T value, net.minecraft.core.component.DataComponentPatch patch, long amount) { throw new AssertionError("Tag lookup must not construct stacks"); }
+			public EmiStack of(T value, net.minecraft.nbt.CompoundTag nbt, long amount) { throw new AssertionError("Tag lookup must not construct stacks"); }
 		};
 	}
 }

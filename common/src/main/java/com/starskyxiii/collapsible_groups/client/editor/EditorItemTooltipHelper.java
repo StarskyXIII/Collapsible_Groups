@@ -4,7 +4,6 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.item.Item;
 import net.minecraft.world.item.ItemStack;
 import net.minecraft.world.item.TooltipFlag;
 
@@ -26,10 +25,7 @@ final class EditorItemTooltipHelper {
 	private static List<Component> tooltipLines(ItemStack stack, Supplier<List<Component>> fallback) {
 		try {
 			Minecraft minecraft = Minecraft.getInstance();
-			Item.TooltipContext context = minecraft.level == null
-				? Item.TooltipContext.EMPTY
-				: Item.TooltipContext.of(minecraft.level);
-			return stack.getTooltipLines(context, minecraft.player, TooltipFlag.Default.NORMAL);
+			return stack.getTooltipLines(minecraft.player, TooltipFlag.Default.NORMAL);
 		} catch (RuntimeException | LinkageError ignored) {
 			return fallback.get();
 		}

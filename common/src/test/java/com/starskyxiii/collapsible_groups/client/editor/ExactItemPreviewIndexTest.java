@@ -1,15 +1,12 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
 import com.google.gson.JsonObject;
-import com.mojang.serialization.JsonOps;
 import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
 import net.minecraft.SharedConstants;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.Bootstrap;
@@ -78,8 +75,7 @@ class ExactItemPreviewIndexTest {
 	@BeforeAll static void bootstrap() {
 		SharedConstants.tryDetectVersion();
 		Bootstrap.bootStrap();
-		var registry = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-		context = new GroupItemSelector.ExactDecodeContext(registry.createSerializationContext(JsonOps.INSTANCE), true, registry);
+		context = GroupItemSelector.exactDecodeContext();
 	}
 
 	@ParameterizedTest @ValueSource(ints = {1, 10, 100, 446, 6165})
@@ -99,7 +95,7 @@ class ExactItemPreviewIndexTest {
 		long coldComparisons = index.comparisons();
 		selectors.add(new GroupFilter.Id("item", "minecraft:oak_planks"));
 		List<ItemStack> expected = new ArrayList<>(items.subList(0, size));
-		expected.add(items.getLast());
+		expected.add(items.get(items.size() - 1));
 		assertEquals(expected, index.resolve(new GroupFilter.Any(selectors), context));
 		assertEquals(size, index.cacheHits());
 		assertEquals(size, index.decodes());
@@ -110,7 +106,8 @@ class ExactItemPreviewIndexTest {
 
 	@Test void collisionsCountDamageAndNestedUnavailableSemanticsMatchReference() {
 		ItemStack first = named("first");
-		ItemStack copied = first.copyWithCount(64);
+		ItemStack copied = first.copy();
+		copied.setCount(64);
 		ItemStack different = named("second");
 		ItemStack damaged = new ItemStack(Items.DIAMOND_SWORD);
 		damaged.setDamageValue(7);
@@ -134,7 +131,7 @@ class ExactItemPreviewIndexTest {
 	@Test void registryChangesInvalidateResultsAndFallbackFailureIsRetried() {
 		ExactItemPreviewIndex index = new ExactItemPreviewIndex(List.of(named("first")));
 		GroupFilter broken = new GroupFilter.ExactStack("{}");
-		var fallback = new GroupItemSelector.ExactDecodeContext(context.ops(), false, new Object());
+		var fallback = context(false, new Object(), context);
 		index.resolve(broken, fallback);
 		index.resolve(broken, fallback);
 		assertEquals(2, index.decodes());
@@ -143,7 +140,7 @@ class ExactItemPreviewIndexTest {
 		index.resolve(broken, context);
 		assertEquals(3, index.decodes());
 		assertEquals(1, index.cacheHits());
-		index.resolve(broken, new GroupItemSelector.ExactDecodeContext(context.ops(), true, new Object()));
+		index.resolve(broken, context(true, new Object(), context));
 		assertEquals(4, index.decodes());
 	}
 
@@ -175,22 +172,33 @@ class ExactItemPreviewIndexTest {
 	@Test void effectiveDefaultsAndRealDraftSelectorsMatchWithProductionHash() {
 		ItemStack stone = new ItemStack(Items.STONE);
 		ExactItemPreviewIndex index = new ExactItemPreviewIndex(List.of(stone));
-		GroupFilter implicit = new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\"}");
-		GroupFilter explicit = new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\",\"components\":{\"minecraft:max_stack_size\":64}}");
-		assertEquals(List.of(stone), index.resolve(implicit, context));
-		assertEquals(List.of(stone), index.resolve(explicit, context));
-		var draft = GroupFilterEditorDraft.decode(implicit).draft();
+		GroupFilter legacy121 = new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\",\"components\":{}}");
+		assertEquals(List.of(), index.resolve(legacy121, context));
+		GroupFilter encoded = exact(stone);
+		assertEquals(List.of(stone), index.resolve(encoded, context));
+		var draft = GroupFilterEditorDraft.decode(encoded).draft();
 		assertEquals(List.of(stone), index.resolve(draft.toFilter().orElseThrow(), context));
 	}
 
 	private static ItemStack named(String name) {
 		ItemStack stack = new ItemStack(Items.STONE);
-		stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+		stack.setHoverName(Component.literal(name));
 		return stack;
 	}
 
 	private static GroupFilter.ExactStack exact(ItemStack stack) {
-		return new GroupFilter.ExactStack(ItemStack.STRICT_SINGLE_ITEM_CODEC
-			.encodeStart(context.ops(), stack.copyWithCount(1)).getOrThrow().toString());
+		String selector = GroupItemSelector.tryVersionedExactSelector(stack).orElseThrow();
+		return new GroupFilter.ExactStack(selector.substring("stack:".length()));
+	}
+
+	private static GroupItemSelector.ExactDecodeContext context(boolean live, Object identity,
+		GroupItemSelector.ExactDecodeContext delegate) {
+		return new GroupItemSelector.ExactDecodeContext(new com.starskyxiii.collapsible_groups.internal.version.data.ExactStackCodec.DecodeSnapshot<>() {
+			@Override public boolean liveRegistry() { return live; }
+			@Override public Object registryIdentity() { return identity; }
+			@Override public java.util.Optional<ItemStack> decode(String encoded) {
+				return delegate.snapshot().decode(encoded);
+			}
+		});
 	}
 }

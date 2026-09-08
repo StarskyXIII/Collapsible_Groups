@@ -356,7 +356,7 @@ class JeiViewerGroupIndexContractTest {
 		try {
 			JeiViewerGroupIndex.FullMatchEntry resolved = index.fullMatchEntry(group);
 			assertEquals(1, resolved.items().size());
-			assertSame(Items.STONE, resolved.items().getFirst().getItem());
+			assertSame(Items.STONE, resolved.items().get(0).getItem());
 		} finally {
 			JeiIngredientSourceState.clearItems();
 			index.reset();

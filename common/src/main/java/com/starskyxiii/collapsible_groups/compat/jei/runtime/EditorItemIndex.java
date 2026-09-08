@@ -140,7 +140,7 @@ public final class EditorItemIndex {
 						List<ItemStack> bucket = byId.get(id);
 						if (bucket != null) {
 							for (ItemStack candidate : bucket) {
-								if (ItemStack.isSameItemSameComponents(reference, candidate)) {
+								if (ItemStack.isSameItemSameTags(reference, candidate)) {
 									matched.put(candidate, Boolean.TRUE);
 								}
 							}

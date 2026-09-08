@@ -35,17 +35,18 @@ public record FilterTypeScope(Set<String> types, boolean unrestricted) {
 	}
 
 	private static FilterTypeScope collect(GroupFilter filter, boolean candidates) {
-		return switch (filter) {
-			case GroupFilter.Any any -> union(any.children(), candidates);
-			case GroupFilter.All all -> all.children().isEmpty() && candidates
+		if (filter instanceof GroupFilter.Any) return union(((GroupFilter.Any) filter).children(), candidates);
+		if (filter instanceof GroupFilter.All) {
+			GroupFilter.All all = (GroupFilter.All) filter;
+			return all.children().isEmpty() && candidates
 				? new FilterTypeScope(Set.of(), true) : union(all.children(), candidates);
-			case GroupFilter.Not not -> declared(not.child());
-			case GroupFilter.Id id -> single(id.ingredientType());
-			case GroupFilter.Tag tag -> single(tag.ingredientType());
-			case GroupFilter.Namespace namespace -> single(namespace.ingredientType());
-			case GroupFilter.Unsupported ignored -> new FilterTypeScope(Set.of(), false);
-			default -> single("item");
-		};
+		}
+		if (filter instanceof GroupFilter.Not) return declared(((GroupFilter.Not) filter).child());
+		if (filter instanceof GroupFilter.Id) return single(((GroupFilter.Id) filter).ingredientType());
+		if (filter instanceof GroupFilter.Tag) return single(((GroupFilter.Tag) filter).ingredientType());
+		if (filter instanceof GroupFilter.Namespace) return single(((GroupFilter.Namespace) filter).ingredientType());
+		if (filter instanceof GroupFilter.Unsupported) return new FilterTypeScope(Set.of(), false);
+		return single("item");
 	}
 
 	private static FilterTypeScope union(List<GroupFilter> children, boolean candidates) {

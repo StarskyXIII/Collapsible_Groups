@@ -30,7 +30,7 @@ class GroupManagerCardAssemblerTest {
 
 		assertTrue(result.generationPending());
 		assertEquals(0, resolverCalls.get(), "pending manager build must perform zero synchronous resolutions");
-		assertEquals(0, result.cards().getFirst().entryCount());
+		assertEquals(0, result.cards().get(0).entryCount());
 	}
 
 	@Test void publishedGenerationUsesOneSnapshotIncludingExplicitEmptyGroups() {
@@ -52,7 +52,7 @@ class GroupManagerCardAssemblerTest {
 
 		assertFalse(result.generationPending());
 		assertEquals(2, snapshotCalls.get());
-		assertEquals(3, result.cards().getFirst().entryCount());
+		assertEquals(3, result.cards().get(0).entryCount());
 		assertEquals(0, result.cards().get(1).entryCount());
 	}
 
@@ -64,9 +64,9 @@ class GroupManagerCardAssemblerTest {
 			List.of(group("first"), group("second")), published);
 
 		assertThrows(UnsupportedOperationException.class,
-			() -> result.cards().set(0, result.cards().getFirst()));
+			() -> result.cards().set(0, result.cards().get(0)));
 		List<GroupManagerCard> working = GroupManagerCardAssembler.mutableWorkingCopy(result.cards());
-		working.set(0, working.getFirst().withGroup(group("replacement")));
+		working.set(0, working.get(0).withGroup(group("replacement")));
 		working.removeIf(card -> card.id().equals("second"));
 
 		assertEquals(List.of("first", "second"), result.cards().stream().map(GroupManagerCard::id).toList());
@@ -81,7 +81,7 @@ class GroupManagerCardAssemblerTest {
 			CompletableFuture.completedFuture(null), group -> Optional.of(
 				new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of())));
 		GroupManagerCard card = GroupManagerCardAssembler.build(List.of(group("published")), published)
-			.cards().getFirst();
+			.cards().get(0);
 		working.add(card);
 
 		assertTrue(pendingSnapshot.isEmpty());

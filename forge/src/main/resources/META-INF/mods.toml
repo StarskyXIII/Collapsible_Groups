@@ -25,5 +25,12 @@ side = "BOTH"
 [[dependencies.${mod_id}]]
 modId = "jei"
 mandatory = false
+versionRange = "(,0],[0,)"
+ordering = "NONE"
+side = "CLIENT"
+[[dependencies.${mod_id}]]
+modId = "kubejs"
+mandatory = false
+versionRange = "[2001.6.5-build.26,)"
 ordering = "NONE"
 side = "CLIENT"

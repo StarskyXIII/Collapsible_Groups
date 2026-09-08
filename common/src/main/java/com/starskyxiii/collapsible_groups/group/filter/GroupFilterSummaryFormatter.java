@@ -24,22 +24,20 @@ public final class GroupFilterSummaryFormatter {
 	}
 
 	private static String formatNode(GroupFilter filter, boolean expandAtomicChildren) {
-		return switch (filter) {
-			case GroupFilter.Any any -> formatComposite("ANY", any.children(), expandAtomicChildren);
-			case GroupFilter.All all -> formatComposite("ALL", all.children(), expandAtomicChildren);
-			case GroupFilter.Not not -> "NOT(" + formatNestedChild(not.child()) + ")";
-			case GroupFilter.Id id -> formatId(id.ingredientType(), id.id());
-			case GroupFilter.Tag tag -> formatTag(tag.ingredientType(), tag.tag());
-			case GroupFilter.BlockTag blockTag -> "block tag " + blockTag.tag();
-			case GroupFilter.ItemPathStartsWith startsWith -> "item path starts with " + startsWith.prefix();
-			case GroupFilter.ItemPathContains contains -> "item path contains " + contains.needle();
-			case GroupFilter.ItemPathEndsWith endsWith -> "item path ends with " + endsWith.suffix();
-			case GroupFilter.Namespace namespace -> formatNamespace(namespace.ingredientType(), namespace.namespace());
-			case GroupFilter.ExactStack ignored -> "exact stack";
-			case GroupFilter.HasComponent hc -> "has component " + hc.componentTypeId() + "=" + hc.encodedValue();
-			case GroupFilter.ComponentPath cp -> "component path " + cp.componentTypeId() + "/" + cp.path() + "=" + cp.expectedValue();
-			case GroupFilter.Unsupported unsupported -> "unavailable " + unsupported.recognizedKind();
-		};
+		if (filter instanceof GroupFilter.Any) return formatComposite("ANY", ((GroupFilter.Any) filter).children(), expandAtomicChildren);
+		if (filter instanceof GroupFilter.All) return formatComposite("ALL", ((GroupFilter.All) filter).children(), expandAtomicChildren);
+		if (filter instanceof GroupFilter.Not) return "NOT(" + formatNestedChild(((GroupFilter.Not) filter).child()) + ")";
+		if (filter instanceof GroupFilter.Id) { GroupFilter.Id value = (GroupFilter.Id) filter; return formatId(value.ingredientType(), value.id()); }
+		if (filter instanceof GroupFilter.Tag) { GroupFilter.Tag value = (GroupFilter.Tag) filter; return formatTag(value.ingredientType(), value.tag()); }
+		if (filter instanceof GroupFilter.BlockTag) return "block tag " + ((GroupFilter.BlockTag) filter).tag();
+		if (filter instanceof GroupFilter.ItemPathStartsWith) return "item path starts with " + ((GroupFilter.ItemPathStartsWith) filter).prefix();
+		if (filter instanceof GroupFilter.ItemPathContains) return "item path contains " + ((GroupFilter.ItemPathContains) filter).needle();
+		if (filter instanceof GroupFilter.ItemPathEndsWith) return "item path ends with " + ((GroupFilter.ItemPathEndsWith) filter).suffix();
+		if (filter instanceof GroupFilter.Namespace) { GroupFilter.Namespace value = (GroupFilter.Namespace) filter; return formatNamespace(value.ingredientType(), value.namespace()); }
+		if (filter instanceof GroupFilter.ExactStack) return "exact stack";
+		if (filter instanceof GroupFilter.HasComponent) { GroupFilter.HasComponent value = (GroupFilter.HasComponent) filter; return "has component " + value.componentTypeId() + "=" + value.encodedValue(); }
+		if (filter instanceof GroupFilter.ComponentPath) { GroupFilter.ComponentPath value = (GroupFilter.ComponentPath) filter; return "component path " + value.componentTypeId() + "/" + value.path() + "=" + value.expectedValue(); }
+		return "unavailable " + ((GroupFilter.Unsupported) filter).recognizedKind();
 	}
 
 	private static String formatComposite(String operator, List<GroupFilter> children, boolean expandAtomicChildren) {
@@ -81,12 +79,10 @@ public final class GroupFilterSummaryFormatter {
 		if (isAtomic(child)) {
 			return formatNode(child, true);
 		}
-		return switch (child) {
-			case GroupFilter.Any ignored -> "ANY(...)";
-			case GroupFilter.All ignored -> "ALL(...)";
-			case GroupFilter.Not ignored -> "NOT(...)";
-			default -> formatNode(child, false);
-		};
+		if (child instanceof GroupFilter.Any) return "ANY(...)";
+		if (child instanceof GroupFilter.All) return "ALL(...)";
+		if (child instanceof GroupFilter.Not) return "NOT(...)";
+		return formatNode(child, false);
 	}
 
 	private static boolean isAtomic(GroupFilter filter) {
@@ -103,19 +99,17 @@ public final class GroupFilterSummaryFormatter {
 	}
 
 	private static String categoryLabel(GroupFilter filter) {
-		return switch (filter) {
-			case GroupFilter.Id id -> categoryPrefix(id.ingredientType()) + "id";
-			case GroupFilter.Tag tag -> categoryPrefix(tag.ingredientType()) + "tag";
-			case GroupFilter.BlockTag ignored -> "block tag";
-			case GroupFilter.ItemPathStartsWith ignored -> "item path starts with";
-			case GroupFilter.ItemPathContains ignored -> "item path contains";
-			case GroupFilter.ItemPathEndsWith ignored -> "item path ends with";
-			case GroupFilter.Namespace namespace -> categoryPrefix(namespace.ingredientType()) + "namespace";
-			case GroupFilter.ExactStack ignored -> "exact stack";
-			case GroupFilter.HasComponent ignored -> "has component";
-			case GroupFilter.ComponentPath ignored -> "component path";
-			default -> formatNode(filter, false);
-		};
+		if (filter instanceof GroupFilter.Id) return categoryPrefix(((GroupFilter.Id) filter).ingredientType()) + "id";
+		if (filter instanceof GroupFilter.Tag) return categoryPrefix(((GroupFilter.Tag) filter).ingredientType()) + "tag";
+		if (filter instanceof GroupFilter.BlockTag) return "block tag";
+		if (filter instanceof GroupFilter.ItemPathStartsWith) return "item path starts with";
+		if (filter instanceof GroupFilter.ItemPathContains) return "item path contains";
+		if (filter instanceof GroupFilter.ItemPathEndsWith) return "item path ends with";
+		if (filter instanceof GroupFilter.Namespace) return categoryPrefix(((GroupFilter.Namespace) filter).ingredientType()) + "namespace";
+		if (filter instanceof GroupFilter.ExactStack) return "exact stack";
+		if (filter instanceof GroupFilter.HasComponent) return "has component";
+		if (filter instanceof GroupFilter.ComponentPath) return "component path";
+		return formatNode(filter, false);
 	}
 
 	private static String formatId(String ingredientType, String id) {

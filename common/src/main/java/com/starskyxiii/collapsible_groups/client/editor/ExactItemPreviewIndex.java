@@ -15,6 +15,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.function.ToIntFunction;
 
 public final class ExactItemPreviewIndex {
@@ -36,7 +37,7 @@ public final class ExactItemPreviewIndex {
 	private long cacheHits;
 
 	public ExactItemPreviewIndex(List<ItemStack> items) {
-		this(items, ItemStack::hashItemAndComponents);
+		this(items, stack -> Objects.hash(stack.getItem(), stack.getTag()));
 	}
 
 	ExactItemPreviewIndex(List<ItemStack> items, ToIntFunction<ItemStack> hash) {
@@ -120,7 +121,7 @@ public final class ExactItemPreviewIndex {
 	}
 
 	private void addId(BitSet matches, GroupFilter.Id id) {
-		ResourceLocation resource = ResourceLocation.parse(id.id());
+		ResourceLocation resource = new ResourceLocation(id.id());
 		String type = IngredientTypeIds.getCanonicalId(id.ingredientType());
 		if (!"item".equals(type != null ? type : id.ingredientType())) return;
 		idLookups++;
@@ -140,7 +141,7 @@ public final class ExactItemPreviewIndex {
 			ItemStack stack = decoded.get();
 			for (int ordinal : buckets.getOrDefault(hash.applyAsInt(stack), List.of())) {
 				comparisons++;
-				if (ItemStack.isSameItemSameComponents(stack, snapshots.get(ordinal))) matches.add(ordinal);
+				if (ItemStack.isSameItemSameTags(stack, snapshots.get(ordinal))) matches.add(ordinal);
 			}
 		}
 		int[] result = matches.stream().mapToInt(Integer::intValue).toArray();
@@ -152,7 +153,9 @@ public final class ExactItemPreviewIndex {
 		long cost = cost(selector, ordinals);
 		if (cost > MAX_BYTES) return;
 		while (!selectors.isEmpty() && (selectors.size() >= MAX_ENTRIES || retainedBytes + cost > MAX_BYTES)) {
-			var oldest = selectors.pollFirstEntry();
+			var iterator = selectors.entrySet().iterator();
+			var oldest = iterator.next();
+			iterator.remove();
 			retainedBytes -= cost(oldest.getKey(), oldest.getValue());
 		}
 		selectors.put(selector, ordinals);

@@ -8,6 +8,7 @@ import com.starskyxiii.collapsible_groups.platform.fluid.FluidConversionResult;
 import mezz.jei.api.fabric.constants.FabricTypes;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import mezz.jei.api.ingredients.IIngredientType;
+import net.fabricmc.fabric.api.transfer.v1.fluid.FluidVariant;
 
 public final class FabricJeiIngredientTypes implements JeiIngredientTypes.FluidTypeProvider {
 	@Override
@@ -20,7 +21,10 @@ public final class FabricJeiIngredientTypes implements JeiIngredientTypes.FluidT
 		if (!(viewerValue instanceof IJeiFluidIngredient ingredient)) {
 			return new FluidConversionResult.Unsupported("Fabric JEI fluid conversion requires IJeiFluidIngredient");
 		}
-		return Services.PLATFORM.convertFluid(new FluidConversionInput(ingredient.getFluidVariant(),
+		FluidVariant variant = ingredient.getTag()
+			.map(tag -> FluidVariant.of(ingredient.getFluid(), tag))
+			.orElseGet(() -> FluidVariant.of(ingredient.getFluid()));
+		return Services.PLATFORM.convertFluid(new FluidConversionInput(variant,
 			new FluidAmount(ingredient.getAmount(), FluidAmountUnit.FABRIC_TRANSFER)));
 	}
 }

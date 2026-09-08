@@ -17,9 +17,7 @@ public sealed interface FluidConversionResult permits FluidConversionResult.Succ
 	}
 
 	default FluidIngredient require() {
-		return switch (this) {
-			case Success success -> success.ingredient();
-			case Unsupported unsupported -> throw new IllegalArgumentException(unsupported.reason());
-		};
+		if (this instanceof Success) return ((Success) this).ingredient();
+		throw new IllegalArgumentException(((Unsupported) this).reason());
 	}
 }

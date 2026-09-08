@@ -19,7 +19,7 @@ import static org.junit.jupiter.api.Assertions.*;
 class UnknownFilterNodeGoldenTest {
 	private static final IngredientView MATCHING_ITEM = new IngredientView() {
 		@Override public String ingredientType() { return "item"; }
-		@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse("minecraft:stone"); }
+		@Override public ResourceLocation resourceLocation() { return new ResourceLocation("minecraft:stone"); }
 		@Override public boolean hasTag(ResourceLocation tagId) { return false; }
 		@Override public boolean matchesExactStack(String encodedStack) { return false; }
 	};

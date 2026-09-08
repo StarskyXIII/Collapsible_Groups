@@ -1,7 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.google.gson.JsonObject;
-import com.mojang.serialization.JsonOps;
 import com.starskyxiii.collapsible_groups.client.editor.ExactItemPreviewIndex;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.*;
@@ -12,9 +11,6 @@ import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.SharedConstants;
-import net.minecraft.core.RegistryAccess;
-import net.minecraft.core.component.DataComponents;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.item.ItemStack;
@@ -32,8 +28,7 @@ class ScopedNotItemPathsTest {
 	@BeforeAll static void bootstrap() {
 		SharedConstants.tryDetectVersion();
 		Bootstrap.bootStrap();
-		var registry = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
-		context = new GroupItemSelector.ExactDecodeContext(registry.createSerializationContext(JsonOps.INSTANCE), true, registry);
+		context = GroupItemSelector.exactDecodeContext();
 	}
 
 	@Test void previewPlannerAndDraftRoundTripsKeepScopedExactVariants() {
@@ -43,8 +38,7 @@ class ScopedNotItemPathsTest {
 		List<ItemStack> items = List.of(first, dirt, second);
 		GroupFilter water = new GroupFilter.Id("fluid", "minecraft:water");
 		GroupFilter stone = new GroupFilter.Id("item", "minecraft:stone");
-		GroupFilter exact = new GroupFilter.ExactStack(ItemStack.STRICT_SINGLE_ITEM_CODEC
-			.encodeStart(context.ops(), first).getOrThrow().toString());
+		GroupFilter exact = exact(first);
 		GroupFilter unknown = new GroupFilter.Unsupported(new JsonObject(), "future");
 		List<Case> cases = List.of(
 			new Case(new GroupFilter.Not(water), List.of()),
@@ -65,14 +59,14 @@ class ScopedNotItemPathsTest {
 			GroupDefinition definition = new GroupDefinition("audit", "Audit", true, entry.filter());
 			assertEquals(entry.expected(), items.stream().filter(definition::matchesIgnoringEnabled).toList(), entry.filter().toString());
 			for (int warm = 0; warm < 2; warm++) assertEquals(entry.expected(), preview.resolve(entry.filter(), context), entry.filter().toString());
-			var replacementContext = new GroupItemSelector.ExactDecodeContext(context.ops(), true, new Object());
+			var replacementContext = context(new Object());
 			assertEquals(entry.expected(), preview.resolve(entry.filter(), replacementContext));
 			var plan = ItemFilterQueryCompiler.compile(definition.query());
-			List<IngredientFilterItemIndex.ItemEntry> candidates = switch (plan) {
-				case ItemFilterQueryCompiler.EmptyPlan ignored -> List.of();
-				case ItemFilterQueryCompiler.CandidatePlan candidate -> candidate.collectCandidates(jeiIndex);
-				default -> jeiIndex.orderedEntries();
-			};
+			List<IngredientFilterItemIndex.ItemEntry> candidates;
+			if (plan instanceof ItemFilterQueryCompiler.EmptyPlan) candidates = List.of();
+			else if (plan instanceof ItemFilterQueryCompiler.CandidatePlan candidate) {
+				candidates = candidate.collectCandidates(jeiIndex);
+			} else candidates = jeiIndex.orderedEntries();
 			assertEquals(entry.expected(), candidates.stream().map(IngredientFilterItemIndex.ItemEntry::stack)
 				.filter(definition::matchesIgnoringEnabled).toList(), "JEI " + entry.filter());
 			if (!FilterNodeCapabilities.containsUnavailable(entry.filter())) {
@@ -115,8 +109,23 @@ class ScopedNotItemPathsTest {
 
 	private static ItemStack named(String name) {
 		ItemStack stack = new ItemStack(Items.STONE);
-		stack.set(DataComponents.CUSTOM_NAME, Component.literal(name));
+		stack.setHoverName(Component.literal(name));
 		return stack;
+	}
+
+	private static GroupFilter.ExactStack exact(ItemStack stack) {
+		String selector = GroupItemSelector.tryVersionedExactSelector(stack).orElseThrow();
+		return new GroupFilter.ExactStack(selector.substring("stack:".length()));
+	}
+
+	private static GroupItemSelector.ExactDecodeContext context(Object identity) {
+		return new GroupItemSelector.ExactDecodeContext(new com.starskyxiii.collapsible_groups.internal.version.data.ExactStackCodec.DecodeSnapshot<>() {
+			@Override public boolean liveRegistry() { return true; }
+			@Override public Object registryIdentity() { return identity; }
+			@Override public java.util.Optional<ItemStack> decode(String encoded) {
+				return context.snapshot().decode(encoded);
+			}
+		});
 	}
 
 	private record Case(GroupFilter filter, List<ItemStack> expected) {}

@@ -19,7 +19,7 @@ class ViewerHeaderIconResolverTest {
 					@Override public String ingredientType() { return "item"; }
 					@Override public ResourceLocation resourceLocation() {
 						reads.incrementAndGet();
-						return ResourceLocation.parse("ae2:facade");
+						return new ResourceLocation("ae2:facade");
 					}
 					@Override public boolean hasTag(ResourceLocation tag) { return false; }
 					@Override public boolean matchesExactStack(String stack) { return false; }
@@ -50,9 +50,9 @@ class ViewerHeaderIconResolverTest {
 	@Test
 	void persistentValueLookupDoesNotUseRuntimeIdentityEquality() {
 		var first = new ViewerIngredient<>(new ViewerIngredientIdentity("item", "same:value", "runtime:1"),
-			ViewerIngredient.Kind.ITEM, "first", new FakeView("item", ResourceLocation.parse("test:first")));
+			ViewerIngredient.Kind.ITEM, "first", new FakeView("item", new ResourceLocation("test:first")));
 		var second = new ViewerIngredient<>(new ViewerIngredientIdentity("item", "same:value", "runtime:2"),
-			ViewerIngredient.Kind.ITEM, "second", new FakeView("item", ResourceLocation.parse("test:second")));
+			ViewerIngredient.Kind.ITEM, "second", new FakeView("item", new ResourceLocation("test:second")));
 		assertEquals(first, ViewerHeaderIconResolver.find(GroupIconDefinition.item("same:value"),
 			new ViewerIngredientUniverse<>(List.of(first, second))));
 	}
@@ -98,7 +98,7 @@ class ViewerHeaderIconResolverTest {
 
 	private static ViewerIngredient<String> ingredient(String type, String value, String resourceId) {
 		return new ViewerIngredient<>(new ViewerIngredientIdentity(type, value), ViewerIngredient.Kind.ITEM,
-			value, new FakeView(type, ResourceLocation.parse(resourceId)));
+			value, new FakeView(type, new ResourceLocation(resourceId)));
 	}
 
 	private record FakeView(String ingredientType, ResourceLocation resourceLocation) implements IngredientView {

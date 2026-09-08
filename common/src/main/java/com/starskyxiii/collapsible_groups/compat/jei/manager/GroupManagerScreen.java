@@ -316,13 +316,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	@Override
-	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+	public void renderBackground(GuiGraphics g) {
 		g.fill(0, 0, this.width, this.height, UiPalette.SCREEN_SCRIM);
 	}
 
 	@Override
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
-		renderBackground(g, mouseX, mouseY, partialTicks);
+		renderBackground(g);
 		pendingTooltip = null;
 
 		int headerHeight = headerHeight();
@@ -1405,7 +1405,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+	public boolean mouseScrolled(double mouseX, double mouseY, double deltaY) {
 		if (hasPendingDialog()) return true;
 		if (sortMenuOpen) return true;
 		suppressedSwitchHoverGroupId = null;
@@ -1414,7 +1414,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			scrollPixelOffset = clamp(scrollPixelOffset + (int)(deltaY * -20), 0, maxScrollPixels());
 			return true;
 		}
-		return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+		return super.mouseScrolled(mouseX, mouseY, deltaY);
 	}
 
 	@Override

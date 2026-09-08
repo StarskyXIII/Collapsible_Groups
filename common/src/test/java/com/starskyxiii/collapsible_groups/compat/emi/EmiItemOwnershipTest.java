@@ -10,7 +10,6 @@ import dev.emi.emi.api.stack.EmiStack;
 import dev.emi.emi.registry.EmiIngredientSerializers;
 import dev.emi.emi.stack.serializer.ItemEmiStackSerializer;
 import net.minecraft.SharedConstants;
-import net.minecraft.core.component.DataComponents;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.item.ItemStack;
@@ -27,9 +26,9 @@ class EmiItemOwnershipTest {
 		SharedConstants.tryDetectVersion();
 		Bootstrap.bootStrap();
 		ItemStack first = new ItemStack(Items.STONE);
-		first.set(DataComponents.CUSTOM_NAME, Component.literal("first"));
+		first.setHoverName(Component.literal("first"));
 		ItemStack second = new ItemStack(Items.STONE);
-		second.set(DataComponents.CUSTOM_NAME, Component.literal("second"));
+		second.setHoverName(Component.literal("second"));
 		Class<?> type = EmiStack.of(first).getClass();
 		var previous = EmiIngredientSerializers.BY_CLASS.put(type, new ItemEmiStackSerializer());
 		try {
@@ -39,7 +38,8 @@ class EmiItemOwnershipTest {
 			var universe = new ViewerIngredientUniverse<EmiIngredient>(List.of(
 				new ViewerIngredient<>(firstId, ViewerIngredient.Kind.ITEM, EmiStack.of(first), new ItemStackIngredientView(first)),
 				new ViewerIngredient<>(secondId, ViewerIngredient.Kind.ITEM, EmiStack.of(second), new ItemStackIngredientView(second))));
-			ItemStack copied = first.copyWithCount(64);
+			ItemStack copied = first.copy();
+			copied.setCount(64);
 			ItemStack unknown = new ItemStack(Items.STONE);
 			var result = EmiItemOwnership.resolve(List.of(copied, second, unknown), universe,
 				Map.of(firstId, "first", secondId, "second"));

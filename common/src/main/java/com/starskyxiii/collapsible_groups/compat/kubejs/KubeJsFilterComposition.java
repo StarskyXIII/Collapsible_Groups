@@ -37,12 +37,9 @@ public final class KubeJsFilterComposition {
 
 	public static boolean supportsTree(GroupFilter filter) {
 		if (!FilterNodeCapabilities.supportsKubeJsLowering(FilterNodeCapabilities.kindOf(filter))) return false;
-		return switch (filter) {
-			case GroupFilter.Any any -> any.children().stream().allMatch(KubeJsFilterComposition::supportsTree);
-			case GroupFilter.All all -> all.children().stream().allMatch(KubeJsFilterComposition::supportsTree);
-			case GroupFilter.Not not -> supportsTree(not.child());
-			case GroupFilter.Unsupported ignored -> false;
-			default -> true;
-		};
+		if (filter instanceof GroupFilter.Any) return ((GroupFilter.Any) filter).children().stream().allMatch(KubeJsFilterComposition::supportsTree);
+		if (filter instanceof GroupFilter.All) return ((GroupFilter.All) filter).children().stream().allMatch(KubeJsFilterComposition::supportsTree);
+		if (filter instanceof GroupFilter.Not) return supportsTree(((GroupFilter.Not) filter).child());
+		return !(filter instanceof GroupFilter.Unsupported);
 	}
 }

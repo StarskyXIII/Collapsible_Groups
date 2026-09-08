@@ -90,7 +90,7 @@ public interface IPlatformHelper {
      * @param tagId      tag ID to match, e.g. {@code "c:water"}
      */
     default boolean fluidMatchesTag(Object fluidStack, String tagId) {
-		return requireFluid(fluidStack).view().hasTag(net.minecraft.resources.ResourceLocation.parse(tagId));
+		return requireFluid(fluidStack).view().hasTag(new net.minecraft.resources.ResourceLocation(tagId));
     }
 
     /**

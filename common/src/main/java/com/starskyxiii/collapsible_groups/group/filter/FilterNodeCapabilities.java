@@ -8,8 +8,7 @@ import java.util.Objects;
 /**
  * Version-neutral capability registry for filter-node policy.
  *
- * <p>The 1.21.1 table marks every current node as fully available, preserving existing behavior.
- * A version branch may replace individual entries without changing persistence codecs, matchers,
+ * <p>A version branch may replace individual entries without changing persistence codecs, matchers,
  * reference extraction, or editor forms. Unknown or unavailable nodes are retained as opaque
  * {@link GroupFilter.Unsupported} values and evaluate to unavailable, so configurations that older
  * builds previously rejected can load inertly and round-trip without format loss.
@@ -58,32 +57,30 @@ public final class FilterNodeCapabilities {
 	}
 
 	public static FilterNodeKind kindOf(GroupFilter filter) {
-		return switch (Objects.requireNonNull(filter, "filter")) {
-			case GroupFilter.Any ignored -> FilterNodeKind.ANY;
-			case GroupFilter.All ignored -> FilterNodeKind.ALL;
-			case GroupFilter.Not ignored -> FilterNodeKind.NOT;
-			case GroupFilter.Id ignored -> FilterNodeKind.ID;
-			case GroupFilter.Tag ignored -> FilterNodeKind.TAG;
-			case GroupFilter.BlockTag ignored -> FilterNodeKind.BLOCK_TAG;
-			case GroupFilter.ItemPathStartsWith ignored -> FilterNodeKind.ITEM_PATH_STARTS_WITH;
-			case GroupFilter.ItemPathContains ignored -> FilterNodeKind.ITEM_PATH_CONTAINS;
-			case GroupFilter.ItemPathEndsWith ignored -> FilterNodeKind.ITEM_PATH_ENDS_WITH;
-			case GroupFilter.Namespace ignored -> FilterNodeKind.NAMESPACE;
-			case GroupFilter.ExactStack ignored -> FilterNodeKind.EXACT_STACK;
-			case GroupFilter.HasComponent ignored -> FilterNodeKind.HAS_COMPONENT;
-			case GroupFilter.ComponentPath ignored -> FilterNodeKind.COMPONENT_PATH;
-			case GroupFilter.Unsupported ignored -> FilterNodeKind.UNKNOWN;
-		};
+		Objects.requireNonNull(filter, "filter");
+		if (filter instanceof GroupFilter.Any) return FilterNodeKind.ANY;
+		if (filter instanceof GroupFilter.All) return FilterNodeKind.ALL;
+		if (filter instanceof GroupFilter.Not) return FilterNodeKind.NOT;
+		if (filter instanceof GroupFilter.Id) return FilterNodeKind.ID;
+		if (filter instanceof GroupFilter.Tag) return FilterNodeKind.TAG;
+		if (filter instanceof GroupFilter.BlockTag) return FilterNodeKind.BLOCK_TAG;
+		if (filter instanceof GroupFilter.ItemPathStartsWith) return FilterNodeKind.ITEM_PATH_STARTS_WITH;
+		if (filter instanceof GroupFilter.ItemPathContains) return FilterNodeKind.ITEM_PATH_CONTAINS;
+		if (filter instanceof GroupFilter.ItemPathEndsWith) return FilterNodeKind.ITEM_PATH_ENDS_WITH;
+		if (filter instanceof GroupFilter.Namespace) return FilterNodeKind.NAMESPACE;
+		if (filter instanceof GroupFilter.ExactStack) return FilterNodeKind.EXACT_STACK;
+		if (filter instanceof GroupFilter.HasComponent) return FilterNodeKind.HAS_COMPONENT;
+		if (filter instanceof GroupFilter.ComponentPath) return FilterNodeKind.COMPONENT_PATH;
+		return FilterNodeKind.UNKNOWN;
 	}
 
 	public static boolean containsUnavailable(GroupFilter filter) {
-		return switch (Objects.requireNonNull(filter, "filter")) {
-			case GroupFilter.Unsupported ignored -> true;
-			case GroupFilter.Any any -> any.children().stream().anyMatch(FilterNodeCapabilities::containsUnavailable);
-			case GroupFilter.All all -> all.children().stream().anyMatch(FilterNodeCapabilities::containsUnavailable);
-			case GroupFilter.Not not -> containsUnavailable(not.child());
-			default -> !isAvailable(kindOf(filter));
-		};
+		Objects.requireNonNull(filter, "filter");
+		if (filter instanceof GroupFilter.Unsupported) return true;
+		if (filter instanceof GroupFilter.Any) return ((GroupFilter.Any) filter).children().stream().anyMatch(FilterNodeCapabilities::containsUnavailable);
+		if (filter instanceof GroupFilter.All) return ((GroupFilter.All) filter).children().stream().anyMatch(FilterNodeCapabilities::containsUnavailable);
+		if (filter instanceof GroupFilter.Not) return containsUnavailable(((GroupFilter.Not) filter).child());
+		return !isAvailable(kindOf(filter));
 	}
 
 	public static List<String> unavailableKinds(GroupFilter filter) {
@@ -93,15 +90,17 @@ public final class FilterNodeCapabilities {
 	}
 
 	private static void collectUnavailableKinds(GroupFilter filter, LinkedHashSet<String> kinds) {
-		switch (filter) {
-			case GroupFilter.Unsupported unsupported -> kinds.add(unsupported.recognizedKind());
-			case GroupFilter.Any any -> any.children().forEach(child -> collectUnavailableKinds(child, kinds));
-			case GroupFilter.All all -> all.children().forEach(child -> collectUnavailableKinds(child, kinds));
-			case GroupFilter.Not not -> collectUnavailableKinds(not.child(), kinds);
-			default -> {
-				FilterNodeKind kind = kindOf(filter);
-				if (!isAvailable(kind)) kinds.add(kind.name().toLowerCase(java.util.Locale.ROOT));
-			}
+		if (filter instanceof GroupFilter.Unsupported) {
+			kinds.add(((GroupFilter.Unsupported) filter).recognizedKind());
+		} else if (filter instanceof GroupFilter.Any) {
+			((GroupFilter.Any) filter).children().forEach(child -> collectUnavailableKinds(child, kinds));
+		} else if (filter instanceof GroupFilter.All) {
+			((GroupFilter.All) filter).children().forEach(child -> collectUnavailableKinds(child, kinds));
+		} else if (filter instanceof GroupFilter.Not) {
+			collectUnavailableKinds(((GroupFilter.Not) filter).child(), kinds);
+		} else {
+			FilterNodeKind kind = kindOf(filter);
+			if (!isAvailable(kind)) kinds.add(kind.name().toLowerCase(java.util.Locale.ROOT));
 		}
 	}
 
@@ -118,8 +117,8 @@ public final class FilterNodeCapabilities {
 			Map.entry(FilterNodeKind.ITEM_PATH_ENDS_WITH, FULL),
 			Map.entry(FilterNodeKind.NAMESPACE, FULL),
 			Map.entry(FilterNodeKind.EXACT_STACK, FULL),
-			Map.entry(FilterNodeKind.HAS_COMPONENT, FULL),
-			Map.entry(FilterNodeKind.COMPONENT_PATH, FULL),
+			Map.entry(FilterNodeKind.HAS_COMPONENT, OPAQUE),
+			Map.entry(FilterNodeKind.COMPONENT_PATH, OPAQUE),
 			Map.entry(FilterNodeKind.UNKNOWN, OPAQUE)
 		);
 	}

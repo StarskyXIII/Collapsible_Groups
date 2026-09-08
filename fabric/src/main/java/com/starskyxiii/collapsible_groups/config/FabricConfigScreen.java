@@ -308,21 +308,21 @@ public class FabricConfigScreen extends Screen {
 	// ── Scrolling ────────────────────────────────────────────────────────────
 
 	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double horizontalAmount, double verticalAmount) {
+	public boolean mouseScrolled(double mouseX, double mouseY, double verticalAmount) {
 		if (mouseY >= viewportTop() && mouseY < viewportBottom()) {
 			scrollOffset = ScrollbarHelper.clamp(
 				scrollOffset - (int) (verticalAmount * SCROLL_STEP),
 				0, maxScrollOffset());
 			return true;
 		}
-		return super.mouseScrolled(mouseX, mouseY, horizontalAmount, verticalAmount);
+		return super.mouseScrolled(mouseX, mouseY, verticalAmount);
 	}
 
 	// ── Rendering ────────────────────────────────────────────────────────────
 
 	@Override
 	public void render(GuiGraphics g, int mx, int my, float pt) {
-		this.renderBackground(g, mx, my, pt);
+		this.renderBackground(g);
 
 		int cx = this.width / 2;
 		int vpTop = viewportTop();

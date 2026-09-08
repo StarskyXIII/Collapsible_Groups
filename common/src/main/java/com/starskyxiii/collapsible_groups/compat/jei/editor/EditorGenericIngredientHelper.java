@@ -42,7 +42,7 @@ final class EditorGenericIngredientHelper {
 			IIngredientRenderer<Object> renderer = manager.getIngredientRenderer(type);
 			var resourceLocation = helper.getResourceLocation(ref.ingredient());
 			JeiIngredientIdentityResolver.ResolvedUid uid = manager
-				.createTypedIngredient(type, ref.ingredient(), false)
+				.createTypedIngredient(type, ref.ingredient())
 				.map(typed -> JeiIngredientIdentityResolver.resolve(helper, typed))
 				.orElseGet(() -> JeiIngredientIdentityResolver.fallback(helper, ref.ingredient()));
 			String resourceId = resourceLocation != null

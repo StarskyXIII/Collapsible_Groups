@@ -96,14 +96,18 @@ final class JeiIngredientTypeDiscovery {
 	}
 
 	private static void collectTypes(GroupFilter filter, Set<String> output) {
-		switch (filter) {
-			case GroupFilter.Any any -> any.children().forEach(child -> collectTypes(child, output));
-			case GroupFilter.All all -> all.children().forEach(child -> collectTypes(child, output));
-			case GroupFilter.Not not -> collectTypes(not.child(), output);
-			case GroupFilter.Id id -> output.add(id.ingredientType());
-			case GroupFilter.Tag tag -> output.add(tag.ingredientType());
-			case GroupFilter.Namespace namespace -> output.add(namespace.ingredientType());
-			default -> { }
+		if (filter instanceof GroupFilter.Any any) {
+			any.children().forEach(child -> collectTypes(child, output));
+		} else if (filter instanceof GroupFilter.All all) {
+			all.children().forEach(child -> collectTypes(child, output));
+		} else if (filter instanceof GroupFilter.Not not) {
+			collectTypes(not.child(), output);
+		} else if (filter instanceof GroupFilter.Id id) {
+			output.add(id.ingredientType());
+		} else if (filter instanceof GroupFilter.Tag tag) {
+			output.add(tag.ingredientType());
+		} else if (filter instanceof GroupFilter.Namespace namespace) {
+			output.add(namespace.ingredientType());
 		}
 	}
 

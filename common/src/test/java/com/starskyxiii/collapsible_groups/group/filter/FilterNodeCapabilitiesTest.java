@@ -6,11 +6,13 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class FilterNodeCapabilitiesTest {
 	@Test
-	void currentNodesAreFullyAvailableOnMain() {
+	void componentNodesAreOpaqueOn1201() {
 		assertEquals(FilterNodeKind.values().length, FilterNodeCapabilities.all().size());
 		for (FilterNodeKind kind : FilterNodeKind.values()) {
 			FilterNodeCapabilities.Capability capability = FilterNodeCapabilities.capability(kind);
-			if (kind == FilterNodeKind.UNKNOWN) {
+			if (kind == FilterNodeKind.UNKNOWN
+				|| kind == FilterNodeKind.HAS_COMPONENT
+				|| kind == FilterNodeKind.COMPONENT_PATH) {
 				assertFalse(capability.available());
 				assertEquals(FilterNodeCapabilities.ValidatorBehavior.PRESERVE_OPAQUE, capability.validatorBehavior());
 				assertFalse(capability.exposedInEditorConditionMenu());

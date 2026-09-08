@@ -323,7 +323,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public void renderBackground(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+	public void renderBackground(GuiGraphics g) {
 		g.fill(0, 0, this.width, this.height, UiPalette.SCREEN_SCRIM);
 	}
 
@@ -341,7 +341,7 @@ public class GroupEditorScreen extends Screen {
 
 	private void renderEditor(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
 		refreshPreviewGeneration();
-		renderBackground(g, mouseX, mouseY, partialTicks);
+		renderBackground(g);
 		UiSkinRenderer.drawScreenBars(g, this.width, this.height,
 			EditorShellLayout.HEADER_HEIGHT, EditorShellLayout.FOOTER_HEIGHT);
 		previewHoverLines = null;
@@ -1279,7 +1279,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+	public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
 		if (discardDialogOpen) return true;
 		if (activeMode == EditorShellMode.LOOK && settingsPanel.mouseScrolled(mouseX, mouseY, scrollY)) {
 			return true;
@@ -1295,7 +1295,7 @@ public class GroupEditorScreen extends Screen {
 			return true;
 		}
 		if (rightPanel.mouseScrolled(mouseX, mouseY, scrollY, previewLayout())) return true;
-		return super.mouseScrolled(mouseX, mouseY, scrollX, scrollY);
+		return super.mouseScrolled(mouseX, mouseY, scrollY);
 	}
 
 	@Override

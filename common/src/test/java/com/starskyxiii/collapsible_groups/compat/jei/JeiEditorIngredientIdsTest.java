@@ -24,8 +24,8 @@ class JeiEditorIngredientIdsTest {
 			@SuppressWarnings("unchecked")
 			var helper = (IIngredientHelper<String>) Proxy.newProxyInstance(getClass().getClassLoader(),
 				new Class<?>[] {IIngredientHelper.class}, (proxy, method, args) -> switch (method.getName()) {
-					case "getResourceLocation" -> useResource ? ResourceLocation.parse("test:oxygen") : null;
-					case "getUid" -> { uidCalls.incrementAndGet(); yield "test:uid_fallback"; }
+					case "getResourceLocation" -> useResource ? new ResourceLocation("test", "oxygen") : null;
+					case "getUniqueId" -> { uidCalls.incrementAndGet(); yield "test:uid_fallback"; }
 					default -> throw new AssertionError(method.getName());
 				});
 			var view = new GenericJeiIngredientView<>("test:chemical", "oxygen", helper);

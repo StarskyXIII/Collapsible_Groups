@@ -1,19 +1,10 @@
 plugins {
     id 'multiloader-common'
-    id 'net.neoforged.moddev'
+    id 'net.neoforged.moddev.legacyforge'
 }
 
-neoForge {
-    neoFormVersion = neo_form_version
-    // Automatically enable AccessTransformers if the file exists
-    def at = file('src/main/resources/META-INF/accesstransformer.cfg')
-    if (at.exists()) {
-        accessTransformers.from(at.absolutePath)
-    }
-    parchment {
-        minecraftVersion = parchment_minecraft
-        mappingsVersion = parchment_version
-    }
+legacyForge {
+    mcpVersion = minecraft_version
 }
 
 repositories {
@@ -34,16 +25,13 @@ repositories {
 
 dependencies {
     compileOnly group: 'org.spongepowered', name: 'mixin', version: '0.8.5'
-    // fabric and neoforge both bundle mixinextras, so it is safe to use it in common
-    compileOnly group: 'io.github.llamalad7', name: 'mixinextras-common', version: '0.3.5'
-    annotationProcessor group: 'io.github.llamalad7', name: 'mixinextras-common', version: '0.3.5'
     // JEI common-api — loader-agnostic JEI interfaces, no NeoForge/Fabric specifics
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     // JEI common — internal classes: IElement, IngredientElement, JeiTooltip, etc.
     compileOnly "mezz.jei:jei-${minecraft_version}-common:${jei_version}"
     // JEI packages mezz.jei.gui.* only in full loader jars. The referenced GUI
     // implementation FQCNs are shared, so one full jar supplies compile symbols only.
-    compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    modCompileOnly "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
     // EMI's xplat Mojmap jar supplies the loader-neutral API and the two stable
     // screen internals targeted by our optional mixins. It is compile-only here;
     // loader modules provide their own runtime artifact.
@@ -106,6 +94,7 @@ tasks.named('check') {
     dependsOn tasks.named('compileNeutralCheckJava')
 	dependsOn rootProject.tasks.named('verifyEmiMixinParity')
 	dependsOn rootProject.tasks.named('verifyEmiOnlyLinkage')
+	dependsOn rootProject.tasks.named('verifyJava17Artifacts')
 }
 
 test {

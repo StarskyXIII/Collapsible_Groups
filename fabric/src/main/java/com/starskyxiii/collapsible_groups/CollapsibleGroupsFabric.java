@@ -5,6 +5,7 @@ import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
 import com.starskyxiii.collapsible_groups.config.FabricConfig;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -23,6 +24,11 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
         Constants.LOG.info("Initializing {} on Fabric", Constants.MOD_NAME);
         CommonClass.init();
         FabricConfig.load();
+        if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("kubejs")) {
+            ViewerLifecycleCoordinator.global().setScriptedGroupBootstrap(
+                com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge::applyGroupsNeutral
+            );
+        }
         reloadGroupsFromCurrentConfig();
 
         // Reload overlay lang on F3+T resource reload
@@ -30,7 +36,7 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
             new SimpleSynchronousResourceReloadListener() {
                 @Override
                 public ResourceLocation getFabricId() {
-                    return ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, "overlay_lang");
+                    return new ResourceLocation(Constants.MOD_ID, "overlay_lang");
                 }
 
                 @Override

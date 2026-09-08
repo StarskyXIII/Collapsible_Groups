@@ -19,7 +19,7 @@ class JeiTypedIngredientBoundaryTest {
 		"com/starskyxiii/collapsible_groups/compat/jei/runtime/JeiIngredientFilterController.class";
 	private static final String INGREDIENT_MANAGER = "mezz/jei/api/runtime/IIngredientManager";
 	private static final String FACTORY_DESCRIPTOR =
-		"(Lmezz/jei/api/ingredients/IIngredientType;Ljava/lang/Object;Z)Ljava/util/Optional;";
+		"(Lmezz/jei/api/ingredients/IIngredientType;Ljava/lang/Object;)Ljava/util/Optional;";
 	private static final Set<String> INTERNAL_TYPED_INGREDIENTS = Set.of(
 		"mezz/jei/library/ingredients/TypedIngredient",
 		"mezz/jei/common/ingredients/TypedIngredient"
@@ -34,7 +34,7 @@ class JeiTypedIngredientBoundaryTest {
 		}
 
 		assertEquals(1, visitor.publicFactoryCalls,
-			"group headers must use IIngredientManager#createTypedIngredient(IIngredientType, Object, boolean)");
+			"group headers must use IIngredientManager#createTypedIngredient(IIngredientType, Object)");
 		assertEquals(0, visitor.internalReferences,
 			"controller must not link JEI's internal TypedIngredient implementations");
 	}
@@ -59,6 +59,7 @@ class JeiTypedIngredientBoundaryTest {
 			String[] exceptions) {
 			countInternalReference(descriptor);
 			countInternalReference(signature);
+			boolean countPublicFactory = "createGroupHeader".equals(name);
 			return new MethodVisitor(Opcodes.ASM9) {
 				@Override
 				public void visitTypeInsn(int opcode, String type) {
@@ -76,7 +77,8 @@ class JeiTypedIngredientBoundaryTest {
 					boolean isInterface) {
 					if (INTERNAL_TYPED_INGREDIENTS.contains(owner)) internalReferences++;
 					countInternalReference(descriptor);
-					if (opcode == Opcodes.INVOKEINTERFACE
+					if (countPublicFactory
+						&& opcode == Opcodes.INVOKEINTERFACE
 						&& INGREDIENT_MANAGER.equals(owner)
 						&& "createTypedIngredient".equals(name)
 						&& FACTORY_DESCRIPTOR.equals(descriptor)) {

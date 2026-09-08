@@ -672,7 +672,7 @@ public final class EditorSettingsPanel {
 		colorPickerHexBox = box;
 		positionColorPickerHexBox();
 		box.setFocused(true);
-		box.moveCursorToEnd(false);
+		box.moveCursorToEnd();
 	}
 
 	/**

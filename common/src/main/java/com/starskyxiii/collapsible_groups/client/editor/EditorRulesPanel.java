@@ -1153,8 +1153,7 @@ final class EditorRulesPanel {
 			case NAMESPACE -> ("fluid".equalsIgnoreCase(type) ? BuiltInRegistries.FLUID.keySet().stream()
 					: "item".equalsIgnoreCase(type) ? BuiltInRegistries.ITEM.keySet().stream() : Stream.<ResourceLocation>empty())
 				.map(ResourceLocation::getNamespace).distinct().sorted().toList();
-			case DATA_COMPONENT_TYPE -> BuiltInRegistries.DATA_COMPONENT_TYPE.keySet().stream()
-				.map(ResourceLocation::toString).sorted().toList();
+			case DATA_COMPONENT_TYPE -> List.of();
 			case NONE -> List.of();
 		};
 	}
@@ -1588,7 +1587,7 @@ final class EditorRulesPanel {
 
 	private static int indexOfItem(List<ItemStack> entries, ItemStack wanted) {
 		for (int i = 0; i < entries.size(); i++) {
-			if (ItemStack.isSameItemSameComponents(entries.get(i), wanted)) return i;
+			if (ItemStack.isSameItemSameTags(entries.get(i), wanted)) return i;
 		}
 		return -1;
 	}

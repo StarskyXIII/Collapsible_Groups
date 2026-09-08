@@ -34,7 +34,7 @@ class EmiProjectionTranslationTest {
 		return new ViewerIngredient<>(new ViewerIngredientIdentity("item", value), ViewerIngredient.Kind.ITEM,
 			value, new IngredientView() {
 				@Override public String ingredientType() { return "item"; }
-				@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse("minecraft:stone"); }
+				@Override public ResourceLocation resourceLocation() { return new ResourceLocation("minecraft", "stone"); }
 				@Override public boolean hasTag(ResourceLocation tagId) { return false; }
 				@Override public boolean matchesExactStack(String encodedStack) { return false; }
 			});

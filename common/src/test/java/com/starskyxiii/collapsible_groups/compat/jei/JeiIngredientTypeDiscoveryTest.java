@@ -198,7 +198,7 @@ class JeiIngredientTypeDiscoveryTest {
 	private static IngredientView taggedView(String type, String id) {
 		return new IngredientView() {
 			@Override public String ingredientType() { return type; }
-			@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse(id); }
+			@Override public ResourceLocation resourceLocation() { return new ResourceLocation(id); }
 			@Override public boolean hasTag(ResourceLocation tagId) { return id.equals("test:oxygen") && tagId.toString().equals("test:clean"); }
 			@Override public boolean matchesExactStack(String encodedStack) { return false; }
 		};
@@ -225,7 +225,7 @@ class JeiIngredientTypeDiscoveryTest {
 	private static IngredientView view(String type, String id) {
 		return new IngredientView() {
 			@Override public String ingredientType() { return type; }
-			@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse(id); }
+			@Override public ResourceLocation resourceLocation() { return new ResourceLocation(id); }
 			@Override public boolean hasTag(ResourceLocation tagId) { return false; }
 			@Override public boolean matchesExactStack(String encodedStack) { return false; }
 		};

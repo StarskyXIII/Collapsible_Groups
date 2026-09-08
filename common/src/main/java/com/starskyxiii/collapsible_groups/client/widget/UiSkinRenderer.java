@@ -72,8 +72,110 @@ public final class UiSkinRenderer {
 	}
 
 	private static ResourceLocation sprite(String name) {
-		return ResourceLocation.fromNamespaceAndPath(Constants.MOD_ID, name);
+		return new ResourceLocation(Constants.MOD_ID, name);
 	}
+
+	private static void blitSprite(GuiGraphics g, ResourceLocation sprite, int x, int y, int width, int height) {
+		ResourceLocation texture = new ResourceLocation(sprite.getNamespace(),
+			"textures/gui/sprites/" + sprite.getPath() + ".png");
+		Slice slice = slice(sprite);
+		if (slice == null) {
+			int sourceWidth = nativeWidth(sprite, width);
+			int sourceHeight = nativeHeight(sprite, height);
+			g.blit(texture, x, y, width, height, 0.0F, 0.0F,
+				sourceWidth, sourceHeight, sourceWidth, sourceHeight);
+		} else {
+			blitNineSliced(g, texture, x, y, width, height, slice);
+		}
+	}
+
+	private static void blitNineSliced(GuiGraphics g, ResourceLocation texture,
+		int x, int y, int width, int height, Slice slice) {
+		int left = Math.min(slice.left(), width / 2);
+		int right = Math.min(slice.right(), width / 2);
+		int top = Math.min(slice.top(), height / 2);
+		int bottom = Math.min(slice.bottom(), height / 2);
+		int middleWidth = Math.max(0, width - left - right);
+		int middleHeight = Math.max(0, height - top - bottom);
+		int sourceMiddleWidth = slice.width() - slice.left() - slice.right();
+		int sourceMiddleHeight = slice.height() - slice.top() - slice.bottom();
+
+		blitRegion(g, texture, x, y, left, top, 0, 0, left, top, slice.width(), slice.height());
+		blitRegion(g, texture, x + width - right, y, right, top,
+			slice.width() - right, 0, right, top, slice.width(), slice.height());
+		blitRegion(g, texture, x, y + height - bottom, left, bottom,
+			0, slice.height() - bottom, left, bottom, slice.width(), slice.height());
+		blitRegion(g, texture, x + width - right, y + height - bottom, right, bottom,
+			slice.width() - right, slice.height() - bottom, right, bottom, slice.width(), slice.height());
+
+		blitTiled(g, texture, x + left, y, middleWidth, top,
+			slice.left(), 0, sourceMiddleWidth, slice.top(), slice.width(), slice.height());
+		blitTiled(g, texture, x + left, y + height - bottom, middleWidth, bottom,
+			slice.left(), slice.height() - slice.bottom(), sourceMiddleWidth, slice.bottom(),
+			slice.width(), slice.height());
+		blitTiled(g, texture, x, y + top, left, middleHeight,
+			0, slice.top(), slice.left(), sourceMiddleHeight, slice.width(), slice.height());
+		blitTiled(g, texture, x + width - right, y + top, right, middleHeight,
+			slice.width() - slice.right(), slice.top(), slice.right(), sourceMiddleHeight,
+			slice.width(), slice.height());
+		blitTiled(g, texture, x + left, y + top, middleWidth, middleHeight,
+			slice.left(), slice.top(), sourceMiddleWidth, sourceMiddleHeight, slice.width(), slice.height());
+	}
+
+	private static void blitTiled(GuiGraphics g, ResourceLocation texture,
+		int x, int y, int width, int height, int u, int v, int tileWidth, int tileHeight,
+		int textureWidth, int textureHeight) {
+		if (width <= 0 || height <= 0 || tileWidth <= 0 || tileHeight <= 0) return;
+		for (int dy = 0; dy < height; dy += tileHeight) {
+			int drawnHeight = Math.min(tileHeight, height - dy);
+			for (int dx = 0; dx < width; dx += tileWidth) {
+				int drawnWidth = Math.min(tileWidth, width - dx);
+				blitRegion(g, texture, x + dx, y + dy, drawnWidth, drawnHeight,
+					u, v, drawnWidth, drawnHeight, textureWidth, textureHeight);
+			}
+		}
+	}
+
+	private static void blitRegion(GuiGraphics g, ResourceLocation texture,
+		int x, int y, int width, int height, int u, int v, int sourceWidth, int sourceHeight,
+		int textureWidth, int textureHeight) {
+		if (width <= 0 || height <= 0 || sourceWidth <= 0 || sourceHeight <= 0) return;
+		g.blit(texture, x, y, width, height, (float) u, (float) v,
+			sourceWidth, sourceHeight, textureWidth, textureHeight);
+	}
+
+	private static Slice slice(ResourceLocation sprite) {
+		if (sprite == PANEL || sprite == CARD) return new Slice(20, 20, 3, 3, 3, 3);
+		if (sprite == BUTTON || sprite == BUTTON_HOVER || sprite == BUTTON_PRESSED
+			|| sprite == BUTTON_DISABLED || sprite == BUTTON_SELECTED || sprite == BUTTON_SELECTED_HOVER
+			|| sprite == BUTTON_SELECTED_PRESSED) return new Slice(200, 20, 3, 3, 3, 3);
+		if (sprite == SCROLLBAR_THUMB) return new Slice(6, 16, 2, 2, 2, 3);
+		if (sprite == SEGMENT) return new Slice(16, 16, 2, 2, 2, 3);
+		if (sprite == SEGMENT_HOVER) return new Slice(16, 16, 2, 2, 2, 2);
+		if (sprite == SEGMENT_PRESSED || sprite == SEGMENT_SELECTED || sprite == SEGMENT_SELECTED_HOVER
+			|| sprite == SEGMENT_SELECTED_PRESSED) return new Slice(16, 16, 2, 2, 2, 1);
+		return null;
+	}
+
+	private static int nativeWidth(ResourceLocation sprite, int fallback) {
+		if (sprite == ICON_BUTTON || sprite == ICON_BUTTON_HOVER || sprite == ICON_BUTTON_PRESSED
+			|| sprite == ICON_BUTTON_DISABLED) return 18;
+		if (sprite == ICON_EDIT || sprite == ICON_DELETE || sprite == ICON_SORT) return 16;
+		if (sprite == SWITCH_OFF || sprite == SWITCH_OFF_HOVER || sprite == SWITCH_OFF_DISABLED
+			|| sprite == SWITCH_ON || sprite == SWITCH_ON_HOVER || sprite == SWITCH_ON_DISABLED) return 22;
+		return fallback;
+	}
+
+	private static int nativeHeight(ResourceLocation sprite, int fallback) {
+		if (sprite == ICON_BUTTON || sprite == ICON_BUTTON_HOVER || sprite == ICON_BUTTON_PRESSED
+			|| sprite == ICON_BUTTON_DISABLED) return 20;
+		if (sprite == ICON_EDIT || sprite == ICON_DELETE || sprite == ICON_SORT) return 16;
+		if (sprite == SWITCH_OFF || sprite == SWITCH_OFF_HOVER || sprite == SWITCH_OFF_DISABLED
+			|| sprite == SWITCH_ON || sprite == SWITCH_ON_HOVER || sprite == SWITCH_ON_DISABLED) return 12;
+		return fallback;
+	}
+
+	private record Slice(int width, int height, int left, int top, int right, int bottom) {}
 
 	public enum ButtonState {
 		NORMAL,
@@ -95,12 +197,12 @@ public final class UiSkinRenderer {
 
 	public static void drawPanel(GuiGraphics g, int x, int y, int width, int height) {
 		g.fill(x, y, x + width, y + height, UiPalette.SURFACE_DARK);
-		g.blitSprite(PANEL, x, y, width, height);
+		blitSprite(g, PANEL, x, y, width, height);
 	}
 
 	public static void drawCard(GuiGraphics g, int x, int y, int width, int height, boolean hovered, int borderColor) {
 		g.fill(x, y, x + width, y + height, UiPalette.SURFACE_DARK);
-		g.blitSprite(CARD, x, y, width, height);
+		blitSprite(g, CARD, x, y, width, height);
 		if (hovered) {
 			g.fill(x + 1, y + 1, x + width - 1, y + height - 1, UiPalette.CARD_BODY_HOVER);
 		}
@@ -113,7 +215,7 @@ public final class UiSkinRenderer {
 		int depth = buttonVisualDepth(state);
 		ResourceLocation sprite = buttonSprite(state);
 		if (sprite != null) {
-			g.blitSprite(sprite, x, y, width, height);
+			blitSprite(g, sprite, x, y, width, height);
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
 		}
@@ -130,7 +232,7 @@ public final class UiSkinRenderer {
 		int depth = segmentVisualDepth(state);
 		ResourceLocation sprite = segmentSprite(state);
 		if (sprite != null) {
-			g.blitSprite(sprite, x + 1, y + 1, width - 2, height - 2);
+			blitSprite(g, sprite, x + 1, y + 1, width - 2, height - 2);
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
 		}
@@ -186,14 +288,14 @@ public final class UiSkinRenderer {
 		int depth = buttonVisualDepth(state);
 		ResourceLocation sprite = buttonSprite(state);
 		if (sprite != null) {
-			g.blitSprite(sprite, x, y, buttonSize, buttonSize);
+			blitSprite(g, sprite, x, y, buttonSize, buttonSize);
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, buttonSize - 2, buttonSize - depth - 2, state);
 		}
 		drawControlFrame(g, x, y, buttonSize, buttonSize, depth);
 		int iconX = x + Math.max(0, (buttonSize - iconSize) / 2);
 		int iconY = y + Math.max(0, (buttonSize - iconSize) / 2) + buttonTextOffset(state);
-		g.blitSprite(icon, iconX, iconY, iconSize, iconSize);
+		blitSprite(g, icon, iconX, iconY, iconSize, iconSize);
 	}
 
 	public static void drawToolbarIconButton(GuiGraphics g, int x, int y, int width, int height,
@@ -201,13 +303,13 @@ public final class UiSkinRenderer {
 		int yOffset = toolbarButtonOffset(state);
 		int originX = x + Math.max(0, (width - TOOLBAR_ICON_WIDTH) / 2);
 		int originY = y + Math.max(0, (height - TOOLBAR_BUTTON_HEIGHT) / 2);
-		g.blitSprite(toolbarButtonSprite(state),
+		blitSprite(g, toolbarButtonSprite(state),
 			originX - 1, originY + yOffset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
 
 		if (state == ButtonState.DISABLED) {
 			g.setColor(1.0F, 1.0F, 1.0F, 0.55F);
 		}
-		g.blitSprite(icon, originX, originY + 1 + yOffset, TOOLBAR_ICON_WIDTH, TOOLBAR_ICON_WIDTH);
+		blitSprite(g, icon, originX, originY + 1 + yOffset, TOOLBAR_ICON_WIDTH, TOOLBAR_ICON_WIDTH);
 		if (state == ButtonState.DISABLED) {
 			g.setColor(1.0F, 1.0F, 1.0F, 1.0F);
 		}
@@ -219,7 +321,7 @@ public final class UiSkinRenderer {
 		int yOffset = toolbarButtonOffset(state);
 		int originX = x + Math.max(0, (width - TOOLBAR_ICON_WIDTH) / 2);
 		int originY = y + Math.max(0, (height - TOOLBAR_BUTTON_HEIGHT) / 2);
-		g.blitSprite(toolbarButtonSprite(state),
+		blitSprite(g, toolbarButtonSprite(state),
 			originX - 1, originY + yOffset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
 		int color = buttonTextColor(state);
 		String clipped = font.plainSubstrByWidth(mark, TOOLBAR_ICON_WIDTH);
@@ -300,7 +402,7 @@ public final class UiSkinRenderer {
 		ResourceLocation sprite = switchSprite(on, active, hovered || pressed);
 		int visualX = x + (width - SWITCH_VISUAL_WIDTH) / 2;
 		int visualY = y + (height - SWITCH_VISUAL_HEIGHT) / 2;
-		g.blitSprite(sprite, visualX, visualY, SWITCH_VISUAL_WIDTH, SWITCH_VISUAL_HEIGHT);
+		blitSprite(g, sprite, visualX, visualY, SWITCH_VISUAL_WIDTH, SWITCH_VISUAL_HEIGHT);
 	}
 
 	private static ResourceLocation switchSprite(boolean on, boolean active, boolean hovered) {
@@ -322,7 +424,7 @@ public final class UiSkinRenderer {
 		int thumbHeight = Math.max(14, height * visibleHeight / contentHeight);
 		int travel = height - thumbHeight;
 		int thumbY = y + travel * scrollOffset / Math.max(1, contentHeight - visibleHeight);
-		g.blitSprite(SCROLLBAR_THUMB, x, thumbY, 6, thumbHeight);
+		blitSprite(g, SCROLLBAR_THUMB, x, thumbY, 6, thumbHeight);
 	}
 
 	public static void drawMiniScrollbar(GuiGraphics g, int x, int y, int height,
@@ -335,7 +437,7 @@ public final class UiSkinRenderer {
 		int travel = height - thumbHeight;
 		int maxRow = Math.max(1, totalRows - visibleRows);
 		int thumbY = y + travel * rowOffset / maxRow;
-		g.blitSprite(SCROLLBAR_THUMB, x, thumbY, 5, thumbHeight);
+		blitSprite(g, SCROLLBAR_THUMB, x, thumbY, 5, thumbHeight);
 	}
 
 	public static void drawSlot(GuiGraphics g, int x, int y, int size) {

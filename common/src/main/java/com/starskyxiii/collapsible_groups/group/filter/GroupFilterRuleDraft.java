@@ -378,82 +378,92 @@ public final class GroupFilterRuleDraft {
 	}
 
 	private static Node decodeNode(GroupFilter filter) {
-		return switch (filter) {
-			case GroupFilter.Any any -> {
+		if (filter instanceof GroupFilter.Any) {
+			GroupFilter.Any any = (GroupFilter.Any) filter;
 				Node node = new Node(NodeKind.ANY);
 				any.children().forEach(child -> attachChild(node, decodeNode(child)));
-				yield node;
-			}
-			case GroupFilter.All all -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.All) {
+			GroupFilter.All all = (GroupFilter.All) filter;
 				Node node = new Node(NodeKind.ALL);
 				all.children().forEach(child -> attachChild(node, decodeNode(child)));
-				yield node;
-			}
-			case GroupFilter.Not not -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.Not) {
+			GroupFilter.Not not = (GroupFilter.Not) filter;
 				Node node = new Node(NodeKind.NOT);
 				attachChild(node, decodeNode(not.child()));
-				yield node;
-			}
-			case GroupFilter.Id id -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.Id) {
+			GroupFilter.Id id = (GroupFilter.Id) filter;
 				Node node = new Node(NodeKind.ID);
 				node.ingredientType = id.ingredientType();
 				node.primaryValue = id.id();
-				yield node;
-			}
-			case GroupFilter.Tag tag -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.Tag) {
+			GroupFilter.Tag tag = (GroupFilter.Tag) filter;
 				Node node = new Node(NodeKind.TAG);
 				node.ingredientType = tag.ingredientType();
 				node.primaryValue = tag.tag();
-				yield node;
-			}
-			case GroupFilter.BlockTag blockTag -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.BlockTag) {
+			GroupFilter.BlockTag blockTag = (GroupFilter.BlockTag) filter;
 				Node node = new Node(NodeKind.BLOCK_TAG);
 				node.primaryValue = blockTag.tag();
-				yield node;
-			}
-			case GroupFilter.ItemPathStartsWith startsWith -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.ItemPathStartsWith) {
+			GroupFilter.ItemPathStartsWith startsWith = (GroupFilter.ItemPathStartsWith) filter;
 				Node node = new Node(NodeKind.ITEM_PATH_STARTS_WITH);
 				node.primaryValue = startsWith.prefix();
-				yield node;
-			}
-			case GroupFilter.ItemPathContains contains -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.ItemPathContains) {
+			GroupFilter.ItemPathContains contains = (GroupFilter.ItemPathContains) filter;
 				Node node = new Node(NodeKind.ITEM_PATH_CONTAINS);
 				node.primaryValue = contains.needle();
-				yield node;
-			}
-			case GroupFilter.ItemPathEndsWith endsWith -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.ItemPathEndsWith) {
+			GroupFilter.ItemPathEndsWith endsWith = (GroupFilter.ItemPathEndsWith) filter;
 				Node node = new Node(NodeKind.ITEM_PATH_ENDS_WITH);
 				node.primaryValue = endsWith.suffix();
-				yield node;
-			}
-			case GroupFilter.Namespace namespace -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.Namespace) {
+			GroupFilter.Namespace namespace = (GroupFilter.Namespace) filter;
 				Node node = new Node(NodeKind.NAMESPACE);
 				node.ingredientType = namespace.ingredientType();
 				node.primaryValue = namespace.namespace();
-				yield node;
-			}
-			case GroupFilter.ExactStack exactStack -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.ExactStack) {
+			GroupFilter.ExactStack exactStack = (GroupFilter.ExactStack) filter;
 				Node node = new Node(NodeKind.EXACT_STACK);
 				node.primaryValue = exactStack.encodedStack();
-				yield node;
-			}
-			case GroupFilter.HasComponent hasComponent -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.HasComponent) {
+			GroupFilter.HasComponent hasComponent = (GroupFilter.HasComponent) filter;
 				Node node = new Node(NodeKind.HAS_COMPONENT);
 				node.primaryValue = hasComponent.componentTypeId();
 				node.secondaryValue = hasComponent.encodedValue();
-				yield node;
-			}
-			case GroupFilter.ComponentPath componentPath -> {
+			return node;
+		}
+		if (filter instanceof GroupFilter.ComponentPath) {
+			GroupFilter.ComponentPath componentPath = (GroupFilter.ComponentPath) filter;
 				Node node = new Node(NodeKind.COMPONENT_PATH);
 				node.primaryValue = componentPath.componentTypeId();
 				node.secondaryValue = componentPath.path();
 				node.tertiaryValue = componentPath.expectedValue();
-				yield node;
-			}
-			case GroupFilter.Unsupported unsupported -> throw new IllegalArgumentException(
-				"Unavailable filter nodes cannot be decoded into an editable rule draft: " + unsupported.recognizedKind()
-			);
-		};
+			return node;
+		}
+		throw new IllegalArgumentException("Unavailable filter nodes cannot be decoded into an editable rule draft: "
+			+ ((GroupFilter.Unsupported) filter).recognizedKind());
 	}
 
 	private static @Nullable GroupFilter encodeNode(Node node) {

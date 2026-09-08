@@ -140,7 +140,7 @@ final class GroupEditorTooltipHelper {
 		} else if (state.isWholeItemSelected(stack)) {
 			// a component-less whole selection toggles off on a plain click; only items that
 			// carry a component patch switch to an exact variant on the next click.
-			lines.add(hint(stack.getComponentsPatch().isEmpty()
+			lines.add(hint(!stack.hasTag()
 				? ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP
 				: ModTranslationKeys.EDITOR_HINT_SWITCH_TO_VARIANT));
 			lines.add(hint2(ModTranslationKeys.EDITOR_HINT_DRAG_REMOVE));

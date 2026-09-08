@@ -165,8 +165,7 @@ class RuleNodeUiContractTest {
 		assertTrue(contract.requiresField(RuleFieldRole.PRIMARY_VALUE));
 
 		assertTrue(GroupFilterValidator.validateComponents(new GroupFilter.Namespace("item", "minecraft")).isEmpty());
-		// Documents the validator gap: blank namespace passes GroupFilterValidator today.
-		assertTrue(GroupFilterValidator.validateComponents(new GroupFilter.Namespace("item", "")).isEmpty());
+		assertFalse(GroupFilterValidator.validateComponents(new GroupFilter.Namespace("item", "")).isEmpty());
 	}
 
 	@Test
@@ -183,7 +182,7 @@ class RuleNodeUiContractTest {
 
 	@Test
 	void requiredRolesBlankingHasComponentTypeIdProducesValidatorError() {
-		assertBlankingRoleFails(GroupFilterRuleDraft.NodeKind.HAS_COMPONENT, RuleFieldRole.PRIMARY_VALUE,
+		assertOpaqueKind(GroupFilterRuleDraft.NodeKind.HAS_COMPONENT, RuleFieldRole.PRIMARY_VALUE,
 			new GroupFilter.HasComponent("minecraft:custom_name", "\"Boat\""),
 			new GroupFilter.HasComponent("", "\"Boat\""));
 	}
@@ -194,28 +193,28 @@ class RuleNodeUiContractTest {
 	 */
 	@Test
 	void requiredRolesBlankingHasComponentEncodedValueProducesValidatorError() {
-		assertBlankingRoleFails(GroupFilterRuleDraft.NodeKind.HAS_COMPONENT, RuleFieldRole.SECONDARY_VALUE,
+		assertOpaqueKind(GroupFilterRuleDraft.NodeKind.HAS_COMPONENT, RuleFieldRole.SECONDARY_VALUE,
 			new GroupFilter.HasComponent("minecraft:custom_name", "\"Boat\""),
 			new GroupFilter.HasComponent("minecraft:custom_name", ""));
 	}
 
 	@Test
 	void requiredRolesBlankingComponentPathTypeIdProducesValidatorError() {
-		assertBlankingRoleFails(GroupFilterRuleDraft.NodeKind.COMPONENT_PATH, RuleFieldRole.PRIMARY_VALUE,
+		assertOpaqueKind(GroupFilterRuleDraft.NodeKind.COMPONENT_PATH, RuleFieldRole.PRIMARY_VALUE,
 			new GroupFilter.ComponentPath("minecraft:food", "nutrition", "4"),
 			new GroupFilter.ComponentPath("", "nutrition", "4"));
 	}
 
 	@Test
 	void requiredRolesBlankingComponentPathPathProducesValidatorError() {
-		assertBlankingRoleFails(GroupFilterRuleDraft.NodeKind.COMPONENT_PATH, RuleFieldRole.SECONDARY_VALUE,
+		assertOpaqueKind(GroupFilterRuleDraft.NodeKind.COMPONENT_PATH, RuleFieldRole.SECONDARY_VALUE,
 			new GroupFilter.ComponentPath("minecraft:food", "nutrition", "4"),
 			new GroupFilter.ComponentPath("minecraft:food", "", "4"));
 	}
 
 	@Test
 	void requiredRolesBlankingComponentPathExpectedValueProducesValidatorError() {
-		assertBlankingRoleFails(GroupFilterRuleDraft.NodeKind.COMPONENT_PATH, RuleFieldRole.TERTIARY_VALUE,
+		assertOpaqueKind(GroupFilterRuleDraft.NodeKind.COMPONENT_PATH, RuleFieldRole.TERTIARY_VALUE,
 			new GroupFilter.ComponentPath("minecraft:food", "nutrition", "4"),
 			new GroupFilter.ComponentPath("minecraft:food", "nutrition", ""));
 	}
@@ -250,5 +249,17 @@ class RuleNodeUiContractTest {
 		assertTrue(GroupFilterValidator.validateComponents(validBaseline).isEmpty(), "baseline should be valid");
 		List<Component> errors = GroupFilterValidator.validateComponents(blanked);
 		assertFalse(errors.isEmpty(), "blanking " + role + " on " + kind + " should produce a validator error");
+	}
+
+	private static void assertOpaqueKind(
+		GroupFilterRuleDraft.NodeKind kind,
+		RuleFieldRole role,
+		GroupFilter baseline,
+		GroupFilter blanked
+	) {
+		RuleNodeUiContract contract = RuleNodeUiContract.forKind(kind);
+		assertTrue(contract.requiresField(role));
+		assertTrue(GroupFilterValidator.validateComponents(baseline).isEmpty());
+		assertTrue(GroupFilterValidator.validateComponents(blanked).isEmpty());
 	}
 }

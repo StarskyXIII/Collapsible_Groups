@@ -3,11 +3,13 @@ package com.starskyxiii.collapsible_groups.group.filter;
 import com.google.gson.JsonElement;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccess;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses;
-import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft121ItemDataAccess;
 import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Comparator;
 import java.util.Optional;
 import java.util.function.Function;
 
@@ -31,10 +33,6 @@ public final class ComponentReferenceExtractor {
 		Optional<JsonElement> encode(O ops, K key, V value);
 	}
 
-	/**
-	 * Production adapter. The effective source is {@link ItemStack#getComponents()}; the
-	 * patch is consulted only for provenance and explicit-removal suppression.
-	 */
 	public static List<ComponentReference> extract(ItemStack stack) {
 		return ItemDataAccesses.current().enumerateData(stack).stream()
 			.map(ComponentReferenceExtractor::toComponentReference)
@@ -58,18 +56,34 @@ public final class ComponentReferenceExtractor {
 		Function<K, @Nullable String> idLookup,
 		ValueEncoder<O, K, V> encoder
 	) {
-		List<Minecraft121ItemDataAccess.EffectiveEntry<K, V>> effective = new java.util.ArrayList<>();
-		for (EffectiveEntry<K, V> entry : effectiveEntries) {
-			effective.add(new Minecraft121ItemDataAccess.EffectiveEntry<>(entry.key(), entry.value()));
-		}
-		List<Minecraft121ItemDataAccess.PatchEntry<K>> patch = new java.util.ArrayList<>();
+		Map<K, Boolean> patchState = new HashMap<>();
 		for (PatchEntry<K> entry : patchEntries) {
-			patch.add(new Minecraft121ItemDataAccess.PatchEntry<>(entry.key(), entry.removed()));
+			patchState.put(entry.key(), !entry.removed());
 		}
-		return Minecraft121ItemDataAccess.extractEffective(
-			effective, patch, ops, idLookup, encoder::encode)
-			.stream()
-			.map(ComponentReferenceExtractor::toComponentReference)
+		Map<String, ComponentReference> byId = new HashMap<>();
+		for (EffectiveEntry<K, V> entry : effectiveEntries) {
+			Boolean patchHasValue = patchState.get(entry.key());
+			if (Boolean.FALSE.equals(patchHasValue)) continue;
+			String id;
+			Optional<JsonElement> encoded;
+			try {
+				id = idLookup.apply(entry.key());
+				encoded = encoder.encode(ops, entry.key(), entry.value());
+			} catch (RuntimeException ignored) {
+				continue;
+			}
+			if (id == null || id.isBlank() || encoded == null || encoded.isEmpty() || encoded.get() == null) continue;
+			JsonElement json = encoded.get().deepCopy();
+			ComponentReference reference = new ComponentReference(
+				id, json, EncodedValueNormalizer.normalize(json), Boolean.TRUE.equals(patchHasValue));
+			ComponentReference previous = byId.get(id);
+			if (previous == null || (!previous.fromPatch() && reference.fromPatch())) {
+				byId.put(id, reference);
+			}
+		}
+		return byId.values().stream()
+			.sorted(Comparator.comparing(ComponentReference::fromPatch).reversed()
+				.thenComparing(ComponentReference::componentTypeId))
 			.toList();
 	}
 

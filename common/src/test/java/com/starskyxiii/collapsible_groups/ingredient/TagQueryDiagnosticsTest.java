@@ -18,7 +18,7 @@ class TagQueryDiagnosticsTest {
 		for (int pass = 0; pass < 3; pass++) {
 			for (int i = 0; i < 1024; i++) {
 				assertEquals(TagQueryDiagnostics.Existence.ABSENT,
-					summary.query(ResourceLocation.parse("test:absent_" + i)).existence());
+					summary.query(new ResourceLocation("test:absent_" + i)).existence());
 			}
 		}
 		assertEquals(preparationReads, reads.get());
@@ -27,7 +27,7 @@ class TagQueryDiagnosticsTest {
 		assertEquals(TagQueryDiagnostics.Availability.UNAVAILABLE, replacement.query(TAG).availability());
 		assertEquals(TagQueryDiagnostics.Existence.PRESENT, summary.query(TAG).existence());
 	}
-	private static final ResourceLocation TAG = ResourceLocation.parse("test:tag");
+	private static final ResourceLocation TAG = new ResourceLocation("test:tag");
 	private static final TagQueryDiagnostics.Source PRESENT = new TagQueryDiagnostics.Source(true, Set.of(TAG));
 	private static final TagQueryDiagnostics.Source ABSENT = new TagQueryDiagnostics.Source(true, Set.of());
 	private static final TagQueryDiagnostics.Source UNKNOWN = new TagQueryDiagnostics.Source(false, Set.of());

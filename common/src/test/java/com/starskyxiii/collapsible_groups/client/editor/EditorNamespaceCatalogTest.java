@@ -80,7 +80,7 @@ class EditorNamespaceCatalogTest {
 	private IngredientView view(String type, String id) {
 		return new IngredientView() {
 			public String ingredientType() { return type; }
-			public ResourceLocation resourceLocation() { return id == null ? null : ResourceLocation.parse(id); }
+			public ResourceLocation resourceLocation() { return id == null ? null : new ResourceLocation(id); }
 			public boolean hasTag(ResourceLocation tag) { return false; }
 			public boolean matchesExactStack(String value) { return false; }
 		};

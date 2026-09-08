@@ -5,6 +5,7 @@ import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
 import com.starskyxiii.collapsible_groups.config.ForgeConfig;
 import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
@@ -12,6 +13,7 @@ import net.minecraftforge.client.event.RegisterClientTooltipComponentFactoriesEv
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.eventbus.api.SubscribeEvent;
 import net.minecraftforge.fml.ModLoadingContext;
+import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.fml.event.config.ModConfigEvent;
@@ -49,6 +51,11 @@ public class CollapsibleGroupsForge {
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {
+        if (ModList.get().isLoaded("kubejs")) {
+            ViewerLifecycleCoordinator.global().setScriptedGroupBootstrap(
+                com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge::applyGroupsNeutral
+            );
+        }
         reloadGroupsFromCurrentConfig();
     }
 

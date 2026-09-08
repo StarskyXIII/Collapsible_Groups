@@ -54,22 +54,23 @@ public final class CompiledFilter {
 	}
 
 	private static CompiledNode compileNode(GroupFilter filter) {
-		return switch (filter) {
-			case GroupFilter.Any any -> compileAny(any);
-			case GroupFilter.All all -> new AllNode(all.children().stream().map(CompiledFilter::compileNode).toList());
-			case GroupFilter.Not not -> new NotNode(compileNode(not.child()), FilterTypeScope.declared(not.child()));
-			case GroupFilter.Id id -> new IdNode(canonicalType(id.ingredientType()), ResourceLocation.parse(id.id()));
-			case GroupFilter.Tag tag -> new TagNode(canonicalType(tag.ingredientType()), ResourceLocation.parse(tag.tag()));
-			case GroupFilter.BlockTag blockTag -> new BlockTagNode(ResourceLocation.parse(blockTag.tag()));
-			case GroupFilter.ItemPathStartsWith startsWith -> new ItemPathStartsWithNode(startsWith.prefix());
-			case GroupFilter.ItemPathContains contains -> new ItemPathContainsNode(contains.needle());
-			case GroupFilter.ItemPathEndsWith endsWith -> new ItemPathEndsWithNode(endsWith.suffix());
-			case GroupFilter.Namespace namespace -> new NamespaceNode(canonicalType(namespace.ingredientType()), namespace.namespace());
-			case GroupFilter.ExactStack exactStack -> new ExactStackSetNode(List.of(exactStack.encodedStack()));
-			case GroupFilter.HasComponent hc -> new HasComponentNode(hc.componentTypeId(), hc.encodedValue());
-			case GroupFilter.ComponentPath cp -> new ComponentPathNode(cp.componentTypeId(), cp.path(), cp.expectedValue());
-			case GroupFilter.Unsupported ignored -> UnavailableNode.INSTANCE;
-		};
+		if (!FilterNodeCapabilities.isAvailable(FilterNodeCapabilities.kindOf(filter))) {
+			return UnavailableNode.INSTANCE;
+		}
+		if (filter instanceof GroupFilter.Any) return compileAny((GroupFilter.Any) filter);
+		if (filter instanceof GroupFilter.All) return new AllNode(((GroupFilter.All) filter).children().stream().map(CompiledFilter::compileNode).toList());
+		if (filter instanceof GroupFilter.Not) { GroupFilter.Not value = (GroupFilter.Not) filter; return new NotNode(compileNode(value.child()), FilterTypeScope.declared(value.child())); }
+		if (filter instanceof GroupFilter.Id) { GroupFilter.Id value = (GroupFilter.Id) filter; return new IdNode(canonicalType(value.ingredientType()), new ResourceLocation(value.id())); }
+		if (filter instanceof GroupFilter.Tag) { GroupFilter.Tag value = (GroupFilter.Tag) filter; return new TagNode(canonicalType(value.ingredientType()), new ResourceLocation(value.tag())); }
+		if (filter instanceof GroupFilter.BlockTag) return new BlockTagNode(new ResourceLocation(((GroupFilter.BlockTag) filter).tag()));
+		if (filter instanceof GroupFilter.ItemPathStartsWith) return new ItemPathStartsWithNode(((GroupFilter.ItemPathStartsWith) filter).prefix());
+		if (filter instanceof GroupFilter.ItemPathContains) return new ItemPathContainsNode(((GroupFilter.ItemPathContains) filter).needle());
+		if (filter instanceof GroupFilter.ItemPathEndsWith) return new ItemPathEndsWithNode(((GroupFilter.ItemPathEndsWith) filter).suffix());
+		if (filter instanceof GroupFilter.Namespace) { GroupFilter.Namespace value = (GroupFilter.Namespace) filter; return new NamespaceNode(canonicalType(value.ingredientType()), value.namespace()); }
+		if (filter instanceof GroupFilter.ExactStack) return new ExactStackSetNode(List.of(((GroupFilter.ExactStack) filter).encodedStack()));
+		if (filter instanceof GroupFilter.HasComponent) { GroupFilter.HasComponent value = (GroupFilter.HasComponent) filter; return new HasComponentNode(value.componentTypeId(), value.encodedValue()); }
+		if (filter instanceof GroupFilter.ComponentPath) { GroupFilter.ComponentPath value = (GroupFilter.ComponentPath) filter; return new ComponentPathNode(value.componentTypeId(), value.path(), value.expectedValue()); }
+		return UnavailableNode.INSTANCE;
 	}
 
 	/**
@@ -103,7 +104,7 @@ public final class CompiledFilter {
 				while (j < size && children.get(j) instanceof GroupFilter.Id idFilter) {
 					idsByType
 						.computeIfAbsent(canonicalType(idFilter.ingredientType()), type -> new LinkedHashSet<>())
-						.add(ResourceLocation.parse(idFilter.id()));
+						.add(new ResourceLocation(idFilter.id()));
 					j++;
 				}
 				result.add(new IdSetNode(idsByType));
@@ -319,12 +320,12 @@ public final class CompiledFilter {
 
 		ExactStackSetNode(List<String> encodedStacks) {
 			this.cache = new ExactStackMatcherCache<>(encodedStacks, () -> {
-				GroupItemSelector.ExactDecodeContext context = GroupItemSelector.exactDecodeContext();
-				return new ExactStackMatcherCache.DecodeAttempt<>() {
-					@Override public boolean liveRegistry() { return context.liveRegistry(); }
-					@Override public Object registryIdentity() { return context.registryIdentity(); }
+				final GroupItemSelector.ExactDecodeContext decodeContext = GroupItemSelector.exactDecodeContext();
+				return new ExactStackMatcherCache.DecodeAttempt<ItemStack>() {
+					@Override public boolean liveRegistry() { return decodeContext.liveRegistry(); }
+					@Override public Object registryIdentity() { return decodeContext.registryIdentity(); }
 					@Override public Optional<ExactStackMatcherCache.Decoded<ItemStack>> decode(String encodedStack) {
-						return GroupItemSelector.decodeExactSelector(STACK_PREFIX + encodedStack, context)
+						return GroupItemSelector.decodeExactSelector(STACK_PREFIX + encodedStack, decodeContext)
 							.map(stack -> new ExactStackMatcherCache.Decoded<>(
 								BuiltInRegistries.ITEM.getKey(stack.getItem()), stack));
 					}

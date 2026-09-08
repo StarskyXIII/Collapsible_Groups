@@ -19,15 +19,10 @@ class JeiOverlayRenderContractTest {
 		"mezz/jei/gui/overlay/IngredientListOverlay";
 
 	@Test
-	void productionRenderPathCallsIngredientOverlayBackgroundAndForegroundPhases() throws IOException {
+	void productionRenderPathCallsIngredientOverlayScreenPhase() throws IOException {
 		assertProductionCall(
-			"drawOverlayBackgrounds",
-			"drawBackground",
-			"(Lnet/minecraft/client/gui/GuiGraphics;)V"
-		);
-		assertProductionCall(
-			"drawOverlayForegrounds",
-			"drawForeground",
+			"onDrawBackgroundPost",
+			"drawScreen",
 			"(Lnet/minecraft/client/Minecraft;Lnet/minecraft/client/gui/GuiGraphics;IIF)V"
 		);
 	}

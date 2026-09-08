@@ -244,11 +244,11 @@ public final class GroupDefinition {
 
 	private static List<GroupIconDefinition> normalizeIcons(List<?> values) {
 		Objects.requireNonNull(values, "iconIds");
-		return values.stream().map(value -> switch (value) {
-			case GroupIconDefinition icon -> icon;
-			case String itemId -> GroupIconDefinition.item(itemId);
-			case null -> throw new NullPointerException("iconIds contains null");
-			default -> throw new IllegalArgumentException("Unsupported icon value: " + value);
+		return values.stream().map(value -> {
+			if (value instanceof GroupIconDefinition) return (GroupIconDefinition) value;
+			if (value instanceof String) return GroupIconDefinition.item((String) value);
+			if (value == null) throw new NullPointerException("iconIds contains null");
+			throw new IllegalArgumentException("Unsupported icon value: " + value);
 		}).toList();
 	}
 

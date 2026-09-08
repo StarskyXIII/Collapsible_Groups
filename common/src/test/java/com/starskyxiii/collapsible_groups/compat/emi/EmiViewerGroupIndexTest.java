@@ -176,7 +176,7 @@ class EmiViewerGroupIndexTest {
 		return new ViewerIngredient<>(new ViewerIngredientIdentity("item", identity), ViewerIngredient.Kind.ITEM,
 			emiIngredient(), new IngredientView() {
 				@Override public String ingredientType() { return "item"; }
-				@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse(id); }
+				@Override public ResourceLocation resourceLocation() { return new ResourceLocation(id); }
 				@Override public boolean hasTag(ResourceLocation tagId) { return false; }
 				@Override public boolean matchesExactStack(String encodedStack) { return false; }
 			});

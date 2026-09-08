@@ -19,6 +19,7 @@ import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataFormat;
 import com.starskyxiii.collapsible_groups.internal.version.data.MinecraftItemDataFormats;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses;
 import com.starskyxiii.collapsible_groups.internal.version.data.VersionedDataEnvelope;
 import com.starskyxiii.collapsible_groups.platform.Services;
 
@@ -607,10 +608,11 @@ public final class GroupConfig {
 			if (!"item".equals(type)) {
 				throw new IllegalArgumentException("ExactStack only supports type='item': " + obj);
 			}
-			if (hasUnsupportedEnvelope(obj.get("stack"), MinecraftItemDataFormats.EXACT_STACK_1_21_1)) {
+			String encodedStack = obj.get("stack").getAsString();
+			if (!isSupportedExactStack(encodedStack)) {
 				return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
 			}
-			return new GroupFilter.ExactStack(obj.get("stack").getAsString());
+			return new GroupFilter.ExactStack(encodedStack);
 		}
 		if (obj.has("block_tag")) {
 			return new GroupFilter.BlockTag(obj.get("block_tag").getAsString());
@@ -641,56 +643,67 @@ public final class GroupConfig {
 		return VersionedDataEnvelope.inspect(value, current).support() != VersionedDataEnvelope.Support.CURRENT;
 	}
 
+	private static boolean isSupportedExactStack(String encoded) {
+		return VersionedDataEnvelope.inspect(encoded, MinecraftItemDataFormats.EXACT_STACK_1_20_1).support()
+			== VersionedDataEnvelope.Support.CURRENT
+			&& ItemDataAccesses.current().exactStacks().beginDecode().decode(encoded).isPresent();
+	}
+
 	// package-private for testing (GroupConfigComponentPathTest)
 	static JsonObject serializeFilter(GroupFilter filter) {
 		if (filter instanceof GroupFilter.Unsupported unsupported) {
 			return unsupported.rawJson();
 		}
 		JsonObject obj = new JsonObject();
-		switch (filter) {
-			case GroupFilter.Any any -> {
+		if (filter instanceof GroupFilter.Any) {
+			GroupFilter.Any any = (GroupFilter.Any) filter;
 				JsonArray arr = new JsonArray();
 				any.children().forEach(child -> arr.add(serializeFilter(child)));
 				obj.add("any", arr);
-			}
-			case GroupFilter.All all -> {
+		} else if (filter instanceof GroupFilter.All) {
+			GroupFilter.All all = (GroupFilter.All) filter;
 				JsonArray arr = new JsonArray();
 				all.children().forEach(child -> arr.add(serializeFilter(child)));
 				obj.add("all", arr);
-			}
-			case GroupFilter.Not not -> obj.add("not", serializeFilter(not.child()));
-			case GroupFilter.Id id -> {
+		} else if (filter instanceof GroupFilter.Not) {
+			obj.add("not", serializeFilter(((GroupFilter.Not) filter).child()));
+		} else if (filter instanceof GroupFilter.Id) {
+			GroupFilter.Id id = (GroupFilter.Id) filter;
 				obj.addProperty("type", id.ingredientType());
 				obj.addProperty("id", id.id());
-			}
-			case GroupFilter.Tag tag -> {
+		} else if (filter instanceof GroupFilter.Tag) {
+			GroupFilter.Tag tag = (GroupFilter.Tag) filter;
 				obj.addProperty("type", tag.ingredientType());
 				obj.addProperty("tag", tag.tag());
-			}
-			case GroupFilter.BlockTag blockTag -> obj.addProperty("block_tag", blockTag.tag());
-			case GroupFilter.ItemPathStartsWith startsWith -> obj.addProperty("item_path_starts_with", startsWith.prefix());
-			case GroupFilter.ItemPathContains contains -> obj.addProperty("item_path_contains", contains.needle());
-			case GroupFilter.ItemPathEndsWith endsWith -> obj.addProperty("item_path_ends_with", endsWith.suffix());
-			case GroupFilter.Namespace namespace -> {
+		} else if (filter instanceof GroupFilter.BlockTag) {
+			obj.addProperty("block_tag", ((GroupFilter.BlockTag) filter).tag());
+		} else if (filter instanceof GroupFilter.ItemPathStartsWith) {
+			obj.addProperty("item_path_starts_with", ((GroupFilter.ItemPathStartsWith) filter).prefix());
+		} else if (filter instanceof GroupFilter.ItemPathContains) {
+			obj.addProperty("item_path_contains", ((GroupFilter.ItemPathContains) filter).needle());
+		} else if (filter instanceof GroupFilter.ItemPathEndsWith) {
+			obj.addProperty("item_path_ends_with", ((GroupFilter.ItemPathEndsWith) filter).suffix());
+		} else if (filter instanceof GroupFilter.Namespace) {
+			GroupFilter.Namespace namespace = (GroupFilter.Namespace) filter;
 				obj.addProperty("type", namespace.ingredientType());
 				obj.addProperty("namespace", namespace.namespace());
-			}
-			case GroupFilter.ExactStack stack -> {
+		} else if (filter instanceof GroupFilter.ExactStack) {
+			GroupFilter.ExactStack stack = (GroupFilter.ExactStack) filter;
 				obj.addProperty("type", "item");
 				obj.addProperty("stack", stack.encodedStack());
-			}
-			case GroupFilter.HasComponent hc -> {
+		} else if (filter instanceof GroupFilter.HasComponent) {
+			GroupFilter.HasComponent hc = (GroupFilter.HasComponent) filter;
 				obj.addProperty("type", "item");
 				obj.addProperty("component", hc.componentTypeId());
 				obj.addProperty("value", hc.encodedValue());
-			}
-			case GroupFilter.ComponentPath cp -> {
+		} else if (filter instanceof GroupFilter.ComponentPath) {
+			GroupFilter.ComponentPath cp = (GroupFilter.ComponentPath) filter;
 				obj.addProperty("type", "item");
 				obj.addProperty("component", cp.componentTypeId());
 				obj.addProperty("path", cp.path());
 				obj.addProperty("value", cp.expectedValue());
-			}
-			case GroupFilter.Unsupported ignored -> throw new AssertionError("Unsupported nodes return before serialization switch");
+		} else {
+			throw new AssertionError("Unsupported nodes return before serialization");
 		}
 		return obj;
 	}

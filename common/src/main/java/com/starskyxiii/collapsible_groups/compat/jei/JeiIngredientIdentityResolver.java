@@ -16,7 +16,7 @@ public final class JeiIngredientIdentityResolver {
 
 	public static <T> ResolvedUid resolve(IIngredientHelper<T> helper, ITypedIngredient<T> typed) {
 		T ingredient = typed.getIngredient();
-		Object uid = helper.getUid(typed, UidContext.Ingredient);
+		Object uid = helper.getUniqueId(ingredient, UidContext.Ingredient);
 		if (uid != null) {
 			String valueId = safeUidString(uid);
 			if (valueId != null) return new ResolvedUid(uid, valueId);
@@ -37,7 +37,7 @@ public final class JeiIngredientIdentityResolver {
 	) {
 		Object uid;
 		try {
-			uid = helper.getUid(typed, UidContext.Ingredient);
+			uid = helper.getUniqueId(typed.getIngredient(), UidContext.Ingredient);
 		} catch (RuntimeException | LinkageError ignored) {
 			return Optional.empty();
 		}

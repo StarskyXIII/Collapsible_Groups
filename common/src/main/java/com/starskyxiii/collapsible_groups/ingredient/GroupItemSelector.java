@@ -1,18 +1,16 @@
 package com.starskyxiii.collapsible_groups.ingredient;
 
-import com.google.gson.JsonElement;
 import com.starskyxiii.collapsible_groups.internal.version.data.ExactStackCodec;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses;
-import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft121ItemDataAccess;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201ItemDataAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
-import net.minecraft.resources.RegistryOps;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.Optional;
 
 public final class GroupItemSelector {
 	private static final String STACK_PREFIX = "stack:";
-	private static final Minecraft121ItemDataAccess DATA_ACCESS = ItemDataAccesses.minecraft121();
+	private static final Minecraft1201ItemDataAccess DATA_ACCESS = ItemDataAccesses.minecraft1201();
 	private static final ExactStackCodec<ItemStack> EXACT_STACKS = DATA_ACCESS.exactStacks();
 
 	private GroupItemSelector() {}
@@ -72,12 +70,14 @@ public final class GroupItemSelector {
 	 * otherwise the game state can change between decode and decision (TOCTOU) and an all-failed
 	 * fallback decode could be cached permanently.
 	 */
-	public record ExactDecodeContext(RegistryOps<JsonElement> ops, boolean liveRegistry, Object registryIdentity) {}
+	public record ExactDecodeContext(ExactStackCodec.DecodeSnapshot<ItemStack> snapshot) {
+		public boolean liveRegistry() { return snapshot.liveRegistry(); }
+		public Object registryIdentity() { return snapshot.registryIdentity(); }
+	}
 
 	/** captures the current registry resolution once, for use across a batch of decodes. */
 	public static ExactDecodeContext exactDecodeContext() {
-		Minecraft121ItemDataAccess.RegistryContext context = DATA_ACCESS.registryContext();
-		return new ExactDecodeContext(context.ops(), context.liveRegistry(), context.registryIdentity());
+		return new ExactDecodeContext(EXACT_STACKS.beginDecode());
 	}
 
 	/**
@@ -89,12 +89,7 @@ public final class GroupItemSelector {
 			return Optional.empty();
 		}
 
-		return DATA_ACCESS.decodeSnapshot(context.ops(), context.liveRegistry(), context.registryIdentity())
-			.decode(selector.substring(STACK_PREFIX.length()));
-	}
-
-	public static RegistryOps<JsonElement> serializationContext() {
-		return DATA_ACCESS.serializationContext();
+		return context.snapshot().decode(selector.substring(STACK_PREFIX.length()));
 	}
 
 	public static Object registryIdentity() {

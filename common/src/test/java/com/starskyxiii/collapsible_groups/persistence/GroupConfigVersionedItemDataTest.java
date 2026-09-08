@@ -14,8 +14,8 @@ class GroupConfigVersionedItemDataTest {
 	@Test
 	void currentEnvelopeRemainsByteForByteEquivalentThroughFilterRoundTrip() {
 		String envelope = VersionedDataEnvelope.wrap(
-			MinecraftItemDataFormats.EXACT_STACK_1_21_1,
-			JsonParser.parseString("{\"id\":\"minecraft:stone\"}"));
+			MinecraftItemDataFormats.EXACT_STACK_1_20_1,
+			new com.google.gson.JsonPrimitive("{id:\"minecraft:stone\",Count:1b}"));
 		JsonObject source = exactNode(envelope);
 
 		GroupFilter.ExactStack parsed = assertInstanceOf(GroupFilter.ExactStack.class, GroupConfig.parseFilter(source));
@@ -38,29 +38,23 @@ class GroupConfigVersionedItemDataTest {
 	}
 
 	@Test
-	void ordinaryComponentObjectContainingSchemaFieldsRemainsALegacyComponentNode() {
+	void legacyComponentNodeIsPreservedAsUnsupported() {
 		String value = "{\"schema\":\"user-data\",\"data_format\":\"custom\",\"source_minecraft\":\"label\"}";
 		JsonObject source = JsonParser.parseString("{" +
 			"\"type\":\"item\"," +
 			"\"component\":\"minecraft:custom_data\"," +
 			"\"value\":" + quote(value) + "}").getAsJsonObject();
 
-		GroupFilter.HasComponent parsed = assertInstanceOf(
-			GroupFilter.HasComponent.class, GroupConfig.parseFilter(source));
-		assertEquals(value, parsed.encodedValue());
-		assertEquals(source, GroupConfig.serializeFilter(parsed));
+		assertUnsupportedRoundTrip(source);
 	}
 
 	@Test
-	void currentComponentEnvelopeIsPreservedAndForeignComponentEnvelopeIsOpaque() {
+	void componentEnvelopesAreOpaqueOn1201() {
 		String current = VersionedDataEnvelope.wrap(
 			MinecraftItemDataFormats.COMPONENT_VALUE_1_21_1,
 			JsonParser.parseString("{\"value\":1}"));
 		JsonObject currentNode = componentNode(current);
-		GroupFilter.HasComponent parsed = assertInstanceOf(
-			GroupFilter.HasComponent.class, GroupConfig.parseFilter(currentNode));
-		assertEquals(current, parsed.encodedValue());
-		assertEquals(currentNode, GroupConfig.serializeFilter(parsed));
+		assertUnsupportedRoundTrip(currentNode);
 
 		String foreign = "{\"$collapsible_groups\":{" +
 			"\"schema\":\"collapsible_groups:component_value\"," +
@@ -69,6 +63,11 @@ class GroupConfigVersionedItemDataTest {
 			"\"source_minecraft\":\"1.20.1\"," +
 			"\"data\":\"opaque\"}}";
 		assertUnsupportedRoundTrip(componentNode(foreign));
+	}
+
+	@Test
+	void unversioned121ExactPayloadIsPreservedAsUnsupported() {
+		assertUnsupportedRoundTrip(exactNode("{\"id\":\"minecraft:stone\"}"));
 	}
 
 	private static void assertUnsupportedRoundTrip(JsonObject source) {

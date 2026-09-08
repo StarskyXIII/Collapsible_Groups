@@ -54,7 +54,7 @@ class CompiledFilterIdSetFoldingTest {
 	void idSetFoldMissCostsConstantCallsRegardlessOfRunSize() {
 		GroupFilter small = buildIdRunAny(5, "modns");
 		GroupFilter large = buildIdRunAny(1000, "modns");
-		ResourceLocation notInSet = ResourceLocation.parse("modns:not_in_the_set");
+		ResourceLocation notInSet = new ResourceLocation("modns:not_in_the_set");
 
 		CountingIngredientView smallMiss = new CountingIngredientView("item", notInSet);
 		CountingIngredientView largeMiss = new CountingIngredientView("item", notInSet);
@@ -319,11 +319,11 @@ class CompiledFilterIdSetFoldingTest {
 	}
 
 	private static ResourceLocation idAt(String namespace, int index) {
-		return ResourceLocation.parse(namespace + ":ore_" + String.format("%04d", index));
+		return new ResourceLocation(namespace + ":ore_" + String.format("%04d", index));
 	}
 
 	private static ResourceLocation rl(String value) {
-		return ResourceLocation.parse(value);
+		return new ResourceLocation(value);
 	}
 
 	private static void assertEquivalent(GroupFilter filter, CompiledFilter compiled, IngredientView view) {
@@ -332,15 +332,13 @@ class CompiledFilterIdSetFoldingTest {
 
 	/** Hand-written linear evaluator mirroring pre-CompiledFilter semantics; used as ground truth. */
 	private static boolean referenceMatches(GroupFilter filter, IngredientView view) {
-		return switch (filter) {
-			case GroupFilter.Any any -> any.children().stream().anyMatch(child -> referenceMatches(child, view));
-			case GroupFilter.All all -> all.children().stream().allMatch(child -> referenceMatches(child, view));
-			case GroupFilter.Not not -> !referenceMatches(not.child(), view);
-			case GroupFilter.Id id -> sameType(id.ingredientType(), view) && ResourceLocation.parse(id.id()).equals(view.resourceLocation());
-			case GroupFilter.Tag tag -> sameType(tag.ingredientType(), view) && view.hasTag(ResourceLocation.parse(tag.tag()));
-			case GroupFilter.ExactStack exactStack -> sameType("item", view) && view.matchesExactStack(exactStack.encodedStack());
-			default -> throw new UnsupportedOperationException("referenceMatches: filter kind not needed by this test matrix: " + filter);
-		};
+		if (filter instanceof GroupFilter.Any) return ((GroupFilter.Any) filter).children().stream().anyMatch(child -> referenceMatches(child, view));
+		if (filter instanceof GroupFilter.All) return ((GroupFilter.All) filter).children().stream().allMatch(child -> referenceMatches(child, view));
+		if (filter instanceof GroupFilter.Not) return !referenceMatches(((GroupFilter.Not) filter).child(), view);
+		if (filter instanceof GroupFilter.Id) { GroupFilter.Id value = (GroupFilter.Id) filter; return sameType(value.ingredientType(), view) && new ResourceLocation(value.id()).equals(view.resourceLocation()); }
+		if (filter instanceof GroupFilter.Tag) { GroupFilter.Tag value = (GroupFilter.Tag) filter; return sameType(value.ingredientType(), view) && view.hasTag(new ResourceLocation(value.tag())); }
+		if (filter instanceof GroupFilter.ExactStack) return sameType("item", view) && view.matchesExactStack(((GroupFilter.ExactStack) filter).encodedStack());
+		throw new UnsupportedOperationException("referenceMatches: filter kind not needed by this test matrix: " + filter);
 	}
 
 	private static boolean sameType(String ingredientType, IngredientView view) {

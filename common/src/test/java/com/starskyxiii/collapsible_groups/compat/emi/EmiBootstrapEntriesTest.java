@@ -23,7 +23,7 @@ class EmiBootstrapEntriesTest {
 		ViewerBootstrapContext<EmiIngredient> context = context(List.of(fluid));
 
 		assertEquals(List.of(), ViewerBootstrapEntries.itemStacks(context));
-		assertEquals(List.of(ResourceLocation.parse("minecraft:water")),
+		assertEquals(List.of(new ResourceLocation("minecraft", "water")),
 			ViewerBootstrapEntries.resourceIds(context, ViewerIngredient.Kind.FLUID));
 	}
 
@@ -44,7 +44,7 @@ class EmiBootstrapEntriesTest {
 	private static IngredientView view(String type, String id) {
 		return new IngredientView() {
 			@Override public String ingredientType() { return type; }
-			@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse(id); }
+			@Override public ResourceLocation resourceLocation() { return new ResourceLocation(id); }
 			@Override public boolean hasTag(ResourceLocation tagId) { return false; }
 			@Override public boolean matchesExactStack(String encodedStack) { return false; }
 		};

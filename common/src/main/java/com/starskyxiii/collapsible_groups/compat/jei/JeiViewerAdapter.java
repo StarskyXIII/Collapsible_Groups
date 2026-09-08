@@ -300,7 +300,9 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		IIngredientType<T> type,
 		List<ITypedIngredient<?>> output
 	) {
-		output.addAll(manager.getAllTypedIngredients(type));
+		for (T ingredient : manager.getAllIngredients(type)) {
+			manager.createTypedIngredient(type, ingredient).ifPresent(output::add);
+		}
 	}
 
 	private static ViewerIngredient<ITypedIngredient<?>> createIngredient(
@@ -431,7 +433,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 			IJeiRuntime runtime = JeiRuntimeHolder.get();
 			if (runtime == null) return List.of();
 			return runtime.getIngredientManager().getIngredientRenderer(typed.getType())
-				.getTooltip(typed.getIngredient(), TooltipFlag.NORMAL);
+				.getTooltip(typed.getIngredient(), TooltipFlag.Default.NORMAL);
 		}
 	}
 

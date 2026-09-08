@@ -34,5 +34,4 @@ plugins {
 rootProject.name = 'Collapsible_Groups_MultiLoader'
 include('common')
 include('fabric')
-include('neoforge')
 include('forge')

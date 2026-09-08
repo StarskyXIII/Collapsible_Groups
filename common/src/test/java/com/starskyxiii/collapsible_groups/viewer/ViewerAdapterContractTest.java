@@ -90,7 +90,7 @@ class ViewerAdapterContractTest {
 
 				@Override
 				public ResourceLocation resourceLocation() {
-					return ResourceLocation.parse("test:" + name);
+					return new ResourceLocation("test:" + name);
 				}
 
 				@Override

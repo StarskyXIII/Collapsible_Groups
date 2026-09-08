@@ -4,7 +4,7 @@ import com.google.gson.JsonElement;
 import net.minecraft.world.item.ItemStack;
 
 public final class ItemDataAccesses {
-	private static final Minecraft121ItemDataAccess CURRENT = new Minecraft121ItemDataAccess();
+	private static final Minecraft1201ItemDataAccess CURRENT = new Minecraft1201ItemDataAccess();
 
 	private ItemDataAccesses() {}
 
@@ -12,7 +12,7 @@ public final class ItemDataAccesses {
 		return CURRENT;
 	}
 
-	public static Minecraft121ItemDataAccess minecraft121() {
+	public static Minecraft1201ItemDataAccess minecraft1201() {
 		return CURRENT;
 	}
 }

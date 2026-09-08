@@ -33,7 +33,7 @@ final class EditorRuleCoverageKeys {
 
 	static Optional<String> itemKey(ItemStack stack, Supplier<Optional<String>> exactSelector) {
 		String registryId = BuiltInRegistries.ITEM.getKey(stack.getItem()).toString();
-		if (stack.getComponentsPatch().isEmpty()) {
+		if (!stack.hasTag()) {
 			// Component-less stacks do not consult the identity cache.
 			return Optional.of(registryId);
 		}

@@ -14,7 +14,7 @@ class EditorTagDiagnosticsTest {
 	@Test void sameDraftUpdatesWarningsWhenRuntimeCapabilityChangesWithoutInvalidatingSyntax() {
 		var filter = new GroupFilter.Tag("chemical", "test:tag");
 		var draft = GroupFilterRuleDraft.decode(filter);
-		var node = draft.flatten().getFirst().node();
+		var node = draft.flatten().get(0).node();
 		var diagnostic = new AtomicReference<>(TagQueryDiagnostics.PENDING);
 		var runtime = (EditorRuntimeAccess) Proxy.newProxyInstance(getClass().getClassLoader(),
 			new Class<?>[]{EditorRuntimeAccess.class}, (proxy, method, args) -> {

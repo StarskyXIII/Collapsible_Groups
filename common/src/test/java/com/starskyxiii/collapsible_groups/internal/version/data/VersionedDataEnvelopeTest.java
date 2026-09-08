@@ -12,15 +12,15 @@ class VersionedDataEnvelopeTest {
 	@Test
 	void envelopeCarriesSchemaDataFormatAndSourceMinecraftIdentity() {
 		String encoded = VersionedDataEnvelope.wrap(
-			MinecraftItemDataFormats.EXACT_STACK_1_21_1,
-			JsonParser.parseString("{\"id\":\"minecraft:stone\"}"));
+			MinecraftItemDataFormats.EXACT_STACK_1_20_1,
+			new com.google.gson.JsonPrimitive("{id:\"minecraft:stone\",Count:1b}"));
 		var metadata = JsonParser.parseString(encoded).getAsJsonObject()
 			.getAsJsonObject("$collapsible_groups");
 		assertEquals("collapsible_groups:exact_stack", metadata.get("schema").getAsString());
 		assertEquals(1, metadata.get("schema_version").getAsInt());
-		assertEquals("minecraft:item_components", metadata.get("data_format").getAsString());
-		assertEquals("1.21.1", metadata.get("source_minecraft").getAsString());
-		assertEquals("minecraft:stone", metadata.getAsJsonObject("data").get("id").getAsString());
+		assertEquals("minecraft:item_stack_nbt_snbt", metadata.get("data_format").getAsString());
+		assertEquals("1.20.1", metadata.get("source_minecraft").getAsString());
+		assertEquals("{id:\"minecraft:stone\",Count:1b}", metadata.get("data").getAsString());
 	}
 
 	@Test

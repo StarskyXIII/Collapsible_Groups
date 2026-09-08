@@ -51,7 +51,7 @@ class TagQueryEvaluationTest {
 	void differentTypeDoesNotQueryUnsupportedIngredient() {
 		IngredientView view = new IngredientView() {
 			public String ingredientType() { return "chemical"; }
-			public ResourceLocation resourceLocation() { return ResourceLocation.parse("test:value"); }
+			public ResourceLocation resourceLocation() { return new ResourceLocation("test:value"); }
 			public boolean hasTag(ResourceLocation tag) { throw new AssertionError("Type mismatch must not query"); }
 			public TagQueryResult queryTag(ResourceLocation tag) { throw new AssertionError("Type mismatch must not query"); }
 			public boolean matchesExactStack(String encoded) { return false; }
@@ -66,8 +66,8 @@ class TagQueryEvaluationTest {
 		for (String type : List.of("item", "fluid", "chemical")) {
 			IngredientView view = new IngredientView() {
 				public String ingredientType() { return type; }
-				public ResourceLocation resourceLocation() { return ResourceLocation.parse("test:value"); }
-				public boolean hasTag(ResourceLocation tag) { return tag.equals(ResourceLocation.parse("test:tag")); }
+				public ResourceLocation resourceLocation() { return new ResourceLocation("test:value"); }
+				public boolean hasTag(ResourceLocation tag) { return tag.equals(new ResourceLocation("test:tag")); }
 				public boolean matchesExactStack(String encoded) { return false; }
 			};
 			assertResult(new GroupFilter.Tag(type, "test:tag"), view, CompiledFilter.Evaluation.MATCH);
@@ -78,7 +78,7 @@ class TagQueryEvaluationTest {
 	private static IngredientView view(TagQueryResult result) {
 		return new IngredientView() {
 			public String ingredientType() { return "chemical"; }
-			public ResourceLocation resourceLocation() { return ResourceLocation.parse("test:value"); }
+			public ResourceLocation resourceLocation() { return new ResourceLocation("test:value"); }
 			public boolean hasTag(ResourceLocation tag) { throw new AssertionError("Boolean query loses availability"); }
 			public TagQueryResult queryTag(ResourceLocation tag) { return result; }
 			public boolean matchesExactStack(String encoded) { return false; }

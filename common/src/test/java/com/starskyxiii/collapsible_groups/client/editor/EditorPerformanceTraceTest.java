@@ -31,11 +31,11 @@ class EditorPerformanceTraceTest {
 		var frames = events.stream().filter(event -> event.getEventType().getName().endsWith("EditorFrame")).toList();
 		assertEquals(1, clicks.size());
 		assertEquals(2, frames.size());
-		assertEquals(252, clicks.getFirst().getInt("members"));
-		assertEquals(253, frames.getFirst().getInt("members"));
-		assertTrue(frames.getFirst().getLong("clickToRenderEnd") > 0);
-		assertEquals(0, frames.getLast().getLong("clickToRenderEnd"));
-		assertTrue(frames.getLast().getLong("interval") > 0);
+		assertEquals(252, clicks.get(0).getInt("members"));
+		assertEquals(253, frames.get(0).getInt("members"));
+		assertTrue(frames.get(0).getLong("clickToRenderEnd") > 0);
+		assertEquals(0, frames.get(frames.size() - 1).getLong("clickToRenderEnd"));
+		assertTrue(frames.get(frames.size() - 1).getLong("interval") > 0);
 		assertNull(trace.beginFrame("CONTENTS", 253, true));
 	}
 }

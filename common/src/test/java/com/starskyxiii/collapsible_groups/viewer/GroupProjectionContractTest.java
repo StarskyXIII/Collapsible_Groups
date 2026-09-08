@@ -114,7 +114,7 @@ class GroupProjectionContractTest {
 			new ViewerIngredientIdentity("item", "test:stone#second"),
 			ViewerIngredient.Kind.ITEM,
 			"stone-b",
-			new FakeIngredientView("item", ResourceLocation.parse("test:stone"))
+			new FakeIngredientView("item", new ResourceLocation("test:stone"))
 		);
 		GroupDefinition low = new GroupDefinition("low", "Low", true, Filters.itemId("test:stone")).withPriority(0);
 		GroupDefinition high = new GroupDefinition("high", "High", true, Filters.itemId("test:stone")).withPriority(10);
@@ -142,7 +142,7 @@ class GroupProjectionContractTest {
 			new ViewerIngredientIdentity("item", "test:stone#second"),
 			ViewerIngredient.Kind.ITEM,
 			"stone-b",
-			new FakeIngredientView("item", ResourceLocation.parse("test:stone"))
+			new FakeIngredientView("item", new ResourceLocation("test:stone"))
 		);
 		ViewerIngredientUniverse<String> universe = new ViewerIngredientUniverse<>(List.of(first, second));
 		GroupDefinition low = new GroupDefinition("low", "Low", true, Filters.itemId("test:stone")).withPriority(0);
@@ -183,7 +183,7 @@ class GroupProjectionContractTest {
 			new ViewerIngredientIdentity(type, id),
 			kind,
 			entry,
-			new FakeIngredientView(type, ResourceLocation.parse(id))
+			new FakeIngredientView(type, new ResourceLocation(id))
 		);
 	}
 

@@ -45,7 +45,7 @@ class ViewerIngredientIdentityTest {
 		return new ViewerIngredient<>(new ViewerIngredientIdentity("item", "same-string", key),
 			ViewerIngredient.Kind.ITEM, entry, new IngredientView() {
 				@Override public String ingredientType() { return "item"; }
-				@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse("test:item"); }
+				@Override public ResourceLocation resourceLocation() { return new ResourceLocation("test:item"); }
 				@Override public boolean hasTag(ResourceLocation tagId) { return false; }
 				@Override public boolean matchesExactStack(String encodedStack) { return false; }
 			});

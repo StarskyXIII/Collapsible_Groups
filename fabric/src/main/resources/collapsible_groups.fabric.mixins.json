@@ -4,7 +4,7 @@
   "package": "com.starskyxiii.collapsible_groups.mixin",
   "plugin": "com.starskyxiii.collapsible_groups.mixin.CollapsibleGroupsMixinPlugin",
   "refmap": "${mod_id}.refmap.json",
-  "compatibilityLevel": "JAVA_21",
+  "compatibilityLevel": "JAVA_17",
   "mixins": [],
   "client": [
     "MixinBookmarkList",
@@ -12,8 +12,10 @@
     "MixinIngredientListRenderer",
     "MixinIngredientListOverlay",
     "MixinGuiTextFieldFilterAccessor",
+    "MixinGuiIconToggleButtonAccessor",
     "MixinEmiScreenSpace",
-    "MixinEmiScreenManager"
+    "MixinEmiScreenManager",
+    "MixinKubeJSScriptManager"
   ],
   "server": [],
   "injectors": {

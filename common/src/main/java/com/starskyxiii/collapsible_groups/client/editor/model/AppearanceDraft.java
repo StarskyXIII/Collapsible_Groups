@@ -193,11 +193,9 @@ public record AppearanceDraft(
 	}
 
 	private static GroupIconDefinition icon(Object value) {
-		return switch (value) {
-			case GroupIconDefinition typed -> typed;
-			case String itemId -> GroupIconDefinition.item(itemId);
-			case null -> throw new NullPointerException("iconIds contains null");
-			default -> throw new IllegalArgumentException("Unsupported icon value: " + value);
-		};
+		if (value == null) throw new NullPointerException("iconIds contains null");
+		if (value instanceof GroupIconDefinition typed) return typed;
+		if (value instanceof String itemId) return GroupIconDefinition.item(itemId);
+		throw new IllegalArgumentException("Unsupported icon value: " + value);
 	}
 }

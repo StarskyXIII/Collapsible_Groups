@@ -4,7 +4,7 @@ import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.common.gui.JeiTooltip;
 import mezz.jei.gui.overlay.elements.IElement;
-import mezz.jei.gui.overlay.ingredients.IngredientGridTooltipHelper;
+import mezz.jei.gui.overlay.IngredientGridTooltipHelper;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.Method;
@@ -12,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JeiElementAbiTest {
@@ -23,17 +24,14 @@ class JeiElementAbiTest {
 	);
 
 	@Test
-	void jeiElementContractIncludesTick() throws ReflectiveOperationException {
-		Method tick = IElement.class.getMethod("tick");
-
-		assertEquals(void.class, tick.getReturnType());
+	void jeiElementContractDoesNotIncludeTick() {
+		assertThrows(NoSuchMethodException.class, () -> IElement.class.getMethod("tick"));
 	}
 
 	@Test
-	void everyCustomElementDeclaresTick() throws ReflectiveOperationException {
+	void customElementsDoNotDeclareRemovedTickHook() {
 		for (Class<?> elementType : ELEMENT_TYPES) {
-			Method tick = elementType.getDeclaredMethod("tick");
-			assertEquals(void.class, tick.getReturnType(), elementType.getName());
+			assertThrows(NoSuchMethodException.class, () -> elementType.getDeclaredMethod("tick"), elementType.getName());
 		}
 	}
 

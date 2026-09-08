@@ -25,7 +25,7 @@ class EditorStateCoreTest {
 			EditorStateCore core = new EditorStateCore(null, () -> {});
 			var view = new com.starskyxiii.collapsible_groups.ingredient.IngredientView() {
 				public String ingredientType() { return type; }
-				public net.minecraft.resources.ResourceLocation resourceLocation() { return net.minecraft.resources.ResourceLocation.parse("mekanism:oxygen"); }
+				public net.minecraft.resources.ResourceLocation resourceLocation() { return new net.minecraft.resources.ResourceLocation("mekanism:oxygen"); }
 				public boolean hasTag(net.minecraft.resources.ResourceLocation tag) { return false; }
 				public boolean matchesExactStack(String value) { return false; }
 			};
@@ -149,8 +149,8 @@ class EditorStateCoreTest {
 		assertFalse(core.canSave("Test"));
 		assertEquals(original, core.buildPreviewDefinition("test", "Test", true).filter());
 		List<net.minecraft.network.chat.Component> errors = core.currentValidationErrors();
-		((net.minecraft.network.chat.MutableComponent) errors.getFirst()).append("modified");
-		assertFalse(core.currentValidationErrors().getFirst().getString().endsWith("modified"));
+		((net.minecraft.network.chat.MutableComponent) errors.get(0)).append("modified");
+		assertFalse(core.currentValidationErrors().get(0).getString().endsWith("modified"));
 		node.setPrimaryValue("{\"id\":\"minecraft:dirt\"}");
 		assertTrue(core.canSave("Test"));
 		GroupFilter updated = core.buildPreviewDefinition("test", "Test", true).filter();

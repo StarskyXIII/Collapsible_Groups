@@ -287,7 +287,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 
 		return resolveExactOwnership(entries, ownership, canonical, stack -> {
 			try {
-				return context.manager().createTypedIngredient(VanillaTypes.ITEM_STACK, stack, false)
+				return context.manager().createTypedIngredient(VanillaTypes.ITEM_STACK, stack)
 					.flatMap(typed -> JeiIngredientIdentityResolver.resolveStrict(helper, typed))
 					.map(uid -> uid.identity("item"));
 			} catch (RuntimeException | LinkageError ignored) {

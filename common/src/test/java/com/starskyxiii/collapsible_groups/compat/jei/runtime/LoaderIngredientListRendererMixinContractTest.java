@@ -17,7 +17,7 @@ class LoaderIngredientListRendererMixinContractTest {
 		"src/main/java/com/starskyxiii/collapsible_groups/mixin/CollapsibleGroupsMixinPlugin.java";
 
 	@ParameterizedTest
-	@ValueSource(strings = {"fabric", "forge", "neoforge"})
+	@ValueSource(strings = {"fabric", "forge"})
 	void everyLoaderPreRendersCurrentJeiSlots(String loader) throws IOException {
 		Path loaderRoot = root().resolve(loader);
 		String source = Files.readString(loaderRoot.resolve(MIXIN_SOURCE));
@@ -40,7 +40,7 @@ class LoaderIngredientListRendererMixinContractTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"fabric", "forge", "neoforge"})
+	@ValueSource(strings = {"fabric", "forge"})
 	void everyLoaderRegistersRendererMixinAsOptionalJeiIntegration(String loader) throws IOException {
 		Path loaderRoot = root().resolve(loader);
 		String mixinJson = Files.readString(loaderRoot.resolve("src/main/resources").resolve(

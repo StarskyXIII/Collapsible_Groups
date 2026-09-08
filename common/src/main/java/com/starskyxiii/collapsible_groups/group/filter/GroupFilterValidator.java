@@ -47,46 +47,52 @@ public final class GroupFilterValidator {
 		if (!capability.available() || capability.validatorBehavior() == FilterNodeCapabilities.ValidatorBehavior.PRESERVE_OPAQUE) {
 			return;
 		}
-		switch (filter) {
-			case GroupFilter.Any any -> {
+		if (filter instanceof GroupFilter.Any) {
+			GroupFilter.Any any = (GroupFilter.Any) filter;
 				if (any.children().isEmpty()) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_ANY_EMPTY);
 				}
 				any.children().forEach(child -> validateNode(child, errors));
-			}
-			case GroupFilter.All all -> {
+		} else if (filter instanceof GroupFilter.All) {
+			GroupFilter.All all = (GroupFilter.All) filter;
 				if (all.children().isEmpty()) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_ALL_EMPTY);
 				}
 				all.children().forEach(child -> validateNode(child, errors));
-			}
-			case GroupFilter.Not not -> validateNode(not.child(), errors);
-			case GroupFilter.Id id -> {
+		} else if (filter instanceof GroupFilter.Not) {
+			validateNode(((GroupFilter.Not) filter).child(), errors);
+		} else if (filter instanceof GroupFilter.Id) {
+			GroupFilter.Id id = (GroupFilter.Id) filter;
 				validateType(id.ingredientType(), errors, "id");
 				validateResourceLocation(id.id(), errors, "id");
-			}
-			case GroupFilter.Tag tag -> {
+		} else if (filter instanceof GroupFilter.Tag) {
+			GroupFilter.Tag tag = (GroupFilter.Tag) filter;
 				validateType(tag.ingredientType(), errors, "tag");
 				validateResourceLocation(tag.tag(), errors, "tag");
-			}
-			case GroupFilter.BlockTag blockTag -> validateResourceLocation(blockTag.tag(), errors, "block_tag");
-			case GroupFilter.ItemPathStartsWith startsWith -> validatePartialPath(startsWith.prefix(), errors, "item_path_starts_with");
-			case GroupFilter.ItemPathContains contains -> validatePartialPath(contains.needle(), errors, "item_path_contains");
-			case GroupFilter.ItemPathEndsWith endsWith -> validatePartialPath(endsWith.suffix(), errors, "item_path_ends_with");
-			case GroupFilter.Namespace namespace -> {
+		} else if (filter instanceof GroupFilter.BlockTag) {
+			validateResourceLocation(((GroupFilter.BlockTag) filter).tag(), errors, "block_tag");
+		} else if (filter instanceof GroupFilter.ItemPathStartsWith) {
+			validatePartialPath(((GroupFilter.ItemPathStartsWith) filter).prefix(), errors, "item_path_starts_with");
+		} else if (filter instanceof GroupFilter.ItemPathContains) {
+			validatePartialPath(((GroupFilter.ItemPathContains) filter).needle(), errors, "item_path_contains");
+		} else if (filter instanceof GroupFilter.ItemPathEndsWith) {
+			validatePartialPath(((GroupFilter.ItemPathEndsWith) filter).suffix(), errors, "item_path_ends_with");
+		} else if (filter instanceof GroupFilter.Namespace) {
+			GroupFilter.Namespace namespace = (GroupFilter.Namespace) filter;
 				validateType(namespace.ingredientType(), errors, "namespace");
-				if (!ResourceLocation.isValidNamespace(namespace.namespace())) {
+				if (namespace.namespace().isBlank()
+					|| ResourceLocation.tryParse(namespace.namespace() + ":valid") == null) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_INVALID_NAMESPACE, namespace.namespace());
 				}
-			}
-			case GroupFilter.ExactStack exactStack -> {
+		} else if (filter instanceof GroupFilter.ExactStack) {
+			GroupFilter.ExactStack exactStack = (GroupFilter.ExactStack) filter;
 				if (exactStack.encodedStack().isBlank()) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_EXACT_STACK_BLANK);
 				} else if (!isExactStackPayloadJsonObject(exactStack.encodedStack())) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_EXACT_STACK_INVALID);
 				}
-			}
-			case GroupFilter.HasComponent hc -> {
+		} else if (filter instanceof GroupFilter.HasComponent) {
+			GroupFilter.HasComponent hc = (GroupFilter.HasComponent) filter;
 				if (hc.componentTypeId().isBlank()) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_HAS_COMPONENT_TYPE_BLANK);
 				} else if (ResourceLocation.tryParse(hc.componentTypeId()) == null) {
@@ -95,8 +101,8 @@ public final class GroupFilterValidator {
 				if (hc.encodedValue().isBlank()) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_HAS_COMPONENT_VALUE_BLANK);
 				}
-			}
-			case GroupFilter.ComponentPath cp -> {
+		} else if (filter instanceof GroupFilter.ComponentPath) {
+			GroupFilter.ComponentPath cp = (GroupFilter.ComponentPath) filter;
 				if (cp.componentTypeId().isBlank()) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_COMPONENT_PATH_TYPE_BLANK);
 				} else if (ResourceLocation.tryParse(cp.componentTypeId()) == null) {
@@ -110,8 +116,6 @@ public final class GroupFilterValidator {
 				if (cp.expectedValue().isBlank()) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_COMPONENT_PATH_VALUE_BLANK);
 				}
-			}
-			case GroupFilter.Unsupported ignored -> { }
 		}
 	}
 

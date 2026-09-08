@@ -51,7 +51,7 @@ class EditorIngredientIdsTest {
 		AtomicInteger reads = new AtomicInteger();
 		IngredientView view = new IngredientView() {
 			public String ingredientType() { return "test:chemical"; }
-			public ResourceLocation resourceLocation() { reads.incrementAndGet(); return ResourceLocation.parse("test:oxygen"); }
+			public ResourceLocation resourceLocation() { reads.incrementAndGet(); return new ResourceLocation("test:oxygen"); }
 			public boolean hasTag(ResourceLocation tag) { return false; }
 			public boolean matchesExactStack(String value) { return false; }
 		};
@@ -71,7 +71,7 @@ class EditorIngredientIdsTest {
 	private ViewerIngredient<String> entry(String type, String uid, String id) {
 		IngredientView view = new IngredientView() {
 			public String ingredientType() { return type; }
-			public ResourceLocation resourceLocation() { return ResourceLocation.parse(id); }
+			public ResourceLocation resourceLocation() { return new ResourceLocation(id); }
 			public boolean hasTag(ResourceLocation tag) { return false; }
 			public boolean matchesExactStack(String value) { return false; }
 		};

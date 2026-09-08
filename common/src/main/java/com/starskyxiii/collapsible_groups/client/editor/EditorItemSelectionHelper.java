@@ -41,7 +41,7 @@ final class EditorItemSelectionHelper {
 	 * selectors.
 	 */
 	private String preferredSelector(ItemStack stack) {
-		return stack.getComponentsPatch().isEmpty()
+		return !stack.hasTag()
 			? GroupItemSelector.wholeItemSelector(stack)
 			: GroupItemSelector.exactSelector(stack);
 	}

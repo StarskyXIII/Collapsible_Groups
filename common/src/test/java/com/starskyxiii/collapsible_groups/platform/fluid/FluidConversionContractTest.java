@@ -35,7 +35,7 @@ class FluidConversionContractTest {
 		FluidAmount amount = new FluidAmount(81000, FluidAmountUnit.FABRIC_TRANSFER);
 		IngredientView view = view();
 		FluidIngredient ingredient = new FluidIngredient(nativeData, amount,
-			ResourceLocation.parse("minecraft:water"), Component.literal("Water"), ItemStack.EMPTY, view);
+			new ResourceLocation("minecraft:water"), Component.literal("Water"), ItemStack.EMPTY, view);
 		FluidConversionResult result = new FluidConversionResult.Success(ingredient);
 
 		assertSame(nativeData, result.require().nativeValue());
@@ -48,7 +48,7 @@ class FluidConversionContractTest {
 		return new IngredientView() {
 			@Override public String ingredientType() { return "fluid"; }
 			@Override public ResourceLocation resourceLocation() {
-				return ResourceLocation.parse("minecraft:water");
+				return new ResourceLocation("minecraft:water");
 			}
 			@Override public boolean hasTag(ResourceLocation tagId) { return false; }
 			@Override public boolean matchesExactStack(String encodedStack) { return false; }

@@ -16,7 +16,7 @@ class GroupIconRendererLayoutTest {
 		var layers = GroupIconRenderer.layers(40, 24, 1);
 
 		assertEquals(1, layers.size());
-		assertEquals(new GroupIconRenderer.Layer(0, 41, 25, 0, 0.9f), layers.getFirst());
+		assertEquals(new GroupIconRenderer.Layer(0, 41, 25, 0, 0.9f), layers.get(0));
 	}
 
 	@Test

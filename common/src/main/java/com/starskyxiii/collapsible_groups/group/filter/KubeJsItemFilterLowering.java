@@ -15,7 +15,7 @@ public final class KubeJsItemFilterLowering {
 
 	public static GroupFilter lowerResolvedStack(ItemStack stack) {
 		ItemStack normalized = GroupItemSelector.normalizedCopy(stack);
-		return normalized.getComponentsPatch().isEmpty()
+		return !normalized.hasTag()
 			? Filters.itemId(GroupItemSelector.wholeItemSelector(normalized))
 			: Filters.exactStack(normalized);
 	}

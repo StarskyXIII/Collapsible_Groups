@@ -13,7 +13,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
-import net.minecraft.core.component.DataComponentPatch;
+import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
 import net.minecraft.resources.ResourceLocation;
@@ -34,7 +34,7 @@ public final class GroupHeaderEmiStack extends EmiStack {
 		this.key = new GroupHeaderKey(header.group().id());
 		String hash = UUID.nameUUIDFromBytes(header.group().id().getBytes(StandardCharsets.UTF_8))
 			.toString().replace("-", "");
-		this.id = ResourceLocation.fromNamespaceAndPath("collapsible_groups", "group/" + hash);
+		this.id = new ResourceLocation("collapsible_groups", "group/" + hash);
 	}
 
 	public String groupId() { return header.group().id(); }
@@ -42,7 +42,7 @@ public final class GroupHeaderEmiStack extends EmiStack {
 
 	@Override public EmiStack copy() { return new GroupHeaderEmiStack(header); }
 	@Override public boolean isEmpty() { return false; }
-	@Override public DataComponentPatch getComponentChanges() { return DataComponentPatch.EMPTY; }
+	@Override public CompoundTag getNbt() { return null; }
 	@Override public Object getKey() { return key; }
 	@Override public ResourceLocation getId() { return id; }
 	@Override public Component getName() { return header.group().displayName().toComponent(); }

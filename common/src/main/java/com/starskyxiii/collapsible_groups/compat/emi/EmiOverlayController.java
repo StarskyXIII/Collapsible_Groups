@@ -21,7 +21,7 @@ import java.util.List;
 public final class EmiOverlayController implements ViewerOverlayHook {
 	private static final EmiOverlayController INSTANCE = new EmiOverlayController();
 	private static final int SIZE = 20;
-	private static final ResourceLocation ICON = ResourceLocation.fromNamespaceAndPath(
+	private static final ResourceLocation ICON = new ResourceLocation(
 		"collapsible_groups", "textures/gui/groups_button.png");
 	private boolean visible;
 	private boolean enabled;

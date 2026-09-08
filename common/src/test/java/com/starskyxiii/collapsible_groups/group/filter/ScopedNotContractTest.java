@@ -148,7 +148,7 @@ class ScopedNotContractTest {
 		if (node instanceof GroupFilter.Namespace ns) return ns.ingredientType().equals(view.ingredientType()) && ns.namespace().equals(view.resourceLocation().getNamespace()) ? MATCH : NO_MATCH;
 		if (node instanceof GroupFilter.Tag tag) {
 			if (!tag.ingredientType().equals(view.ingredientType())) return NO_MATCH;
-			return switch (view.queryTag(ResourceLocation.parse(tag.tag()))) {
+			return switch (view.queryTag(new ResourceLocation(tag.tag()))) {
 				case MATCH -> MATCH;
 				case NO_MATCH -> NO_MATCH;
 				case UNAVAILABLE -> UNAVAILABLE;
@@ -170,7 +170,7 @@ class ScopedNotContractTest {
 	private static IngredientView view(String type, String id) {
 		return new IngredientView() {
 			public String ingredientType() { return type; }
-			public ResourceLocation resourceLocation() { return ResourceLocation.parse(id); }
+			public ResourceLocation resourceLocation() { return new ResourceLocation(id); }
 			public boolean hasTag(ResourceLocation tag) { return tag.getPath().equals("match"); }
 			public TagQueryResult queryTag(ResourceLocation tag) { return tag.getPath().equals("unavailable") ? TagQueryResult.UNAVAILABLE : hasTag(tag) ? TagQueryResult.MATCH : TagQueryResult.NO_MATCH; }
 			public boolean matchesExactStack(String encoded) { return false; }

@@ -1,26 +1,108 @@
 import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 
 plugins {
-    // see https://fabricmc.net/develop/ for new versions
     id 'fabric-loom' version '1.8-SNAPSHOT' apply false
-    // see https://projects.neoforged.net/neoforged/moddevgradle for new versions
-    id 'net.neoforged.moddev' version '2.0.140' apply false
+    id 'net.neoforged.moddev.legacyforge' version '2.0.140' apply false
 }
 
 tasks.register('verifyEmiMixinParity') {
-    description = 'Verify Fabric and NeoForge EMI mixins remain byte-identical'
+    description = 'Verify Fabric and Forge EMI mixins remain byte-identical'
     group = 'verification'
     def names = ['MixinEmiScreenManager.java', 'MixinEmiScreenSpace.java']
     def fabricDir = file('fabric/src/main/java/com/starskyxiii/collapsible_groups/mixin')
-    def neoForgeDir = file('neoforge/src/main/java/com/starskyxiii/collapsible_groups/mixin')
-    inputs.files(names.collectMany { [new File(fabricDir, it), new File(neoForgeDir, it)] })
+    def forgeDir = file('forge/src/main/java/com/starskyxiii/collapsible_groups/mixin')
+    inputs.files(names.collectMany { [new File(fabricDir, it), new File(forgeDir, it)] })
     doLast {
         names.each { name ->
             byte[] fabricBytes = new File(fabricDir, name).bytes
-            byte[] neoForgeBytes = new File(neoForgeDir, name).bytes
-            if (!java.util.Arrays.equals(fabricBytes, neoForgeBytes)) {
+            byte[] forgeBytes = new File(forgeDir, name).bytes
+            if (!java.util.Arrays.equals(fabricBytes, forgeBytes)) {
                 throw new GradleException("EMI mixin parity failed for ${name}")
             }
+        }
+    }
+}
+
+tasks.register('verifyJava17Artifacts') {
+    description = 'Verify packaged Java and Minecraft 1.20.1 metadata'
+    group = 'verification'
+    dependsOn ':common:jar', ':fabric:remapJar', ':forge:reobfJar'
+    doLast {
+        def artifacts = [
+            common: [task: 'jar', mixins: ['collapsible_groups.mixins.json']],
+            fabric: [task: 'remapJar', mixins: ['collapsible_groups.mixins.json', 'collapsible_groups.fabric.mixins.json']],
+            forge: [task: 'reobfJar', mixins: ['collapsible_groups.mixins.json', 'collapsible_groups.forge.mixins.json']]
+        ]
+        List<String> failures = []
+        artifacts.each { projectName, artifact ->
+            def artifactProject = project(":${projectName}")
+            File jarFile = artifactProject.tasks.named(artifact.task).get().archiveFile.get().asFile
+            new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+                zip.entries().each { entry ->
+                    if (!entry.directory && entry.name.endsWith('.class')) {
+                        byte[] bytes = zip.getInputStream(entry).bytes
+                        int minor = ((bytes[4] & 0xFF) << 8) | (bytes[5] & 0xFF)
+                        int major = ((bytes[6] & 0xFF) << 8) | (bytes[7] & 0xFF)
+                        if (major != 61 || minor != 0) {
+                            failures.add("${projectName}:${entry.name} -> class ${major}.${minor}")
+                        }
+                    }
+                }
+                artifact.mixins.each { path ->
+                    def entry = zip.getEntry(path)
+                    if (entry == null) {
+                        failures.add("${projectName}:${path} -> missing")
+                    } else {
+                        def json = new JsonSlurper().parse(zip.getInputStream(entry))
+                        if (json.compatibilityLevel != 'JAVA_17') {
+                            failures.add("${projectName}:${path} -> ${json.compatibilityLevel}")
+                        }
+                    }
+                }
+                def packEntry = zip.getEntry('pack.mcmeta')
+                if (packEntry == null) {
+                    failures.add("${projectName}:pack.mcmeta -> missing")
+                } else {
+                    def packMetadata = new JsonSlurper().parse(zip.getInputStream(packEntry))
+                    if (packMetadata.pack?.pack_format != 15) {
+                        failures.add("${projectName}:pack.mcmeta -> ${packMetadata.pack?.pack_format}")
+                    }
+                }
+                if (projectName == 'forge') {
+                    def modsEntry = zip.getEntry('META-INF/mods.toml')
+                    if (modsEntry == null) {
+                        failures.add('forge:META-INF/mods.toml -> missing')
+                    } else {
+                        String modsMetadata = zip.getInputStream(modsEntry).getText('UTF-8')
+                        String marker = "[[dependencies.${mod_id}]]"
+                        def dependencyBlocks = modsMetadata.split(java.util.regex.Pattern.quote(marker)).drop(1)
+                        [jei: '(,0],[0,)'].each { dependencyId, expectedRange ->
+                            String block = dependencyBlocks.find { candidate ->
+                                candidate.readLines().any { it.trim() == "modId = \"${dependencyId}\"" }
+                            }
+                            if (block == null) {
+                                failures.add("forge:META-INF/mods.toml -> missing ${dependencyId} dependency")
+                            } else {
+                                def lines = block.readLines().collect { it.trim() }
+                                String expectedRangeLine = "versionRange = \"${expectedRange}\""
+                                if (!lines.contains('mandatory = false')) {
+                                    failures.add("forge:META-INF/mods.toml -> ${dependencyId} is not optional")
+                                }
+                                if (!lines.contains('side = "CLIENT"')) {
+                                    failures.add("forge:META-INF/mods.toml -> ${dependencyId} is not client-side")
+                                }
+                                if (!lines.contains(expectedRangeLine)) {
+                                    failures.add("forge:META-INF/mods.toml -> ${dependencyId} range is not valid and unbounded")
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if (!failures.isEmpty()) {
+            throw new GradleException('Version artifact guard failed:\n' + failures.sort().join('\n'))
         }
     }
 }
@@ -73,9 +155,9 @@ def verifyEmiOnlyBytes = { String path, byte[] bytes, List<String> failures ->
 }
 
 tasks.register('verifyEmiOnlyLinkage') {
-    description = 'Reject JEI linkage from viewer-neutral and pure-EMI classes in compiled output and the NeoForge jar'
+    description = 'Reject JEI linkage from viewer-neutral and pure-EMI classes in compiled output and both loader jars'
     group = 'verification'
-    dependsOn ':common:classes', ':neoforge:jar'
+    dependsOn ':common:classes', ':fabric:jar', ':forge:jar'
     doLast {
         List<String> failures = []
         File classesDir = project(':common').layout.buildDirectory.dir('classes/java/main').get().asFile
@@ -83,11 +165,13 @@ tasks.register('verifyEmiOnlyLinkage') {
             String path = classesDir.toPath().relativize(file.toPath()).toString().replace('\\', '/')
             verifyEmiOnlyBytes(path, file.bytes, failures)
         }
-        File jarFile = project(':neoforge').tasks.named('jar').get().archiveFile.get().asFile
-        new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
-            zip.entries().each { entry ->
-                if (!entry.directory && shouldGuardEmiOnlyClass(entry.name)) {
-                    verifyEmiOnlyBytes(entry.name, zip.getInputStream(entry).bytes, failures)
+        [project(':fabric'), project(':forge')].each { loaderProject ->
+            File jarFile = loaderProject.tasks.named('jar').get().archiveFile.get().asFile
+            new java.util.zip.ZipFile(jarFile).withCloseable { zip ->
+                zip.entries().each { entry ->
+                    if (!entry.directory && shouldGuardEmiOnlyClass(entry.name)) {
+                        verifyEmiOnlyBytes(entry.name, zip.getInputStream(entry).bytes, failures)
+                    }
                 }
             }
         }
@@ -101,7 +185,6 @@ def groupLangSourceTrees = [
     fileTree('common/src/main/java') { include '**/defaults/**/*.java' },
     fileTree('fabric/src/main/java') { include '**/defaults/**/*.java' },
     fileTree('forge/src/main/java') { include '**/defaults/**/*.java' },
-    fileTree('neoforge/src/main/java') { include '**/defaults/**/*.java' }
 ]
 
 def groupLangOutputFile = file(

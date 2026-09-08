@@ -33,7 +33,7 @@ public final class GenericJeiIngredientView<T> implements IngredientView {
 			return resourceLocation;
 		}
 		try {
-			Object uid = helper.getUid(ingredient, UidContext.Ingredient);
+			Object uid = helper.getUniqueId(ingredient, UidContext.Ingredient);
 			if (uid == null) {
 				return null;
 			}

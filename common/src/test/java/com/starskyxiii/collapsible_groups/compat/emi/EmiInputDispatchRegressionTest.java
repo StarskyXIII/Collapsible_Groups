@@ -23,7 +23,7 @@ class EmiInputDispatchRegressionTest {
 	}
 
 	@Test void loaderHooksCannotCancelNativeReleaseAndRemainingInputTargetsAreGuarded() throws IOException {
-		for (String loader : new String[]{"fabric", "neoforge"}) {
+		for (String loader : new String[]{"fabric", "forge"}) {
 			String mixin = source(loader + "/src/main/java/com/starskyxiii/collapsible_groups/mixin/MixinEmiScreenManager.java");
 			assertFalse(mixin.contains("method = \"mouseReleased\""));
 			assertFalse(mixin.contains("Input.Type.MOUSE_RELEASE"));
@@ -36,7 +36,7 @@ class EmiInputDispatchRegressionTest {
 	}
 
 	@Test void modifiedHeaderLeftClickUsesTheRejectedOtherPath() throws IOException {
-		String bind = source(".reference/emi-1.21/xplat/src/main/java/dev/emi/emi/input/EmiBind.java");
+		String bind = referenceSource("xplat/src/main/java/dev/emi/emi/input/EmiBind.java");
 		String mixin = source("fabric/src/main/java/com/starskyxiii/collapsible_groups/mixin/MixinEmiScreenManager.java");
 		assertTrue(bind.contains("LEFT_CLICK = new EmiBind(\"\", new EmiBind.ModifiedKey"));
 		assertTrue(bind.contains("createFromCode(0), 0)"), "LEFT_CLICK has a zero-modifier binding");
@@ -45,8 +45,8 @@ class EmiInputDispatchRegressionTest {
 	}
 
 	@Test void upstreamReleaseStillOwnsInventoryDragCheatAndFinallyCleanupDispatch() throws IOException {
-		String manager = source(".reference/emi-1.21/xplat/src/main/java/dev/emi/emi/screen/EmiScreenManager.java");
-		String mouse = source(".reference/emi-1.21/xplat/src/main/java/dev/emi/emi/mixin/MouseMixin.java");
+		String manager = referenceSource("xplat/src/main/java/dev/emi/emi/screen/EmiScreenManager.java");
+		String mouse = referenceSource("xplat/src/main/java/dev/emi/emi/mixin/MouseMixin.java");
 		assertTrue(manager.contains("public static boolean mouseReleased"));
 		assertTrue(manager.contains("stackInteraction(hovered"), "native take/place/shift/cheat/drop dispatch remains reachable");
 		assertTrue(manager.contains("pressedStack = EmiStack.EMPTY;"));
@@ -55,7 +55,7 @@ class EmiInputDispatchRegressionTest {
 	}
 
 	@Test void syntheticHeadersCannotEnterNativeDragDispatchButChildrenKeepIt() throws IOException {
-		for (String loader : new String[]{"fabric", "neoforge"}) {
+		for (String loader : new String[]{"fabric", "forge"}) {
 			String mixin = source(loader + "/src/main/java/com/starskyxiii/collapsible_groups/mixin/MixinEmiScreenManager.java");
 			int start = mixin.indexOf("\t@Inject(method = \"mouseDragged\", at = @At(\"RETURN\")");
 			int end = mixin.indexOf("\n\t@Inject", start + 1);
@@ -76,6 +76,15 @@ class EmiInputDispatchRegressionTest {
 		Path path = root.resolve(relative);
 		if (!Files.exists(path) && root.getParent() != null) path = root.getParent().resolve(relative);
 		return Files.readString(path).replace("\r\n", "\n");
+	}
+
+	private static String referenceSource(String relative) throws IOException {
+		Path root = Path.of(System.getProperty("collapsibleGroupsRoot"));
+		Path reference = root.resolve(".reference/emi-1.20").resolve(relative);
+		if (!Files.exists(reference)) {
+			reference = root.resolveSibling("Collapsible Groups").resolve(".reference/emi-1.20").resolve(relative);
+		}
+		return Files.readString(reference).replace("\r\n", "\n");
 	}
 
 	private static int occurrences(String value, String needle) {

@@ -298,15 +298,19 @@ public final class GroupFilterEditorDraft {
 	 * mutating the draft for every composite or advanced node, so callers can preserve it.
 	 */
 	private static boolean tryAddFlatLeaf(GroupFilter filter, GroupFilterEditorDraft draft) {
-		switch (filter) {
-			case GroupFilter.Id id -> addIdNode(id, draft);
-			case GroupFilter.Tag tag -> addTagNode(tag, draft);
-			case GroupFilter.ExactStack stack -> draft.explicitItemSelectors.add(STACK_PREFIX + stack.encodedStack());
-			default -> {
-				return false;
-			}
+		if (filter instanceof GroupFilter.Id) {
+			addIdNode((GroupFilter.Id) filter, draft);
+			return true;
 		}
-		return true;
+		if (filter instanceof GroupFilter.Tag) {
+			addTagNode((GroupFilter.Tag) filter, draft);
+			return true;
+		}
+		if (filter instanceof GroupFilter.ExactStack) {
+			draft.explicitItemSelectors.add(STACK_PREFIX + ((GroupFilter.ExactStack) filter).encodedStack());
+			return true;
+		}
+		return false;
 	}
 
 	/**
@@ -314,35 +318,38 @@ public final class GroupFilterEditorDraft {
 	 * the UI summary ("N advanced rules"). Never affects editability.
 	 */
 	private static void recordPreservedKinds(GroupFilter filter, Set<UnsupportedEditorNodeKind> kinds) {
-		switch (filter) {
-			case GroupFilter.Any any -> {
+		if (filter instanceof GroupFilter.Any) {
+			GroupFilter.Any any = (GroupFilter.Any) filter;
 				kinds.add(UnsupportedEditorNodeKind.NESTED_STRUCTURE);
 				for (GroupFilter child : any.children()) {
 					recordPreservedKinds(child, kinds);
 				}
-			}
-			case GroupFilter.All all -> {
+		} else if (filter instanceof GroupFilter.All) {
+			GroupFilter.All all = (GroupFilter.All) filter;
 				kinds.add(UnsupportedEditorNodeKind.ALL);
 				for (GroupFilter child : all.children()) {
 					recordPreservedKinds(child, kinds);
 				}
-			}
-			case GroupFilter.Not not -> {
+		} else if (filter instanceof GroupFilter.Not) {
+			GroupFilter.Not not = (GroupFilter.Not) filter;
 				kinds.add(UnsupportedEditorNodeKind.NOT);
 				recordPreservedKinds(not.child(), kinds);
-			}
-			case GroupFilter.BlockTag ignored -> kinds.add(UnsupportedEditorNodeKind.BLOCK_TAG);
-			case GroupFilter.ItemPathStartsWith ignored -> kinds.add(UnsupportedEditorNodeKind.ITEM_PATH_STARTS_WITH);
-			case GroupFilter.ItemPathContains ignored -> kinds.add(UnsupportedEditorNodeKind.ITEM_PATH_CONTAINS);
-			case GroupFilter.ItemPathEndsWith ignored -> kinds.add(UnsupportedEditorNodeKind.ITEM_PATH_ENDS_WITH);
-			case GroupFilter.Namespace ignored -> kinds.add(UnsupportedEditorNodeKind.NAMESPACE);
-			case GroupFilter.HasComponent ignored -> kinds.add(UnsupportedEditorNodeKind.HAS_COMPONENT);
-			case GroupFilter.ComponentPath ignored -> kinds.add(UnsupportedEditorNodeKind.COMPONENT_PATH);
-			case GroupFilter.Unsupported ignored -> kinds.add(UnsupportedEditorNodeKind.UNAVAILABLE);
-			// Supported leaves can appear inside a preserved composite; they contribute no kind.
-			case GroupFilter.Id ignored -> { }
-			case GroupFilter.Tag ignored -> { }
-			case GroupFilter.ExactStack ignored -> { }
+		} else if (filter instanceof GroupFilter.BlockTag) {
+			kinds.add(UnsupportedEditorNodeKind.BLOCK_TAG);
+		} else if (filter instanceof GroupFilter.ItemPathStartsWith) {
+			kinds.add(UnsupportedEditorNodeKind.ITEM_PATH_STARTS_WITH);
+		} else if (filter instanceof GroupFilter.ItemPathContains) {
+			kinds.add(UnsupportedEditorNodeKind.ITEM_PATH_CONTAINS);
+		} else if (filter instanceof GroupFilter.ItemPathEndsWith) {
+			kinds.add(UnsupportedEditorNodeKind.ITEM_PATH_ENDS_WITH);
+		} else if (filter instanceof GroupFilter.Namespace) {
+			kinds.add(UnsupportedEditorNodeKind.NAMESPACE);
+		} else if (filter instanceof GroupFilter.HasComponent) {
+			kinds.add(UnsupportedEditorNodeKind.HAS_COMPONENT);
+		} else if (filter instanceof GroupFilter.ComponentPath) {
+			kinds.add(UnsupportedEditorNodeKind.COMPONENT_PATH);
+		} else if (filter instanceof GroupFilter.Unsupported) {
+			kinds.add(UnsupportedEditorNodeKind.UNAVAILABLE);
 		}
 	}
 

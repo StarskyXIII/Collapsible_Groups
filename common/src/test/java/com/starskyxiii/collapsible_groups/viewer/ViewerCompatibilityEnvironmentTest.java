@@ -15,7 +15,7 @@ class ViewerCompatibilityEnvironmentTest {
 		ViewerCompatibilityEnvironment environment = ViewerCompatibilityEnvironment.detect(
 			true, true, true, () -> {
 				checks.incrementAndGet();
-				return new ViewerCompatibilityEnvironment.JeiVersionCheck("19.27.0.343", false);
+				return new ViewerCompatibilityEnvironment.JeiVersionCheck("15.19.0.99", false);
 			});
 
 		assertEquals(ViewerSelectionPolicy.Viewer.EMI, environment.selectedViewer());
@@ -36,18 +36,18 @@ class ViewerCompatibilityEnvironmentTest {
 	@Test void oldSelectedJeiDisablesMixinsAndFailsBootstrapClearly() {
 		ViewerCompatibilityEnvironment environment = ViewerCompatibilityEnvironment.detect(
 			true, false, false,
-			() -> new ViewerCompatibilityEnvironment.JeiVersionCheck("19.41.0.1", false));
+			() -> new ViewerCompatibilityEnvironment.JeiVersionCheck("15.19.0.99", false));
 
 		assertEquals(ViewerSelectionPolicy.Viewer.JEI, environment.selectedViewer());
 		assertFalse(environment.mayApplyJeiInternals());
 		IllegalStateException error = assertThrows(IllegalStateException.class,
 			environment::requireCompatibleSelectedViewer);
-		assertTrue(error.getMessage().contains("19.41.0.1"));
+		assertTrue(error.getMessage().contains("15.19.0.99"));
 		assertTrue(error.getMessage().contains(ViewerCompatibilitySpec.minimumJeiVersion()));
 	}
 
 	@Test void supportedSelectedJeiEnablesInternals() {
-		for (String version : new String[] {"19.42.0.379", "19.43.0.395"}) {
+		for (String version : new String[] {"15.20.0.102", "15.20.0.110"}) {
 			ViewerCompatibilityEnvironment environment = ViewerCompatibilityEnvironment.detect(
 				true, false, false,
 				() -> new ViewerCompatibilityEnvironment.JeiVersionCheck(version, true));

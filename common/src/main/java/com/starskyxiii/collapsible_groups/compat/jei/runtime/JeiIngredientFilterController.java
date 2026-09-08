@@ -16,6 +16,7 @@ import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
+import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
@@ -279,16 +280,13 @@ public final class JeiIngredientFilterController {
 		List<String> newGroupIds = new ArrayList<>();
 		Map<String, List<IElement<?>>> newChildren = new HashMap<>();
 		for (ViewerProjection.Entry<ITypedIngredient<?>> entry : projected.entries()) {
-			switch (entry) {
-				case ViewerProjection.IngredientEntry<ITypedIngredient<?>> ingredient -> {
-					newBaseList.add(new IngredientElement<>(ingredient.ingredient().entry()));
-					newGroupIds.add(null);
-				}
-				case ViewerProjection.GroupHeader<ITypedIngredient<?>> header -> {
-					newBaseList.add(createGroupHeader(header, this::toggleAndRebuildDisplay));
-					newGroupIds.add(header.group().id());
-					newChildren.put(header.group().id(), createChildElements(header));
-				}
+			if (entry instanceof ViewerProjection.IngredientEntry<ITypedIngredient<?>> ingredient) {
+				newBaseList.add(new IngredientElement<>(ingredient.ingredient().entry()));
+				newGroupIds.add(null);
+			} else if (entry instanceof ViewerProjection.GroupHeader<ITypedIngredient<?>> header) {
+				newBaseList.add(createGroupHeader(header, this::toggleAndRebuildDisplay));
+				newGroupIds.add(header.group().id());
+				newChildren.put(header.group().id(), createChildElements(header));
 			}
 		}
 		baseList = newBaseList;
@@ -361,7 +359,7 @@ public final class JeiIngredientFilterController {
 			header.iconIds(), header.fallbackIconIngredients());
 		GroupIcon icon = new GroupIcon(group.id(), group.displayName().key(), group.displayName().fallback(), display);
 		ITypedIngredient<GroupIcon> typedIcon = ingredientManager
-			.createTypedIngredient(GroupIcon.TYPE, icon, false)
+			.createTypedIngredient(GroupIcon.TYPE, icon)
 			.orElseThrow(() -> new IllegalStateException(
 				"JEI could not create a GroupIcon typed ingredient; GroupIcon.TYPE must be registered first"));
 		List<GroupPreviewEntry> preview = new ArrayList<>(header.children().size());
@@ -385,12 +383,17 @@ public final class JeiIngredientFilterController {
 		List<IElement<?>> children = new ArrayList<>(header.children().size());
 		for (ViewerIngredient<ITypedIngredient<?>> child : header.children()) {
 			switch (child.kind()) {
-				case ITEM -> children.add(new GroupChildElement(child.entry().castToItemStackType(), header.group().id()));
+				case ITEM -> children.add(new GroupChildElement(itemTyped(child.entry()), header.group().id()));
 				case FLUID -> children.add(hooks.createFluidChild(child.entry(), header.group().id()));
 				case GENERIC -> children.add(wrapGenericChild(child.entry(), header.group().id()));
 			}
 		}
 		return children;
+	}
+
+	private ITypedIngredient<ItemStack> itemTyped(ITypedIngredient<?> ingredient) {
+		ItemStack stack = ingredient.getItemStack().orElseThrow();
+		return ingredientManager.createTypedIngredient(VanillaTypes.ITEM_STACK, stack).orElseThrow();
 	}
 
 	private static Component buildCountLabel(int itemCount, int fluidCount, int genericCount) {
@@ -448,9 +451,9 @@ public final class JeiIngredientFilterController {
 		Map<ITypedIngredient<?>, List<String>> candidateGroups) {
 		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
 			IIngredientType<T> type = (IIngredientType<T>) entry.getValue();
-			ITypedIngredient<T> cast = typed.cast(type);
+			T cast = typed.getIngredient(type).orElse(null);
 			if (cast == null) continue;
-			indexGeneric(entry.getKey(), type, cast.getIngredient(), typed, manager, index, groups,
+			indexGeneric(entry.getKey(), type, cast, typed, manager, index, groups,
 				fullMatches, candidateGroups);
 			return;
 		}

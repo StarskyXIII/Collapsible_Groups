@@ -1,28 +1,8 @@
-buildscript {
-    repositories {
-        maven {
-            url = 'https://maven.minecraftforge.net'
-        }
-        maven {
-            url = 'https://repo.spongepowered.org/repository/maven-public/'
-            content {
-                includeGroup 'org.spongepowered'
-            }
-        }
-        mavenCentral()
-    }
-    dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:6.0.26'
-        classpath 'org.spongepowered:mixingradle:0.7.38'
-    }
-}
-
 plugins {
     id 'multiloader-loader'
+    id 'net.neoforged.moddev.legacyforge'
 }
 
-apply plugin: 'net.minecraftforge.gradle'
-apply plugin: 'org.spongepowered.mixin'
 repositories {
     mavenLocal {
         content { includeGroup 'dev.emi' }
@@ -31,102 +11,99 @@ repositories {
         name = 'TerraformersMC'
         url = 'https://maven.terraformersmc.com/'
     }
+    maven {
+        name = 'BlameJared'
+        url = 'https://maven.blamejared.com'
+    }
+    maven {
+        name = 'KubeJS'
+        url = 'https://maven.latvian.dev/releases'
+    }
+    exclusiveContent {
+        forRepository {
+            maven {
+                name = 'Architectury'
+                url = 'https://maven.architectury.dev/'
+            }
+        }
+        filter { includeGroup 'dev.architectury' }
+    }
 }
+
 base {
     archivesName = "${mod_id}-forge-${minecraft_version}"
 }
+
+legacyForge {
+    version = "${minecraft_version}-${forge_version}"
+    validateAccessTransformers = true
+
+    runs {
+        client {
+            client()
+            ideName = "Forge Client (${project.path})"
+        }
+        server {
+            server()
+            ideName = "Forge Server (${project.path})"
+        }
+        data {
+            data()
+            ideName = "Forge Data (${project.path})"
+            programArguments.addAll '--mod', mod_id, '--all', '--output', file('src/generated/resources/').absolutePath, '--existing', file('src/main/resources/').absolutePath
+        }
+    }
+
+    mods {
+        "${mod_id}" {
+            sourceSet sourceSets.main
+        }
+    }
+}
+
 mixin {
     add sourceSets.main, "${mod_id}.refmap.json"
     config("${mod_id}.mixins.json")
     config("${mod_id}.forge.mixins.json")
 }
+
 jar {
     manifest {
-        attributes["MixinConfigs"] = "${mod_id}.mixins.json,${mod_id}.forge.mixins.json"
-    }
-}
-
-minecraft {
-    mappings channel: 'official', version: minecraft_version
-
-    copyIdeResources = true //Calls processResources when in dev
-
-    reobf = false // Forge 1.20.6+ uses official mappings at runtime, so we shouldn't reobf from official to SRG
-
-    // Automatically enable forge AccessTransformers if the file exists
-    // This location is hardcoded in Forge and can not be changed.
-    // https://github.com/MinecraftForge/MinecraftForge/blob/be1698bb1554f9c8fa2f58e32b9ab70bc4385e60/fmlloader/src/main/java/net/minecraftforge/fml/loading/moddiscovery/ModFile.java#L123
-    // Forge still uses SRG names during compile time, so we cannot use the common AT's
-    def at = file('src/main/resources/META-INF/accesstransformer.cfg')
-    if (at.exists()) {
-        accessTransformer = at
-    }
-
-    runs {
-        client {
-            workingDirectory file('runs/client')
-            ideaModule "${rootProject.name}.${project.name}.main"
-            taskName 'Client'
-            mods {
-                modClientRun {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        server {
-            workingDirectory file('runs/server')
-            ideaModule "${rootProject.name}.${project.name}.main"
-            taskName 'Server'
-            mods {
-                modServerRun {
-                    source sourceSets.main
-                }
-            }
-        }
-
-        data {
-            workingDirectory file('runs/data')
-            ideaModule "${rootProject.name}.${project.name}.main"
-            args '--mod', mod_id, '--all', '--output', file('src/generated/resources/'), '--existing', file('src/main/resources/')
-            taskName 'Data'
-            mods {
-                modDataRun {
-                    source sourceSets.main
-                }
-            }
-        }
+        attributes['MixinConfigs'] = "${mod_id}.mixins.json,${mod_id}.forge.mixins.json"
     }
 }
 
 sourceSets.main.resources.srcDir 'src/generated/resources'
+sourceSets.main.java.srcDir rootProject.file('kubejs6/src/main/java')
+sourceSets.main.resources.srcDir rootProject.file('kubejs6/src/main/resources')
+sourceSets.test.java.srcDir rootProject.file('kubejs6/src/test/java')
 
-dependencies {
-    minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
-    compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
-    // JEI Forge API — public API surface (mezz.jei.api.*)
-    compileOnly "mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}"
-    // JEI Forge full jar — provides mezz.jei.gui.* / mezz.jei.common.* needed by mixins at compile time
-    compileOnly "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
-    runtimeOnly "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
-    // Symbols only so the shared EMI compat sources compile; Forge 1.21 does not load EMI.
-    compileOnly "dev.emi:emi-xplat-mojmap:${emi_version}"
-
-    // Forge's hack fix
-    implementation('net.sf.jopt-simple:jopt-simple:5.0.4') { version { strictly '5.0.4' } }
-}
-
-publishing {
-    publications {
-        mavenJava(MavenPublication) {
-            fg.component(it)
-        }
+sourceSets.test {
+    compileClasspath += sourceSets.main.compileClasspath
+    runtimeClasspath += sourceSets.main.compileClasspath.filter { file ->
+        !file.name.toLowerCase(Locale.ROOT).startsWith('slf4j-api-')
     }
 }
 
-sourceSets.each {
-    def dir = layout.buildDirectory.dir("sourcesSets/$it.name")
-    it.output.resourcesDir = dir
-    it.java.destinationDirectory = dir
+dependencies {
+    annotationProcessor 'org.spongepowered:mixin:0.8.5:processor'
+
+    modCompileOnly("mezz.jei:jei-${minecraft_version}-forge:${jei_version}") { transitive = false }
+    modRuntimeOnly("mezz.jei:jei-${minecraft_version}-forge:${jei_version}") { transitive = false }
+    modCompileOnly "dev.emi:emi-forge:${emi_version}"
+    modRuntimeOnly "dev.emi:emi-forge:${emi_version}"
+
+    modCompileOnly("dev.latvian.mods:kubejs-forge:${kubejs_version}") { transitive = false }
+    modCompileOnly("dev.latvian.mods:rhino-forge:${rhino_version}") { transitive = false }
+    modCompileOnly("dev.architectury:architectury-forge:${architectury_version}") { transitive = false }
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
+    testRuntimeOnly 'org.slf4j:slf4j-api:2.0.1'
+    testRuntimeOnly files(layout.buildDirectory.file("moddev/artifacts/client-extra-${minecraft_version}-${forge_version}.jar"))
+}
+
+test {
+    dependsOn tasks.named('createMinecraftArtifacts')
+    useJUnitPlatform()
 }

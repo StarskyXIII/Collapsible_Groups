@@ -34,17 +34,14 @@ class GroupFilterValidatorTest {
 	}
 
 	@Test
-	void validateComponentsReturnsTranslatedMessagesForInvalidComponentPathGrammar() {
+	void opaqueComponentPathSkipsVersionSpecificValidation() {
 		List<Component> errors = GroupFilterValidator.validateComponents(new GroupFilter.ComponentPath(
 			"minecraft:custom_data",
 			"bad path",
 			"value"
 		));
 
-		assertEquals(1, errors.size());
-		TranslatableContents contents = assertInstanceOf(TranslatableContents.class, errors.get(0).getContents());
-		assertEquals("collapsible_groups.editor.rules.error.component_path_grammar", contents.getKey());
-		assertEquals("bad path", contents.getArgs()[0]);
+		assertEquals(List.of(), errors);
 	}
 
 	@Test

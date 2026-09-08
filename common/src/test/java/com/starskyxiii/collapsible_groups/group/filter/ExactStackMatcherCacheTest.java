@@ -14,8 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ExactStackMatcherCacheTest {
-	private static final ResourceLocation FACADE = ResourceLocation.parse("ae2:facade");
-	private static final ResourceLocation OTHER = ResourceLocation.parse("minecraft:stone");
+	private static final ResourceLocation FACADE = new ResourceLocation("ae2:facade");
+	private static final ResourceLocation OTHER = new ResourceLocation("minecraft:stone");
 
 	@Test void singletonDecodesOnceAcrossTenThousandCandidates() {
 		AtomicInteger attempts = new AtomicInteger();

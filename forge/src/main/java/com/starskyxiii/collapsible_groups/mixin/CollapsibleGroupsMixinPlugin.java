@@ -17,12 +17,15 @@ public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
 		"com.starskyxiii.collapsible_groups.mixin.MixinBookmarkList",
 		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientListOverlay",
 		"com.starskyxiii.collapsible_groups.mixin.MixinGuiTextFieldFilterAccessor",
+		"com.starskyxiii.collapsible_groups.mixin.MixinGuiIconToggleButtonAccessor",
 		"com.starskyxiii.collapsible_groups.mixin.MixinIngredientListRenderer"
 	);
 	private static final Set<String> EMI_INTERNAL_MIXINS = Set.of(
 		"com.starskyxiii.collapsible_groups.mixin.MixinEmiScreenSpace",
 		"com.starskyxiii.collapsible_groups.mixin.MixinEmiScreenManager"
 	);
+	private static final String KUBEJS_SCRIPT_MIXIN =
+		"com.starskyxiii.collapsible_groups.mixin.MixinKubeJSScriptManager";
 	private static boolean warnedMissingEmiTarget;
 
 	@Override
@@ -43,6 +46,7 @@ public class CollapsibleGroupsMixinPlugin implements IMixinConfigPlugin {
 			return environment.selectedViewer() == ViewerSelectionPolicy.Viewer.EMI
 				&& shouldApplyEmiTarget(targetClassName, mixinClassName);
 		}
+		if (KUBEJS_SCRIPT_MIXIN.equals(mixinClassName)) return isClassPresent(targetClassName);
 		return true;
 	}
 

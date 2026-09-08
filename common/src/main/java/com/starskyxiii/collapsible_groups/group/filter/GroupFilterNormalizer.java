@@ -7,12 +7,10 @@ public final class GroupFilterNormalizer {
 	private GroupFilterNormalizer() {}
 
 	public static GroupFilter normalize(GroupFilter filter) {
-		return switch (filter) {
-			case GroupFilter.Any any -> normalizeAny(any.children());
-			case GroupFilter.All all -> normalizeAll(all.children());
-			case GroupFilter.Not not -> normalizeNot(not.child());
-			default -> filter;
-		};
+		if (filter instanceof GroupFilter.Any) return normalizeAny(((GroupFilter.Any) filter).children());
+		if (filter instanceof GroupFilter.All) return normalizeAll(((GroupFilter.All) filter).children());
+		if (filter instanceof GroupFilter.Not) return normalizeNot(((GroupFilter.Not) filter).child());
+		return filter;
 	}
 
 	private static GroupFilter normalizeAny(List<GroupFilter> children) {

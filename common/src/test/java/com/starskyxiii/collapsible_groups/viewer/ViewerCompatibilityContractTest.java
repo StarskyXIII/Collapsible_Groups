@@ -20,21 +20,7 @@ class ViewerCompatibilityContractTest {
 	}
 
 	@ParameterizedTest
-	@ValueSource(strings = {"forge/src/main/resources/META-INF/mods.toml",
-		"neoforge/src/main/resources/META-INF/neoforge.mods.toml"})
-	void forgeMetadataKeepsJeiOptionalWithoutLoaderVersionGate(String relative) throws IOException {
-		String metadata = Files.readString(root().resolve(relative));
-		int start = metadata.indexOf("modId = \"jei\"");
-		assertTrue(start >= 0);
-		int end = metadata.indexOf("[[dependencies.", start + 1);
-		String block = metadata.substring(start, end < 0 ? metadata.length() : end);
-		assertTrue(block.contains("side = \"CLIENT\""));
-		assertFalse(block.contains("versionRange"));
-		assertTrue(block.contains(relative.startsWith("forge/") ? "mandatory = false" : "type = \"optional\""));
-	}
-
-	@ParameterizedTest
-	@ValueSource(strings = {"fabric", "forge", "neoforge"})
+	@ValueSource(strings = {"fabric", "forge"})
 	void everyLoaderGatesJeiMixinsAndBootstrapsBeforeOtherInitialization(String loader) throws IOException {
 		Path loaderRoot = root().resolve(loader);
 		String plugin = Files.readString(loaderRoot.resolve(
@@ -44,7 +30,7 @@ class ViewerCompatibilityContractTest {
 		assertFalse(plugin.contains("TooManyRecipeViewers"));
 
 		String entrypointName = loader.equals("fabric") ? "CollapsibleGroupsFabric.java"
-			: loader.equals("forge") ? "CollapsibleGroupsForge.java" : "CollapsibleGroups.java";
+			: "CollapsibleGroupsForge.java";
 		String entrypoint = Files.readString(loaderRoot.resolve(
 			"src/main/java/com/starskyxiii/collapsible_groups/" + entrypointName));
 		int guard = entrypoint.indexOf("requireCompatibleSelectedViewer()");

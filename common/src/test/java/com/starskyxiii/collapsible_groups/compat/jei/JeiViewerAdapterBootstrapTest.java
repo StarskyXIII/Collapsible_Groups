@@ -167,14 +167,8 @@ class JeiViewerAdapterBootstrapTest {
 			@Override public IIngredientType<String> getIngredientType() { return type; }
 			@Override public String getDisplayName(String ingredient) { return ingredient; }
 			@Override public String getUniqueId(String ingredient, UidContext context) { return ingredient; }
-			@Override public Object getUid(String ingredient, UidContext context) {
-				return new CollisionUid("value-overload:" + ingredient);
-			}
-			@Override public Object getUid(ITypedIngredient<String> ingredient, UidContext context) {
-				return new CollisionUid(ingredient.getIngredient());
-			}
 			@Override public ResourceLocation getResourceLocation(String ingredient) {
-				return ResourceLocation.fromNamespaceAndPath("test", ingredient);
+				return new ResourceLocation("test", ingredient);
 			}
 			@Override public String copyIngredient(String ingredient) { return ingredient; }
 			@Override public String getErrorInfo(String ingredient) { return ingredient; }
@@ -203,7 +197,7 @@ class JeiViewerAdapterBootstrapTest {
 			ViewerProjection<ITypedIngredient<?>> projection = adapter.project(
 				all, "", false, 0, List.of(group), id -> false, ownership);
 			ViewerProjection.GroupHeader<ITypedIngredient<?>> header = assertInstanceOf(
-				ViewerProjection.GroupHeader.class, projection.entries().getFirst());
+				ViewerProjection.GroupHeader.class, projection.entries().get(0));
 			assertEquals(List.of(oxygen, hydrogen), header.children().stream()
 				.map(ingredient -> ingredient.entry()).toList());
 		} finally {
@@ -245,7 +239,7 @@ class JeiViewerAdapterBootstrapTest {
 				all, "", false, 0, List.of(group), id -> false,
 				prepared.projectionContext(), prepared.candidates());
 			ViewerProjection.GroupHeader<ITypedIngredient<?>> header = assertInstanceOf(
-				ViewerProjection.GroupHeader.class, projection.entries().getFirst());
+				ViewerProjection.GroupHeader.class, projection.entries().get(0));
 			assertEquals(List.of(oxygen, hydrogen), header.children().stream()
 				.map(ingredient -> ingredient.entry()).toList());
 		} finally {
@@ -272,7 +266,7 @@ class JeiViewerAdapterBootstrapTest {
 
 			@Override
 			public ResourceLocation getResourceLocation(String ingredient) {
-				return ResourceLocation.fromNamespaceAndPath("test", ingredient);
+				return new ResourceLocation("test", ingredient);
 			}
 
 			@Override
@@ -305,7 +299,4 @@ class JeiViewerAdapterBootstrapTest {
 		};
 	}
 
-	private record CollisionUid(String value) {
-		@Override public String toString() { return "same-string"; }
-	}
 }
