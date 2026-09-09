@@ -1,7 +1,5 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
-import com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator;
-
 import com.starskyxiii.collapsible_groups.client.editor.model.RuleNodePaths;
 import com.starskyxiii.collapsible_groups.client.editor.model.RuleNodePresentation;
 import com.starskyxiii.collapsible_groups.client.editor.model.RuleNodeUiContract;
@@ -17,10 +15,12 @@ import com.starskyxiii.collapsible_groups.group.filter.EncodedValueNormalizer;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
 import com.starskyxiii.collapsible_groups.group.filter.FilterNodeCapabilities;
 import com.starskyxiii.collapsible_groups.group.filter.FilterNodeKind;
+import com.starskyxiii.collapsible_groups.group.filter.RuleDescriptor;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchQuery;
 import com.starskyxiii.collapsible_groups.ingredient.ItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201NbtAccess;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -37,6 +37,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 /**
@@ -92,7 +94,9 @@ final class EditorRulesPanel {
 
 	private enum ModalKind { NONE, MENU, PICKER, FORM, REFERENCE_PICKER, TYPE_PICKER, VALUE_PICKER }
 
-	private enum ReferencePickerMode { NONE, REFERENCE_ITEM, REFERENCE_COMPONENT, REFERENCE_PATH }
+	private enum ReferencePickerMode {
+		NONE, REFERENCE_ITEM, REFERENCE_COMPONENT, REFERENCE_PATH, REFERENCE_NBT_ROOT, REFERENCE_NBT_PATH
+	}
 
 	private enum ReferenceItemTarget { REFERENCE_SLOT, FORM_PRIMARY }
 
@@ -121,6 +125,8 @@ final class EditorRulesPanel {
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_STARTS_WITH, null, false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_CONTAINS, null, false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.ITEM_PATH_ENDS_WITH, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.NBT, null, false),
+		new MenuEntry(GroupFilterRuleDraft.NodeKind.NBT_PATH, null, false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.HAS_COMPONENT, null, false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.COMPONENT_PATH, null, false),
 		new MenuEntry(GroupFilterRuleDraft.NodeKind.EXACT_STACK, null, false)
@@ -252,13 +258,10 @@ final class EditorRulesPanel {
 	private double modalDragY;
 	private int modalDragStart;
 
-	// ── Edit lifecycle (deleteOnCancel / snapshot-restore) ────────────────
 	private GroupFilterRuleDraft.Node editingNode;
-	private boolean editingIsNew;
-	private String snapType = "";
-	private String snapPrimary = "";
-	private String snapSecondary = "";
-	private String snapTertiary = "";
+	private Supplier<Boolean> dirtyGet = () -> Boolean.TRUE;
+	private Consumer<Boolean> dirtySet = value -> {};
+	private boolean transactionDirtySnapshot;
 
 	// ── Picker state ──────────────────────────────────────────────────────
 	private RuleNodePresentation.PickerKind pickerKind = RuleNodePresentation.PickerKind.NONE;
@@ -309,6 +312,11 @@ final class EditorRulesPanel {
 	private List<ComponentReferenceExtractor.ComponentReference> referenceFilteredComponents = List.of();
 	private List<ComponentPathNavigator.PathNode> referencePaths = List.of();
 	private List<ComponentPathNavigator.PathNode> referenceFilteredPaths = List.of();
+	private List<Minecraft1201NbtAccess.PathValue> referenceNbtPaths = List.of();
+	private List<Minecraft1201NbtAccess.PathValue> referenceFilteredNbtPaths = List.of();
+	@Nullable
+	private Minecraft1201NbtAccess.Snapshot referenceNbtSnapshot;
+	private boolean referenceNbtRootMatches = true;
 	@Nullable
 	private ComponentReferenceExtractor.ComponentReference referenceSelectedComponent;
 	private EditBox referencePickerSearch;
@@ -317,6 +325,7 @@ final class EditorRulesPanel {
 	private int lastReferencePickerClickIndex = -1;
 	private String referenceComponentSearch = "";
 	private String referencePathSearch = "";
+	private String referenceNbtSearch = "";
 	private String referenceItemSearch = "";
 	private boolean referenceItemFilterDirty;
 	private long referenceItemFilterDeadline;
@@ -333,6 +342,11 @@ final class EditorRulesPanel {
 		this.onChanged = onChanged;
 		this.itemUniverseProvider = itemUniverseProvider;
 		this.itemSearchSession = itemSearchSession;
+	}
+
+	void setDirtyGate(Supplier<Boolean> get, Consumer<Boolean> set) {
+		dirtyGet = get;
+		dirtySet = set;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -392,7 +406,8 @@ final class EditorRulesPanel {
 	 */
 	private void abortModal() {
 		closeValuePicker();
-		if (modal == ModalKind.PICKER || modal == ModalKind.FORM || modal == ModalKind.REFERENCE_PICKER || modal == ModalKind.TYPE_PICKER || modal == ModalKind.VALUE_PICKER) {
+		if (modal == ModalKind.PICKER || modal == ModalKind.FORM || modal == ModalKind.REFERENCE_PICKER || modal == ModalKind.TYPE_PICKER || modal == ModalKind.VALUE_PICKER
+			|| state.hasRuleEditTransaction()) {
 			cancelEditor();
 		}
 		modal = ModalKind.NONE;
@@ -776,11 +791,21 @@ final class EditorRulesPanel {
 	// ─────────────────────────────────────────────────────────────────────
 
 	private EditorChrome.Rect modalRect(int desiredW, int desiredH) {
-		int w = Math.min(bodyW - GAP * 2, desiredW);
-		int h = Math.min(bodyH - GAP * 2, desiredH);
-		int x = bodyX + (bodyW - w) / 2;
-		int y = bodyY + (bodyH - h) / 2;
+		return fitModalToBounds(new EditorChrome.Rect(bodyX, bodyY, bodyW, bodyH), desiredW, desiredH);
+	}
+
+	private static EditorChrome.Rect fitModalToBounds(EditorChrome.Rect bounds, int desiredW, int desiredH) {
+		int w = Math.min(bounds.width() - GAP * 2, desiredW);
+		int h = Math.min(bounds.height() - GAP * 2, desiredH);
+		int x = bounds.x() + (bounds.width() - w) / 2;
+		int y = bounds.y() + (bounds.height() - h) / 2;
 		return new EditorChrome.Rect(x, y, Math.max(60, w), Math.max(60, h));
+	}
+
+	static EditorChrome.Rect fitFormModalRect(EditorChrome.Rect body, EditorChrome.Rect viewport,
+		int desiredW, int desiredH) {
+		EditorChrome.Rect bounds = desiredH <= body.height() - GAP * 2 ? body : viewport;
+		return fitModalToBounds(bounds, desiredW, desiredH);
 	}
 
 	private void drawModalPanel(GuiGraphics g, EditorChrome.Rect m, String title) {
@@ -823,7 +848,7 @@ final class EditorRulesPanel {
 	}
 
 	private static FilterNodeKind capabilityKind(GroupFilterRuleDraft.NodeKind kind) {
-		return FilterNodeKind.valueOf(kind.name());
+		return kind.filterKind();
 	}
 
 	private String menuEntryLabel(MenuEntry entry) {
@@ -936,7 +961,7 @@ final class EditorRulesPanel {
 			}
 			return true;
 		}
-		GroupFilterRuleDraft.Node node = state.insertRuleRelativePending(entry.kind());
+		GroupFilterRuleDraft.Node node = state.beginInsertRule(entry.kind());
 		if (node == null) {
 			return true;
 		}
@@ -960,7 +985,7 @@ final class EditorRulesPanel {
 		typePicker = new EditorIngredientTypePicker(font, typeModalRect(340, 230), id -> {
 			typePicker = null;
 			if (editingNode == null) {
-				var node = state.insertRuleRelativePending(kind);
+				var node = state.beginInsertRule(kind);
 				if (node == null) { modal = ModalKind.NONE; return; }
 				node.setIngredientType(id);
 				beginEditor(node, true);
@@ -978,9 +1003,9 @@ final class EditorRulesPanel {
 	}
 
 	private boolean canChangeType() {
-		return editingNode != null && (editingNode.kind() == GroupFilterRuleDraft.NodeKind.TAG
-			|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.ID
-			|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.NAMESPACE)
+		return editingNode != null
+			&& RuleDescriptor.forKind(editingNode.kind().filterKind()).typePolicy()
+				== RuleDescriptor.TypePolicy.INGREDIENT_TYPED
 			&& isExoticIngredientType(editingNode.ingredientType());
 	}
 
@@ -1016,15 +1041,12 @@ final class EditorRulesPanel {
 			(window.getGuiScaledHeight() - height) / 2, width, height);
 	}
 
-	private void beginEditor(GroupFilterRuleDraft.Node node, boolean isNew) {
+	private void beginEditor(GroupFilterRuleDraft.Node node, boolean newlyInserted) {
 		editingNode = node;
-		editingIsNew = isNew;
-		snapType = node.ingredientType();
-		snapPrimary = node.primaryValue();
-		snapSecondary = node.secondaryValue();
-		snapTertiary = node.tertiaryValue();
+		transactionDirtySnapshot = dirtyGet.get();
+		if (newlyInserted) state.markRulesChanged();
 		pickerKind = RuleNodePresentation.pickerKind(node.kind(), node.ingredientType());
-		if (isNew && canChangeType()) {
+		if (newlyInserted && canChangeType()) {
 			openValuePicker(false);
 		} else if (pickerKind != RuleNodePresentation.PickerKind.NONE) {
 			openPicker();
@@ -1033,19 +1055,12 @@ final class EditorRulesPanel {
 		}
 	}
 
-	/**
-	 * Confirm path: values are already on the node (form) or applied by caller (picker).
-	 * For FORM, required fields (per {@link RuleNodeUiContract#requiredRoles()}) must be
-	 * non-blank first — a blank required field aborts the confirm and marks itself
-	 * invalid (red outline) instead of closing the modal.
-	 */
 	private void confirmEditor() {
-		if (modal == ModalKind.FORM && !validateFormRequiredFields()) {
+		if (modal == ModalKind.FORM && !validateFormFields()) {
 			return;
 		}
-		if (editingIsNew) {
-			state.commitPendingRuleNode();
-		}
+		boolean changed = state.ruleEditChanged();
+		state.commitRuleEdit();
 		editingNode = null;
 		modal = ModalKind.NONE;
 		pickerSearch = null;
@@ -1058,15 +1073,10 @@ final class EditorRulesPanel {
 		focusedField = null;
 		state.markRulesChanged();
 		onChanged.run();
+		if (!changed) dirtySet.accept(transactionDirtySnapshot);
 	}
 
-	/**
-	 * Checks the current node's required fields (contract-driven, aligned with
-	 * {@link com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator}) and records
-	 * which are blank into {@link #formInvalidRoles} for the red-outline hint.
-	 * Returns true only when every required field is non-blank.
-	 */
-	private boolean validateFormRequiredFields() {
+	private boolean validateFormFields() {
 		formInvalidRoles.clear();
 		if (editingNode == null) {
 			return true;
@@ -1084,24 +1094,28 @@ final class EditorRulesPanel {
 		if (contract.requiresField(RuleFieldRole.TERTIARY_VALUE) && editingNode.tertiaryValue().isBlank()) {
 			formInvalidRoles.add(RuleFieldRole.TERTIARY_VALUE);
 		}
+		if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT
+			&& !editingNode.primaryValue().isBlank()
+			&& Minecraft1201NbtAccess.canonicalRoot(editingNode.primaryValue()).isEmpty()) {
+			formInvalidRoles.add(RuleFieldRole.PRIMARY_VALUE);
+		}
+		if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT_PATH) {
+			if (!editingNode.primaryValue().isBlank()
+				&& !Minecraft1201NbtAccess.validPath(editingNode.primaryValue())) {
+				formInvalidRoles.add(RuleFieldRole.PRIMARY_VALUE);
+			}
+			if (!editingNode.secondaryValue().isBlank()
+				&& Minecraft1201NbtAccess.canonicalValue(editingNode.secondaryValue()).isEmpty()) {
+				formInvalidRoles.add(RuleFieldRole.SECONDARY_VALUE);
+			}
+		}
 		return formInvalidRoles.isEmpty();
 	}
 
-	/** Cancel path: delete a pending new node, or restore the snapshot on an existing one. */
 	private void cancelEditor() {
 		closeValuePicker();
-		if (editingNode == null) {
-			return;
-		}
-		if (editingIsNew) {
-			state.cancelPendingRuleNode();
-		} else {
-			editingNode.setIngredientType(snapType);
-			editingNode.setPrimaryValue(snapPrimary);
-			editingNode.setSecondaryValue(snapSecondary);
-			editingNode.setTertiaryValue(snapTertiary);
-			state.markRulesChanged();
-		}
+		boolean changed = state.hasRuleEditTransaction();
+		state.cancelRuleEdit();
 		editingNode = null;
 		modal = ModalKind.NONE;
 		pickerSearch = null;
@@ -1112,7 +1126,10 @@ final class EditorRulesPanel {
 		referenceStack = null;
 		resetReferencePickerState();
 		focusedField = null;
-		onChanged.run();
+		if (changed) {
+			onChanged.run();
+			dirtySet.accept(transactionDirtySnapshot);
+		}
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -1454,6 +1471,9 @@ final class EditorRulesPanel {
 		referenceFilteredComponents = List.of();
 		referencePaths = List.of();
 		referenceFilteredPaths = List.of();
+		referenceNbtPaths = List.of();
+		referenceFilteredNbtPaths = List.of();
+		referenceNbtSnapshot = null;
 		referenceSelectedComponent = null;
 		modalScrollOffset = 0;
 		lastReferencePickerClickMs = 0;
@@ -1481,6 +1501,9 @@ final class EditorRulesPanel {
 		referenceComponents = ComponentReferenceExtractor.extract(referenceStack);
 		referencePaths = List.of();
 		referenceFilteredPaths = List.of();
+		referenceNbtPaths = List.of();
+		referenceFilteredNbtPaths = List.of();
+		referenceNbtSnapshot = null;
 		referenceSelectedComponent = preferred;
 		modalScrollOffset = 0;
 		lastReferencePickerClickMs = 0;
@@ -1509,6 +1532,36 @@ final class EditorRulesPanel {
 		scrollReferencePickerToSelection();
 	}
 
+	private void openReferenceNbtPicker() {
+		if (referenceStack == null || editingNode == null || !hasReferenceSlot()) return;
+		modal = ModalKind.REFERENCE_PICKER;
+		referencePickerMode = editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT
+			? ReferencePickerMode.REFERENCE_NBT_ROOT
+			: ReferencePickerMode.REFERENCE_NBT_PATH;
+		referenceItems = List.of();
+		referenceFilteredItems = List.of();
+		referenceComponents = List.of();
+		referenceFilteredComponents = List.of();
+		referencePaths = List.of();
+		referenceFilteredPaths = List.of();
+		referenceNbtSnapshot = Minecraft1201NbtAccess.snapshot(referenceStack).orElse(null);
+		referenceNbtPaths = referenceNbtSnapshot == null ? List.of() : referenceNbtSnapshot.paths();
+		referenceFilteredNbtPaths = referenceNbtPaths;
+		referenceSelectedComponent = null;
+		modalScrollOffset = 0;
+		lastReferencePickerClickMs = 0;
+		lastReferencePickerClickIndex = -1;
+		initReferencePickerSearch(referenceNbtSearch);
+		refilterReferencePicker();
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_NBT_ROOT) {
+			referencePickerSelected = referenceNbtRootAvailable() && referenceNbtRootMatches
+				&& referenceNbtSnapshot.rootSnbt().equals(editingNode.primaryValue()) ? 0 : -1;
+		} else {
+			referencePickerSelected = indexOfNbtPath(referenceFilteredNbtPaths, editingNode.primaryValue());
+		}
+		scrollReferencePickerToSelection();
+	}
+
 	private void initReferencePickerSearch(String value) {
 		EditorChrome.Rect search = pickerSearchRect(referencePickerModalRect());
 		referencePickerSearch = new EditBox(font,
@@ -1531,6 +1584,9 @@ final class EditorRulesPanel {
 				referenceComponentSearch = query;
 			} else if (referencePickerMode == ReferencePickerMode.REFERENCE_PATH) {
 				referencePathSearch = query;
+			} else if (referencePickerMode == ReferencePickerMode.REFERENCE_NBT_PATH
+				|| referencePickerMode == ReferencePickerMode.REFERENCE_NBT_ROOT) {
+				referenceNbtSearch = query;
 			}
 			refilterReferencePicker();
 			modalScrollOffset = 0;
@@ -1565,6 +1621,20 @@ final class EditorRulesPanel {
 					|| EncodedValueNormalizer.normalize(entry.value()).toLowerCase(Locale.ROOT).contains(lowerQuery))
 				.toList();
 			referencePickerSelected = -1;
+		} else if (referencePickerMode == ReferencePickerMode.REFERENCE_NBT_PATH) {
+			referenceFilteredNbtPaths = referenceNbtPaths.stream()
+				.filter(entry -> lowerQuery.isEmpty()
+					|| entry.path().toLowerCase(Locale.ROOT).contains(lowerQuery)
+					|| entry.valueSnbt().toLowerCase(Locale.ROOT).contains(lowerQuery))
+				.toList();
+			referencePickerSelected = -1;
+		} else if (referencePickerMode == ReferencePickerMode.REFERENCE_NBT_ROOT) {
+			referenceNbtRootMatches = lowerQuery.isEmpty()
+				|| Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_NBT_ROOT)
+					.getString().toLowerCase(Locale.ROOT).contains(lowerQuery)
+				|| referenceNbtSnapshot != null
+					&& referenceNbtSnapshot.rootSnbt().toLowerCase(Locale.ROOT).contains(lowerQuery);
+			referencePickerSelected = -1;
 		}
 	}
 
@@ -1585,6 +1655,17 @@ final class EditorRulesPanel {
 		return -1;
 	}
 
+	private static int indexOfNbtPath(List<Minecraft1201NbtAccess.PathValue> entries, String path) {
+		for (int i = 0; i < entries.size(); i++) {
+			if (entries.get(i).path().equals(path)) return i;
+		}
+		return -1;
+	}
+
+	private boolean referenceNbtRootAvailable() {
+		return referenceNbtSnapshot != null && !referenceNbtSnapshot.rootSnbt().isEmpty();
+	}
+
 	private static int indexOfItem(List<ItemStack> entries, ItemStack wanted) {
 		for (int i = 0; i < entries.size(); i++) {
 			if (ItemStack.isSameItemSameTags(entries.get(i), wanted)) return i;
@@ -1601,6 +1682,8 @@ final class EditorRulesPanel {
 			case REFERENCE_ITEM -> referenceFilteredItems.size();
 			case REFERENCE_COMPONENT -> referenceFilteredComponents.size();
 			case REFERENCE_PATH -> referenceFilteredPaths.size();
+			case REFERENCE_NBT_ROOT -> referenceNbtRootAvailable() && referenceNbtRootMatches ? 1 : 0;
+			case REFERENCE_NBT_PATH -> referenceFilteredNbtPaths.size();
 			case NONE -> 0;
 		};
 	}
@@ -1610,6 +1693,8 @@ final class EditorRulesPanel {
 			case REFERENCE_ITEM -> referenceItems.size();
 			case REFERENCE_COMPONENT -> referenceComponents.size();
 			case REFERENCE_PATH -> referencePaths.size();
+			case REFERENCE_NBT_ROOT -> referenceNbtRootAvailable() ? 1 : 0;
+			case REFERENCE_NBT_PATH -> referenceNbtPaths.size();
 			case NONE -> 0;
 		};
 	}
@@ -1626,6 +1711,8 @@ final class EditorRulesPanel {
 		String key = switch (referencePickerMode) {
 			case REFERENCE_ITEM -> ModTranslationKeys.EDITOR_RULES_REFERENCE_ITEM_TITLE;
 			case REFERENCE_PATH -> ModTranslationKeys.EDITOR_RULES_REFERENCE_PATH_TITLE;
+			case REFERENCE_NBT_ROOT -> ModTranslationKeys.EDITOR_RULES_REFERENCE_NBT_ROOT_TITLE;
+			case REFERENCE_NBT_PATH -> ModTranslationKeys.EDITOR_RULES_REFERENCE_NBT_PATH_TITLE;
 			case REFERENCE_COMPONENT, NONE -> ModTranslationKeys.EDITOR_RULES_REFERENCE_COMPONENT_TITLE;
 		};
 		return Component.translatable(key).getString();
@@ -1662,6 +1749,14 @@ final class EditorRulesPanel {
 				String key;
 				if (referencePickerTotalCount() > 0 || referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
 					key = ModTranslationKeys.EDITOR_RULES_PICKER_EMPTY;
+				} else if (referencePickerMode == ReferencePickerMode.REFERENCE_NBT_ROOT) {
+					key = referenceNbtSnapshot == null
+						? ModTranslationKeys.EDITOR_RULES_REFERENCE_NO_NBT
+						: ModTranslationKeys.EDITOR_RULES_REFERENCE_NO_NBT_ROOT;
+				} else if (referencePickerMode == ReferencePickerMode.REFERENCE_NBT_PATH) {
+					key = referenceNbtSnapshot == null
+						? ModTranslationKeys.EDITOR_RULES_REFERENCE_NO_NBT
+						: ModTranslationKeys.EDITOR_RULES_REFERENCE_NO_NBT_PATHS;
 				} else if (referencePickerMode == ReferencePickerMode.REFERENCE_PATH) {
 					key = ModTranslationKeys.EDITOR_RULES_REFERENCE_NO_PATHS;
 				} else {
@@ -1675,8 +1770,14 @@ final class EditorRulesPanel {
 		}
 		ScrollbarHelper.renderPixels(g, list.right() + ScrollbarHelper.GAP, list.y(), list.height(),
 			list.height(), referencePickerContentHeight(), modalScrollOffset);
-		g.drawString(font, referencePickerEntryCount() + " / " + referencePickerTotalCount(),
-			list.x(), list.bottom() + 3, UiPalette.TEXT_HINT, false);
+		String countText = referencePickerEntryCount() + " / " + referencePickerTotalCount();
+		g.drawString(font, countText, list.x(), list.bottom() + 3, UiPalette.TEXT_HINT, false);
+		if (referenceNbtSnapshot != null && referenceNbtSnapshot.truncated()) {
+			String notice = Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_NBT_TRUNCATED).getString();
+			int noticeX = list.x() + font.width(countText) + GAP;
+			g.drawString(font, font.plainSubstrByWidth(notice, Math.max(0, list.right() - noticeX)),
+				noticeX, list.bottom() + 3, COL_UNRESOLVED, false);
+		}
 
 		EditorChrome.Rect confirm = pickerConfirmRect(modalRect);
 		EditorChrome.Rect cancel = pickerCancelRect(modalRect);
@@ -1759,10 +1860,17 @@ final class EditorRulesPanel {
 				primary += " [" + Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_PATCH).getString() + "]";
 			}
 			preview = entry.encodedValue();
-		} else {
+		} else if (referencePickerMode == ReferencePickerMode.REFERENCE_PATH) {
 			ComponentPathNavigator.PathNode entry = referenceFilteredPaths.get(index);
 			primary = entry.path();
 			preview = EncodedValueNormalizer.normalize(entry.value());
+		} else if (referencePickerMode == ReferencePickerMode.REFERENCE_NBT_PATH) {
+			Minecraft1201NbtAccess.PathValue entry = referenceFilteredNbtPaths.get(index);
+			primary = entry.path();
+			preview = entry.valueSnbt();
+		} else {
+			primary = Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_NBT_ROOT).getString();
+			preview = referenceNbtSnapshot == null ? "" : referenceNbtSnapshot.rootSnbt();
 		}
 		int primaryWidth = Math.max(40, list.width() * 3 / 5);
 		g.drawString(font, font.plainSubstrByWidth(primary, primaryWidth - PAD * 2),
@@ -1831,7 +1939,12 @@ final class EditorRulesPanel {
 			ItemStack selected = referenceFilteredItems.get(referencePickerSelected).copy();
 			if (referenceItemTarget == ReferenceItemTarget.REFERENCE_SLOT) {
 				referenceStack = selected;
-				openReferenceComponentPicker();
+				if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT
+					|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT_PATH) {
+					openReferenceNbtPicker();
+				} else {
+					openReferenceComponentPicker();
+				}
 			} else {
 				String value = switch (editingNode.kind()) {
 					case ID -> BuiltInRegistries.ITEM.getKey(selected.getItem()).toString();
@@ -1870,7 +1983,47 @@ final class EditorRulesPanel {
 				RuleFieldRole.PRIMARY_VALUE, component.componentTypeId(),
 				RuleFieldRole.SECONDARY_VALUE, path.path(),
 				RuleFieldRole.TERTIARY_VALUE, EncodedValueNormalizer.normalize(path.value())));
+			return;
 		}
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_NBT_ROOT
+			&& referencePickerSelected == 0 && referenceNbtRootAvailable()) {
+			Map<RuleFieldRole, String> values = nbtReferenceValues(
+				GroupFilterRuleDraft.NodeKind.NBT, referenceNbtSnapshot, referencePickerSelected);
+			openForm();
+			setFormFieldValues(values);
+			return;
+		}
+		if (referencePickerMode == ReferencePickerMode.REFERENCE_NBT_PATH
+			&& referencePickerSelected < referenceFilteredNbtPaths.size()) {
+			Minecraft1201NbtAccess.PathValue path = referenceFilteredNbtPaths.get(referencePickerSelected);
+			Minecraft1201NbtAccess.Snapshot selected = new Minecraft1201NbtAccess.Snapshot(
+				referenceNbtSnapshot == null ? "" : referenceNbtSnapshot.rootSnbt(), List.of(path),
+				referenceNbtSnapshot != null && referenceNbtSnapshot.truncated());
+			Map<RuleFieldRole, String> values = nbtReferenceValues(
+				GroupFilterRuleDraft.NodeKind.NBT_PATH, selected, 0);
+			openForm();
+			setFormFieldValues(values);
+		}
+	}
+
+	static Map<RuleFieldRole, String> nbtReferenceValues(
+		GroupFilterRuleDraft.NodeKind kind,
+		Minecraft1201NbtAccess.Snapshot snapshot,
+		int index
+	) {
+		if (kind == GroupFilterRuleDraft.NodeKind.NBT) {
+			return index == 0 && snapshot != null && !snapshot.rootSnbt().isEmpty()
+				? Map.of(RuleFieldRole.PRIMARY_VALUE, snapshot.rootSnbt())
+				: Map.of();
+		}
+		if (kind == GroupFilterRuleDraft.NodeKind.NBT_PATH && snapshot != null
+			&& index >= 0 && index < snapshot.paths().size()) {
+			Minecraft1201NbtAccess.PathValue path = snapshot.paths().get(index);
+			return Map.of(
+				RuleFieldRole.PRIMARY_VALUE, path.path(),
+				RuleFieldRole.SECONDARY_VALUE, path.valueSnbt());
+		}
+		return Map.of();
 	}
 
 	private void cancelOrBackReferencePicker() {
@@ -1921,8 +2074,6 @@ final class EditorRulesPanel {
 		modal = ModalKind.FORM;
 		modalScrollOffset = 0;
 		RuleNodeUiContract contract = RuleNodeUiContract.forKind(editingNode.kind());
-		// Type field is hidden for the common item/fluid presets (the chip already says it)
-		// and shown read-only for exotic third-party ingredient types decoded from data.
 		boolean showType = contract.exposesField(RuleFieldRole.INGREDIENT_TYPE)
 			&& isExoticIngredientType(editingNode.ingredientType());
 		boolean showPrimary = contract.exposesField(RuleFieldRole.PRIMARY_VALUE);
@@ -1930,12 +2081,12 @@ final class EditorRulesPanel {
 		boolean showTertiary = contract.exposesField(RuleFieldRole.TERTIARY_VALUE);
 		formVisibleFields = (showType ? 1 : 0) + (showPrimary ? 1 : 0)
 			+ (showSecondary ? 1 : 0) + (showTertiary ? 1 : 0);
-		// Item ID / exact-stack values open the item grid; component primary values keep
-		// using the DATA_COMPONENT_TYPE picker. Every exit path returns to this form.
 		formPrimaryHasPickerButton = showPrimary
 			&& ((editingNode.kind() == GroupFilterRuleDraft.NodeKind.ID
 					&& "item".equals(editingNode.ingredientType()))
 				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.EXACT_STACK
+				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT
+				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT_PATH
 				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.HAS_COMPONENT
 				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.COMPONENT_PATH
 				|| canChangeType());
@@ -1994,6 +2145,10 @@ final class EditorRulesPanel {
 		referenceFilteredComponents = List.of();
 		referencePaths = List.of();
 		referenceFilteredPaths = List.of();
+		referenceNbtPaths = List.of();
+		referenceFilteredNbtPaths = List.of();
+		referenceNbtSnapshot = null;
+		referenceNbtRootMatches = true;
 		referenceSelectedComponent = null;
 		referencePickerSearch = null;
 		referencePickerSelected = -1;
@@ -2049,9 +2204,11 @@ final class EditorRulesPanel {
 	}
 
 	private boolean hasReferenceSlot() {
-		return editingNode != null
-			&& (editingNode.kind() == GroupFilterRuleDraft.NodeKind.HAS_COMPONENT
-				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.COMPONENT_PATH);
+		if (editingNode == null) return false;
+		return switch (RuleNodePresentation.referencePickerSource(editingNode.kind())) {
+			case ITEM_COMPONENTS, ITEM_COMPONENT_PATHS, ITEM_NBT, ITEM_NBT_PATH -> true;
+			default -> false;
+		};
 	}
 
 	private int formFieldsY(EditorChrome.Rect modalRect) {
@@ -2098,8 +2255,12 @@ final class EditorRulesPanel {
 		}
 		Component message;
 		if (referenceStack != null) {
-			message = Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_SELECTED,
-				referenceStack.getHoverName());
+			String key = editingNode != null
+				&& (editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT
+					|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT_PATH)
+				? ModTranslationKeys.EDITOR_RULES_REFERENCE_NBT_SELECTED
+				: ModTranslationKeys.EDITOR_RULES_REFERENCE_SELECTED;
+			message = Component.translatable(key, referenceStack.getHoverName());
 		} else {
 			message = Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_CHOOSE);
 		}
@@ -2135,6 +2296,14 @@ final class EditorRulesPanel {
 		return !(normalized.isEmpty() || normalized.equals("item") || normalized.equals("fluid"));
 	}
 
+	static int formFieldMaxLength(GroupFilterRuleDraft.NodeKind kind, RuleFieldRole role) {
+		return (kind == GroupFilterRuleDraft.NodeKind.NBT && role == RuleFieldRole.PRIMARY_VALUE)
+			|| (kind == GroupFilterRuleDraft.NodeKind.NBT_PATH
+				&& (role == RuleFieldRole.PRIMARY_VALUE || role == RuleFieldRole.SECONDARY_VALUE))
+			? Minecraft1201NbtAccess.MAX_EXPECTED_LENGTH
+			: 512;
+	}
+
 	private interface FieldWriter {
 		void set(String value);
 	}
@@ -2152,7 +2321,8 @@ final class EditorRulesPanel {
 		EditBox box = new EditBox(font, x + 4, y + (FIELD_H - font.lineHeight) / 2, w - 8, font.lineHeight + 2,
 			Component.empty());
 		box.setBordered(false);
-		box.setMaxLength(512);
+		box.setMaxLength(role == null || editingNode == null
+			? 512 : formFieldMaxLength(editingNode.kind(), role));
 		box.setHint(hint);
 		box.setValue(value);
 		box.setResponder(text -> {
@@ -2171,10 +2341,25 @@ final class EditorRulesPanel {
 
 	private EditorChrome.Rect formModalRect() {
 		int fields = Math.max(1, formVisibleFields);
-		int referenceHeight = hasReferenceSlot() ? REFERENCE_ROW_H : 0;
-		int desiredH = GAP + font.lineHeight + 6 + referenceHeight
-			+ fields * (FIELD_H + FIELD_GAP) + (canChangeType() ? font.lineHeight + GAP : 0) + BTN_H + GAP * 2;
-		return canChangeType() ? typeModalRect(250, desiredH) : modalRect(250, desiredH);
+		boolean reference = hasReferenceSlot();
+		boolean typeStatus = canChangeType();
+		int desiredH = formDesiredHeight(font.lineHeight, fields, reference, typeStatus);
+		if (typeStatus) return typeModalRect(250, desiredH);
+		if (bodyW <= GAP * 2 || bodyH <= GAP * 2 || desiredH <= bodyH - GAP * 2) {
+			return modalRect(250, desiredH);
+		}
+		var window = net.minecraft.client.Minecraft.getInstance().getWindow();
+		return fitFormModalRect(
+			new EditorChrome.Rect(bodyX, bodyY, bodyW, bodyH),
+			new EditorChrome.Rect(0, 0, window.getGuiScaledWidth(), window.getGuiScaledHeight()),
+			250, desiredH);
+	}
+
+	static int formDesiredHeight(int lineHeight, int fields, boolean reference, boolean typeStatus) {
+		int referenceHeight = reference ? REFERENCE_ROW_H : 0;
+		return GAP + lineHeight + 6 + referenceHeight
+			+ Math.max(1, fields) * (FIELD_H + FIELD_GAP)
+			+ (typeStatus ? lineHeight + GAP : 0) + BTN_H + GAP * 2;
 	}
 
 	private EditorChrome.Rect formConfirmRect(EditorChrome.Rect m) {
@@ -2220,6 +2405,7 @@ final class EditorRulesPanel {
 		drawModalPanel(g, m, title);
 		renderReferenceSlot(g, m, mouseX, mouseY);
 
+		Component invalidTooltip = null;
 		int fy = formFieldsY(m);
 		for (FormFieldEntry entry : formFieldEntries()) {
 			boolean typeButton = entry.field() == formType && canChangeType();
@@ -2232,6 +2418,7 @@ final class EditorRulesPanel {
 			if (invalid) {
 				UiSkinRenderer.drawOutline(g, fieldRect.x(), fieldRect.y(), fieldRect.width(), fieldRect.height(),
 					UiPalette.DANGER);
+				if (fieldRect.contains(mouseX, mouseY)) invalidTooltip = nbtFormError(entry.role());
 			} else {
 				drawFieldChrome(g, fieldRect, entry.field().isFocused(), fieldRect.contains(mouseX, mouseY));
 			}
@@ -2269,6 +2456,33 @@ final class EditorRulesPanel {
 		UiSkinRenderer.drawButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
 			Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString(),
 			buttonState(true, cancel.contains(mouseX, mouseY)));
+		if (invalidTooltip != null) {
+			g.renderTooltip(font, font.split(invalidTooltip, 240), mouseX, mouseY);
+		}
+	}
+
+	private @Nullable Component nbtFormError(RuleFieldRole role) {
+		if (editingNode == null) return null;
+		if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT
+			&& role == RuleFieldRole.PRIMARY_VALUE) {
+			return Component.translatable(editingNode.primaryValue().isBlank()
+				? ModTranslationKeys.EDITOR_RULES_ERROR_NBT_VALUE_BLANK
+				: ModTranslationKeys.EDITOR_RULES_ERROR_NBT_VALUE_INVALID);
+		}
+		if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT_PATH) {
+			if (role == RuleFieldRole.PRIMARY_VALUE) {
+				return editingNode.primaryValue().isBlank()
+					? Component.translatable(ModTranslationKeys.EDITOR_RULES_ERROR_NBT_PATH_BLANK)
+					: Component.translatable(ModTranslationKeys.EDITOR_RULES_ERROR_NBT_PATH_GRAMMAR,
+						editingNode.primaryValue());
+			}
+			if (role == RuleFieldRole.SECONDARY_VALUE) {
+				return Component.translatable(editingNode.secondaryValue().isBlank()
+					? ModTranslationKeys.EDITOR_RULES_ERROR_NBT_PATH_VALUE_BLANK
+					: ModTranslationKeys.EDITOR_RULES_ERROR_NBT_PATH_VALUE_INVALID);
+			}
+		}
+		return null;
 	}
 
 	private boolean formMouseClicked(double mx, double my) {
@@ -2285,6 +2499,9 @@ final class EditorRulesPanel {
 		if (hasReferenceSlot() && referenceRowRect(m).contains(mx, my)) {
 			if (referenceStack == null) {
 				openReferenceItemPicker(ReferenceItemTarget.REFERENCE_SLOT);
+			} else if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT
+				|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT_PATH) {
+				openReferenceNbtPicker();
 			} else {
 				openReferenceComponentPicker();
 			}
@@ -2316,18 +2533,16 @@ final class EditorRulesPanel {
 		return true;
 	}
 
-	/**
-	 * Field-level picker entry point: switches FORM to the typed picker appropriate
-	 * for the edited node, without touching the pending-node lifecycle
-	 * (editingNode / editingIsNew are untouched — only the modal switches). The four
-	 * exit paths (confirmPickerSelection / cancelOrReturnPicker / keyPressed Escape)
-	 * bring the panel back to FORM via {@link #setFormFieldValue}.
-	 */
 	private void openFieldPicker(RuleFieldRole targetRole) {
 		if (editingNode == null) {
 			return;
 		}
 		if (canChangeType()) { openValuePicker(true); return; }
+		if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT
+			|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.NBT_PATH) {
+			openReferenceItemPicker(ReferenceItemTarget.REFERENCE_SLOT);
+			return;
+		}
 		if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.ID
 			|| editingNode.kind() == GroupFilterRuleDraft.NodeKind.EXACT_STACK) {
 			openReferenceItemPicker(ReferenceItemTarget.FORM_PRIMARY);
@@ -2357,6 +2572,8 @@ final class EditorRulesPanel {
 			case ITEM_PATH_STARTS_WITH, ITEM_PATH_CONTAINS, ITEM_PATH_ENDS_WITH ->
 				Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PATH);
 			case EXACT_STACK -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_STACK);
+			case NBT -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_NBT);
+			case NBT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_NBT_PATH);
 			case HAS_COMPONENT, COMPONENT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_COMPONENT);
 			default -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
 		};
@@ -2366,6 +2583,7 @@ final class EditorRulesPanel {
 		return switch (node.kind()) {
 			case HAS_COMPONENT -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
 			case COMPONENT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PATH);
+			case NBT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_NBT_VALUE);
 			default -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE_2);
 		};
 	}
@@ -2458,8 +2676,7 @@ final class EditorRulesPanel {
 		if (!node.kind().compound()) {
 			int editX = editButtonX(list);
 			if (hoverIn(mx, my, editX, iconY, ICON_BTN_W, ICON_BTN_H)) {
-				state.selectRuleNode(node);
-				beginEditor(node, false);
+				if (state.beginRuleEdit(node)) beginEditor(node, false);
 				return true;
 			}
 		}

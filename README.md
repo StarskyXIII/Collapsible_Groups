@@ -4,7 +4,7 @@ Collapsible Groups adds collapsible ingredient groups to JEI and EMI. This branc
 
 ## Overview
 
-This version stores exact item selections using Minecraft 1.20.1 NBT. Minecraft 1.21 component rules and exact-item formats remain preserved as unavailable data; they are not converted automatically. A full NBT path editor is outside this branch's current scope.
+This version supports exact item selections, complete NBT conditions and NBT path conditions using Minecraft 1.20.1's native data types. The rule editor can take values from a sample item or accept SNBT directly. Minecraft 1.21 component rules and exact-item formats remain preserved as unavailable data; they are not converted automatically.
 
 KubeJS 6 integration uses the client-side `CGEvents.groups` event on both loaders. KubeJS is optional. The Minecraft 1.21.1 implementation remains on its separate version branch.
 

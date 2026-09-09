@@ -25,7 +25,7 @@ final class EditorIngredientValuePicker {
 	private final Consumer<String> confirm;
 	private final Consumer<String> manual;
 	private final Runnable cancel;
-	private WeakReference<EditorRuntimeAccess> runtime = new WeakReference<>(null);
+	private WeakReference<EditorIngredientAccess> runtime = new WeakReference<>(null);
 	private int focus;
 	private int offset;
 	private long lastClick;
@@ -58,7 +58,7 @@ final class EditorIngredientValuePicker {
 	}
 
 	void tick() {
-		var next = EditorRuntimeServices.find().orElse(null);
+		var next = EditorRuntimeServices.findIngredients().orElse(null);
 		var previous = runtime.get();
 		if (next != previous) {
 			if (previous != null) kind.cancel(previous);
@@ -79,7 +79,7 @@ final class EditorIngredientValuePicker {
 	}
 
 	private boolean refresh() {
-		var next = kind.snapshot(EditorRuntimeServices.find().orElse(null), type, namespaces);
+		var next = kind.snapshot(EditorRuntimeServices.findIngredients().orElse(null), type, namespaces);
 		if (!selection.update(next)) return false;
 		offset = 0;
 		lastClicked = null;

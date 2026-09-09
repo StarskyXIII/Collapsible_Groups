@@ -321,7 +321,6 @@ final class EditorLeftPanel {
 		boolean was = state.isExactSelected(stack) || state.isWholeItemSelected(stack);
 		if (net.minecraft.client.gui.screens.Screen.hasControlDown()) state.toggleWholeItemSelection(stack);
 		else state.toggleSingleSelection(stack);
-		state.syncEditItems();
 		onChange.run();
 		startDrag(was ? DragGesture.ITEM_REMOVE : DragGesture.ITEM_ADD,
 			was ? dragRemoveKey(stack) : dragAddKey(stack));
@@ -407,7 +406,6 @@ final class EditorLeftPanel {
 				String key = dragAddKey(stack);
 				if (dragVisited.add(key) && !state.isWholeItemSelected(stack) && !state.isExactSelected(stack)) {
 					if (state.addSingleSelectionIfAbsent(stack)) {
-						state.syncEditItems();
 						onChange.run();
 					}
 				}
@@ -417,7 +415,6 @@ final class EditorLeftPanel {
 				String key = dragRemoveKey(stack);
 				if (dragVisited.add(key) && (state.isExactSelected(stack) || state.isWholeItemSelected(stack))) {
 					state.removeSingleSelection(stack, allItems);
-					state.syncEditItems();
 					onChange.run();
 				}
 			}

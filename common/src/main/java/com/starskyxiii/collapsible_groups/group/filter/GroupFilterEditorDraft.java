@@ -48,6 +48,8 @@ public final class GroupFilterEditorDraft {
 		NESTED_STRUCTURE(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NESTED_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_NESTED_REASON),
 		HAS_COMPONENT(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_HAS_COMPONENT_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_HAS_COMPONENT_REASON),
 		COMPONENT_PATH(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_COMPONENT_PATH_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_COMPONENT_PATH_REASON),
+		NBT("collapsible_groups.editor.unsupported_node.nbt.label", "collapsible_groups.editor.unsupported_node.nbt.reason"),
+		NBT_PATH("collapsible_groups.editor.unsupported_node.nbt_path.label", "collapsible_groups.editor.unsupported_node.nbt_path.reason"),
 		UNAVAILABLE(ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_UNAVAILABLE_LABEL, ModTranslationKeys.EDITOR_UNSUPPORTED_NODE_UNAVAILABLE_REASON);
 
 		private final String labelKey;
@@ -348,6 +350,10 @@ public final class GroupFilterEditorDraft {
 			kinds.add(UnsupportedEditorNodeKind.HAS_COMPONENT);
 		} else if (filter instanceof GroupFilter.ComponentPath) {
 			kinds.add(UnsupportedEditorNodeKind.COMPONENT_PATH);
+		} else if (filter instanceof GroupFilter.Nbt) {
+			kinds.add(UnsupportedEditorNodeKind.NBT);
+		} else if (filter instanceof GroupFilter.NbtPath) {
+			kinds.add(UnsupportedEditorNodeKind.NBT_PATH);
 		} else if (filter instanceof GroupFilter.Unsupported) {
 			kinds.add(UnsupportedEditorNodeKind.UNAVAILABLE);
 		}

@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.kubejs;
 
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201NbtAccess;
 import dev.latvian.mods.kubejs.util.ListJS;
 import dev.latvian.mods.rhino.Wrapper;
 import net.minecraft.resources.ResourceLocation;
@@ -74,6 +75,17 @@ public final class CGGroupSourceBuilder {
 
 	public GroupFilter fluidId(String id) { return Filters.fluidId(requireId(id, "fluid").toString()); }
 	public GroupFilter fluidTag(String id) { return Filters.fluidTag(requireId(id, "fluid tag").toString()); }
+	public GroupFilter nbt(String snbt) {
+		return Filters.nbt(Minecraft1201NbtAccess.canonicalRoot(snbt)
+			.orElseThrow(() -> new IllegalArgumentException("nbt() requires a valid compound SNBT value")));
+	}
+	public GroupFilter nbtPath(String path, String snbt) {
+		if (!Minecraft1201NbtAccess.validPath(path)) {
+			throw new IllegalArgumentException("nbtPath() requires a valid NBT path");
+		}
+		return Filters.nbtPath(path, Minecraft1201NbtAccess.canonicalValue(snbt)
+			.orElseThrow(() -> new IllegalArgumentException("nbtPath() requires a valid SNBT value")));
+	}
 	public GroupFilter any(Object filters) { return composition(filters, true); }
 	public GroupFilter all(Object filters) { return composition(filters, false); }
 

@@ -16,40 +16,46 @@ import java.util.Optional;
  */
 public final class GroupFilterRuleDraft {
 	public enum NodeKind {
-		ANY(true, 1, Integer.MAX_VALUE),
-		ALL(true, 1, Integer.MAX_VALUE),
-		NOT(true, 0, 1),
-		ID(false, 0, 0),
-		TAG(false, 0, 0),
-		BLOCK_TAG(false, 0, 0),
-		ITEM_PATH_STARTS_WITH(false, 0, 0),
-		ITEM_PATH_CONTAINS(false, 0, 0),
-		ITEM_PATH_ENDS_WITH(false, 0, 0),
-		NAMESPACE(false, 0, 0),
-		EXACT_STACK(false, 0, 0),
-		HAS_COMPONENT(false, 0, 0),
-		COMPONENT_PATH(false, 0, 0);
+		ANY(FilterNodeKind.ANY),
+		ALL(FilterNodeKind.ALL),
+		NOT(FilterNodeKind.NOT),
+		ID(FilterNodeKind.ID),
+		TAG(FilterNodeKind.TAG),
+		BLOCK_TAG(FilterNodeKind.BLOCK_TAG),
+		ITEM_PATH_STARTS_WITH(FilterNodeKind.ITEM_PATH_STARTS_WITH),
+		ITEM_PATH_CONTAINS(FilterNodeKind.ITEM_PATH_CONTAINS),
+		ITEM_PATH_ENDS_WITH(FilterNodeKind.ITEM_PATH_ENDS_WITH),
+		NAMESPACE(FilterNodeKind.NAMESPACE),
+		EXACT_STACK(FilterNodeKind.EXACT_STACK),
+		NBT(FilterNodeKind.NBT),
+		NBT_PATH(FilterNodeKind.NBT_PATH),
+		HAS_COMPONENT(FilterNodeKind.HAS_COMPONENT),
+		COMPONENT_PATH(FilterNodeKind.COMPONENT_PATH);
 
-		private final boolean compound;
-		private final int minChildren;
-		private final int maxChildren;
+		private final FilterNodeKind filterKind;
 
-		NodeKind(boolean compound, int minChildren, int maxChildren) {
-			this.compound = compound;
-			this.minChildren = minChildren;
-			this.maxChildren = maxChildren;
+		NodeKind(FilterNodeKind filterKind) {
+			this.filterKind = filterKind;
+		}
+
+		public FilterNodeKind filterKind() {
+			return filterKind;
 		}
 
 		public boolean compound() {
-			return compound;
+			return descriptor().compound();
 		}
 
 		public int minChildren() {
-			return minChildren;
+			return descriptor().draftMinChildren();
 		}
 
 		public int maxChildren() {
-			return maxChildren;
+			return descriptor().maxChildren();
+		}
+
+		private RuleDescriptor descriptor() {
+			return RuleDescriptor.forKind(filterKind);
 		}
 	}
 
@@ -157,8 +163,75 @@ public final class GroupFilterRuleDraft {
 		root = other.root == null ? null : copyNode(other.root, null);
 	}
 
+	public GroupFilterRuleDraft copy() {
+		GroupFilterRuleDraft copy = new GroupFilterRuleDraft();
+		copy.root = root == null ? null : copyNode(root, null);
+		return copy;
+	}
+
+	public boolean contentEquals(GroupFilterRuleDraft other) {
+		return other != null && nodesEqual(root, other.root);
+	}
+
+	public Optional<List<Integer>> pathOf(@Nullable Node node) {
+		if (node == null) {
+			return Optional.empty();
+		}
+		List<Integer> reversed = new ArrayList<>();
+		Node current = node;
+		while (current.parent != null) {
+			int index = current.parent.children.indexOf(current);
+			if (index < 0) {
+				return Optional.empty();
+			}
+			reversed.add(index);
+			current = current.parent;
+		}
+		if (current != root) {
+			return Optional.empty();
+		}
+		List<Integer> path = new ArrayList<>(reversed.size());
+		for (int i = reversed.size() - 1; i >= 0; i--) {
+			path.add(reversed.get(i));
+		}
+		return Optional.of(List.copyOf(path));
+	}
+
+	public @Nullable Node nodeAtPath(List<Integer> path) {
+		Objects.requireNonNull(path, "path");
+		Node current = root;
+		for (int index : path) {
+			if (current == null || index < 0 || index >= current.children.size()) {
+				return null;
+			}
+			current = current.children.get(index);
+		}
+		return current;
+	}
+
 	public Node createNode(NodeKind kind) {
 		return new Node(kind);
+	}
+
+	private static boolean nodesEqual(@Nullable Node left, @Nullable Node right) {
+		if (left == right) {
+			return true;
+		}
+		if (left == null || right == null
+			|| left.kind != right.kind
+			|| !left.ingredientType.equals(right.ingredientType)
+			|| !left.primaryValue.equals(right.primaryValue)
+			|| !left.secondaryValue.equals(right.secondaryValue)
+			|| !left.tertiaryValue.equals(right.tertiaryValue)
+			|| left.children.size() != right.children.size()) {
+			return false;
+		}
+		for (int i = 0; i < left.children.size(); i++) {
+			if (!nodesEqual(left.children.get(i), right.children.get(i))) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	public Node setRoot(NodeKind kind) {
@@ -447,6 +520,19 @@ public final class GroupFilterRuleDraft {
 				node.primaryValue = exactStack.encodedStack();
 			return node;
 		}
+		if (filter instanceof GroupFilter.Nbt) {
+			GroupFilter.Nbt nbt = (GroupFilter.Nbt) filter;
+			Node node = new Node(NodeKind.NBT);
+			node.primaryValue = nbt.expectedSnbt();
+			return node;
+		}
+		if (filter instanceof GroupFilter.NbtPath) {
+			GroupFilter.NbtPath nbtPath = (GroupFilter.NbtPath) filter;
+			Node node = new Node(NodeKind.NBT_PATH);
+			node.primaryValue = nbtPath.path();
+			node.secondaryValue = nbtPath.expectedSnbt();
+			return node;
+		}
 		if (filter instanceof GroupFilter.HasComponent) {
 			GroupFilter.HasComponent hasComponent = (GroupFilter.HasComponent) filter;
 				Node node = new Node(NodeKind.HAS_COMPONENT);
@@ -485,6 +571,8 @@ public final class GroupFilterRuleDraft {
 			case ITEM_PATH_ENDS_WITH -> Filters.itemPathEndsWith(node.primaryValue);
 			case NAMESPACE -> Filters.namespace(node.ingredientType, node.primaryValue);
 			case EXACT_STACK -> Filters.exactStack(node.primaryValue);
+			case NBT -> new GroupFilter.Nbt(node.primaryValue);
+			case NBT_PATH -> new GroupFilter.NbtPath(node.primaryValue, node.secondaryValue);
 			case HAS_COMPONENT -> Filters.itemComponent(node.primaryValue, node.secondaryValue);
 			case COMPONENT_PATH -> Filters.itemComponentPath(node.primaryValue, node.secondaryValue, node.tertiaryValue);
 		};

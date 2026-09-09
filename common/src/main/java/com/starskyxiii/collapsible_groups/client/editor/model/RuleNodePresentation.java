@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor.model;
 
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
+import com.starskyxiii.collapsible_groups.group.filter.RuleDescriptor;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 
 import java.util.List;
@@ -60,6 +61,8 @@ public final class RuleNodePresentation {
 			case ITEM_PATH_CONTAINS -> ModTranslationKeys.EDITOR_RULES_CHIP_PATH_CONTAINS;
 			case ITEM_PATH_ENDS_WITH -> ModTranslationKeys.EDITOR_RULES_CHIP_PATH_ENDS;
 			case EXACT_STACK -> ModTranslationKeys.EDITOR_RULES_CHIP_EXACT_STACK;
+			case NBT -> ModTranslationKeys.EDITOR_RULES_CHIP_NBT;
+			case NBT_PATH -> ModTranslationKeys.EDITOR_RULES_CHIP_NBT_PATH;
 			case HAS_COMPONENT -> ModTranslationKeys.EDITOR_RULES_CHIP_HAS_COMPONENT;
 			case COMPONENT_PATH -> ModTranslationKeys.EDITOR_RULES_CHIP_COMPONENT_PATH;
 		};
@@ -68,16 +71,21 @@ public final class RuleNodePresentation {
 	public static PickerKind pickerKind(GroupFilterRuleDraft.NodeKind kind, String ingredientType) {
 		Objects.requireNonNull(kind, "kind");
 		String type = normalizeType(ingredientType);
-		return switch (kind) {
-			case TAG -> switch (type) {
+		return switch (referencePickerSource(kind)) {
+			case INGREDIENT_TAGS -> switch (type) {
 				case TYPE_ITEM -> PickerKind.ITEM_TAG;
 				case TYPE_FLUID -> PickerKind.FLUID_TAG;
 				default -> PickerKind.NONE;
 			};
-			case BLOCK_TAG -> PickerKind.BLOCK_TAG;
-			case NAMESPACE -> type.equals(TYPE_ITEM) || type.equals(TYPE_FLUID) ? PickerKind.NAMESPACE : PickerKind.NONE;
+			case BLOCK_TAGS -> PickerKind.BLOCK_TAG;
+			case INGREDIENT_NAMESPACES -> type.equals(TYPE_ITEM) || type.equals(TYPE_FLUID)
+				? PickerKind.NAMESPACE : PickerKind.NONE;
 			default -> PickerKind.NONE;
 		};
+	}
+
+	public static RuleDescriptor.ReferencePickerSource referencePickerSource(GroupFilterRuleDraft.NodeKind kind) {
+		return RuleDescriptor.forKind(Objects.requireNonNull(kind, "kind").filterKind()).referencePickerSource();
 	}
 
 	public static BlockAccent blockAccent(GroupFilterRuleDraft.NodeKind kind) {
@@ -101,6 +109,8 @@ public final class RuleNodePresentation {
 			case ITEM_PATH_ENDS_WITH -> ModTranslationKeys.EDITOR_RULES_KIND_DESC_PATH_ENDS;
 			case NAMESPACE -> ModTranslationKeys.EDITOR_RULES_KIND_DESC_NAMESPACE;
 			case EXACT_STACK -> ModTranslationKeys.EDITOR_RULES_KIND_DESC_EXACT_STACK;
+			case NBT -> ModTranslationKeys.EDITOR_RULES_KIND_DESC_NBT;
+			case NBT_PATH -> ModTranslationKeys.EDITOR_RULES_KIND_DESC_NBT_PATH;
 			case HAS_COMPONENT -> ModTranslationKeys.EDITOR_RULES_KIND_DESC_HAS_COMPONENT;
 			case COMPONENT_PATH -> ModTranslationKeys.EDITOR_RULES_KIND_DESC_COMPONENT_PATH;
 		};
@@ -112,8 +122,9 @@ public final class RuleNodePresentation {
 		return switch (node.kind()) {
 			case ALL, ANY, NOT -> "";
 			case ID, TAG, NAMESPACE -> typedValue(node);
-			case BLOCK_TAG, ITEM_PATH_STARTS_WITH, ITEM_PATH_CONTAINS, ITEM_PATH_ENDS_WITH, EXACT_STACK ->
+			case BLOCK_TAG, ITEM_PATH_STARTS_WITH, ITEM_PATH_CONTAINS, ITEM_PATH_ENDS_WITH, EXACT_STACK, NBT ->
 				node.primaryValue();
+			case NBT_PATH -> node.primaryValue() + " = " + node.secondaryValue();
 			case HAS_COMPONENT -> node.secondaryValue().isBlank()
 				? node.primaryValue()
 				: node.primaryValue() + " = " + node.secondaryValue();

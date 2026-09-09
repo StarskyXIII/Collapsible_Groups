@@ -205,11 +205,29 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_RULES_ERROR_MISSING_VALUE = "collapsible_groups.editor.rules.error.missing_value";
 
+	public static final String EDITOR_RULES_ERROR_NBT_VALUE_BLANK = "collapsible_groups.editor.rules.error.nbt_value_blank";
+
+	public static final String EDITOR_RULES_ERROR_NBT_VALUE_INVALID = "collapsible_groups.editor.rules.error.nbt_value_invalid";
+
+	public static final String EDITOR_RULES_ERROR_NBT_PATH_BLANK = "collapsible_groups.editor.rules.error.nbt_path_blank";
+
+	public static final String EDITOR_RULES_ERROR_NBT_PATH_GRAMMAR = "collapsible_groups.editor.rules.error.nbt_path_grammar";
+
+	public static final String EDITOR_RULES_ERROR_NBT_PATH_VALUE_BLANK = "collapsible_groups.editor.rules.error.nbt_path_value_blank";
+
+	public static final String EDITOR_RULES_ERROR_NBT_PATH_VALUE_INVALID = "collapsible_groups.editor.rules.error.nbt_path_value_invalid";
+
 	public static final String EDITOR_RULES_FIELD_COMPONENT = "collapsible_groups.editor.rules.field.component";
 
 	public static final String EDITOR_RULES_FIELD_ID = "collapsible_groups.editor.rules.field.id";
 
 	public static final String EDITOR_RULES_FIELD_NAMESPACE = "collapsible_groups.editor.rules.field.namespace";
+
+	public static final String EDITOR_RULES_FIELD_NBT = "collapsible_groups.editor.rules.field.nbt";
+
+	public static final String EDITOR_RULES_FIELD_NBT_PATH = "collapsible_groups.editor.rules.field.nbt_path";
+
+	public static final String EDITOR_RULES_FIELD_NBT_VALUE = "collapsible_groups.editor.rules.field.nbt_value";
 
 	public static final String EDITOR_RULES_FIELD_PATH = "collapsible_groups.editor.rules.field.path";
 
@@ -288,6 +306,10 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_RULES_CHIP_EXACT_STACK = "collapsible_groups.editor.rules.chip.exact_stack";
 
+	public static final String EDITOR_RULES_CHIP_NBT = "collapsible_groups.editor.rules.chip.nbt";
+
+	public static final String EDITOR_RULES_CHIP_NBT_PATH = "collapsible_groups.editor.rules.chip.nbt_path";
+
 	public static final String EDITOR_RULES_CHIP_HAS_COMPONENT = "collapsible_groups.editor.rules.chip.has_component";
 
 	public static final String EDITOR_RULES_CHIP_COMPONENT_PATH = "collapsible_groups.editor.rules.chip.component_path";
@@ -313,6 +335,10 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_RULES_KIND_DESC_NAMESPACE = "collapsible_groups.editor.rules.kind_desc.namespace";
 
 	public static final String EDITOR_RULES_KIND_DESC_EXACT_STACK = "collapsible_groups.editor.rules.kind_desc.exact_stack";
+
+	public static final String EDITOR_RULES_KIND_DESC_NBT = "collapsible_groups.editor.rules.kind_desc.nbt";
+
+	public static final String EDITOR_RULES_KIND_DESC_NBT_PATH = "collapsible_groups.editor.rules.kind_desc.nbt_path";
 
 	public static final String EDITOR_RULES_KIND_DESC_HAS_COMPONENT = "collapsible_groups.editor.rules.kind_desc.has_component";
 
@@ -353,6 +379,22 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_RULES_REFERENCE_COMPONENT_TITLE = "collapsible_groups.editor.rules.reference.component_title";
 
 	public static final String EDITOR_RULES_REFERENCE_PATH_TITLE = "collapsible_groups.editor.rules.reference.path_title";
+
+	public static final String EDITOR_RULES_REFERENCE_NBT_ROOT_TITLE = "collapsible_groups.editor.rules.reference.nbt_root_title";
+
+	public static final String EDITOR_RULES_REFERENCE_NBT_PATH_TITLE = "collapsible_groups.editor.rules.reference.nbt_path_title";
+
+	public static final String EDITOR_RULES_REFERENCE_NBT_ROOT = "collapsible_groups.editor.rules.reference.nbt_root";
+
+	public static final String EDITOR_RULES_REFERENCE_NBT_SELECTED = "collapsible_groups.editor.rules.reference.nbt_selected";
+
+	public static final String EDITOR_RULES_REFERENCE_NO_NBT = "collapsible_groups.editor.rules.reference.no_nbt";
+
+	public static final String EDITOR_RULES_REFERENCE_NO_NBT_ROOT = "collapsible_groups.editor.rules.reference.no_nbt_root";
+
+	public static final String EDITOR_RULES_REFERENCE_NO_NBT_PATHS = "collapsible_groups.editor.rules.reference.no_nbt_paths";
+
+	public static final String EDITOR_RULES_REFERENCE_NBT_TRUNCATED = "collapsible_groups.editor.rules.reference.nbt_truncated";
 
 	public static final String EDITOR_RULES_REFERENCE_NO_COMPONENTS = "collapsible_groups.editor.rules.reference.no_components";
 

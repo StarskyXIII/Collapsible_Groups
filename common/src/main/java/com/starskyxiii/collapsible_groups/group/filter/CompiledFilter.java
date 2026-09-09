@@ -4,6 +4,7 @@ import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201NbtAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -68,6 +69,8 @@ public final class CompiledFilter {
 		if (filter instanceof GroupFilter.ItemPathEndsWith) return new ItemPathEndsWithNode(((GroupFilter.ItemPathEndsWith) filter).suffix());
 		if (filter instanceof GroupFilter.Namespace) { GroupFilter.Namespace value = (GroupFilter.Namespace) filter; return new NamespaceNode(canonicalType(value.ingredientType()), value.namespace()); }
 		if (filter instanceof GroupFilter.ExactStack) return new ExactStackSetNode(List.of(((GroupFilter.ExactStack) filter).encodedStack()));
+		if (filter instanceof GroupFilter.Nbt) return new NbtNode(((GroupFilter.Nbt) filter).expectedSnbt());
+		if (filter instanceof GroupFilter.NbtPath) { GroupFilter.NbtPath value = (GroupFilter.NbtPath) filter; return new NbtPathNode(value.path(), value.expectedSnbt()); }
 		if (filter instanceof GroupFilter.HasComponent) { GroupFilter.HasComponent value = (GroupFilter.HasComponent) filter; return new HasComponentNode(value.componentTypeId(), value.encodedValue()); }
 		if (filter instanceof GroupFilter.ComponentPath) { GroupFilter.ComponentPath value = (GroupFilter.ComponentPath) filter; return new ComponentPathNode(value.componentTypeId(), value.path(), value.expectedValue()); }
 		return UnavailableNode.INSTANCE;
@@ -132,7 +135,7 @@ public final class CompiledFilter {
 	}
 
 	private sealed interface CompiledNode
-		permits AnyNode, AllNode, NotNode, IdNode, IdSetNode, TagNode, BlockTagNode, ItemPathStartsWithNode, ItemPathContainsNode, ItemPathEndsWithNode, NamespaceNode, ExactStackSetNode, HasComponentNode, ComponentPathNode, UnavailableNode {
+		permits AnyNode, AllNode, NotNode, IdNode, IdSetNode, TagNode, BlockTagNode, ItemPathStartsWithNode, ItemPathContainsNode, ItemPathEndsWithNode, NamespaceNode, ExactStackSetNode, NbtNode, NbtPathNode, HasComponentNode, ComponentPathNode, UnavailableNode {
 		default Evaluation evaluate(IngredientView view) {
 			return matches(view) ? Evaluation.MATCH : Evaluation.NO_MATCH;
 		}
@@ -348,6 +351,38 @@ public final class CompiledFilter {
 		@Override
 		public boolean matches(IngredientView view) {
 			return sameType("item", view) && view.hasComponent(componentTypeId, encodedValue);
+		}
+	}
+
+	private static final class NbtNode implements CompiledNode {
+		private final Optional<Minecraft1201NbtAccess.Matcher> matcher;
+
+		private NbtNode(String expectedSnbt) {
+			matcher = Minecraft1201NbtAccess.compileRoot(expectedSnbt);
+		}
+
+		@Override
+		public Evaluation evaluate(IngredientView view) {
+			if (!sameType("item", view)) return Evaluation.NO_MATCH;
+			return matcher
+				.map(value -> view.matchesNbt(value) ? Evaluation.MATCH : Evaluation.NO_MATCH)
+				.orElse(Evaluation.UNAVAILABLE);
+		}
+	}
+
+	private static final class NbtPathNode implements CompiledNode {
+		private final Optional<Minecraft1201NbtAccess.Matcher> matcher;
+
+		private NbtPathNode(String path, String expectedSnbt) {
+			matcher = Minecraft1201NbtAccess.compilePath(path, expectedSnbt);
+		}
+
+		@Override
+		public Evaluation evaluate(IngredientView view) {
+			if (!sameType("item", view)) return Evaluation.NO_MATCH;
+			return matcher
+				.map(value -> view.matchesNbt(value) ? Evaluation.MATCH : Evaluation.NO_MATCH)
+				.orElse(Evaluation.UNAVAILABLE);
 		}
 	}
 

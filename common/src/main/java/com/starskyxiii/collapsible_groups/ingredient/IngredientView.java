@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.ingredient;
 
 import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201NbtAccess;
 
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.world.item.ItemStack;
@@ -39,6 +40,10 @@ public interface IngredientView {
 	}
 
 	default boolean hasComponentPath(String componentTypeId, String path, String expectedValue) {
+		return false;
+	}
+
+	default boolean matchesNbt(Minecraft1201NbtAccess.Matcher matcher) {
 		return false;
 	}
 }

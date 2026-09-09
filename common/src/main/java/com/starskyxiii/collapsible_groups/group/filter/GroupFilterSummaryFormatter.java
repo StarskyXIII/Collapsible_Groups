@@ -35,6 +35,8 @@ public final class GroupFilterSummaryFormatter {
 		if (filter instanceof GroupFilter.ItemPathEndsWith) return "item path ends with " + ((GroupFilter.ItemPathEndsWith) filter).suffix();
 		if (filter instanceof GroupFilter.Namespace) { GroupFilter.Namespace value = (GroupFilter.Namespace) filter; return formatNamespace(value.ingredientType(), value.namespace()); }
 		if (filter instanceof GroupFilter.ExactStack) return "exact stack";
+		if (filter instanceof GroupFilter.Nbt) return "NBT = " + ((GroupFilter.Nbt) filter).expectedSnbt();
+		if (filter instanceof GroupFilter.NbtPath) { GroupFilter.NbtPath value = (GroupFilter.NbtPath) filter; return "NBT path " + value.path() + " = " + value.expectedSnbt(); }
 		if (filter instanceof GroupFilter.HasComponent) { GroupFilter.HasComponent value = (GroupFilter.HasComponent) filter; return "has component " + value.componentTypeId() + "=" + value.encodedValue(); }
 		if (filter instanceof GroupFilter.ComponentPath) { GroupFilter.ComponentPath value = (GroupFilter.ComponentPath) filter; return "component path " + value.componentTypeId() + "/" + value.path() + "=" + value.expectedValue(); }
 		return "unavailable " + ((GroupFilter.Unsupported) filter).recognizedKind();
@@ -94,6 +96,8 @@ public final class GroupFilterSummaryFormatter {
 			|| filter instanceof GroupFilter.ItemPathEndsWith
 			|| filter instanceof GroupFilter.Namespace
 			|| filter instanceof GroupFilter.ExactStack
+			|| filter instanceof GroupFilter.Nbt
+			|| filter instanceof GroupFilter.NbtPath
 			|| filter instanceof GroupFilter.HasComponent
 			|| filter instanceof GroupFilter.ComponentPath;
 	}
@@ -107,6 +111,8 @@ public final class GroupFilterSummaryFormatter {
 		if (filter instanceof GroupFilter.ItemPathEndsWith) return "item path ends with";
 		if (filter instanceof GroupFilter.Namespace) return categoryPrefix(((GroupFilter.Namespace) filter).ingredientType()) + "namespace";
 		if (filter instanceof GroupFilter.ExactStack) return "exact stack";
+		if (filter instanceof GroupFilter.Nbt) return "NBT";
+		if (filter instanceof GroupFilter.NbtPath) return "NBT path";
 		if (filter instanceof GroupFilter.HasComponent) return "has component";
 		if (filter instanceof GroupFilter.ComponentPath) return "component path";
 		return formatNode(filter, false);

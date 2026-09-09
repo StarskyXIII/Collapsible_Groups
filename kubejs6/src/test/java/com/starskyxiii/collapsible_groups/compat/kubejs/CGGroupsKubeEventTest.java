@@ -1,12 +1,15 @@
 package com.starskyxiii.collapsible_groups.compat.kubejs;
 
 import com.google.gson.JsonObject;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertInstanceOf;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CGGroupsKubeEventTest {
 	@Test
@@ -39,5 +42,17 @@ class CGGroupsKubeEventTest {
 		spoofedJson.addProperty("nbt", "{mode:1}");
 		assertEquals(false, KubeJs6FilterCompiler.isStrictFabricNbt(spoofedJson,
 			"example.UnknownCustomIngredient"));
+	}
+
+	@Test
+	void explicitNbtBuildersValidateAndCanonicalizeWithoutChangingIngredientLowering() {
+		CGGroupSourceBuilder source = new CGGroupSourceBuilder("test:source", "client:cg:test:source");
+		GroupFilter.Nbt nbt = assertInstanceOf(GroupFilter.Nbt.class, source.nbt("{value:1b}"));
+		GroupFilter.NbtPath path = assertInstanceOf(GroupFilter.NbtPath.class, source.nbtPath("value", "1b"));
+		assertEquals("{value:1b}", nbt.expectedSnbt());
+		assertEquals("1b", path.expectedSnbt());
+		assertThrows(IllegalArgumentException.class, () -> source.nbt("1b"));
+		assertThrows(IllegalArgumentException.class, () -> source.nbtPath("value[*]", "1b"));
+		assertThrows(IllegalArgumentException.class, () -> source.nbtPath("value", "bad trailing"));
 	}
 }

@@ -44,6 +44,14 @@ public final class Filters {
 		return new GroupFilter.ExactStack(encodedStack);
 	}
 
+	public static GroupFilter nbt(String expectedSnbt) {
+		return new GroupFilter.Nbt(expectedSnbt);
+	}
+
+	public static GroupFilter nbtPath(String path, String expectedSnbt) {
+		return new GroupFilter.NbtPath(path, expectedSnbt);
+	}
+
 	public static GroupFilter itemComponent(String componentTypeId, String encodedValue) {
 		return new GroupFilter.HasComponent(componentTypeId, encodedValue);
 	}

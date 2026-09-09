@@ -4,7 +4,6 @@ import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.atomic.AtomicInteger;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchDocument;
 import net.minecraft.network.chat.Component;
 
@@ -15,84 +14,69 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EditorFluidSelectionHelperTest {
 	@Test
 	void detectsSelectedIds() {
-		EditorFluidSelectionHelper helper = helper(new ArrayList<>(List.of("minecraft:water")), new AtomicInteger());
+		EditorFluidSelectionHelper helper = new EditorFluidSelectionHelper();
+		List<String> ids = new ArrayList<>(List.of("minecraft:water"));
 
-		assertTrue(helper.isIdSelected("minecraft:water"));
-		assertFalse(helper.isIdSelected("minecraft:lava"));
+		assertTrue(helper.isIdSelected("minecraft:water", ids));
+		assertFalse(helper.isIdSelected("minecraft:lava", ids));
 	}
 
 	@Test
-	void toggleIdAddsAndRemovesWithOneCallbackEachTime() {
+	void toggleIdAddsAndRemoves() {
 		List<String> ids = new ArrayList<>();
-		AtomicInteger callbacks = new AtomicInteger();
-		EditorFluidSelectionHelper helper = helper(ids, callbacks);
+		EditorFluidSelectionHelper helper = new EditorFluidSelectionHelper();
 
-		helper.toggleId("minecraft:water");
+		helper.toggleId("minecraft:water", ids);
 		assertEquals(List.of("minecraft:water"), ids);
-		assertEquals(1, callbacks.get());
 
-		helper.toggleId("minecraft:water");
+		helper.toggleId("minecraft:water", ids);
 		assertEquals(List.of(), ids);
-		assertEquals(2, callbacks.get());
 	}
 
 	@Test
 	void addIdAppendsAndIgnoresDuplicates() {
 		List<String> ids = new ArrayList<>(List.of("minecraft:water"));
-		AtomicInteger callbacks = new AtomicInteger();
-		EditorFluidSelectionHelper helper = helper(ids, callbacks);
+		EditorFluidSelectionHelper helper = new EditorFluidSelectionHelper();
 
-		helper.addId("minecraft:lava");
-		helper.addId("minecraft:water");
+		assertTrue(helper.addId("minecraft:lava", ids));
+		assertFalse(helper.addId("minecraft:water", ids));
 
 		assertEquals(List.of("minecraft:water", "minecraft:lava"), ids);
-		assertEquals(1, callbacks.get());
 	}
 
 	@Test
-	void removeIdOnlyCallsBackWhenPresent() {
+	void removeIdReportsWhetherTheValueWasPresent() {
 		List<String> ids = new ArrayList<>(List.of("minecraft:water"));
-		AtomicInteger callbacks = new AtomicInteger();
-		EditorFluidSelectionHelper helper = helper(ids, callbacks);
+		EditorFluidSelectionHelper helper = new EditorFluidSelectionHelper();
 
-		helper.removeId("minecraft:lava");
+		assertFalse(helper.removeId("minecraft:lava", ids));
 		assertEquals(List.of("minecraft:water"), ids);
-		assertEquals(0, callbacks.get());
 
-		helper.removeId("minecraft:water");
+		assertTrue(helper.removeId("minecraft:water", ids));
 		assertEquals(List.of(), ids);
-		assertEquals(1, callbacks.get());
 	}
 
 	@Test
 	void removeIdRemovesOnlyFirstDuplicate() {
 		List<String> ids = new ArrayList<>(List.of("minecraft:water", "minecraft:water"));
-		AtomicInteger callbacks = new AtomicInteger();
-		EditorFluidSelectionHelper helper = helper(ids, callbacks);
+		EditorFluidSelectionHelper helper = new EditorFluidSelectionHelper();
 
-		helper.removeId("minecraft:water");
+		assertTrue(helper.removeId("minecraft:water", ids));
 
 		assertEquals(List.of("minecraft:water"), ids);
-		assertEquals(1, callbacks.get());
 	}
 
 	@Test
 	void viewSelectionRoundTripsThroughResourceIdWithoutInspectingTheOpaqueIngredient() {
 		List<String> ids = new ArrayList<>();
-		AtomicInteger callbacks = new AtomicInteger();
-		EditorFluidSelectionHelper helper = helper(ids, callbacks);
+		EditorFluidSelectionHelper helper = new EditorFluidSelectionHelper();
 		EditorFluidIngredientView view = new EditorFluidIngredientView(new Object(), Component.literal("Water"),
 			"minecraft:water", IngredientSearchDocument.of(List.of(), List.of(), List.of()), null);
 
-		helper.toggleSelection(view);
-		assertTrue(helper.isSelected(view));
+		helper.toggleSelection(view, ids);
+		assertTrue(helper.isSelected(view, ids));
 		assertEquals(List.of("minecraft:water"), ids);
-		helper.removeSelection(view);
-		assertFalse(helper.isSelected(view));
-		assertEquals(2, callbacks.get());
-	}
-
-	private static EditorFluidSelectionHelper helper(List<String> ids, AtomicInteger callbacks) {
-		return new EditorFluidSelectionHelper(ids, callbacks::incrementAndGet);
+		assertTrue(helper.removeSelection(view, ids));
+		assertFalse(helper.isSelected(view, ids));
 	}
 }

@@ -5,63 +5,57 @@ import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientV
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 
 import java.util.List;
-import java.util.Objects;
 
 final class EditorGenericSelectionHelper {
-	private final List<GroupFilterEditorDraft.GenericValue> genericIds;
-	private final List<GroupFilterEditorDraft.GenericValue> genericTags;
-	private final Runnable onContentsDraftChanged;
-
-	EditorGenericSelectionHelper(
-		List<GroupFilterEditorDraft.GenericValue> genericIds,
-		List<GroupFilterEditorDraft.GenericValue> genericTags,
-		Runnable onContentsDraftChanged
-	) {
-		this.genericIds = Objects.requireNonNull(genericIds, "genericIds");
-		this.genericTags = Objects.requireNonNull(genericTags, "genericTags");
-		this.onContentsDraftChanged = Objects.requireNonNull(onContentsDraftChanged, "onContentsDraftChanged");
-	}
-
-	boolean isSelected(EditorGenericIngredientView entry) {
+	boolean isSelected(EditorGenericIngredientView entry,
+		List<GroupFilterEditorDraft.GenericValue> genericIds) {
 		String canonicalTypeId = canonicalTypeId(entry.typeId());
 		return genericIds.stream().anyMatch(value ->
 			sameType(value.ingredientType(), canonicalTypeId) && value.value().equals(entry.resourceId()));
 	}
 
-	boolean isTagMatched(EditorGenericIngredientView entry) {
-		if (isSelected(entry)) return false;
+	boolean isTagMatched(EditorGenericIngredientView entry,
+		List<GroupFilterEditorDraft.GenericValue> genericIds,
+		List<GroupFilterEditorDraft.GenericValue> genericTags) {
+		if (isSelected(entry, genericIds)) return false;
 		String canonicalTypeId = canonicalTypeId(entry.typeId());
 		return genericTags.stream().anyMatch(value ->
 			sameType(value.ingredientType(), canonicalTypeId) && entry.tagIds().contains(value.value()));
 	}
 
-	void toggleSelection(EditorGenericIngredientView entry) {
-		if (!removeMatchingId(entry.typeId(), entry.resourceId())) {
+	void toggleSelection(EditorGenericIngredientView entry,
+		List<GroupFilterEditorDraft.GenericValue> genericIds) {
+		if (!removeMatchingId(entry.typeId(), entry.resourceId(), genericIds)) {
 			genericIds.add(newGenericIdValue(entry.typeId(), entry.resourceId()));
 		}
-		onContentsDraftChanged.run();
 	}
 
-	void addId(String typeId, String id) {
-		if (!containsMatchingId(typeId, id)) {
+	boolean addId(String typeId, String id, List<GroupFilterEditorDraft.GenericValue> genericIds) {
+		if (!containsMatchingId(typeId, id, genericIds)) {
 			genericIds.add(newGenericIdValue(typeId, id));
-			onContentsDraftChanged.run();
+			return true;
 		}
+		return false;
 	}
 
-	void removeSelection(EditorGenericIngredientView entry) {
-		if (removeMatchingId(entry.typeId(), entry.resourceId())) {
-			onContentsDraftChanged.run();
-		}
+	boolean containsId(String typeId, String id, List<GroupFilterEditorDraft.GenericValue> genericIds) {
+		return containsMatchingId(typeId, id, genericIds);
 	}
 
-	private boolean containsMatchingId(String typeId, String id) {
+	boolean removeSelection(EditorGenericIngredientView entry,
+		List<GroupFilterEditorDraft.GenericValue> genericIds) {
+		return removeMatchingId(entry.typeId(), entry.resourceId(), genericIds);
+	}
+
+	private boolean containsMatchingId(String typeId, String id,
+		List<GroupFilterEditorDraft.GenericValue> genericIds) {
 		String canonicalTypeId = canonicalTypeId(typeId);
 		return genericIds.stream().anyMatch(value ->
 			sameType(value.ingredientType(), canonicalTypeId) && value.value().equals(id));
 	}
 
-	private boolean removeMatchingId(String typeId, String id) {
+	private boolean removeMatchingId(String typeId, String id,
+		List<GroupFilterEditorDraft.GenericValue> genericIds) {
 		String canonicalTypeId = canonicalTypeId(typeId);
 		return genericIds.removeIf(value ->
 			sameType(value.ingredientType(), canonicalTypeId) && value.value().equals(id));

@@ -71,4 +71,19 @@ class GroupFilterValidatorTest {
 		TranslatableContents contents = assertInstanceOf(TranslatableContents.class, errors.get(0).getContents());
 		assertEquals("collapsible_groups.editor.rules.error.exact_stack_invalid", contents.getKey());
 	}
+
+	@Test
+	void nativeNbtValidationRejectsWrongRootInvalidPathAndTrailingValueData() {
+		List<Component> errors = GroupFilterValidator.validateComponents(new GroupFilter.All(List.of(
+			new GroupFilter.Nbt("1b"),
+			new GroupFilter.NbtPath("value[*]", "1b trailing"))));
+
+		assertEquals(3, errors.size());
+		assertEquals("collapsible_groups.editor.rules.error.nbt_value_invalid",
+			((TranslatableContents) errors.get(0).getContents()).getKey());
+		assertEquals("collapsible_groups.editor.rules.error.nbt_path_grammar",
+			((TranslatableContents) errors.get(1).getContents()).getKey());
+		assertEquals("collapsible_groups.editor.rules.error.nbt_path_value_invalid",
+			((TranslatableContents) errors.get(2).getContents()).getKey());
+	}
 }

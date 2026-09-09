@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "status": "passed-both-loaders-2026-09-09",
+  "fabric": {
+    "01-nbt-v1.js": [
+      "[CG-S7-NBT-AUDIT] phase=01-publication state=ARMED trigger=inventory-screen-open",
+      "[CG-S7-NBT-AUDIT] phase=01-rhino-semantics result=PASS loader=fabric root=id-count-independent byte-int=distinct bare-token=string nested=true list=typed-ordered arrays=BIL quoted-keys=true not=missing+unequal unavailable=foreign+invalid-preserved logic=any+all+nested",
+      "[CG-S7-NBT-AUDIT] phase=01-publication result=PASS groups=root,quoted-path,nested-logic published-match-table=exact"
+    ],
+    "02-invalid-builders.js": [
+      "[CG-S7-NBT-AUDIT] phase=02-publication state=ARMED trigger=inventory-screen-open",
+      "[CG-S7-NBT-AUDIT] phase=02-builder-rejections result=PASS loader=fabric scalar-root=REJECT trailing-root=REJECT empty-path=REJECT wildcard-path=REJECT trailing-value=REJECT heterogeneous-list=REJECT wrong-array-element=REJECT legal-peer=registered",
+      "[CG-S7-NBT-AUDIT] phase=02-publication result=PASS rejected-builders=not-published legal-peer=present omitted-v1=absent"
+    ]
+  },
+  "forge": {
+    "01-nbt-v1.js": [
+      "[CG-S7-NBT-AUDIT] phase=01-publication state=ARMED trigger=inventory-screen-open",
+      "[CG-S7-NBT-AUDIT] phase=01-rhino-semantics result=PASS loader=forge root=id-count-independent byte-int=distinct bare-token=string nested=true list=typed-ordered arrays=BIL quoted-keys=true not=missing+unequal unavailable=foreign+invalid-preserved logic=any+all+nested",
+      "[CG-S7-NBT-AUDIT] phase=01-publication result=PASS groups=root,quoted-path,nested-logic published-match-table=exact"
+    ],
+    "02-invalid-builders.js": [
+      "[CG-S7-NBT-AUDIT] phase=02-publication state=ARMED trigger=inventory-screen-open",
+      "[CG-S7-NBT-AUDIT] phase=02-builder-rejections result=PASS loader=forge scalar-root=REJECT trailing-root=REJECT empty-path=REJECT wildcard-path=REJECT trailing-value=REJECT heterogeneous-list=REJECT wrong-array-element=REJECT legal-peer=registered",
+      "[CG-S7-NBT-AUDIT] phase=02-publication result=PASS rejected-builders=not-published legal-peer=present omitted-v1=absent"
+    ]
+  }
+}

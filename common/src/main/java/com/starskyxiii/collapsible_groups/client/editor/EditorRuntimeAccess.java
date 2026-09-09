@@ -21,19 +21,20 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
 /** Viewer-backed operations consumed by the viewer-neutral group editor. */
-public interface EditorRuntimeAccess {
-	default void closeEditor() {}
-	default EditorIngredientTypes ingredientTypes() { return EditorIngredientTypes.UNAVAILABLE; }
-	default void updateIngredientTags(String type) {}
-	default EditorIngredientTags ingredientTags(String type) { return EditorIngredientTags.UNAVAILABLE; }
-	default void cancelIngredientTags() {}
-	default void updateIngredientIds(String type) {}
-	default EditorIngredientIds ingredientIds(String type) { return EditorIngredientIds.UNAVAILABLE; }
-	default void cancelIngredientIds() {}
-	default Object previewGeneration() { return this; }
+public interface EditorRuntimeAccess extends EditorGroupAccess, EditorIngredientAccess, EditorPresentationAccess {
+	@Override default void closeEditor() { EditorPresentationAccess.super.closeEditor(); }
+	@Override default EditorIngredientTypes ingredientTypes() { return EditorIngredientAccess.super.ingredientTypes(); }
+	@Override default void updateIngredientTags(String type) { EditorIngredientAccess.super.updateIngredientTags(type); }
+	@Override default EditorIngredientTags ingredientTags(String type) { return EditorIngredientAccess.super.ingredientTags(type); }
+	@Override default void cancelIngredientTags() { EditorIngredientAccess.super.cancelIngredientTags(); }
+	@Override default void updateIngredientIds(String type) { EditorIngredientAccess.super.updateIngredientIds(type); }
+	@Override default EditorIngredientIds ingredientIds(String type) { return EditorIngredientAccess.super.ingredientIds(type); }
+	@Override default void cancelIngredientIds() { EditorIngredientAccess.super.cancelIngredientIds(); }
+	@Override default Object previewGeneration() { return EditorPresentationAccess.super.previewGeneration(); }
+	@Override
 	default TagQueryDiagnostics tagDiagnostics(
 		String type, ResourceLocation tag) {
-		return TagQueryDiagnostics.UNREPORTED;
+		return EditorIngredientAccess.super.tagDiagnostics(type, tag);
 	}
 	List<ItemStack> allItems();
 	List<EditorFluidIngredientView> allFluids(String traceName);

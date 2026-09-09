@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.group.filter;
 
 import com.google.gson.JsonParser;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201NbtAccess;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.network.chat.Component;
 
@@ -91,6 +92,25 @@ public final class GroupFilterValidator {
 				} else if (!isExactStackPayloadJsonObject(exactStack.encodedStack())) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_EXACT_STACK_INVALID);
 				}
+		} else if (filter instanceof GroupFilter.Nbt) {
+			String value = ((GroupFilter.Nbt) filter).expectedSnbt();
+			if (value.isBlank()) {
+				addError(errors, "collapsible_groups.editor.rules.error.nbt_value_blank");
+			} else if (Minecraft1201NbtAccess.canonicalRoot(value).isEmpty()) {
+				addError(errors, "collapsible_groups.editor.rules.error.nbt_value_invalid");
+			}
+		} else if (filter instanceof GroupFilter.NbtPath) {
+			GroupFilter.NbtPath value = (GroupFilter.NbtPath) filter;
+			if (value.path().isBlank()) {
+				addError(errors, "collapsible_groups.editor.rules.error.nbt_path_blank");
+			} else if (!Minecraft1201NbtAccess.validPath(value.path())) {
+				addError(errors, "collapsible_groups.editor.rules.error.nbt_path_grammar", value.path());
+			}
+			if (value.expectedSnbt().isBlank()) {
+				addError(errors, "collapsible_groups.editor.rules.error.nbt_path_value_blank");
+			} else if (Minecraft1201NbtAccess.canonicalValue(value.expectedSnbt()).isEmpty()) {
+				addError(errors, "collapsible_groups.editor.rules.error.nbt_path_value_invalid");
+			}
 		} else if (filter instanceof GroupFilter.HasComponent) {
 			GroupFilter.HasComponent hc = (GroupFilter.HasComponent) filter;
 				if (hc.componentTypeId().isBlank()) {

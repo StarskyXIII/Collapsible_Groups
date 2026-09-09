@@ -7,6 +7,7 @@ import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.starskyxiii.collapsible_groups.group.filter.EncodedValueNormalizer;
 import com.starskyxiii.collapsible_groups.internal.version.data.MinecraftItemDataFormats;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201NbtAccess;
 import com.starskyxiii.collapsible_groups.internal.version.data.VersionedDataEnvelope;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
@@ -74,6 +75,11 @@ public final class ItemStackIngredientView implements IngredientView {
 	@Override
 	public boolean hasComponentPath(String componentTypeId, String path, String expectedValue) {
 		return DATA_ACCESS.matchesDataPath(stack, componentTypeId, path, expectedValue);
+	}
+
+	@Override
+	public boolean matchesNbt(Minecraft1201NbtAccess.Matcher matcher) {
+		return matcher.matches(stack);
 	}
 
 	public static boolean matchesEncodedValue(JsonElement encoded, String encodedValue) {

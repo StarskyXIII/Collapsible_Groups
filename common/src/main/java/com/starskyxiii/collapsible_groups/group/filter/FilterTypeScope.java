@@ -42,11 +42,22 @@ public record FilterTypeScope(Set<String> types, boolean unrestricted) {
 				? new FilterTypeScope(Set.of(), true) : union(all.children(), candidates);
 		}
 		if (filter instanceof GroupFilter.Not) return declared(((GroupFilter.Not) filter).child());
-		if (filter instanceof GroupFilter.Id) return single(((GroupFilter.Id) filter).ingredientType());
-		if (filter instanceof GroupFilter.Tag) return single(((GroupFilter.Tag) filter).ingredientType());
-		if (filter instanceof GroupFilter.Namespace) return single(((GroupFilter.Namespace) filter).ingredientType());
 		if (filter instanceof GroupFilter.Unsupported) return new FilterTypeScope(Set.of(), false);
-		return single("item");
+
+		return switch (RuleDescriptor.forKind(FilterNodeCapabilities.kindOf(filter)).typePolicy()) {
+			case ITEM_ONLY -> single("item");
+			case INGREDIENT_TYPED -> ingredientType(filter)
+				.map(FilterTypeScope::single)
+				.orElseGet(() -> new FilterTypeScope(Set.of(), false));
+			case NONE -> new FilterTypeScope(Set.of(), false);
+		};
+	}
+
+	private static java.util.Optional<String> ingredientType(GroupFilter filter) {
+		if (filter instanceof GroupFilter.Id id) return java.util.Optional.of(id.ingredientType());
+		if (filter instanceof GroupFilter.Tag tag) return java.util.Optional.of(tag.ingredientType());
+		if (filter instanceof GroupFilter.Namespace namespace) return java.util.Optional.of(namespace.ingredientType());
+		return java.util.Optional.empty();
 	}
 
 	private static FilterTypeScope union(List<GroupFilter> children, boolean candidates) {

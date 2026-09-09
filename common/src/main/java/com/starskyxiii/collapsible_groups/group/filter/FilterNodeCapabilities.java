@@ -30,14 +30,12 @@ public final class FilterNodeCapabilities {
 		}
 	}
 
-	private static final Capability FULL = new Capability(true, ValidatorBehavior.VALIDATE, true, true);
-	private static final Capability OPAQUE = new Capability(false, ValidatorBehavior.PRESERVE_OPAQUE, false, false);
 	private static final Map<FilterNodeKind, Capability> TABLE = createTable();
 
 	private FilterNodeCapabilities() {}
 
 	public static Capability capability(FilterNodeKind kind) {
-		return TABLE.getOrDefault(Objects.requireNonNull(kind, "kind"), OPAQUE);
+		return TABLE.get(Objects.requireNonNull(kind, "kind"));
 	}
 
 	public static Map<FilterNodeKind, Capability> all() {
@@ -69,6 +67,8 @@ public final class FilterNodeCapabilities {
 		if (filter instanceof GroupFilter.ItemPathEndsWith) return FilterNodeKind.ITEM_PATH_ENDS_WITH;
 		if (filter instanceof GroupFilter.Namespace) return FilterNodeKind.NAMESPACE;
 		if (filter instanceof GroupFilter.ExactStack) return FilterNodeKind.EXACT_STACK;
+		if (filter instanceof GroupFilter.Nbt) return FilterNodeKind.NBT;
+		if (filter instanceof GroupFilter.NbtPath) return FilterNodeKind.NBT_PATH;
 		if (filter instanceof GroupFilter.HasComponent) return FilterNodeKind.HAS_COMPONENT;
 		if (filter instanceof GroupFilter.ComponentPath) return FilterNodeKind.COMPONENT_PATH;
 		return FilterNodeKind.UNKNOWN;
@@ -105,21 +105,13 @@ public final class FilterNodeCapabilities {
 	}
 
 	private static Map<FilterNodeKind, Capability> createTable() {
-		return Map.ofEntries(
-			Map.entry(FilterNodeKind.ANY, FULL),
-			Map.entry(FilterNodeKind.ALL, FULL),
-			Map.entry(FilterNodeKind.NOT, FULL),
-			Map.entry(FilterNodeKind.ID, FULL),
-			Map.entry(FilterNodeKind.TAG, FULL),
-			Map.entry(FilterNodeKind.BLOCK_TAG, FULL),
-			Map.entry(FilterNodeKind.ITEM_PATH_STARTS_WITH, FULL),
-			Map.entry(FilterNodeKind.ITEM_PATH_CONTAINS, FULL),
-			Map.entry(FilterNodeKind.ITEM_PATH_ENDS_WITH, FULL),
-			Map.entry(FilterNodeKind.NAMESPACE, FULL),
-			Map.entry(FilterNodeKind.EXACT_STACK, FULL),
-			Map.entry(FilterNodeKind.HAS_COMPONENT, OPAQUE),
-			Map.entry(FilterNodeKind.COMPONENT_PATH, OPAQUE),
-			Map.entry(FilterNodeKind.UNKNOWN, OPAQUE)
-		);
+		java.util.EnumMap<FilterNodeKind, Capability> table = new java.util.EnumMap<>(FilterNodeKind.class);
+		RuleDescriptor.all().forEach((kind, descriptor) -> table.put(kind, new Capability(
+			descriptor.available(),
+			descriptor.available() ? ValidatorBehavior.VALIDATE : ValidatorBehavior.PRESERVE_OPAQUE,
+			descriptor.available(),
+			descriptor.kubeJsLoweringSupported()
+		)));
+		return java.util.Collections.unmodifiableMap(table);
 	}
 }

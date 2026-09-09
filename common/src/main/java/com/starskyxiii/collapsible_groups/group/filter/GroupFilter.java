@@ -17,6 +17,8 @@ public sealed interface GroupFilter
 	        GroupFilter.ItemPathEndsWith,
 	        GroupFilter.Namespace,
 	        GroupFilter.ExactStack,
+	        GroupFilter.Nbt,
+	        GroupFilter.NbtPath,
 	        GroupFilter.HasComponent,
 	        GroupFilter.ComponentPath,
 	        GroupFilter.Unsupported {
@@ -89,6 +91,19 @@ public sealed interface GroupFilter
 	record ExactStack(String encodedStack) implements GroupFilter {
 		public ExactStack {
 			Objects.requireNonNull(encodedStack, "encodedStack");
+		}
+	}
+
+	record Nbt(String expectedSnbt) implements GroupFilter {
+		public Nbt {
+			Objects.requireNonNull(expectedSnbt, "expectedSnbt");
+		}
+	}
+
+	record NbtPath(String path, String expectedSnbt) implements GroupFilter {
+		public NbtPath {
+			Objects.requireNonNull(path, "path");
+			Objects.requireNonNull(expectedSnbt, "expectedSnbt");
 		}
 	}
 

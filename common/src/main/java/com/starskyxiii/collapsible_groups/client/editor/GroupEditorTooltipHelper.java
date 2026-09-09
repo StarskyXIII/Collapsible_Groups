@@ -42,7 +42,7 @@ final class GroupEditorTooltipHelper {
 		}
 		if (left.hoveredFluid >= 0 && left.hoveredFluid < left.filteredFluids().size()) {
 			EditorFluidIngredientView fluid = left.filteredFluids().get(left.hoveredFluid);
-			List<Component> lines = ownTooltipLines(EditorRuntimeServices.get().fluidTooltip(fluid));
+			List<Component> lines = ownTooltipLines(EditorRuntimeServices.presentation().fluidTooltip(fluid));
 			appendOtherGroups(lines, left.otherGroupsForFluid(fluid));
 			if (!state.canEditContents()) {
 				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
@@ -61,7 +61,7 @@ final class GroupEditorTooltipHelper {
 		}
 		if (left.hoveredGeneric >= 0 && left.hoveredGeneric < left.filteredGeneric().size()) {
 			EditorGenericIngredientView entry = left.filteredGeneric().get(left.hoveredGeneric);
-			List<Component> lines = ownTooltipLines(EditorRuntimeServices.get().genericTooltip(entry));
+			List<Component> lines = ownTooltipLines(EditorRuntimeServices.presentation().genericTooltip(entry));
 			appendOtherGroups(lines, left.otherGroupsForGeneric(entry));
 			if (!state.canEditContents()) {
 				lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
@@ -99,7 +99,7 @@ final class GroupEditorTooltipHelper {
 		}
 		if (right.hoveredFluid >= 0 && right.hoveredFluid < right.groupFluids().size()) {
 			EditorFluidIngredientView fluid = right.groupFluids().get(right.hoveredFluid);
-			List<Component> lines = ownTooltipLines(EditorRuntimeServices.get().fluidTooltip(fluid));
+			List<Component> lines = ownTooltipLines(EditorRuntimeServices.presentation().fluidTooltip(fluid));
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 			else if (state.isFluidSelected(fluid)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
@@ -108,7 +108,7 @@ final class GroupEditorTooltipHelper {
 		}
 		if (right.hoveredGeneric >= 0 && right.hoveredGeneric < right.groupGeneric().size()) {
 			EditorGenericIngredientView entry = right.groupGeneric().get(right.hoveredGeneric);
-			List<Component> lines = ownTooltipLines(EditorRuntimeServices.get().genericTooltip(entry));
+			List<Component> lines = ownTooltipLines(EditorRuntimeServices.presentation().genericTooltip(entry));
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 			else if (state.isGenericSelected(entry)) lines.add(hint(ModTranslationKeys.EDITOR_HINT_CLICK_REMOVE_FROM_GROUP));
 			else if (state.isGenericTagMatched(entry)) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));

@@ -6,6 +6,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.config.ColorConfigParser;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
@@ -19,6 +20,7 @@ import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataFormat;
 import com.starskyxiii.collapsible_groups.internal.version.data.MinecraftItemDataFormats;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201NbtAccess;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses;
 import com.starskyxiii.collapsible_groups.internal.version.data.VersionedDataEnvelope;
 import com.starskyxiii.collapsible_groups.platform.Services;
@@ -35,6 +37,7 @@ import java.util.LinkedHashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
@@ -550,6 +553,12 @@ public final class GroupConfig {
 
 	// package-private for testing (GroupConfigComponentPathTest)
 	static GroupFilter parseFilter(JsonObject obj) {
+		if (obj.has("nbt") && (!hasExactKeys(obj, "type", "nbt") || obj.has("nbt_path"))) {
+			return new GroupFilter.Unsupported(obj, "nbt");
+		}
+		if (obj.has("nbt_path") && !hasExactKeys(obj, "type", "nbt_path", "value")) {
+			return new GroupFilter.Unsupported(obj, "nbt_path");
+		}
 		FilterNodeKind kind = nodeKind(obj);
 		if (kind == FilterNodeKind.UNKNOWN || !FilterNodeCapabilities.isAvailable(kind)) {
 			return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
@@ -566,6 +575,26 @@ public final class GroupConfig {
 		}
 		if (obj.has("not")) {
 			return new GroupFilter.Not(parseFilter(obj.getAsJsonObject("not")));
+		}
+		if (obj.has("nbt")) {
+			if (!isItemNode(obj) || !hasExactKeys(obj, "type", "nbt")) {
+				return new GroupFilter.Unsupported(obj, "nbt");
+			}
+			Optional<String> expected = decodeNbtValue(obj.get("nbt"), true);
+			return expected.<GroupFilter>map(GroupFilter.Nbt::new)
+				.orElseGet(() -> new GroupFilter.Unsupported(obj, "nbt"));
+		}
+		if (obj.has("nbt_path")) {
+			if (!isItemNode(obj) || !hasExactKeys(obj, "type", "nbt_path", "value")
+				|| !obj.get("nbt_path").isJsonPrimitive()
+				|| !obj.get("nbt_path").getAsJsonPrimitive().isString()) {
+				return new GroupFilter.Unsupported(obj, "nbt_path");
+			}
+			String path = obj.get("nbt_path").getAsString();
+			Optional<String> expected = decodeNbtValue(obj.get("value"), false);
+			return Minecraft1201NbtAccess.validPath(path) && expected.isPresent()
+				? new GroupFilter.NbtPath(path, expected.get())
+				: new GroupFilter.Unsupported(obj, "nbt_path");
 		}
 		if (obj.has("component")) {
 			if (!obj.has("type")) {
@@ -643,6 +672,42 @@ public final class GroupConfig {
 		return VersionedDataEnvelope.inspect(value, current).support() != VersionedDataEnvelope.Support.CURRENT;
 	}
 
+	private static boolean isItemNode(JsonObject obj) {
+		return obj.has("type")
+			&& obj.get("type").isJsonPrimitive()
+			&& obj.get("type").getAsJsonPrimitive().isString()
+			&& "item".equals(obj.get("type").getAsString());
+	}
+
+	private static boolean hasExactKeys(JsonObject obj, String... keys) {
+		if (obj.size() != keys.length) return false;
+		for (String key : keys) if (!obj.has(key)) return false;
+		return true;
+	}
+
+	private static Optional<String> decodeNbtValue(JsonElement encoded, boolean root) {
+		if (encoded == null || !encoded.isJsonPrimitive() || !encoded.getAsJsonPrimitive().isString()) {
+			return Optional.empty();
+		}
+		String envelope = encoded.getAsString();
+		if (!VersionedDataEnvelope.isEnvelope(envelope)) return Optional.empty();
+		VersionedDataEnvelope.Inspection inspection =
+			VersionedDataEnvelope.inspect(envelope, MinecraftItemDataFormats.NBT_VALUE_1_20_1);
+		if (inspection.support() != VersionedDataEnvelope.Support.CURRENT) return Optional.empty();
+		JsonElement data = inspection.data().orElse(null);
+		if (data == null || !data.isJsonPrimitive() || !data.getAsJsonPrimitive().isString()) {
+			return Optional.empty();
+		}
+		return root
+			? Minecraft1201NbtAccess.canonicalRoot(data.getAsString())
+			: Minecraft1201NbtAccess.canonicalValue(data.getAsString());
+	}
+
+	private static String encodeNbtValue(String snbt) {
+		return VersionedDataEnvelope.wrap(
+			MinecraftItemDataFormats.NBT_VALUE_1_20_1, new JsonPrimitive(snbt));
+	}
+
 	private static boolean isSupportedExactStack(String encoded) {
 		return VersionedDataEnvelope.inspect(encoded, MinecraftItemDataFormats.EXACT_STACK_1_20_1).support()
 			== VersionedDataEnvelope.Support.CURRENT
@@ -689,8 +754,16 @@ public final class GroupConfig {
 				obj.addProperty("namespace", namespace.namespace());
 		} else if (filter instanceof GroupFilter.ExactStack) {
 			GroupFilter.ExactStack stack = (GroupFilter.ExactStack) filter;
-				obj.addProperty("type", "item");
-				obj.addProperty("stack", stack.encodedStack());
+			obj.addProperty("type", "item");
+			obj.addProperty("stack", stack.encodedStack());
+		} else if (filter instanceof GroupFilter.Nbt) {
+			obj.addProperty("type", "item");
+			obj.addProperty("nbt", encodeNbtValue(((GroupFilter.Nbt) filter).expectedSnbt()));
+		} else if (filter instanceof GroupFilter.NbtPath) {
+			GroupFilter.NbtPath nbtPath = (GroupFilter.NbtPath) filter;
+			obj.addProperty("type", "item");
+			obj.addProperty("nbt_path", nbtPath.path());
+			obj.addProperty("value", encodeNbtValue(nbtPath.expectedSnbt()));
 		} else if (filter instanceof GroupFilter.HasComponent) {
 			GroupFilter.HasComponent hc = (GroupFilter.HasComponent) filter;
 				obj.addProperty("type", "item");
@@ -712,6 +785,8 @@ public final class GroupConfig {
 		if (obj.has("any")) return FilterNodeKind.ANY;
 		if (obj.has("all")) return FilterNodeKind.ALL;
 		if (obj.has("not")) return FilterNodeKind.NOT;
+		if (obj.has("nbt")) return FilterNodeKind.NBT;
+		if (obj.has("nbt_path")) return FilterNodeKind.NBT_PATH;
 		if (obj.has("component")) return obj.has("path") ? FilterNodeKind.COMPONENT_PATH : FilterNodeKind.HAS_COMPONENT;
 		if (obj.has("stack")) return FilterNodeKind.EXACT_STACK;
 		if (obj.has("block_tag")) return FilterNodeKind.BLOCK_TAG;

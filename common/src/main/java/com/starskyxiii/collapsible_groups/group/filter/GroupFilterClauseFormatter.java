@@ -71,6 +71,11 @@ public final class GroupFilterClauseFormatter {
 			clauses.add(new Clause(depth, typedLabel(value.ingredientType(), "Namespace"), value.namespace()));
 		} else if (filter instanceof GroupFilter.ExactStack) {
 			clauses.add(new Clause(depth, "Exact Stack", ((GroupFilter.ExactStack) filter).encodedStack()));
+		} else if (filter instanceof GroupFilter.Nbt) {
+			clauses.add(new Clause(depth, "NBT", ((GroupFilter.Nbt) filter).expectedSnbt()));
+		} else if (filter instanceof GroupFilter.NbtPath) {
+			GroupFilter.NbtPath value = (GroupFilter.NbtPath) filter;
+			clauses.add(new Clause(depth, "NBT Path", value.path() + " = " + value.expectedSnbt()));
 		} else if (filter instanceof GroupFilter.HasComponent) {
 			GroupFilter.HasComponent value = (GroupFilter.HasComponent) filter;
 			clauses.add(new Clause(depth, "Has Component", value.componentTypeId() + " = " + value.encodedValue()));

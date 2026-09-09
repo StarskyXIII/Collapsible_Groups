@@ -16,6 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorStateCoreTest {
@@ -38,10 +39,10 @@ class EditorStateCoreTest {
 			core.deleteSelectedRule();
 			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
 			for (var kind : List.of(GroupFilterRuleDraft.NodeKind.NAMESPACE, GroupFilterRuleDraft.NodeKind.ID, GroupFilterRuleDraft.NodeKind.TAG)) {
-				var pending = core.insertRuleRelativePending(kind);
+				var pending = core.beginInsertRule(kind);
 				pending.setIngredientType(type);
 				assertFalse(com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.compile(core.buildPreviewDefinition(null, "", true).filter()).matches(view));
-				core.cancelPendingRuleNode();
+				core.cancelRuleEdit();
 				assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
 			}
 		}
@@ -58,10 +59,10 @@ class EditorStateCoreTest {
 			core.buildPreviewDefinition(null, "", true).filter());
 		core.deleteSelectedRule();
 		assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
-		var pending = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.ID);
+		var pending = core.beginInsertRule(GroupFilterRuleDraft.NodeKind.ID);
 		pending.setIngredientType("emi:mekanism_chemical");
 		assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
-		core.cancelPendingRuleNode();
+		core.cancelRuleEdit();
 		assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
 	}
 
@@ -70,18 +71,18 @@ class EditorStateCoreTest {
 		for (String nextType : List.of("item", "fluid", "emi:mekanism_chemical")) {
 			EditorStateCore core = new EditorStateCore(null, () -> {});
 			GroupFilter empty = core.buildPreviewDefinition(null, "", true).filter();
-			var tag = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+			var tag = core.beginInsertRule(GroupFilterRuleDraft.NodeKind.TAG);
 			tag.setIngredientType("emi:mekanism_chemical");
 			tag.setPrimaryValue("mekanism:clean");
-			core.commitPendingRuleNode();
+			core.commitRuleEdit();
 			assertEquals(Filters.tag("emi:mekanism_chemical", "mekanism:clean"),
 				core.buildPreviewDefinition(null, "", true).filter());
 			core.deleteSelectedRule();
 			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
-			var pending = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+			var pending = core.beginInsertRule(GroupFilterRuleDraft.NodeKind.TAG);
 			pending.setIngredientType(nextType);
 			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter(), nextType);
-			core.cancelPendingRuleNode();
+			core.cancelRuleEdit();
 			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
 		}
 	}
@@ -113,10 +114,10 @@ class EditorStateCoreTest {
 			assertTrue(parent.children().isEmpty());
 			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
 			core.selectRuleNode(parent);
-			var pending = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+			var pending = core.beginInsertRule(GroupFilterRuleDraft.NodeKind.TAG);
 			pending.setIngredientType("fluid");
 			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter(), kind.name());
-			core.cancelPendingRuleNode();
+			core.cancelRuleEdit();
 			assertEquals(empty, core.buildPreviewDefinition(null, "", true).filter());
 		}
 	}
@@ -192,39 +193,105 @@ class EditorStateCoreTest {
 	}
 
 	@Test
-	void pendingRuleNodeIsDeletedOnCancelAndKeptOnCommit() {
+	void insertedRuleTransactionRestoresSelectionOnCancelAndKeepsNodeOnCommit() {
 		EditorStateCore core = new EditorStateCore(null, () -> {});
 		GroupFilterRuleDraft.Node root = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.ALL);
 
-		GroupFilterRuleDraft.Node pending = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
-		assertTrue(core.hasPendingRuleNode());
+		GroupFilterRuleDraft.Node pending = core.beginInsertRule(GroupFilterRuleDraft.NodeKind.TAG);
+		assertTrue(core.hasRuleEditTransaction());
 		assertEquals(1, root.children().size());
 
-		core.cancelPendingRuleNode();
-		assertFalse(core.hasPendingRuleNode());
+		core.cancelRuleEdit();
+		assertFalse(core.hasRuleEditTransaction());
+		root = core.selectedRuleNode();
 		assertTrue(root.children().isEmpty());
-		assertEquals(root, core.selectedRuleNode());
 
-		GroupFilterRuleDraft.Node kept = core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+		GroupFilterRuleDraft.Node kept = core.beginInsertRule(GroupFilterRuleDraft.NodeKind.TAG);
 		kept.setPrimaryValue("c:missing");
-		core.commitPendingRuleNode();
-		assertFalse(core.hasPendingRuleNode());
+		core.commitRuleEdit();
+		assertFalse(core.hasRuleEditTransaction());
 		assertEquals(List.of(kept), root.children());
 
-		core.cancelPendingRuleNode();
+		core.cancelRuleEdit();
 		assertEquals(List.of(kept), root.children());
+	}
+
+	@Test
+	void existingRuleTransactionRestoresTheWholeTreeAndBlocksSaveUntilCommitted() {
+		GroupFilter original = Filters.any(
+			Filters.itemId("minecraft:stone"),
+			Filters.itemTag("c:ingots"));
+		EditorStateCore core = new EditorStateCore(
+			new GroupDefinition("test", "Test", true, original), () -> {});
+		GroupFilterRuleDraft.Node first = core.selectedRuleNode().children().get(0);
+
+		assertTrue(core.beginRuleEdit(first));
+		first.setPrimaryValue("minecraft:dirt");
+		List<GroupFilterRuleDraft.Node> siblings = first.parent().children();
+		siblings.remove(siblings.size() - 1);
+		assertFalse(core.canSave("Test"));
+		assertFalse(core.beginRuleEdit(first));
+
+		core.cancelRuleEdit();
+
+		assertEquals(original, core.buildCurrentFilter().orElseThrow());
+		assertEquals("minecraft:stone", core.selectedRuleNode().primaryValue());
+		assertTrue(core.canSave("Test"));
+	}
+
+	@Test
+	void transactionDetectsChangesBetweenIncompleteDrafts() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		GroupFilterRuleDraft.Node root = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.ALL);
+		assertTrue(core.beginRuleEdit(root));
+
+		root.setKind(GroupFilterRuleDraft.NodeKind.ANY);
+
+		assertTrue(core.ruleEditChanged());
+		core.cancelRuleEdit();
+		assertEquals(GroupFilterRuleDraft.NodeKind.ALL, core.selectedRuleNode().kind());
+	}
+
+	@Test
+	void duplicateContentsMutationDoesNotReplaceTheCanonicalRuleTree() {
+		GroupEditorState state = new GroupEditorState(new GroupDefinition(
+			"test", "Test", true, Filters.fluidId("minecraft:water")));
+		GroupFilterRuleDraft.Node selected = state.selectedRuleNode();
+
+		state.addFluidId("minecraft:water");
+
+		assertSame(selected, state.selectedRuleNode());
+		assertEquals(Filters.fluidId("minecraft:water"), state.buildCurrentFilter().orElseThrow());
+		state.contentsDraftSnapshot().fluidIds().add("minecraft:lava");
+		assertEquals(Filters.fluidId("minecraft:water"), state.buildCurrentFilter().orElseThrow());
+	}
+
+	@Test
+	void absentContentsRemovalDoesNotReplaceAReorderedCanonicalTree() {
+		GroupFilter original = new GroupFilter.Any(List.of(
+			new GroupFilter.Nbt("{Damage:1}"),
+			Filters.itemId("minecraft:stone")));
+		GroupEditorState state = new GroupEditorState(new GroupDefinition("test", "Test", true, original));
+		GroupFilterRuleDraft.Node selected = state.selectedRuleNode();
+		EditorFluidIngredientView missing = new EditorFluidIngredientView(
+			new Object(), null, "minecraft:water", null, null);
+
+		state.removeFluidSelection(missing);
+
+		assertSame(selected, state.selectedRuleNode());
+		assertEquals(original, state.buildCurrentFilter().orElseThrow());
 	}
 
 	@Test
 	void pendingRootCancelClearsTree() {
 		EditorStateCore core = new EditorStateCore(null, () -> {});
-		core.insertRuleRelativePending(GroupFilterRuleDraft.NodeKind.TAG);
+		core.beginInsertRule(GroupFilterRuleDraft.NodeKind.TAG);
 		assertTrue(core.hasRulesRoot());
 
-		core.cancelPendingRuleNode();
+		core.cancelRuleEdit();
 
 		assertFalse(core.hasRulesRoot());
-		assertFalse(core.hasPendingRuleNode());
+		assertFalse(core.hasRuleEditTransaction());
 	}
 
 	@Test

@@ -27,6 +27,37 @@ class GroupFilterRuleDraftTest {
 	}
 
 	@Test
+	void nbtNodesRoundTripAndKeepIncompleteManualValuesRepresentable() {
+		GroupFilter original = new GroupFilter.All(java.util.List.of(
+			new GroupFilter.Nbt("{display:{Name:'Relic'}}"),
+			new GroupFilter.NbtPath("display.Name", "'Relic'")));
+
+		GroupFilterRuleDraft draft = GroupFilterRuleDraft.decode(original);
+
+		assertEquals(original, draft.toFilter().orElseThrow());
+		GroupFilterRuleDraft.Node rootNbt = draft.root().children().get(0);
+		rootNbt.setPrimaryValue("{unfinished:");
+		GroupFilter.All partialRoot = assertInstanceOf(GroupFilter.All.class, draft.toFilter().orElseThrow());
+		assertEquals(new GroupFilter.Nbt("{unfinished:"), partialRoot.children().get(0));
+		GroupFilterRuleDraft.Node path = draft.root().children().get(1);
+		path.setPrimaryValue("bad[");
+		path.setSecondaryValue("[");
+		GroupFilter.All encoded = assertInstanceOf(GroupFilter.All.class, draft.toFilter().orElseThrow());
+		assertEquals(new GroupFilter.NbtPath("bad[", "["), encoded.children().get(1));
+	}
+
+	@Test
+	void nodeKindsMapExplicitlyToDescriptors() {
+		for (GroupFilterRuleDraft.NodeKind kind : GroupFilterRuleDraft.NodeKind.values()) {
+			assertEquals(FilterNodeKind.valueOf(kind.name()), kind.filterKind());
+			RuleDescriptor descriptor = RuleDescriptor.forKind(kind.filterKind());
+			assertEquals(descriptor.compound(), kind.compound());
+			assertEquals(descriptor.draftMinChildren(), kind.minChildren());
+			assertEquals(descriptor.maxChildren(), kind.maxChildren());
+		}
+	}
+
+	@Test
 	void rootLeafCanBeWrappedEvenWhenRelativeInsertIsUnavailable() {
 		for (GroupFilterRuleDraft.NodeKind wrapperKind : java.util.List.of(
 			GroupFilterRuleDraft.NodeKind.ANY,
@@ -250,5 +281,26 @@ class GroupFilterRuleDraftTest {
 		assertEquals("_beam_", draft.root().primaryValue());
 		assertTrue(draft.toFilter().isPresent());
 		assertEquals(original, draft.toFilter().get());
+	}
+
+	@Test
+	void copyIsIndependentAndPathsResolveCorrespondingNodes() {
+		GroupFilterRuleDraft draft = GroupFilterRuleDraft.empty();
+		GroupFilterRuleDraft.Node root = draft.setRoot(GroupFilterRuleDraft.NodeKind.ALL);
+		GroupFilterRuleDraft.Node any = draft.insertRelativeTo(root, GroupFilterRuleDraft.NodeKind.ANY);
+		GroupFilterRuleDraft.Node leaf = draft.insertRelativeTo(any, GroupFilterRuleDraft.NodeKind.ID);
+		leaf.setPrimaryValue("minecraft:stone");
+		var path = draft.pathOf(leaf).orElseThrow();
+
+		GroupFilterRuleDraft copy = draft.copy();
+		GroupFilterRuleDraft.Node copiedLeaf = copy.nodeAtPath(path);
+		assertNotNull(copiedLeaf);
+		assertNotSame(leaf, copiedLeaf);
+		assertEquals("minecraft:stone", copiedLeaf.primaryValue());
+
+		copiedLeaf.setPrimaryValue("minecraft:dirt");
+		assertEquals("minecraft:stone", leaf.primaryValue());
+		assertSame(copy.root(), copy.nodeAtPath(java.util.List.of()));
+		assertNull(copy.nodeAtPath(java.util.List.of(9)));
 	}
 }
