@@ -10,7 +10,7 @@ import org.jetbrains.annotations.Nullable;
 final class EditorTagDiagnostics {
 	private EditorTagDiagnostics() {}
 
-	static @Nullable String warning(GroupFilterRuleDraft.Node node, EditorRuntimeAccess runtime) {
+	static @Nullable String warning(GroupFilterRuleDraft.Node node, EditorIngredientAccess runtime) {
 		if (node.kind() == GroupFilterRuleDraft.NodeKind.TAG) {
 			ResourceLocation tag = ResourceLocation.tryParse(node.primaryValue().trim());
 			if (tag == null || node.ingredientType().isBlank()) return null;

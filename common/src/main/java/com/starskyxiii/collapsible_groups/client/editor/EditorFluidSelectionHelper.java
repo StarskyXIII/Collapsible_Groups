@@ -1,50 +1,39 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
 import java.util.List;
-import java.util.Objects;
 
 final class EditorFluidSelectionHelper {
-	private final List<String> fluidIds;
-	private final Runnable onContentsDraftChanged;
-
-	EditorFluidSelectionHelper(List<String> fluidIds, Runnable onContentsDraftChanged) {
-		this.fluidIds = Objects.requireNonNull(fluidIds, "fluidIds");
-		this.onContentsDraftChanged = Objects.requireNonNull(onContentsDraftChanged, "onContentsDraftChanged");
+	boolean isSelected(EditorFluidIngredientView view, List<String> fluidIds) {
+		return isIdSelected(view.resourceId(), fluidIds);
 	}
 
-	boolean isSelected(EditorFluidIngredientView view) {
-		return isIdSelected(view.resourceId());
+	void toggleSelection(EditorFluidIngredientView view, List<String> fluidIds) {
+		toggleId(view.resourceId(), fluidIds);
 	}
 
-	void toggleSelection(EditorFluidIngredientView view) {
-		toggleId(view.resourceId());
+	boolean removeSelection(EditorFluidIngredientView view, List<String> fluidIds) {
+		return removeId(view.resourceId(), fluidIds);
 	}
 
-	void removeSelection(EditorFluidIngredientView view) {
-		removeId(view.resourceId());
-	}
-
-	boolean isIdSelected(String id) {
+	boolean isIdSelected(String id, List<String> fluidIds) {
 		return fluidIds.contains(id);
 	}
 
-	void toggleId(String id) {
+	void toggleId(String id, List<String> fluidIds) {
 		if (!fluidIds.remove(id)) {
 			fluidIds.add(id);
 		}
-		onContentsDraftChanged.run();
 	}
 
-	void addId(String id) {
+	boolean addId(String id, List<String> fluidIds) {
 		if (!fluidIds.contains(id)) {
 			fluidIds.add(id);
-			onContentsDraftChanged.run();
+			return true;
 		}
+		return false;
 	}
 
-	void removeId(String id) {
-		if (fluidIds.remove(id)) {
-			onContentsDraftChanged.run();
-		}
+	boolean removeId(String id, List<String> fluidIds) {
+		return fluidIds.remove(id);
 	}
 }

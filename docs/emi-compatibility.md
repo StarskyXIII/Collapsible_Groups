@@ -3,6 +3,8 @@
 Validated on 2026-09-05 using Prism Launcher 11.0.3, NeoForge 21.1.248 and Java 21.0.4.
 These results cover the listed workflows, not every mod or ingredient type.
 
+The [September 9 editor verification](editor-verification.md) records the later rule-state refactor, component-value correction and focused Fabric checks. The dependency matrix and modpack observations below remain the September 5 results.
+
 ## Editor validation and preview follow-up
 
 The editor now reuses validation results while the current filter remains value-equal,

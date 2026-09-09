@@ -1,0 +1,20 @@
+{
+  "id": "legacy_nbt_rules",
+  "name": "Legacy NBT Rules",
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "nbt": "{\"$collapsible_groups\":{\"schema\":\"collapsible_groups:nbt_value\",\"schema_version\":1,\"data_format\":\"minecraft:nbt_snbt\",\"source_minecraft\":\"1.20.1\",\"data\":\"{Potion:\\\"minecraft:healing\\\"}\"}}"
+      },
+      {
+        "not": {
+          "type": "item",
+          "nbt_path": "Potion",
+          "value": "{\"$collapsible_groups\":{\"schema\":\"collapsible_groups:nbt_value\",\"schema_version\":1,\"data_format\":\"minecraft:nbt_snbt\",\"source_minecraft\":\"1.20.1\",\"data\":\"\\\"minecraft:healing\\\"\"}}"
+        }
+      }
+    ]
+  }
+}

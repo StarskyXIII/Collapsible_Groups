@@ -129,16 +129,59 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 		if (VersionedDataEnvelope.isEnvelope(expectedValue)
 			&& inspection.support() != VersionedDataEnvelope.Support.CURRENT) return false;
 		if (inspection.support() == VersionedDataEnvelope.Support.CURRENT) {
-			return encoded.equals(inspection.data().orElseThrow());
+			return serializedValueEquals(encoded, inspection.data().orElseThrow());
 		}
 		if (encoded instanceof JsonPrimitive primitive && primitive.isString()) {
 			return EncodedValueNormalizer.normalize(encoded).equals(expectedValue);
 		}
 		try {
-			return encoded.equals(JsonParser.parseString(expectedValue));
+			return serializedValueEquals(encoded, JsonParser.parseString(expectedValue));
 		} catch (RuntimeException e) {
 			return EncodedValueNormalizer.normalize(encoded).equals(expectedValue);
 		}
+	}
+
+	private static boolean serializedValueEquals(JsonElement encoded, JsonElement expected) {
+		if (encoded.equals(expected)) return true;
+		try {
+			JsonElement reparsed = JsonParser.parseString(encoded.toString());
+			return sameJsonTypes(encoded, reparsed) && reparsed.equals(expected);
+		} catch (RuntimeException e) {
+			return false;
+		}
+	}
+
+	private static boolean sameJsonTypes(JsonElement encoded, JsonElement reparsed) {
+		if (encoded.isJsonNull() || reparsed.isJsonNull()) {
+			return encoded.isJsonNull() && reparsed.isJsonNull();
+		}
+		if (encoded.isJsonPrimitive() || reparsed.isJsonPrimitive()) {
+			if (!encoded.isJsonPrimitive() || !reparsed.isJsonPrimitive()) return false;
+			JsonPrimitive left = encoded.getAsJsonPrimitive();
+			JsonPrimitive right = reparsed.getAsJsonPrimitive();
+			return left.isNumber() == right.isNumber()
+				&& left.isString() == right.isString()
+				&& left.isBoolean() == right.isBoolean();
+		}
+		if (encoded.isJsonArray() || reparsed.isJsonArray()) {
+			if (!encoded.isJsonArray() || !reparsed.isJsonArray()) return false;
+			var left = encoded.getAsJsonArray();
+			var right = reparsed.getAsJsonArray();
+			if (left.size() != right.size()) return false;
+			for (int index = 0; index < left.size(); index++) {
+				if (!sameJsonTypes(left.get(index), right.get(index))) return false;
+			}
+			return true;
+		}
+		if (!encoded.isJsonObject() || !reparsed.isJsonObject()) return false;
+		var left = encoded.getAsJsonObject();
+		var right = reparsed.getAsJsonObject();
+		if (left.size() != right.size()) return false;
+		for (var entry : left.entrySet()) {
+			JsonElement rightValue = right.get(entry.getKey());
+			if (rightValue == null || !sameJsonTypes(entry.getValue(), rightValue)) return false;
+		}
+		return true;
 	}
 
 	public record EffectiveEntry<K, V>(K key, V value) {}

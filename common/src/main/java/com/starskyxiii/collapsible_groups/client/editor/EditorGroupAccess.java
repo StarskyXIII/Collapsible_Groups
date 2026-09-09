@@ -1,0 +1,19 @@
+package com.starskyxiii.collapsible_groups.client.editor;
+
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+
+import java.util.List;
+import java.util.Optional;
+
+interface EditorGroupAccess {
+	List<GroupDefinition> allGroups();
+	Optional<GroupDefinition> findGroup(String id);
+	void saveQuietly(GroupDefinition definition);
+	String sanitizeGeneratedIdBase(String name);
+	String generateUniqueId(String name);
+	String generateUniqueIdIncludingKubeJs(String name);
+	void invalidateFullMatchCache(String id);
+	void populateFullMatchCacheFromSaved(GroupDefinition definition);
+	void notifyViewer();
+	void setEnabledQuietlyWithoutEvent(String id, boolean enabled);
+}

@@ -29,19 +29,19 @@ enum EditorValuePickerKind {
 		};
 	}
 
-	void update(EditorRuntimeAccess runtime, String type) {
+	void update(EditorIngredientAccess runtime, String type) {
 		if (this == TAG) runtime.updateIngredientTags(type); else runtime.updateIngredientIds(type);
 	}
 
-	void cancel(EditorRuntimeAccess runtime) {
+	void cancel(EditorIngredientAccess runtime) {
 		if (this == TAG) runtime.cancelIngredientTags(); else runtime.cancelIngredientIds();
 	}
 
-	Snapshot snapshot(EditorRuntimeAccess runtime, String type) {
+	Snapshot snapshot(EditorIngredientAccess runtime, String type) {
 		return snapshot(runtime, type, null);
 	}
 
-	Snapshot snapshot(EditorRuntimeAccess runtime, String type, EditorNamespaceCatalog namespaces) {
+	Snapshot snapshot(EditorIngredientAccess runtime, String type, EditorNamespaceCatalog namespaces) {
 		if (this == TAG) return fromTags(runtime == null ? EditorIngredientTags.UNAVAILABLE : runtime.ingredientTags(type));
 		var ids = runtime == null ? EditorIngredientIds.UNAVAILABLE : runtime.ingredientIds(type);
 		return this == ID ? fromIds(ids) : fromNamespaces((namespaces == null ? new EditorNamespaceCatalog() : namespaces).snapshot(ids));

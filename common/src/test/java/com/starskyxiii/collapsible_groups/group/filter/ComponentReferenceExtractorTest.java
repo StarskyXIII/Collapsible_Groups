@@ -2,15 +2,20 @@ package com.starskyxiii.collapsible_groups.group.filter;
 
 import com.starskyxiii.collapsible_groups.group.filter.ComponentReferenceExtractor;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft121ItemDataAccess;
 
+import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.google.gson.JsonPrimitive;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ComponentReferenceExtractorTest {
@@ -81,5 +86,71 @@ class ComponentReferenceExtractorTest {
 			assertTrue(ItemStackIngredientView.matchesEncodedValue(
 				reference.encodedJson(), reference.encodedValue()), reference.componentTypeId());
 		}
+	}
+
+	@Test
+	void finiteFloatReferenceValuesRoundTripThroughRawAndVersionedMatchers() {
+		JsonPrimitive saturation = new JsonPrimitive(9.6F);
+		JsonObject food = new JsonObject();
+		food.addProperty("nutrition", 4);
+		food.add("saturation", saturation);
+		food.addProperty("can_always_eat", false);
+
+		String saturationPickerValue = EncodedValueNormalizer.normalize(saturation);
+		String foodPickerValue = EncodedValueNormalizer.normalize(food);
+		assertEquals("9.6", saturationPickerValue);
+		assertTrue(ItemStackIngredientView.matchesEncodedValue(saturation, saturationPickerValue));
+		assertTrue(ItemStackIngredientView.matchesEncodedValue(saturation,
+			Minecraft121ItemDataAccess.envelopeComponentValue(saturation)));
+		assertTrue(ItemStackIngredientView.matchesEncodedValue(food, foodPickerValue));
+		assertTrue(ItemStackIngredientView.matchesEncodedValue(food,
+			Minecraft121ItemDataAccess.envelopeComponentValue(food)));
+
+		JsonElement pathValue = ComponentPathNavigator.navigatePath(food, "saturation");
+		assertTrue(ItemStackIngredientView.matchesEncodedValue(pathValue,
+			EncodedValueNormalizer.normalize(pathValue)));
+		assertTrue(ItemStackIngredientView.matchesEncodedValue(food,
+			"{\"can_always_eat\":false,\"saturation\":9.6,\"nutrition\":4.0}"));
+		assertFalse(ItemStackIngredientView.matchesEncodedValue(saturation, "9.61"));
+		assertFalse(ItemStackIngredientView.matchesEncodedValue(saturation, "\"9.6\""));
+	}
+
+	@Test
+	void serializationFallbackPreservesNonFiniteNumberTypes() {
+		for (float value : List.of(Float.NaN, Float.POSITIVE_INFINITY, Float.NEGATIVE_INFINITY)) {
+			JsonPrimitive encoded = new JsonPrimitive(value);
+			String quoted = "\"" + encoded.getAsString() + "\"";
+			assertFalse(ItemStackIngredientView.matchesEncodedValue(
+				encoded, EncodedValueNormalizer.normalize(encoded)));
+			assertFalse(ItemStackIngredientView.matchesEncodedValue(encoded, quoted));
+			assertFalse(ItemStackIngredientView.matchesEncodedValue(encoded,
+				Minecraft121ItemDataAccess.envelopeComponentValue(encoded)));
+		}
+
+		JsonObject nested = new JsonObject();
+		nested.addProperty("value", Float.NaN);
+		assertFalse(ItemStackIngredientView.matchesEncodedValue(
+			nested, EncodedValueNormalizer.normalize(nested)));
+		assertFalse(ItemStackIngredientView.matchesEncodedValue(nested, "{\"value\":\"NaN\"}"));
+
+		JsonArray nonFiniteArray = new JsonArray();
+		nonFiniteArray.add(Float.NEGATIVE_INFINITY);
+		nonFiniteArray.add(9.6F);
+		assertFalse(ItemStackIngredientView.matchesEncodedValue(
+			nonFiniteArray, EncodedValueNormalizer.normalize(nonFiniteArray)));
+		assertFalse(ItemStackIngredientView.matchesEncodedValue(
+			nonFiniteArray, "[\"-Infinity\",9.6]"));
+		JsonArray finiteArray = new JsonArray();
+		finiteArray.add(9.6F);
+		finiteArray.add(foodReferenceValue());
+		assertTrue(ItemStackIngredientView.matchesEncodedValue(
+			finiteArray, EncodedValueNormalizer.normalize(finiteArray)));
+	}
+
+	private static JsonObject foodReferenceValue() {
+		JsonObject food = new JsonObject();
+		food.addProperty("nutrition", 4);
+		food.addProperty("saturation", 9.6F);
+		return food;
 	}
 }

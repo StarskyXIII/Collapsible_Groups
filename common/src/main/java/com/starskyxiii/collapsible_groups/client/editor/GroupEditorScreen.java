@@ -144,7 +144,7 @@ public class GroupEditorScreen extends Screen {
 	@Nullable
 	private static String sourceDisplayName(@Nullable String sourceGroupId) {
 		if (sourceGroupId == null || sourceGroupId.isBlank()) return null;
-		return EditorRuntimeServices.get().findGroup(sourceGroupId)
+		return EditorRuntimeServices.groups().findGroup(sourceGroupId)
 			.map(group -> group.displayName().resolveClientDisplayText())
 			.filter(name -> !name.isBlank())
 			.orElse(null);
@@ -152,6 +152,8 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	protected void init() {
+		if (rulesPanel != null) rulesPanel.onDeactivate();
+		if (settingsPanel != null) settingsPanel.onDeactivate();
 		editorItemUniverse = List.of();
 		itemSearchSession.clear();
 		state.itemSelection.clearCache();
@@ -163,6 +165,7 @@ public class GroupEditorScreen extends Screen {
 		leftPanel = new EditorLeftPanel(state, this::onGroupChanged, itemSearchSession);
 		rightPanel = new EditorRightPanel(state, this::onGroupChanged);
 		rulesPanel = new EditorRulesPanel(state, font, this::onGroupChanged, this::editorItems, itemSearchSession);
+		rulesPanel.setDirtyGate(() -> dirty, value -> dirty = value);
 		settingsPanel = new EditorSettingsPanel(state, font, this::onGroupChanged,
 			this::settingsPreviewEntries);
 		settingsPanel.setDirtyGate(() -> dirty, value -> dirty = value);
@@ -1410,18 +1413,19 @@ public class GroupEditorScreen extends Screen {
 			return;
 		}
 		if (nameField != null) nameField.setTextColor(UiPalette.TEXT_PRIMARY);
-		EditorRuntimeServices.get().invalidateFullMatchCache(saved.id());
-		EditorRuntimeServices.get().populateFullMatchCacheFromSaved(saved);
+		var groups = EditorRuntimeServices.groups();
+		groups.invalidateFullMatchCache(saved.id());
+		groups.populateFullMatchCacheFromSaved(saved);
 		disableSourceAfterCopyIfRequested();
 		parent.onGroupSaved(new SavedGroupContext(saved.id(), saveKind));
-		EditorRuntimeServices.get().notifyViewer();
+		groups.notifyViewer();
 		Minecraft.getInstance().setScreen(parent.asScreen());
 	}
 
 	private void disableSourceAfterCopyIfRequested() {
 		String sourceGroupId = state.sourceGroupId();
 		if (!state.isCopyDraft() || !disableSourceAfterCopy || sourceGroupId == null) return;
-		EditorRuntimeServices.get().setEnabledQuietlyWithoutEvent(sourceGroupId, false);
+		EditorRuntimeServices.groups().setEnabledQuietlyWithoutEvent(sourceGroupId, false);
 	}
 
 	private void clearRightHover() {

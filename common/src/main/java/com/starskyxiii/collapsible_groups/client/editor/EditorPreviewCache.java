@@ -4,13 +4,13 @@ import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import java.util.List;
 
 public final class EditorPreviewCache {
-	private EditorRuntimeAccess runtime;
+	private EditorPresentationAccess runtime;
 	private Object generation;
 	private List<EditorRuntimeAccess.PreviewEntry> entries;
 	private List<GroupIconDefinition> definitions;
 	private List<EditorRuntimeAccess.PreviewEntry> icons = List.of();
 
-	public List<EditorRuntimeAccess.PreviewEntry> icons(EditorRuntimeAccess current,
+	public List<EditorRuntimeAccess.PreviewEntry> icons(EditorPresentationAccess current,
 		List<GroupIconDefinition> configured, List<EditorRuntimeAccess.PreviewEntry> fallback) {
 		Object token = current.previewGeneration();
 		if (runtime != current || generation != token || entries != fallback || !configured.equals(definitions)) {

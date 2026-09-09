@@ -251,4 +251,25 @@ class GroupFilterRuleDraftTest {
 		assertTrue(draft.toFilter().isPresent());
 		assertEquals(original, draft.toFilter().get());
 	}
+
+	@Test
+	void copyIsIndependentAndPathsResolveCorrespondingNodes() {
+		GroupFilterRuleDraft draft = GroupFilterRuleDraft.empty();
+		GroupFilterRuleDraft.Node root = draft.setRoot(GroupFilterRuleDraft.NodeKind.ALL);
+		GroupFilterRuleDraft.Node any = draft.insertRelativeTo(root, GroupFilterRuleDraft.NodeKind.ANY);
+		GroupFilterRuleDraft.Node leaf = draft.insertRelativeTo(any, GroupFilterRuleDraft.NodeKind.ID);
+		leaf.setPrimaryValue("minecraft:stone");
+		var path = draft.pathOf(leaf).orElseThrow();
+
+		GroupFilterRuleDraft copy = draft.copy();
+		GroupFilterRuleDraft.Node copiedLeaf = copy.nodeAtPath(path);
+		assertNotNull(copiedLeaf);
+		assertNotSame(leaf, copiedLeaf);
+		assertEquals("minecraft:stone", copiedLeaf.primaryValue());
+
+		copiedLeaf.setPrimaryValue("minecraft:dirt");
+		assertEquals("minecraft:stone", leaf.primaryValue());
+		assertSame(copy.root(), copy.nodeAtPath(java.util.List.of()));
+		assertNull(copy.nodeAtPath(java.util.List.of(9)));
+	}
 }

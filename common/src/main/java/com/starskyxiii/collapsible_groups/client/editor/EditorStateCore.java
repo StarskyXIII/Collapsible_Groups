@@ -33,7 +33,7 @@ final class EditorStateCore {
 	private final String sourceGroupId;
 
 	private GroupFilterRuleDraft.Node selectedRuleNode;
-	private GroupFilterRuleDraft.Node pendingRuleNode;
+	private RuleEditTransaction ruleEditTransaction;
 	private boolean contentsQuickEditAvailable;
 	// decoupled from contentsQuickEditAvailable. A hybrid draft (preserved advanced
 	// subtrees present) is still contents-editable but is NOT flat-index safe, so the
@@ -43,6 +43,8 @@ final class EditorStateCore {
 	private Optional<GroupFilter> validatedFilter;
 	private List<Component> validationErrors = List.of();
 	private int validationRuns;
+
+	private record RuleEditTransaction(GroupFilterRuleDraft snapshot, List<Integer> selectedPath) {}
 
 	// id sets of everything the current group's rules fully match, keyed the
 	// same way the source-grid ownership caches are (item registry id, fluid
@@ -192,7 +194,7 @@ final class EditorStateCore {
 	}
 
 	void syncRulesFromContentsDraft(GroupFilterEditorDraft draft) {
-		if (!contentsQuickEditAvailable) {
+		if (!contentsQuickEditAvailable || ruleEditTransaction != null) {
 			return;
 		}
 		GroupFilterRuleDraft replacement = draft.toFilter()
@@ -200,6 +202,7 @@ final class EditorStateCore {
 			.orElseGet(GroupFilterRuleDraft::empty);
 		ruleDraft.replaceWith(replacement);
 		selectedRuleNode = ruleDraft.root();
+		onRulesDraftChanged.run();
 	}
 
 	Optional<GroupDefinition> trySave(String editId, String editName, boolean editEnabled, boolean nameTouched) {
@@ -221,13 +224,14 @@ final class EditorStateCore {
 		if (!canSave(editName)) return Optional.empty();
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		String id = idForSave(editId, editName);
+		var groups = EditorRuntimeServices.groups();
 		try {
 			GroupDefinition saved = shouldPreserveDisplayName(id, nameTouched)
 				? GroupEditorDefinitionFactory.createWithDisplayName(id, existingDefinition.displayName(), editEnabled,
 					filter.get(), existingDefinition, appearance, priority)
 				: GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition,
 					appearance, priority);
-			EditorRuntimeServices.get().saveQuietly(saved);
+			groups.saveQuietly(saved);
 			return Optional.of(saved);
 		} catch (IllegalArgumentException e) {
 			return Optional.empty();
@@ -242,7 +246,7 @@ final class EditorStateCore {
 	}
 
 	boolean canSave(String editName) {
-		if (editName == null || editName.isBlank()) return false;
+		if (editName == null || editName.isBlank() || ruleEditTransaction != null) return false;
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		return filter.isPresent() && validationErrors(filter).isEmpty();
 	}
@@ -282,7 +286,7 @@ final class EditorStateCore {
 		if (existingDefinition != null && !saveAsNew) {
 			return Component.translatable(ModTranslationKeys.EDITOR_PENDING_ID_EXISTING, id).getString();
 		}
-		String sanitized = EditorRuntimeServices.get().sanitizeGeneratedIdBase(editName);
+		String sanitized = EditorRuntimeServices.groups().sanitizeGeneratedIdBase(editName);
 		if (!sanitized.isEmpty()) {
 			return Component.translatable(ModTranslationKeys.EDITOR_PENDING_ID_ON_SAVE, id).getString();
 		}
@@ -346,29 +350,61 @@ final class EditorStateCore {
 	}
 
 	@Nullable
-	GroupFilterRuleDraft.Node insertRuleRelativePending(GroupFilterRuleDraft.NodeKind kind) {
+	GroupFilterRuleDraft.Node beginInsertRule(GroupFilterRuleDraft.NodeKind kind) {
+		if (readOnlyFilter || ruleEditTransaction != null) {
+			return null;
+		}
+		if (ruleDraft.hasRoot() && ruleDraft.pathOf(selectedRuleNode).isEmpty()) {
+			return null;
+		}
+		beginRuleEditTransaction();
 		GroupFilterRuleDraft.Node node = insertRuleRelative(kind);
-		if (node != null) {
-			pendingRuleNode = node;
+		if (node == null) {
+			ruleEditTransaction = null;
 		}
 		return node;
 	}
 
-	boolean hasPendingRuleNode() {
-		return pendingRuleNode != null;
+	boolean beginRuleEdit(GroupFilterRuleDraft.Node node) {
+		if (readOnlyFilter || node == null || ruleEditTransaction != null
+			|| ruleDraft.pathOf(node).isEmpty()) {
+			return false;
+		}
+		selectedRuleNode = node;
+		beginRuleEditTransaction();
+		return true;
 	}
 
-	void commitPendingRuleNode() {
-		pendingRuleNode = null;
+	boolean hasRuleEditTransaction() {
+		return ruleEditTransaction != null;
 	}
 
-	void cancelPendingRuleNode() {
-		if (pendingRuleNode == null) {
+	boolean ruleEditChanged() {
+		return ruleEditTransaction != null
+			&& !ruleEditTransaction.snapshot().contentEquals(ruleDraft);
+	}
+
+	void commitRuleEdit() {
+		ruleEditTransaction = null;
+	}
+
+	void cancelRuleEdit() {
+		RuleEditTransaction transaction = ruleEditTransaction;
+		if (transaction == null) {
 			return;
 		}
-		selectedRuleNode = pendingRuleNode;
-		pendingRuleNode = null;
-		deleteSelectedRule();
+		ruleEditTransaction = null;
+		ruleDraft.replaceWith(transaction.snapshot());
+		selectedRuleNode = ruleDraft.nodeAtPath(transaction.selectedPath());
+		if (selectedRuleNode == null) {
+			selectedRuleNode = ruleDraft.root();
+		}
+		onRulesDraftChanged.run();
+	}
+
+	private void beginRuleEditTransaction() {
+		List<Integer> path = ruleDraft.pathOf(selectedRuleNode).orElse(List.of());
+		ruleEditTransaction = new RuleEditTransaction(ruleDraft.copy(), path);
 	}
 
 	int unresolvedRuleCount(RuleTagResolution.TagExistenceLookup lookup) {
@@ -437,24 +473,26 @@ final class EditorStateCore {
 	}
 
 	private String currentOrGeneratedId(String editId, String editName) {
+		var groups = EditorRuntimeServices.groups();
 		if (editId != null && !editId.isEmpty()) {
-			if (saveAsNew && EditorRuntimeServices.get().findGroup(editId).isPresent()) {
-				return EditorRuntimeServices.get().generateUniqueIdIncludingKubeJs(editName);
+			if (saveAsNew && groups.findGroup(editId).isPresent()) {
+				return groups.generateUniqueIdIncludingKubeJs(editName);
 			}
 			return editId;
 		}
 		if (editName == null || editName.isBlank()) {
 			return null;
 		}
-		return EditorRuntimeServices.get().generateUniqueId(editName);
+		return groups.generateUniqueId(editName);
 	}
 
 	private String idForSave(String editId, String editName) {
+		var groups = EditorRuntimeServices.groups();
 		if (editId != null && !editId.isEmpty()) {
-			if (!saveAsNew || EditorRuntimeServices.get().findGroup(editId).isEmpty()) {
+			if (!saveAsNew || groups.findGroup(editId).isEmpty()) {
 				return editId;
 			}
 		}
-		return saveAsNew ? EditorRuntimeServices.get().generateUniqueIdIncludingKubeJs(editName) : EditorRuntimeServices.get().generateUniqueId(editName);
+		return saveAsNew ? groups.generateUniqueIdIncludingKubeJs(editName) : groups.generateUniqueId(editName);
 	}
 }

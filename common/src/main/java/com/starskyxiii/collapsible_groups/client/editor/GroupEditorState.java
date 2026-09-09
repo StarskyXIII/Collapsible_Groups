@@ -19,14 +19,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Holds all mutable edit state for {@link GroupEditorScreen}.
- *
- * <p>The editor supports item and fluid contents editing, and mirrors the richer rules workflow:
- * a flat contents draft powers quick item editing while a rule-tree draft powers the
- * Rules tab and persistence. Generic/custom entries use the same contents draft
- * contract as item and fluid entries.
  */
 final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	String editId;
@@ -36,13 +32,7 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	int editPriority;
 	private boolean nameTouched;
 
-	final GroupFilterEditorDraft draft;
-	final List<String> editTags;
-	private final Set<String> explicitSet;
-	final List<String> editFluidIds;
-	final List<String> editFluidTags;
-	final List<GroupFilterEditorDraft.GenericValue> editGenericIds;
-	final List<GroupFilterEditorDraft.GenericValue> editGenericTags;
+	private GroupFilterEditorDraft contentsProjection;
 	final EditorItemSelectionHelper itemSelection;
 	final EditorFluidSelectionHelper fluidSelection;
 	final EditorGenericSelectionHelper genericSelection;
@@ -58,8 +48,7 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	}
 
 	GroupEditorState(GroupDefinition existing, boolean saveAsNew, @Nullable String sourceGroupId) {
-		this.draft = GroupFilterEditorDraft.empty();
-		this.core = new EditorStateCore(existing, saveAsNew, sourceGroupId, this::refreshContentsDraftFromRules);
+		this.core = new EditorStateCore(existing, saveAsNew, sourceGroupId, this::refreshContentsProjection);
 
 		if (existing != null) {
 			this.editId = existing.id();
@@ -75,18 +64,11 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 			this.editPriority = 0;
 		}
 
-		this.editTags = draft.itemTags();
-		this.explicitSet = draft.explicitItemSelectors();
-		this.editFluidIds = draft.fluidIds();
-		this.editFluidTags = draft.fluidTags();
-		this.editGenericIds = draft.genericIds();
-		this.editGenericTags = draft.genericTags();
-		this.itemSelection = new EditorItemSelectionHelper(explicitSet, this::syncRulesFromContentsDraft);
-		this.fluidSelection = new EditorFluidSelectionHelper(editFluidIds, this::syncRulesFromContentsDraft);
-		this.genericSelection = new EditorGenericSelectionHelper(editGenericIds, editGenericTags,
-			this::syncRulesFromContentsDraft);
+		this.itemSelection = new EditorItemSelectionHelper();
+		this.fluidSelection = new EditorFluidSelectionHelper();
+		this.genericSelection = new EditorGenericSelectionHelper();
 
-		refreshContentsDraftFromRules();
+		refreshContentsProjection();
 	}
 
 	Optional<String> cachedExactSelector(ItemStack stack) {
@@ -190,71 +172,81 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	}
 
 	boolean isWholeItemSelected(ItemStack stack) {
-		return itemSelection.isWholeItemSelected(stack);
+		return itemSelection.isWholeItemSelected(stack, contentsProjection().explicitItemSelectors());
 	}
 
 	boolean isExactSelected(ItemStack stack) {
-		return itemSelection.isExactSelected(stack);
+		return itemSelection.isExactSelected(stack, contentsProjection().explicitItemSelectors());
 	}
 
 	void toggleSingleSelection(ItemStack stack) {
-		itemSelection.toggleSingleSelection(stack);
+		mutateContentsDraft(next -> itemSelection.toggleSingleSelection(stack, next.explicitItemSelectors()));
 	}
 
 	boolean addSingleSelectionIfAbsent(ItemStack stack) {
-		return itemSelection.addSingleSelectionIfAbsent(stack);
+		if (itemSelection.hasPreferredSelection(stack, contentsProjection().explicitItemSelectors())) {
+			return false;
+		}
+		boolean[] changed = {false};
+		mutateContentsDraft(next -> changed[0] = itemSelection.addSingleSelectionIfAbsent(
+			stack, next.explicitItemSelectors()));
+		return changed[0];
 	}
 
 	void toggleWholeItemSelection(ItemStack stack) {
-		itemSelection.toggleWholeItemSelection(stack);
+		mutateContentsDraft(next -> itemSelection.toggleWholeItemSelection(stack, next.explicitItemSelectors()));
 	}
 
 	void removeSingleSelection(ItemStack stack, List<ItemStack> allItems) {
-		itemSelection.removeSingleSelection(stack, allItems);
+		mutateContentsDraft(next -> itemSelection.removeSingleSelection(
+			stack, allItems, next.explicitItemSelectors()));
 	}
 
 	void removeAllSelectionsForItem(ItemStack stack) {
-		itemSelection.removeAllSelectionsForItem(stack);
-	}
-
-	void syncEditItems() {
-		// No-op: the contents collections are live views backed by the draft.
+		mutateContentsDraft(next -> itemSelection.removeAllSelectionsForItem(stack, next.explicitItemSelectors()));
 	}
 
 	boolean isFluidSelected(EditorFluidIngredientView fluid) {
-		return fluidSelection.isSelected(fluid);
+		return fluidSelection.isSelected(fluid, contentsProjection().fluidIds());
 	}
 
 	void toggleFluidSelection(EditorFluidIngredientView fluid) {
-		fluidSelection.toggleSelection(fluid);
+		mutateContentsDraft(next -> fluidSelection.toggleSelection(fluid, next.fluidIds()));
 	}
 
 	void addFluidId(String id) {
-		fluidSelection.addId(id);
+		if (fluidSelection.isIdSelected(id, contentsProjection().fluidIds())) {
+			return;
+		}
+		mutateContentsDraft(next -> fluidSelection.addId(id, next.fluidIds()));
 	}
 
 	void removeFluidSelection(EditorFluidIngredientView fluid) {
-		fluidSelection.removeSelection(fluid);
+		mutateContentsDraft(next -> fluidSelection.removeSelection(fluid, next.fluidIds()));
 	}
 
 	boolean isGenericSelected(EditorGenericIngredientView entry) {
-		return genericSelection.isSelected(entry);
+		return genericSelection.isSelected(entry, contentsProjection().genericIds());
 	}
 
 	boolean isGenericTagMatched(EditorGenericIngredientView entry) {
-		return genericSelection.isTagMatched(entry);
+		GroupFilterEditorDraft projection = contentsProjection();
+		return genericSelection.isTagMatched(entry, projection.genericIds(), projection.genericTags());
 	}
 
 	void toggleGenericSelection(EditorGenericIngredientView entry) {
-		genericSelection.toggleSelection(entry);
+		mutateContentsDraft(next -> genericSelection.toggleSelection(entry, next.genericIds()));
 	}
 
 	void addGenericId(String typeId, String id) {
-		genericSelection.addId(typeId, id);
+		if (genericSelection.containsId(typeId, id, contentsProjection().genericIds())) {
+			return;
+		}
+		mutateContentsDraft(next -> genericSelection.addId(typeId, id, next.genericIds()));
 	}
 
 	void removeGenericSelection(EditorGenericIngredientView entry) {
-		genericSelection.removeSelection(entry);
+		mutateContentsDraft(next -> genericSelection.removeSelection(entry, next.genericIds()));
 	}
 
 	Optional<GroupDefinition> trySave() {
@@ -323,28 +315,38 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	}
 
 	@Override
-	public GroupFilterRuleDraft.Node insertRuleRelativePending(GroupFilterRuleDraft.NodeKind kind) {
-		return core.insertRuleRelativePending(kind);
+	public GroupFilterRuleDraft.Node beginInsertRule(GroupFilterRuleDraft.NodeKind kind) {
+		return core.beginInsertRule(kind);
 	}
 
 	@Override
-	public boolean hasPendingRuleNode() {
-		return core.hasPendingRuleNode();
+	public boolean beginRuleEdit(GroupFilterRuleDraft.Node node) {
+		return core.beginRuleEdit(node);
 	}
 
 	@Override
-	public void commitPendingRuleNode() {
-		core.commitPendingRuleNode();
+	public boolean hasRuleEditTransaction() {
+		return core.hasRuleEditTransaction();
 	}
 
 	@Override
-	public void cancelPendingRuleNode() {
-		core.cancelPendingRuleNode();
+	public boolean ruleEditChanged() {
+		return core.ruleEditChanged();
+	}
+
+	@Override
+	public void commitRuleEdit() {
+		core.commitRuleEdit();
+	}
+
+	@Override
+	public void cancelRuleEdit() {
+		core.cancelRuleEdit();
 	}
 
 	@Override
 	public int unresolvedRuleCount() {
-		var runtime = EditorRuntimeServices.get();
+		var runtime = EditorRuntimeServices.ingredients();
 		return (int) core.flattenedRuleNodes().stream().filter(flat ->
 			EditorTagDiagnostics.warning(flat.node(), runtime) != null).count();
 	}
@@ -379,44 +381,43 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		return core.currentValidationErrors();
 	}
 
-	private void syncRulesFromContentsDraft() {
-		core.syncRulesFromContentsDraft(draft);
+	GroupFilterEditorDraft contentsDraftSnapshot() {
+		return decodeContentsProjection().draft();
 	}
 
-	private void refreshContentsDraftFromRules() {
-		clearContentsDraft();
+	private GroupFilterEditorDraft contentsProjection() {
+		if (contentsProjection == null) {
+			refreshContentsProjection();
+		}
+		return contentsProjection;
+	}
+
+	private GroupFilterEditorDraft.DecodeResult decodeContentsProjection() {
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		if (filter.isEmpty()) {
 			boolean available = !core.hasRulesRoot();
-			core.setContentsEditability(available, available);
+			return new GroupFilterEditorDraft.DecodeResult(
+				GroupFilterEditorDraft.empty(), available, List.of(), Set.of());
+		}
+		return GroupFilterEditorDraft.decode(filter.get());
+	}
+
+	private void refreshContentsProjection() {
+		GroupFilterEditorDraft.DecodeResult decoded = decodeContentsProjection();
+		core.setContentsEditability(decoded.structurallyEditable(), decoded.flatIndexSafe());
+		contentsProjection = decoded.draft();
+	}
+
+	private void mutateContentsDraft(Consumer<GroupFilterEditorDraft> mutation) {
+		if (!core.canEditContents()) {
 			return;
 		}
-
-		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(filter.get());
-		core.setContentsEditability(decoded.structurallyEditable(), decoded.flatIndexSafe());
-		if (core.canEditContents()) {
-			copyContentsDraft(decoded.draft());
+		GroupFilterEditorDraft next = decodeContentsProjection().draft();
+		Optional<GroupFilter> before = next.toFilter();
+		mutation.accept(next);
+		if (!next.toFilter().equals(before)) {
+			core.syncRulesFromContentsDraft(next);
 		}
-	}
-
-	private void clearContentsDraft() {
-		explicitSet.clear();
-		editTags.clear();
-		editFluidIds.clear();
-		editFluidTags.clear();
-		editGenericIds.clear();
-		editGenericTags.clear();
-		draft.preservedSubtrees().clear();
-	}
-
-	private void copyContentsDraft(GroupFilterEditorDraft source) {
-		explicitSet.addAll(source.explicitItemSelectors());
-		editTags.addAll(source.itemTags());
-		editFluidIds.addAll(source.fluidIds());
-		editFluidTags.addAll(source.fluidTags());
-		editGenericIds.addAll(source.genericIds());
-		editGenericTags.addAll(source.genericTags());
-		draft.preservedSubtrees().addAll(source.preservedSubtrees());
 	}
 
 }

@@ -26,13 +26,17 @@ public interface EditorRulesState {
 	GroupFilterRuleDraft.Node insertRuleRelative(GroupFilterRuleDraft.NodeKind kind);
 
 	@Nullable
-	GroupFilterRuleDraft.Node insertRuleRelativePending(GroupFilterRuleDraft.NodeKind kind);
+	GroupFilterRuleDraft.Node beginInsertRule(GroupFilterRuleDraft.NodeKind kind);
 
-	boolean hasPendingRuleNode();
+	boolean beginRuleEdit(GroupFilterRuleDraft.Node node);
 
-	void commitPendingRuleNode();
+	boolean hasRuleEditTransaction();
 
-	void cancelPendingRuleNode();
+	boolean ruleEditChanged();
+
+	void commitRuleEdit();
+
+	void cancelRuleEdit();
 
 	int unresolvedRuleCount();
 

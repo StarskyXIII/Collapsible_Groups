@@ -40,11 +40,25 @@ public record FilterTypeScope(Set<String> types, boolean unrestricted) {
 			case GroupFilter.All all -> all.children().isEmpty() && candidates
 				? new FilterTypeScope(Set.of(), true) : union(all.children(), candidates);
 			case GroupFilter.Not not -> declared(not.child());
-			case GroupFilter.Id id -> single(id.ingredientType());
-			case GroupFilter.Tag tag -> single(tag.ingredientType());
-			case GroupFilter.Namespace namespace -> single(namespace.ingredientType());
-			case GroupFilter.Unsupported ignored -> new FilterTypeScope(Set.of(), false);
-			default -> single("item");
+			case GroupFilter.Id id -> leaf(FilterNodeKind.ID, id.ingredientType());
+			case GroupFilter.Tag tag -> leaf(FilterNodeKind.TAG, tag.ingredientType());
+			case GroupFilter.Namespace namespace -> leaf(FilterNodeKind.NAMESPACE, namespace.ingredientType());
+			case GroupFilter.BlockTag ignored -> leaf(FilterNodeKind.BLOCK_TAG, null);
+			case GroupFilter.ItemPathStartsWith ignored -> leaf(FilterNodeKind.ITEM_PATH_STARTS_WITH, null);
+			case GroupFilter.ItemPathContains ignored -> leaf(FilterNodeKind.ITEM_PATH_CONTAINS, null);
+			case GroupFilter.ItemPathEndsWith ignored -> leaf(FilterNodeKind.ITEM_PATH_ENDS_WITH, null);
+			case GroupFilter.ExactStack ignored -> leaf(FilterNodeKind.EXACT_STACK, null);
+			case GroupFilter.HasComponent ignored -> leaf(FilterNodeKind.HAS_COMPONENT, null);
+			case GroupFilter.ComponentPath ignored -> leaf(FilterNodeKind.COMPONENT_PATH, null);
+			case GroupFilter.Unsupported ignored -> leaf(FilterNodeKind.UNKNOWN, null);
+		};
+	}
+
+	private static FilterTypeScope leaf(FilterNodeKind kind, String ingredientType) {
+		return switch (RuleDescriptor.forKind(kind).typePolicy()) {
+			case INGREDIENT_TYPED -> single(ingredientType);
+			case ITEM_ONLY -> single("item");
+			case NONE -> new FilterTypeScope(Set.of(), false);
 		};
 	}
 

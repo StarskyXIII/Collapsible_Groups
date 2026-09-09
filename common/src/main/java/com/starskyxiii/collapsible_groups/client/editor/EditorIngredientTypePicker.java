@@ -44,7 +44,7 @@ final class EditorIngredientTypePicker {
 	}
 
 	private boolean refresh() {
-		if (!selection.update(EditorRuntimeServices.find().map(EditorRuntimeAccess::ingredientTypes)
+		if (!selection.update(EditorRuntimeServices.findIngredients().map(EditorIngredientAccess::ingredientTypes)
 			.orElse(EditorIngredientTypes.UNAVAILABLE))) return false;
 		offset = 0;
 		lastClicked = null;
