@@ -11,19 +11,69 @@ import java.util.stream.Collectors;
 
 final class EditorItemSelectionHelper {
 	private final IdentityHashMap<ItemStack, Optional<String>> exactSelectorCache = new IdentityHashMap<>();
+    private final java.util.Map<String, Optional<ItemStack>> decodedSelections = new java.util.HashMap<>();
+    private Object registryIdentity;
+    private Set<String> indexedSelections;
+    private int indexedSize = -1;
+    private final java.util.Map<Integer, List<ItemStack>> selectionBuckets = new java.util.HashMap<>();
 
 	Optional<String> cachedExactSelector(ItemStack stack) {
+		refreshRegistry();
 		return exactSelectorCache.computeIfAbsent(stack, GroupItemSelector::tryExactSelector);
 	}
 
-	void clearCache() { exactSelectorCache.clear(); }
+	void clearCache() { exactSelectorCache.clear(); decodedSelections.clear(); selectionChanged(); }
+
+    void selectionChanged() {
+        indexedSelections = null;
+        indexedSize = -1;
+        selectionBuckets.clear();
+    }
+
+    private void indexSelections(Set<String> explicitSet) {
+        refreshRegistry();
+        if (indexedSelections == explicitSet && indexedSize == explicitSet.size()) return;
+        selectionBuckets.clear();
+        for (String selector : explicitSet) {
+            if (!GroupItemSelector.isExactSelector(selector)) continue;
+            decodedSelections.computeIfAbsent(selector, GroupItemSelector::decodeExactSelector).ifPresent(decoded ->
+                selectionBuckets.computeIfAbsent(ItemStack.hashItemAndComponents(decoded), ignored -> new java.util.ArrayList<>()).add(decoded));
+        }
+        indexedSelections = explicitSet;
+        indexedSize = explicitSet.size();
+    }
+
+    private void refreshRegistry() {
+        Object current = GroupItemSelector.registryIdentity();
+        if (registryIdentity != current) {
+            clearCache();
+            registryIdentity = current;
+        }
+    }
+
+    private boolean equivalent(String selector, ItemStack stack) {
+        refreshRegistry();
+        if (!GroupItemSelector.isExactSelector(selector)) return false;
+        return decodedSelections.computeIfAbsent(selector, GroupItemSelector::decodeExactSelector)
+            .map(decoded -> ItemStack.isSameItemSameComponents(decoded, stack)).orElse(false);
+    }
+
+    private boolean removeEquivalent(ItemStack stack, Set<String> explicitSet) {
+        selectionChanged();
+        return explicitSet.removeIf(selector -> equivalent(selector, stack));
+    }
 
 	boolean isWholeItemSelected(ItemStack stack, Set<String> explicitSet) {
 		return explicitSet.contains(GroupItemSelector.wholeItemSelector(stack));
 	}
 
 	boolean isExactSelected(ItemStack stack, Set<String> explicitSet) {
-		return cachedExactSelector(stack).map(explicitSet::contains).orElse(false);
+		if (cachedExactSelector(stack).map(explicitSet::contains).orElse(false)) return true;
+        indexSelections(explicitSet);
+        for (ItemStack selected : selectionBuckets.getOrDefault(ItemStack.hashItemAndComponents(stack), List.of())) {
+            if (ItemStack.isSameItemSameComponents(selected, stack)) return true;
+        }
+        return false;
 	}
 
 	/**
@@ -40,12 +90,15 @@ final class EditorItemSelectionHelper {
 	}
 
 	boolean hasPreferredSelection(ItemStack stack, Set<String> explicitSet) {
-		return explicitSet.contains(preferredSelector(stack));
+		String selector = preferredSelector(stack);
+        return explicitSet.contains(selector) || GroupItemSelector.isExactSelector(selector) && isExactSelected(stack, explicitSet);
 	}
 
 	void toggleSingleSelection(ItemStack stack, Set<String> explicitSet) {
+        selectionChanged();
 		String preferredSelector = preferredSelector(stack);
-		if (explicitSet.remove(preferredSelector)) {
+		if (GroupItemSelector.isExactSelector(preferredSelector)
+            ? removeEquivalent(stack, explicitSet) : explicitSet.remove(preferredSelector)) {
 			return;
 		}
 		if (GroupItemSelector.isExactSelector(preferredSelector)) {
@@ -57,8 +110,9 @@ final class EditorItemSelectionHelper {
 	}
 
 	boolean addSingleSelectionIfAbsent(ItemStack stack, Set<String> explicitSet) {
+        selectionChanged();
 		String preferredSelector = preferredSelector(stack);
-		if (explicitSet.contains(preferredSelector)) {
+		if (hasPreferredSelection(stack, explicitSet)) {
 			return false;
 		}
 		boolean changed;
@@ -72,6 +126,7 @@ final class EditorItemSelectionHelper {
 	}
 
 	void toggleWholeItemSelection(ItemStack stack, Set<String> explicitSet) {
+        selectionChanged();
 		String wholeItemSelector = GroupItemSelector.wholeItemSelector(stack);
 		if (explicitSet.remove(wholeItemSelector)) {
 			return;
@@ -81,8 +136,7 @@ final class EditorItemSelectionHelper {
 	}
 
 	void removeSingleSelection(ItemStack stack, List<ItemStack> allItems, Set<String> explicitSet) {
-		String exactSelector = GroupItemSelector.exactSelector(stack);
-		if (explicitSet.remove(exactSelector)) {
+		if (removeEquivalent(stack, explicitSet)) {
 			return;
 		}
 		String wholeItemSelector = GroupItemSelector.wholeItemSelector(stack);
@@ -92,6 +146,7 @@ final class EditorItemSelectionHelper {
 	}
 
 	void removeAllSelectionsForItem(ItemStack stack, Set<String> explicitSet) {
+        selectionChanged();
 		Set<String> selectors = explicitSet.stream()
 			.filter(selector -> GroupItemSelector.isSelectorForSameItem(selector, stack))
 			.collect(Collectors.toSet());
@@ -108,11 +163,10 @@ final class EditorItemSelectionHelper {
 
 	private void addAllSiblingVariantsExcept(ItemStack excludedStack, List<ItemStack> allItems,
 		Set<String> explicitSet) {
-		String excludedSelector = GroupItemSelector.exactSelector(excludedStack);
-		for (ItemStack candidate : allItems) {
+				for (ItemStack candidate : allItems) {
 			if (GroupItemSelector.sameItem(candidate, excludedStack)) {
 				cachedExactSelector(candidate).ifPresent(selector -> {
-					if (!selector.equals(excludedSelector)) {
+					if (!ItemStack.isSameItemSameComponents(candidate, excludedStack) && !isExactSelected(candidate, explicitSet)) {
 						explicitSet.add(selector);
 					}
 				});

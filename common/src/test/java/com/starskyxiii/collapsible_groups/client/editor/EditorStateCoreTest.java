@@ -433,8 +433,8 @@ class EditorStateCoreTest {
 
 		GroupFilter.Any filter = assertInstanceOf(GroupFilter.Any.class, core.buildCurrentFilter().orElseThrow());
 		assertEquals(List.of(
-			new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\"}"),
-			new GroupFilter.ExactStack("{\"id\":\"minecraft:oak_boat\"}")
+			new GroupFilter.ExactStack(new com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload("minecraft:item_components", com.google.gson.JsonParser.parseString("{\"id\":\"minecraft:stone\"}"))),
+			new GroupFilter.ExactStack(new com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload("minecraft:item_components", com.google.gson.JsonParser.parseString("{\"id\":\"minecraft:oak_boat\"}")))
 		), filter.children());
 	}
 }

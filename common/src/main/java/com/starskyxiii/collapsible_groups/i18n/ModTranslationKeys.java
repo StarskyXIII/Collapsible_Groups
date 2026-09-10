@@ -187,6 +187,8 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_RULES_ERROR_EXACT_STACK_BLANK = "collapsible_groups.editor.rules.error.exact_stack_blank";
 
+    public static final String EDITOR_RULES_ERROR_JSON_LITERAL = "collapsible_groups.editor.rules.error.json_literal";
+    public static final String EDITOR_RULES_FIELD_JSON_LITERAL = "collapsible_groups.editor.rules.field.json_literal";
 	public static final String EDITOR_RULES_ERROR_EXACT_STACK_INVALID = "collapsible_groups.editor.rules.error.exact_stack_invalid";
 
 	public static final String EDITOR_RULES_ERROR_HAS_COMPONENT_TYPE_BLANK = "collapsible_groups.editor.rules.error.has_component_type_blank";

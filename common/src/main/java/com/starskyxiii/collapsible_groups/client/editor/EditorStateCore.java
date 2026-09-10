@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.client.editor.model.RuleTagResolution;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDocumentFormat;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
@@ -76,14 +77,18 @@ final class EditorStateCore {
 		this.sourceGroupId = normalizeSourceGroupId(sourceGroupId);
 		this.onRulesDraftChanged = Objects.requireNonNull(onRulesDraftChanged, "onRulesDraftChanged");
 		this.ruleDraft = existingDefinition != null && !readOnlyFilter
-			? GroupFilterRuleDraft.decode(existingDefinition.filter())
-			: GroupFilterRuleDraft.empty();
+			? GroupFilterRuleDraft.decode(existingDefinition.filter(), documentFormat())
+			: GroupFilterRuleDraft.empty(documentFormat());
 		this.selectedRuleNode = ruleDraft.root();
 
 		buildCurrentFilter()
 			.filter(filter -> validationErrors(Optional.of(filter)).isEmpty())
 			.ifPresent(filter -> lastValidPreviewFilter = filter);
 	}
+
+    private GroupDocumentFormat documentFormat() {
+        return existingDefinition == null ? GroupDocumentFormat.V1 : existingDefinition.documentFormat();
+    }
 
 	private static @Nullable String normalizeSourceGroupId(@Nullable String sourceGroupId) {
 		return sourceGroupId == null || sourceGroupId.isBlank() ? null : sourceGroupId;
@@ -198,8 +203,8 @@ final class EditorStateCore {
 			return;
 		}
 		GroupFilterRuleDraft replacement = draft.toFilter()
-			.map(GroupFilterRuleDraft::decode)
-			.orElseGet(GroupFilterRuleDraft::empty);
+			.map(filter -> GroupFilterRuleDraft.decode(filter, documentFormat()))
+			.orElseGet(() -> GroupFilterRuleDraft.empty(documentFormat()));
 		ruleDraft.replaceWith(replacement);
 		selectedRuleNode = ruleDraft.root();
 		onRulesDraftChanged.run();
@@ -231,8 +236,7 @@ final class EditorStateCore {
 					filter.get(), existingDefinition, appearance, priority)
 				: GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition,
 					appearance, priority);
-			groups.saveQuietly(saved);
-			return Optional.of(saved);
+			return groups.saveChecked(saved) ? Optional.of(saved) : Optional.empty();
 		} catch (IllegalArgumentException e) {
 			return Optional.empty();
 		}
@@ -246,12 +250,17 @@ final class EditorStateCore {
 	}
 
 	boolean canSave(String editName) {
+        if (documentFormat() == GroupDocumentFormat.UNSUPPORTED) return false;
 		if (editName == null || editName.isBlank() || ruleEditTransaction != null) return false;
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		return filter.isPresent() && validationErrors(filter).isEmpty();
 	}
 
 	List<Component> saveBlockedTooltip(String editName) {
+        if (documentFormat() == GroupDocumentFormat.UNSUPPORTED) {
+            return List.of(Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR),
+                Component.translatable(ModTranslationKeys.EDITOR_FILTER_UNAVAILABLE));
+        }
 		if (editName == null || editName.isBlank()) {
 			return List.of(
 				Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR),
@@ -385,6 +394,7 @@ final class EditorStateCore {
 	}
 
 	void commitRuleEdit() {
+        if (ruleDraft.flatten().stream().anyMatch(flat -> !flat.node().hasValidDataLiteral())) return;
 		ruleEditTransaction = null;
 	}
 

@@ -17,6 +17,26 @@ class ExactStackMatcherCacheTest {
 	private static final ResourceLocation FACADE = ResourceLocation.parse("ae2:facade");
 	private static final ResourceLocation OTHER = ResourceLocation.parse("minecraft:stone");
 
+    @Test void unavailableExactReferencesRetainThreeValuedResultsAndRetryOnRegistryChange() {
+        AtomicReference<Object> registry = new AtomicReference<>(new Object());
+        Object unavailableRegistry = registry.get();
+        var cache = new ExactStackMatcherCache<String>(List.of("reference"), () -> {
+            Object current = registry.get();
+            return new ExactStackMatcherCache.DecodeAttempt<>() {
+                public boolean liveRegistry() { return true; }
+                public Object registryIdentity() { return current; }
+                public Optional<ExactStackMatcherCache.Decoded<String>> decode(String encoded) {
+                    return current == unavailableRegistry ? Optional.empty() : Optional.of(decoded(FACADE, "value"));
+                }
+            };
+        }, registry::get);
+        assertEquals(CompiledFilter.Evaluation.UNAVAILABLE, cache.evaluate(FACADE, "value"::equals));
+        assertEquals(CompiledFilter.Evaluation.UNAVAILABLE, cache.evaluate(OTHER, "value"::equals));
+        registry.set(new Object());
+        assertEquals(CompiledFilter.Evaluation.MATCH, cache.evaluate(FACADE, "value"::equals));
+        assertEquals(CompiledFilter.Evaluation.NO_MATCH, cache.evaluate(OTHER, "value"::equals));
+    }
+
 	@Test void singletonDecodesOnceAcrossTenThousandCandidates() {
 		AtomicInteger attempts = new AtomicInteger();
 		AtomicInteger decodes = new AtomicInteger();

@@ -496,9 +496,14 @@ public final class GroupRegistry {
 
 	/** Saves a group without triggering JEI invalidation. */
 	public static void saveQuietly(GroupDefinition group) {
-		invalidateFirstMatchCache(group.id());
-		GroupRepository.saveQuietly(group);
-	}
+        saveQuietlyChecked(group);
+    }
+
+    public static boolean saveQuietlyChecked(GroupDefinition group) {
+        if (!GroupRepository.saveQuietlyChecked(group)) return false;
+        invalidateFirstMatchCache(group.id());
+        return true;
+    }
 
 	public static Optional<GroupDefinition> copyAsCustomQuietly(String sourceId, String copiedDisplayName) {
 		return GroupRepository.copyAsCustomQuietly(sourceId, copiedDisplayName);

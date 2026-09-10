@@ -6,6 +6,7 @@ import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft121Item
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
@@ -101,10 +102,10 @@ class ComponentReferenceExtractorTest {
 		assertEquals("9.6", saturationPickerValue);
 		assertTrue(ItemStackIngredientView.matchesEncodedValue(saturation, saturationPickerValue));
 		assertTrue(ItemStackIngredientView.matchesEncodedValue(saturation,
-			Minecraft121ItemDataAccess.envelopeComponentValue(saturation)));
+			new com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload("minecraft:data_component", saturation)));
 		assertTrue(ItemStackIngredientView.matchesEncodedValue(food, foodPickerValue));
 		assertTrue(ItemStackIngredientView.matchesEncodedValue(food,
-			Minecraft121ItemDataAccess.envelopeComponentValue(food)));
+			new com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload("minecraft:data_component", food)));
 
 		JsonElement pathValue = ComponentPathNavigator.navigatePath(food, "saturation");
 		assertTrue(ItemStackIngredientView.matchesEncodedValue(pathValue,
@@ -123,8 +124,8 @@ class ComponentReferenceExtractorTest {
 			assertFalse(ItemStackIngredientView.matchesEncodedValue(
 				encoded, EncodedValueNormalizer.normalize(encoded)));
 			assertFalse(ItemStackIngredientView.matchesEncodedValue(encoded, quoted));
-			assertFalse(ItemStackIngredientView.matchesEncodedValue(encoded,
-				Minecraft121ItemDataAccess.envelopeComponentValue(encoded)));
+			org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class, () ->
+                new com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload("minecraft:data_component", encoded));
 		}
 
 		JsonObject nested = new JsonObject();

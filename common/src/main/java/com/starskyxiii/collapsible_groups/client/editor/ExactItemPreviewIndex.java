@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
 import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.FilterTypeScope;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
@@ -27,7 +28,7 @@ public final class ExactItemPreviewIndex {
 	private long leafEvaluations;
 	private long idLookups;
 	private final Map<Integer, List<Integer>> buckets = new HashMap<>();
-	private final LinkedHashMap<String, int[]> selectors = new LinkedHashMap<>(16, 0.75f, true);
+	private final LinkedHashMap<String, ExactResult> selectors = new LinkedHashMap<>(16, 0.75f, true);
 	private final ToIntFunction<ItemStack> hash;
 	private Object registryIdentity;
 	private long retainedBytes;
@@ -67,9 +68,12 @@ public final class ExactItemPreviewIndex {
 			return new Result(matches, new BitSet());
 		}
 		if (filter instanceof GroupFilter.ExactStack exact) {
-			BitSet matches = new BitSet();
-			for (int ordinal : exactMatches(exact.encodedStack(), context)) matches.set(ordinal);
-			return new Result(matches, new BitSet());
+            if (exact.payload() != null && (!ItemDataPayload.ITEM_COMPONENTS.equals(exact.payload().dataFormat())
+                || !exact.payload().data().isJsonObject())) return new Result(new BitSet(), all());
+            BitSet matches = new BitSet();
+            ExactResult result = exactMatches(exact.encodedStack(), context);
+            for (int ordinal : result.ordinals()) matches.set(ordinal);
+            return new Result(matches, result.unavailable() ? all() : new BitSet());
 		}
 		if (filter instanceof GroupFilter.Not not) {
 			FilterTypeScope domain = FilterTypeScope.declared(not.child());
@@ -127,8 +131,8 @@ public final class ExactItemPreviewIndex {
 		for (int ordinal : ids.getOrDefault(resource, List.of())) matches.set(ordinal);
 	}
 
-	private int[] exactMatches(String selector, GroupItemSelector.ExactDecodeContext context) {
-		int[] cached = selectors.get(selector);
+	private ExactResult exactMatches(String selector, GroupItemSelector.ExactDecodeContext context) {
+		ExactResult cached = selectors.get(selector);
 		if (cached != null) {
 			cacheHits++;
 			return cached;
@@ -143,12 +147,12 @@ public final class ExactItemPreviewIndex {
 				if (ItemStack.isSameItemSameComponents(stack, snapshots.get(ordinal))) matches.add(ordinal);
 			}
 		}
-		int[] result = matches.stream().mapToInt(Integer::intValue).toArray();
+		ExactResult result = new ExactResult(matches.stream().mapToInt(Integer::intValue).toArray(), decoded.isEmpty());
 		if (decoded.isPresent() || context.liveRegistry()) cache(selector, result);
 		return result;
 	}
 
-	private void cache(String selector, int[] ordinals) {
+	private void cache(String selector, ExactResult ordinals) {
 		long cost = cost(selector, ordinals);
 		if (cost > MAX_BYTES) return;
 		while (!selectors.isEmpty() && (selectors.size() >= MAX_ENTRIES || retainedBytes + cost > MAX_BYTES)) {
@@ -159,8 +163,8 @@ public final class ExactItemPreviewIndex {
 		retainedBytes += cost;
 	}
 
-	private static long cost(String selector, int[] ordinals) {
-		return 160L + 2L * selector.length() + 4L * ordinals.length;
+	private static long cost(String selector, ExactResult ordinals) {
+		return 160L + 2L * selector.length() + 4L * ordinals.ordinals().length;
 	}
 
 	private BitSet all() {
@@ -177,5 +181,6 @@ public final class ExactItemPreviewIndex {
 	long cacheHits() { return cacheHits; }
 	int cachedSelectors() { return selectors.size(); }
 	long retainedBytes() { return retainedBytes; }
+	private record ExactResult(int[] ordinals, boolean unavailable) {}
 	private record Result(BitSet matches, BitSet unavailable) {}
 }

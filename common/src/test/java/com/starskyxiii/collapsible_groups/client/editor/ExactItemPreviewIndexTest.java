@@ -73,6 +73,22 @@ class ExactItemPreviewIndexTest {
 				index.resolve(filter, context));
 		}
 	}
+    @Test void malformedExactDataAndWrongFormatsNeverBecomeMatchesUnderNot() {
+        List<ItemStack> items = List.of(new ItemStack(Items.STONE), new ItemStack(Items.DIRT));
+        var index = new ExactItemPreviewIndex(items);
+        GroupFilter invalid = new GroupFilter.ExactStack("{}");
+        GroupFilter wrongFormat = new GroupFilter.ExactStack(new com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload(
+            "minecraft:nbt", com.google.gson.JsonParser.parseString("{\"id\":\"minecraft:stone\"}")));
+        for (GroupFilter leaf : List.of(invalid, wrongFormat)) {
+            assertEquals(List.of(), index.resolve(new GroupFilter.Not(leaf), context));
+            assertEquals(List.of(items.getFirst()), index.resolve(new GroupFilter.Any(List.of(leaf, new GroupFilter.Id("item", "minecraft:stone"))), context));
+        }
+        long before = index.decodes();
+        var otherIdentity = new GroupItemSelector.ExactDecodeContext(context.ops(), true, new Object());
+        assertEquals(List.of(), index.resolve(new GroupFilter.Not(invalid), otherIdentity));
+        assertTrue(index.decodes() > before);
+    }
+
 	private static GroupItemSelector.ExactDecodeContext context;
 
 	@BeforeAll static void bootstrap() {

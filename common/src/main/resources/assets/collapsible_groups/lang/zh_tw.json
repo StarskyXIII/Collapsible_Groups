@@ -402,5 +402,7 @@
   "collapsible_groups.editor.rules.chip.item_namespace": "物品命名空間",
   "collapsible_groups.editor.rules.chip.fluid_namespace": "流體命名空間",
   "collapsible_groups.editor.rules.picker.title.item_namespace": "選擇物品命名空間",
-  "collapsible_groups.editor.rules.picker.title.fluid_namespace": "選擇流體命名空間"
+  "collapsible_groups.editor.rules.picker.title.fluid_namespace": "選擇流體命名空間",
+  "collapsible_groups.editor.rules.error.json_literal": "請輸入完整的 JSON 值。字串必須加上引號，例如「\"1\"」；1 則是數字。",
+  "collapsible_groups.editor.rules.field.json_literal": "JSON 值（\"文字\"、1、true、null、{}、[]）"
 }

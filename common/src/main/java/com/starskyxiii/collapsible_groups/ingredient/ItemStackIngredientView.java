@@ -1,6 +1,8 @@
 package com.starskyxiii.collapsible_groups.ingredient;
 
 import com.google.gson.JsonElement;
+import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccess;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses;
 import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft121ItemDataAccess;
@@ -71,6 +73,20 @@ public final class ItemStackIngredientView implements IngredientView {
 	public boolean hasComponentPath(String componentTypeId, String path, String expectedValue) {
 		return DATA_ACCESS.matchesDataPath(stack, componentTypeId, path, expectedValue);
 	}
+
+    @Override
+    public CompiledFilter.Evaluation queryComponent(String componentTypeId, String legacyValue, ItemDataPayload payload) {
+        return DATA_ACCESS.evaluateDataValue(stack, componentTypeId, legacyValue, payload);
+    }
+
+    @Override
+    public CompiledFilter.Evaluation queryComponentPath(String componentTypeId, String path, String legacyValue, ItemDataPayload payload) {
+        return DATA_ACCESS.evaluateDataPath(stack, componentTypeId, path, legacyValue, payload);
+    }
+
+    public static boolean matchesEncodedValue(JsonElement encoded, ItemDataPayload payload) {
+        return Minecraft121ItemDataAccess.matchesEncodedValue(encoded, payload);
+    }
 
 	public static boolean matchesEncodedValue(JsonElement encoded, String encodedValue) {
 		return Minecraft121ItemDataAccess.matchesEncodedValue(encoded, encodedValue);

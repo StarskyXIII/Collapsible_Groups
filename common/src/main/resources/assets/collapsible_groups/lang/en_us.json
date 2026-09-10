@@ -402,5 +402,7 @@
   "collapsible_groups.editor.rules.chip.item_namespace": "Item namespace",
   "collapsible_groups.editor.rules.chip.fluid_namespace": "Fluid namespace",
   "collapsible_groups.editor.rules.picker.title.item_namespace": "Select item namespace",
-  "collapsible_groups.editor.rules.picker.title.fluid_namespace": "Select fluid namespace"
+  "collapsible_groups.editor.rules.picker.title.fluid_namespace": "Select fluid namespace",
+  "collapsible_groups.editor.rules.error.json_literal": "Enter one complete JSON value. Use quotes for strings, for example \"1\"; 1 is a number.",
+  "collapsible_groups.editor.rules.field.json_literal": "JSON value (\"text\", 1, true, null, {}, [])"
 }

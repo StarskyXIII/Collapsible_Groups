@@ -1,5 +1,7 @@
 package com.starskyxiii.collapsible_groups.group.filter;
 
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
+
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -80,9 +82,21 @@ public final class FilterNodeCapabilities {
 			case GroupFilter.Any any -> any.children().stream().anyMatch(FilterNodeCapabilities::containsUnavailable);
 			case GroupFilter.All all -> all.children().stream().anyMatch(FilterNodeCapabilities::containsUnavailable);
 			case GroupFilter.Not not -> containsUnavailable(not.child());
-			default -> !isAvailable(kindOf(filter));
+			default -> !isAvailable(kindOf(filter)) || !nativePayloadSupported(filter);
 		};
 	}
+
+    private static boolean nativePayloadSupported(GroupFilter filter) {
+        return switch (filter) {
+            case GroupFilter.ExactStack exact -> exact.payload() == null
+                || ItemDataPayload.ITEM_COMPONENTS.equals(exact.payload().dataFormat()) && exact.payload().data().isJsonObject();
+            case GroupFilter.HasComponent component -> component.payload() == null
+                || ItemDataPayload.DATA_COMPONENT.equals(component.payload().dataFormat());
+            case GroupFilter.ComponentPath path -> path.payload() == null
+                || ItemDataPayload.DATA_COMPONENT.equals(path.payload().dataFormat());
+            default -> true;
+        };
+    }
 
 	public static List<String> unavailableKinds(GroupFilter filter) {
 		LinkedHashSet<String> kinds = new LinkedHashSet<>();
@@ -98,7 +112,7 @@ public final class FilterNodeCapabilities {
 			case GroupFilter.Not not -> collectUnavailableKinds(not.child(), kinds);
 			default -> {
 				FilterNodeKind kind = kindOf(filter);
-				if (!isAvailable(kind)) kinds.add(kind.name().toLowerCase(java.util.Locale.ROOT));
+				if (!isAvailable(kind) || !nativePayloadSupported(filter)) kinds.add(kind.name().toLowerCase(java.util.Locale.ROOT));
 			}
 		}
 	}

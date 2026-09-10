@@ -1,5 +1,8 @@
 package com.starskyxiii.collapsible_groups.group.filter;
 
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
+import com.google.gson.JsonElement;
+
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 
 import net.minecraft.world.item.ItemStack;
@@ -39,6 +42,23 @@ public final class Filters {
 	public static GroupFilter namespace(String type, String namespace) {
 		return new GroupFilter.Namespace(type, namespace);
 	}
+
+    public static GroupFilter exactStack(ItemDataPayload payload) {
+        return new GroupFilter.ExactStack(payload);
+    }
+
+    public static GroupFilter exactStackValue(ItemStack stack) {
+        return new GroupFilter.ExactStack(GroupItemSelector.tryExactPayload(stack)
+            .orElseThrow(() -> new IllegalArgumentException("ItemStack cannot be encoded")));
+    }
+
+    public static GroupFilter itemComponentValue(String componentTypeId, JsonElement value) {
+        return new GroupFilter.HasComponent(componentTypeId, new ItemDataPayload(ItemDataPayload.DATA_COMPONENT, value));
+    }
+
+    public static GroupFilter itemComponentPathValue(String componentTypeId, String path, JsonElement value) {
+        return new GroupFilter.ComponentPath(componentTypeId, path, new ItemDataPayload(ItemDataPayload.DATA_COMPONENT, value));
+    }
 
 	public static GroupFilter exactStack(String encodedStack) {
 		return new GroupFilter.ExactStack(encodedStack);

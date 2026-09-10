@@ -1096,6 +1096,13 @@ final class EditorRulesPanel {
 		if (contract.requiresField(RuleFieldRole.TERTIARY_VALUE) && editingNode.tertiaryValue().isBlank()) {
 			formInvalidRoles.add(RuleFieldRole.TERTIARY_VALUE);
 		}
+        if (!editingNode.hasValidDataLiteral()) {
+            formInvalidRoles.add(switch (editingNode.kind()) {
+                case EXACT_STACK -> RuleFieldRole.PRIMARY_VALUE;
+                case HAS_COMPONENT -> RuleFieldRole.SECONDARY_VALUE;
+                default -> RuleFieldRole.TERTIARY_VALUE;
+            });
+        }
 		return formInvalidRoles.isEmpty();
 	}
 
@@ -1859,7 +1866,7 @@ final class EditorRulesPanel {
 				openForm();
 				setFormFieldValues(Map.of(
 					RuleFieldRole.PRIMARY_VALUE, component.componentTypeId(),
-					RuleFieldRole.SECONDARY_VALUE, component.encodedValue()));
+					RuleFieldRole.SECONDARY_VALUE, editingNode.typedData() ? component.encodedJson().toString() : component.encodedValue()));
 			} else if (editingNode.kind() == GroupFilterRuleDraft.NodeKind.COMPONENT_PATH) {
 				openReferencePathPicker(component);
 			}
@@ -1874,7 +1881,7 @@ final class EditorRulesPanel {
 			setFormFieldValues(Map.of(
 				RuleFieldRole.PRIMARY_VALUE, component.componentTypeId(),
 				RuleFieldRole.SECONDARY_VALUE, path.path(),
-				RuleFieldRole.TERTIARY_VALUE, EncodedValueNormalizer.normalize(path.value())));
+				RuleFieldRole.TERTIARY_VALUE, editingNode.typedData() ? path.value().toString() : EncodedValueNormalizer.normalize(path.value())));
 		}
 	}
 
@@ -1979,7 +1986,7 @@ final class EditorRulesPanel {
 			fy += FIELD_H + FIELD_GAP;
 		}
 		formTertiary = showTertiary
-			? buildFormField(fx, fy, fw, Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE),
+			? buildFormField(fx, fy, fw, Component.translatable(editingNode.typedData() ? ModTranslationKeys.EDITOR_RULES_FIELD_JSON_LITERAL : ModTranslationKeys.EDITOR_RULES_FIELD_VALUE),
 				editingNode.tertiaryValue(), editingNode::setTertiaryValue, RuleFieldRole.TERTIARY_VALUE)
 			: null;
 
@@ -2258,6 +2265,9 @@ final class EditorRulesPanel {
 				drawFieldChrome(g, fieldRect, entry.field().isFocused(), fieldRect.contains(mouseX, mouseY));
 			}
 			entry.field().render(g, mouseX, mouseY, 0);
+            if (invalid && editingNode.typedData() && !editingNode.hasValidDataLiteral() && fieldRect.contains(mouseX, mouseY)) {
+                g.renderTooltip(font, font.split(Component.translatable(ModTranslationKeys.EDITOR_RULES_ERROR_JSON_LITERAL), 300), mouseX, mouseY);
+            }
 			if (entry.field() == formType && fieldRect.contains(mouseX, mouseY)) g.renderTooltip(font, font.split(Component.literal(editingNode.ingredientType()), 300), mouseX, mouseY);
 			if (hasPickerButton) {
 				EditorChrome.Rect pickerBtn = formFieldPickerButtonRect(m, fy);
@@ -2379,7 +2389,7 @@ final class EditorRulesPanel {
 
 	private Component secondaryHint(GroupFilterRuleDraft.Node node) {
 		return switch (node.kind()) {
-			case HAS_COMPONENT -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
+			case HAS_COMPONENT -> Component.translatable(node.typedData() ? ModTranslationKeys.EDITOR_RULES_FIELD_JSON_LITERAL : ModTranslationKeys.EDITOR_RULES_FIELD_VALUE);
 			case COMPONENT_PATH -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PATH);
 			default -> Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_VALUE_2);
 		};

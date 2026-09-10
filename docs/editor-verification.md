@@ -4,13 +4,17 @@ The editor keeps one authoritative rule tree. Item and fluid selection controls 
 
 Rule edits use a transaction. Confirm commits the edited rule; Cancel restores the previous tree and selection. Changing tabs or rebuilding the screen cancels an unfinished rule edit. Save is blocked while a rule edit remains unconfirmed. Forms with three fields use the available screen height when the Rules panel is too short, keeping the fields clear of the action buttons.
 
-Component conditions compare the complete encoded component value. Component-path conditions compare one encoded descendant. Numeric values retain JSON number semantics when serialized values are compared, so a codec-produced float such as food saturation `9.6` matches the value selected by the sample picker. Numbers and strings remain distinct, including nested values and non-finite codec output.
+Component conditions compare the complete encoded component value. Component-path conditions compare one encoded descendant. Numeric values retain JSON number semantics when serialized values are compared, so a codec-produced float such as food saturation `9.6` matches the value selected by the sample picker. New versioned groups keep numbers and strings distinct, including nested values. Manual component input must be a complete JSON literal; strings require quotes. Existing unversioned component rules retain their released String behavior, including a legacy value `"1"` matching either an encoded number or an encoded string. Invalid JSON and non-finite values cannot be applied to a versioned rule.
 
-Minecraft 1.20.1 NBT nodes remain unavailable on this version. Their original saved representation is preserved for round trips; they are not interpreted as component conditions.
+Minecraft 1.20.1 `minecraft:nbt` data nodes remain unavailable on this version. Their original JSON nodes are preserved for round trips; they are not interpreted as component conditions. Unknown document versions keep the complete document opaque and cannot be edited or saved as a known version. See [the format contract](group-json-format.md).
 
 Internally, `EditorStateCore` owns the canonical rule draft and its transaction snapshot; Contents controls use a derived projection. `RuleDescriptor` centralizes node capabilities, field requirements and picker roles while the existing capability/UI contracts remain compatibility entry points. Runtime consumers use separate group, ingredient and presentation interfaces, with `EditorRuntimeAccess` retained as the aggregate contract and viewer selection still owned by the existing lifecycle coordinator.
 
 ## Automated verification
+
+The September 11, 2026 build passed 970 tests (954 common and 16 NeoForge), with no failures, errors or skips. Common checks and Fabric, NeoForge and Forge builds passed; Fabric and Forge have no test sources. The format verification covers typed JSON literals, string/number distinctions, nested rule copies, source-format preservation, unsupported document and node round trips, protected-file save rejection, blank-form versioning, editor apply/cancel transactions, exact-selection equivalence and cache retry after registry availability changes. Native Minecraft codec tests cover component removal patches, ignored stack count, malformed or partially decoded stacks, missing components, unknown components and typed component paths.
+
+These format checks are automated. The September 9 client observations below precede the format changes and are retained as historical evidence only.
 
 The September 9, 2026 build passed 878 tests: 862 common tests and 16 NeoForge tests, with no failures, errors or skips. The Fabric test task has no test sources. Full Fabric and NeoForge builds passed.
 

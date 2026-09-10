@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.group.filter;
 
 import com.google.gson.JsonObject;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 
 import java.util.List;
 import java.util.Objects;
@@ -86,21 +87,30 @@ public sealed interface GroupFilter
 		}
 	}
 
-	record ExactStack(String encodedStack) implements GroupFilter {
+	record ExactStack(String encodedStack, ItemDataPayload payload) implements GroupFilter {
+        public ExactStack(String encodedStack) { this(encodedStack, null); }
+        public ExactStack(ItemDataPayload payload) { this(payload.data().toString(), payload); }
 		public ExactStack {
+            if (payload != null) encodedStack = payload.data().toString();
 			Objects.requireNonNull(encodedStack, "encodedStack");
 		}
 	}
 
-	record HasComponent(String componentTypeId, String encodedValue) implements GroupFilter {
+	record HasComponent(String componentTypeId, String encodedValue, ItemDataPayload payload) implements GroupFilter {
+        public HasComponent(String componentTypeId, String encodedValue) { this(componentTypeId, encodedValue, null); }
+        public HasComponent(String componentTypeId, ItemDataPayload payload) { this(componentTypeId, payload.data().toString(), payload); }
 		public HasComponent {
+            if (payload != null) encodedValue = payload.data().toString();
 			Objects.requireNonNull(componentTypeId, "componentTypeId");
 			Objects.requireNonNull(encodedValue, "encodedValue");
 		}
 	}
 
-	record ComponentPath(String componentTypeId, String path, String expectedValue) implements GroupFilter {
+	record ComponentPath(String componentTypeId, String path, String expectedValue, ItemDataPayload payload) implements GroupFilter {
+        public ComponentPath(String componentTypeId, String path, String expectedValue) { this(componentTypeId, path, expectedValue, null); }
+        public ComponentPath(String componentTypeId, String path, ItemDataPayload payload) { this(componentTypeId, path, payload.data().toString(), payload); }
 		public ComponentPath {
+            if (payload != null) expectedValue = payload.data().toString();
 			Objects.requireNonNull(componentTypeId, "componentTypeId");
 			Objects.requireNonNull(path, "path");
 			Objects.requireNonNull(expectedValue, "expectedValue");

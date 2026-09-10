@@ -42,7 +42,7 @@ class ComponentPathFilterStructureTest {
     void componentPathRecordNullChecks() {
         assertThrows(NullPointerException.class, () -> new GroupFilter.ComponentPath(null, "path", "val"));
         assertThrows(NullPointerException.class, () -> new GroupFilter.ComponentPath("comp", null, "val"));
-        assertThrows(NullPointerException.class, () -> new GroupFilter.ComponentPath("comp", "path", null));
+        assertThrows(NullPointerException.class, () -> new GroupFilter.ComponentPath("comp", "path", (String) null));
     }
 
     @Test

@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
 import com.google.gson.JsonObject;
+import com.starskyxiii.collapsible_groups.group.GroupDocumentFormat;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
@@ -37,7 +38,9 @@ public final class GroupEditorDefinitionFactory {
 			preservedAppearance(existing).toIconIds(),
 			preservedAppearance(existing).toTheme(),
 			preservedPriority(existing),
-			preservedExtra(existing)
+			preservedExtra(existing),
+            existing == null ? GroupDocumentFormat.V1 : existing.documentFormat(),
+            existing == null ? null : existing.rawDocument()
 		);
 	}
 
@@ -63,7 +66,9 @@ public final class GroupEditorDefinitionFactory {
 			resolvedAppearance.toIconIds(),
 			resolvedAppearance.toTheme(),
 			priority,
-			preservedExtra(existing)
+			preservedExtra(existing),
+            existing == null ? GroupDocumentFormat.V1 : existing.documentFormat(),
+            existing == null ? null : existing.rawDocument()
 		);
 	}
 
@@ -86,7 +91,9 @@ public final class GroupEditorDefinitionFactory {
 			preservedAppearance(existing).toIconIds(),
 			preservedAppearance(existing).toTheme(),
 			preservedPriority(existing),
-			preservedExtra(existing)
+			preservedExtra(existing),
+            existing == null ? GroupDocumentFormat.V1 : existing.documentFormat(),
+            existing == null ? null : existing.rawDocument()
 		);
 	}
 
@@ -112,7 +119,9 @@ public final class GroupEditorDefinitionFactory {
 			resolvedAppearance.toIconIds(),
 			resolvedAppearance.toTheme(),
 			priority,
-			preservedExtra(existing)
+			preservedExtra(existing),
+            existing == null ? GroupDocumentFormat.V1 : existing.documentFormat(),
+            existing == null ? null : existing.rawDocument()
 		);
 	}
 

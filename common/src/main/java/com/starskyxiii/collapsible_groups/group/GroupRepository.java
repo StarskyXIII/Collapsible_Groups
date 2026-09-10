@@ -235,7 +235,12 @@ public final class GroupRepository {
 		saveQuietlyInternal(group);
 	}
 
-	private static boolean saveQuietlyInternal(GroupDefinition group) {
+	public static synchronized boolean saveQuietlyChecked(GroupDefinition group) {
+        return saveQuietlyInternal(group);
+    }
+
+    private static boolean saveQuietlyInternal(GroupDefinition group) {
+        if (group.documentFormat() == GroupDocumentFormat.UNSUPPORTED) return false;
 		SERVICE.validateGroup(group);
 		if (!STORE.saveChecked(group)) return false;
 		SERVICE.saveOrReplace(USER_SOURCE, group);
@@ -263,7 +268,7 @@ public final class GroupRepository {
 	public static synchronized boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
 		if (id == null || id.isBlank()) return false;
 		GroupDefinition existing = SERVICE.findById(id).orElse(null);
-		if (existing == null) return false;
+		if (existing == null || existing.documentFormat() == GroupDocumentFormat.UNSUPPORTED) return false;
 		if (existing.enabled() == enabled) return true;
 		GroupSource source = SERVICE.visibleCategory(id);
 		if ((source != null && source.usesEnabledOverride())

@@ -10,6 +10,7 @@ import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
 import com.starskyxiii.collapsible_groups.internal.query.CompiledGroupQuery;
 
 import com.google.gson.JsonObject;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import net.minecraft.world.item.ItemStack;
 
@@ -24,6 +25,8 @@ import java.util.Objects;
  * the resolved display text for the current language (overlay ??Minecraft lang ??fallback).
  */
 public final class GroupDefinition {
+	private final GroupDocumentFormat documentFormat;
+	private final JsonObject rawDocument;
 	private final String id;
 	private final GroupDisplayName displayName;
 	private final boolean enabled;
@@ -97,11 +100,24 @@ public final class GroupDefinition {
 		int priority,
 		JsonObject extra
 	) {
+        this(id, displayName, enabled, filter, iconIds, theme, priority, extra,
+            containsTypedData(filter) ? GroupDocumentFormat.V1 : GroupDocumentFormat.LEGACY, null);
+    }
+
+    public GroupDefinition(String id, GroupDisplayName displayName, boolean enabled, GroupFilter filter,
+        List<?> iconIds, GroupTheme theme, int priority, JsonObject extra,
+        GroupDocumentFormat documentFormat, JsonObject rawDocument) {
+        this.documentFormat = Objects.requireNonNull(documentFormat, "documentFormat");
+        this.rawDocument = rawDocument == null ? null : rawDocument.deepCopy();
+        if (documentFormat == GroupDocumentFormat.UNSUPPORTED && rawDocument == null) {
+            throw new IllegalArgumentException("Unsupported documents require their original JSON");
+        }
 		this.id = Objects.requireNonNull(id, "id");
 		this.displayName = Objects.requireNonNull(displayName, "displayName");
 		this.enabled = enabled;
-		GroupFilter sourceFilter = Objects.requireNonNull(filter, "filter");
-		this.filter = GroupFilterNormalizer.normalize(sourceFilter);
+		GroupFilter sourceFilter = documentFormat == GroupDocumentFormat.UNSUPPORTED
+            ? new GroupFilter.Unsupported(this.rawDocument, "document") : Objects.requireNonNull(filter, "filter");
+		this.filter = GroupFilterNormalizer.normalize(documentFormat == GroupDocumentFormat.V1 ? typedExactData(sourceFilter) : sourceFilter);
 		List<String> validationErrors = GroupFilterValidator.validate(this.filter);
 		if (!validationErrors.isEmpty()) {
 			throw new IllegalArgumentException("Invalid group filter: " + String.join("; ", validationErrors));
@@ -112,6 +128,33 @@ public final class GroupDefinition {
 		this.extra = copyExtra(extra);
 		this.query = CompiledGroupQuery.compile(this.filter, sourceFilter);
 	}
+
+    private static GroupFilter typedExactData(GroupFilter filter) {
+        return switch (filter) {
+            case GroupFilter.Any any -> new GroupFilter.Any(any.children().stream().map(GroupDefinition::typedExactData).toList());
+            case GroupFilter.All all -> new GroupFilter.All(all.children().stream().map(GroupDefinition::typedExactData).toList());
+            case GroupFilter.Not not -> new GroupFilter.Not(typedExactData(not.child()));
+            case GroupFilter.ExactStack exact -> exact.payload() == null
+                ? new GroupFilter.ExactStack(new ItemDataPayload(ItemDataPayload.ITEM_COMPONENTS, ItemDataPayload.parseLiteral(exact.encodedStack()))) : exact;
+            default -> filter;
+        };
+    }
+
+    public GroupDocumentFormat documentFormat() { return documentFormat; }
+
+    public JsonObject rawDocument() { return rawDocument == null ? null : rawDocument.deepCopy(); }
+
+    private static boolean containsTypedData(GroupFilter filter) {
+        return switch (filter) {
+            case GroupFilter.Any any -> any.children().stream().anyMatch(GroupDefinition::containsTypedData);
+            case GroupFilter.All all -> all.children().stream().anyMatch(GroupDefinition::containsTypedData);
+            case GroupFilter.Not not -> containsTypedData(not.child());
+            case GroupFilter.ExactStack stack -> stack.payload() != null;
+            case GroupFilter.HasComponent component -> component.payload() != null;
+            case GroupFilter.ComponentPath path -> path.payload() != null;
+            default -> false;
+        };
+    }
 
 	public static GroupDefinition of(String id, String name, GroupFilter filter) {
 		return new GroupDefinition(id, name, true, filter);
@@ -175,7 +218,7 @@ public final class GroupDefinition {
 	}
 
 	public boolean hasUnavailableFilter() {
-		return FilterNodeCapabilities.containsUnavailable(filter);
+		return documentFormat == GroupDocumentFormat.UNSUPPORTED || FilterNodeCapabilities.containsUnavailable(filter);
 	}
 
 	public boolean matchesIgnoringEnabled(ItemStack stack) {
@@ -199,7 +242,7 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition withEnabled(boolean enabled) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	/** Returns a copy with the given fallback name; the translation key is auto-generated from the group ID. */
@@ -211,27 +254,27 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition withDisplayName(GroupDisplayName displayName) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withIconIds(List<?> iconIds) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withFilter(GroupFilter filter) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withTheme(GroupTheme theme) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withPriority(int priority) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withExtra(JsonObject extra) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public boolean isStructurallyEditable() {
@@ -263,12 +306,13 @@ public final class GroupDefinition {
 			&& Objects.equals(filter, other.filter)
 			&& Objects.equals(iconIds, other.iconIds)
 			&& Objects.equals(theme, other.theme)
-			&& Objects.equals(extra, other.extra);
+			&& Objects.equals(extra, other.extra)
+            && documentFormat == other.documentFormat && Objects.equals(rawDocument, other.rawDocument);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return Objects.hash(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	@Override

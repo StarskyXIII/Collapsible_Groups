@@ -403,6 +403,7 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	}
 
 	private void refreshContentsProjection() {
+        if (itemSelection != null) itemSelection.selectionChanged();
 		GroupFilterEditorDraft.DecodeResult decoded = decodeContentsProjection();
 		core.setContentsEditability(decoded.structurallyEditable(), decoded.flatIndexSafe());
 		contentsProjection = decoded.draft();

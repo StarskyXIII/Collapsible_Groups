@@ -34,10 +34,10 @@ class Nbt1201ItemDataAccessTest {
 			"minecraft:diamond_sword", new Nbt1201ItemDataAccess.NbtCompound(values));
 
 		String legacy = access.exactStacks().encodeLegacy(stack).orElseThrow();
-		String envelope = access.exactStacks().encodeEnvelope(stack).orElseThrow();
+		ItemDataPayload payload = access.exactStacks().encodePayload(stack).orElseThrow();
 		assertEquals(stack, access.exactStacks().beginDecode().decode(legacy).orElseThrow());
-		assertEquals(stack, access.exactStacks().beginDecode().decode(envelope).orElseThrow());
-		assertEquals(VersionedDataEnvelope.Support.CURRENT, access.exactStacks().support(envelope));
+		assertEquals(stack, access.exactStacks().beginDecode().decode(payload.data().getAsString()).orElseThrow());
+		assertEquals("test:typed_nbt", payload.dataFormat());
 
 		Map<String, ItemDataAccess.DataReference<Nbt1201ItemDataAccess.NbtNode>> references =
 			access.enumerateData(stack).stream().collect(java.util.stream.Collectors.toMap(

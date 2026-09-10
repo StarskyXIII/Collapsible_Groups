@@ -1,9 +1,11 @@
 package com.starskyxiii.collapsible_groups.internal.version.data;
 
 import com.google.gson.JsonElement;
+import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.Evaluation;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.mojang.serialization.JsonOps;
+import com.mojang.serialization.DataResult;
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.group.filter.ComponentPathNavigator;
 import com.starskyxiii.collapsible_groups.group.filter.EncodedValueNormalizer;
@@ -27,8 +29,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStack, JsonElement> {
-	private static final RegistryAccess.Frozen FALLBACK_REGISTRY_ACCESS =
-		RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+	private static final class FallbackRegistries {
+        private static final RegistryAccess.Frozen ACCESS = RegistryAccess.fromRegistryOfRegistries(BuiltInRegistries.REGISTRY);
+    }
 	private static final AtomicBoolean FALLBACK_WARNING_LOGGED = new AtomicBoolean(false);
 
 	private final ExactCodec exactCodec = new ExactCodec();
@@ -38,19 +41,66 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 		return exactCodec;
 	}
 
-	@Override
-	public boolean matchesDataValue(ItemStack stack, String dataTypeId, String encodedValue) {
-		DataComponentType<?> type = componentType(dataTypeId);
-		if (type == null || type.codec() == null) return false;
-		return matchesComponentValue(stack, type, encodedValue);
-	}
+    @Override
+    public boolean matchesDataValue(ItemStack stack, String dataTypeId, String encodedValue) {
+        return evaluateDataValue(stack, dataTypeId, encodedValue, null) == Evaluation.MATCH;
+    }
 
-	@Override
-	public boolean matchesDataPath(ItemStack stack, String dataTypeId, String path, String expectedValue) {
-		DataComponentType<?> type = componentType(dataTypeId);
-		if (type == null || type.codec() == null) return false;
-		return matchesComponentPath(stack, type, path, expectedValue);
-	}
+    @Override
+    public boolean matchesDataPath(ItemStack stack, String dataTypeId, String path, String expectedValue) {
+        return evaluateDataPath(stack, dataTypeId, path, expectedValue, null) == Evaluation.MATCH;
+    }
+
+    @Override
+    public Evaluation evaluateDataValue(ItemStack stack, String dataTypeId, String legacyValue, ItemDataPayload payload) {
+        return evaluateComponent(stack, dataTypeId, null, legacyValue, payload);
+    }
+
+    @Override
+    public Evaluation evaluateDataPath(ItemStack stack, String dataTypeId, String path, String legacyValue, ItemDataPayload payload) {
+        return evaluateComponent(stack, dataTypeId, path, legacyValue, payload);
+    }
+
+    private Evaluation evaluateComponent(ItemStack stack, String dataTypeId, String path, String legacyValue, ItemDataPayload payload) {
+        try {
+            DataComponentType<?> type = componentType(dataTypeId);
+            if (type == null || type.codec() == null) return Evaluation.UNAVAILABLE;
+            if (payload != null && !ItemDataPayload.DATA_COMPONENT.equals(payload.dataFormat())) return Evaluation.UNAVAILABLE;
+            if (path != null && !com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator.PATH_PATTERN.matcher(path).matches()) {
+                return Evaluation.UNAVAILABLE;
+            }
+            return evaluateComponent(stack, type, path, legacyValue, payload, serializationContext());
+        } catch (RuntimeException exception) {
+            return Evaluation.UNAVAILABLE;
+        }
+    }
+
+    private <T> Evaluation evaluateComponent(ItemStack stack, DataComponentType<T> type, String path,
+        String legacyValue, ItemDataPayload payload, RegistryOps<JsonElement> ops) {
+        if (path == null) {
+            if (payload != null) {
+                if (type.codec().parse(ops, payload.data()).result().isEmpty()) return Evaluation.UNAVAILABLE;
+            } else {
+                boolean valid = type.codec().parse(ops, new JsonPrimitive(legacyValue)).result().isPresent();
+                if (!valid) {
+                    try {
+                        valid = type.codec().parse(ops, JsonParser.parseString(legacyValue)).result().isPresent();
+                    } catch (RuntimeException ignored) {
+                        valid = false;
+                    }
+                }
+                if (!valid) return Evaluation.UNAVAILABLE;
+            }
+        }
+        T actual = stack.get(type);
+        if (actual == null) return Evaluation.NO_MATCH;
+        Optional<JsonElement> encoded = type.codec().encodeStart(ops, actual).result();
+        if (encoded.isEmpty()) return Evaluation.UNAVAILABLE;
+        JsonElement value = path == null ? encoded.get() : ComponentPathNavigator.navigatePath(encoded.get(), path);
+        if (value == null) return Evaluation.NO_MATCH;
+        boolean matches = payload == null ? matchesEncodedValue(value, legacyValue) : matchesEncodedValue(value, payload);
+        return matches ? Evaluation.MATCH : Evaluation.NO_MATCH;
+    }
 
 	@Override
 	public List<DataReference<JsonElement>> enumerateData(ItemStack stack) {
@@ -88,7 +138,7 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 		RegistryAccess live = liveRegistryAccess();
 		if (live != null) return live.createSerializationContext(JsonOps.INSTANCE);
 		warnFallbackOnce();
-		return FALLBACK_REGISTRY_ACCESS.createSerializationContext(JsonOps.INSTANCE);
+		return FallbackRegistries.ACCESS.createSerializationContext(JsonOps.INSTANCE);
 	}
 
 	public RegistryContext registryContext() {
@@ -98,7 +148,7 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 		}
 		warnFallbackOnce();
 		return new RegistryContext(
-			FALLBACK_REGISTRY_ACCESS.createSerializationContext(JsonOps.INSTANCE), false, FALLBACK_REGISTRY_ACCESS);
+			FallbackRegistries.ACCESS.createSerializationContext(JsonOps.INSTANCE), false, FallbackRegistries.ACCESS);
 	}
 
 	public record RegistryContext(
@@ -115,22 +165,11 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 		return new MinecraftDecodeSnapshot(ops, liveRegistry, registryIdentity);
 	}
 
-	public static VersionedDataEnvelope.Support componentValueSupport(String encoded) {
-		return VersionedDataEnvelope.inspect(encoded, MinecraftItemDataFormats.COMPONENT_VALUE_1_21_1).support();
-	}
+    public static boolean matchesEncodedValue(JsonElement encoded, ItemDataPayload expected) {
+        return ItemDataPayload.DATA_COMPONENT.equals(expected.dataFormat()) && serializedValueEquals(encoded, expected.data());
+    }
 
-	public static String envelopeComponentValue(JsonElement encoded) {
-		return VersionedDataEnvelope.wrap(MinecraftItemDataFormats.COMPONENT_VALUE_1_21_1, encoded);
-	}
-
-	public static boolean matchesEncodedValue(JsonElement encoded, String expectedValue) {
-		VersionedDataEnvelope.Inspection inspection =
-			VersionedDataEnvelope.inspect(expectedValue, MinecraftItemDataFormats.COMPONENT_VALUE_1_21_1);
-		if (VersionedDataEnvelope.isEnvelope(expectedValue)
-			&& inspection.support() != VersionedDataEnvelope.Support.CURRENT) return false;
-		if (inspection.support() == VersionedDataEnvelope.Support.CURRENT) {
-			return serializedValueEquals(encoded, inspection.data().orElseThrow());
-		}
+    public static boolean matchesEncodedValue(JsonElement encoded, String expectedValue) {
 		if (encoded instanceof JsonPrimitive primitive && primitive.isString()) {
 			return EncodedValueNormalizer.normalize(encoded).equals(expectedValue);
 		}
@@ -244,30 +283,6 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 		return typeId == null ? null : BuiltInRegistries.DATA_COMPONENT_TYPE.get(typeId);
 	}
 
-	private <T> boolean matchesComponentPath(
-		ItemStack stack,
-		DataComponentType<T> type,
-		String path,
-		String expectedValue
-	) {
-		T actual = stack.get(type);
-		if (actual == null) return false;
-		return type.codec().encodeStart(serializationContext(), actual).result()
-			.map(encoded -> {
-				JsonElement node = ComponentPathNavigator.navigatePath(encoded, path);
-				return node != null && matchesEncodedValue(node, expectedValue);
-			})
-			.orElse(false);
-	}
-
-	private <T> boolean matchesComponentValue(ItemStack stack, DataComponentType<T> type, String expectedValue) {
-		T actual = stack.get(type);
-		if (actual == null) return false;
-		return type.codec().encodeStart(serializationContext(), actual).result()
-			.map(encoded -> matchesEncodedValue(encoded, expectedValue))
-			.orElse(false);
-	}
-
 	private static RegistryAccess liveRegistryAccess() {
 		Minecraft minecraft = Minecraft.getInstance();
 		if (minecraft == null) return null;
@@ -279,7 +294,7 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 
 	private static Object currentRegistryIdentity() {
 		RegistryAccess live = liveRegistryAccess();
-		return live == null ? FALLBACK_REGISTRY_ACCESS : live;
+		return live == null ? FallbackRegistries.ACCESS : live;
 	}
 
 	private static void warnFallbackOnce() {
@@ -289,6 +304,11 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 			);
 		}
 	}
+
+    static <T> Optional<T> successfulResult(DataResult<T> result) {
+        result.error().ifPresent(error -> Constants.LOG.warn("Invalid exact group selector data: {}", error.message()));
+        return result.result();
+    }
 
 	private final class ExactCodec implements ExactStackCodec<ItemStack> {
 		@Override public ItemDataFormat format() { return MinecraftItemDataFormats.EXACT_STACK_1_21_1; }
@@ -303,19 +323,15 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 		@Override
 		public Optional<String> encodeLegacy(ItemStack stack) {
 			ItemStack normalized = normalizedCopy(stack);
-			return ItemStack.STRICT_SINGLE_ITEM_CODEC.encodeStart(serializationContext(), normalized)
-				.resultOrPartial(error -> Constants.LOG.warn(
-					"Failed to encode exact group selector for {}: {}", normalized, error))
+			return successfulResult(ItemStack.STRICT_SINGLE_ITEM_CODEC.encodeStart(serializationContext(), normalized))
 				.map(JsonElement::toString);
 		}
 
 		@Override
-		public Optional<String> encodeEnvelope(ItemStack stack) {
+		public Optional<ItemDataPayload> encodePayload(ItemStack stack) {
 			ItemStack normalized = normalizedCopy(stack);
-			return ItemStack.STRICT_SINGLE_ITEM_CODEC.encodeStart(serializationContext(), normalized)
-				.resultOrPartial(error -> Constants.LOG.warn(
-					"Failed to encode exact group selector for {}: {}", normalized, error))
-				.map(encoded -> VersionedDataEnvelope.wrap(format(), encoded));
+			return successfulResult(ItemStack.STRICT_SINGLE_ITEM_CODEC.encodeStart(serializationContext(), normalized))
+				.map(encoded -> new ItemDataPayload(format().dataFormat(), encoded));
 		}
 
 		@Override public Object registryIdentity() { return currentRegistryIdentity(); }
@@ -354,13 +370,7 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 		@Override
 		public Optional<ItemStack> decode(String encoded) {
 			try {
-				VersionedDataEnvelope.Inspection inspection =
-					VersionedDataEnvelope.inspect(encoded, MinecraftItemDataFormats.EXACT_STACK_1_21_1);
-				if (inspection.support() == VersionedDataEnvelope.Support.UNSUPPORTED
-					|| inspection.support() == VersionedDataEnvelope.Support.MALFORMED) return Optional.empty();
-				return ItemStack.STRICT_SINGLE_ITEM_CODEC.parse(ops, inspection.data().orElseThrow())
-					.resultOrPartial(error -> Constants.LOG.warn(
-						"Failed to decode exact group selector data '{}': {}", encoded, error))
+                return successfulResult(ItemStack.STRICT_SINGLE_ITEM_CODEC.parse(ops, ItemDataPayload.parseLiteral(encoded)))
 					.map(exactCodec::normalizedCopy);
 			} catch (RuntimeException e) {
 				Constants.LOG.warn("Invalid exact group selector data '{}'", encoded, e);

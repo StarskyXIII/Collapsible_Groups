@@ -362,6 +362,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 	@Override public Optional<GroupDefinition> findGroup(String id) { return GroupRepository.findById(id); }
 	@Override public void saveQuietly(GroupDefinition definition) { GroupRepository.saveQuietly(definition); }
+    @Override public boolean saveChecked(GroupDefinition definition) { return GroupRepository.saveQuietlyChecked(definition); }
 	@Override public String sanitizeGeneratedIdBase(String name) {
 		return GroupRepository.sanitizeGeneratedIdBase(name);
 	}

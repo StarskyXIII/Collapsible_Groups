@@ -18,7 +18,7 @@ import java.util.Optional;
 
 final class Nbt1201ItemDataAccess implements ItemDataAccess<Nbt1201ItemDataAccess.NbtStack, Nbt1201ItemDataAccess.NbtNode> {
 	static final ItemDataFormat FORMAT = new ItemDataFormat(
-		"collapsible_groups:exact_stack", 1, "minecraft:item_nbt", "1.20.1");
+		"test:typed_nbt");
 	private static final Object REGISTRY = new Object();
 	private final Codec codec = new Codec();
 
@@ -178,20 +178,15 @@ final class Nbt1201ItemDataAccess implements ItemDataAccess<Nbt1201ItemDataAcces
 		}
 
 		@Override
-		public Optional<String> encodeEnvelope(NbtStack stack) {
-			return encodeLegacy(stack).map(encoded -> VersionedDataEnvelope.wrap(format(), new JsonPrimitive(encoded)));
+		public Optional<ItemDataPayload> encodePayload(NbtStack stack) {
+			return encodeLegacy(stack).map(encoded -> new ItemDataPayload(format().dataFormat(), new JsonPrimitive(encoded)));
 		}
 
 		@Override public Object registryIdentity() { return REGISTRY; }
 		@Override public DecodeSnapshot<NbtStack> beginDecode() { return new Snapshot(); }
 		@Override public boolean equivalent(NbtStack left, NbtStack right) { return left.equals(right); }
 		@Override public String itemId(NbtStack stack) { return stack.itemId(); }
-		@Override
-		public VersionedDataEnvelope.Support support(String encoded) {
-			return VersionedDataEnvelope.isEnvelope(encoded)
-				? VersionedDataEnvelope.inspect(encoded, FORMAT).support()
-				: VersionedDataEnvelope.Support.LEGACY;
-		}
+
 	}
 
 	private final class Snapshot implements ExactStackCodec.DecodeSnapshot<NbtStack> {
@@ -201,11 +196,7 @@ final class Nbt1201ItemDataAccess implements ItemDataAccess<Nbt1201ItemDataAcces
 		@Override
 		public Optional<NbtStack> decode(String encoded) {
 			String payload = encoded;
-			if (VersionedDataEnvelope.isEnvelope(encoded)) {
-				VersionedDataEnvelope.Inspection inspection = VersionedDataEnvelope.inspect(encoded, FORMAT);
-				if (inspection.support() != VersionedDataEnvelope.Support.CURRENT) return Optional.empty();
-				payload = inspection.data().orElseThrow().getAsString();
-			}
+
 			try {
 				byte[] bytes = Base64.getDecoder().decode(payload.getBytes(StandardCharsets.US_ASCII));
 				try (DataInputStream input = new DataInputStream(new ByteArrayInputStream(bytes))) {

@@ -249,6 +249,7 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 
 	@Override public Optional<GroupDefinition> findGroup(String id) { return GroupRegistry.findById(id); }
 	@Override public void saveQuietly(GroupDefinition definition) { GroupRegistry.saveQuietly(definition); }
+    @Override public boolean saveChecked(GroupDefinition definition) { return GroupRegistry.saveQuietlyChecked(definition); }
 	@Override public String sanitizeGeneratedIdBase(String name) { return GroupRegistry.sanitizeGeneratedIdBase(name); }
 	@Override public String generateUniqueId(String name) { return GroupRegistry.generateUniqueId(name); }
 	@Override public String generateUniqueIdIncludingKubeJs(String name) {

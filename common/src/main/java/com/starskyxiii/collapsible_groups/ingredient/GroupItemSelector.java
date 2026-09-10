@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.ingredient;
 
 import com.google.gson.JsonElement;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 import com.starskyxiii.collapsible_groups.internal.version.data.ExactStackCodec;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses;
 import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft121ItemDataAccess;
@@ -55,9 +56,9 @@ public final class GroupItemSelector {
 		return EXACT_STACKS.encodeLegacy(stack).map(encoded -> STACK_PREFIX + encoded);
 	}
 
-	public static Optional<String> tryVersionedExactSelector(ItemStack stack) {
-		return EXACT_STACKS.encodeEnvelope(stack).map(encoded -> STACK_PREFIX + encoded);
-	}
+	public static Optional<ItemDataPayload> tryExactPayload(ItemStack stack) {
+        return EXACT_STACKS.encodePayload(stack);
+    }
 
 	public static Optional<ItemStack> decodeExactSelector(String selector) {
 		return decodeExactSelector(selector, exactDecodeContext());

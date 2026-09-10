@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.group.filter;
 
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import org.jetbrains.annotations.Nullable;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
@@ -25,6 +26,7 @@ public final class GroupFilterEditorDraft {
 	private static final String FLUID_TYPE = "fluid";
 	private static final String STACK_PREFIX = "stack:";
 
+	private final java.util.Map<String, ItemDataPayload> exactPayloads = new java.util.HashMap<>();
 	private final Set<String> explicitItemSelectors;
 	private final List<String> itemTags;
 	private final List<String> fluidIds;
@@ -262,7 +264,8 @@ public final class GroupFilterEditorDraft {
 
 		for (String selector : explicitItemSelectors) {
 			if (selector.startsWith(STACK_PREFIX)) {
-				flat.add(Filters.exactStack(selector.substring(STACK_PREFIX.length())));
+				ItemDataPayload payload = exactPayloads.get(selector);
+                flat.add(payload == null ? Filters.exactStack(selector.substring(STACK_PREFIX.length())) : new GroupFilter.ExactStack(payload));
 			} else {
 				flat.add(Filters.itemId(selector));
 			}
@@ -301,7 +304,11 @@ public final class GroupFilterEditorDraft {
 		switch (filter) {
 			case GroupFilter.Id id -> addIdNode(id, draft);
 			case GroupFilter.Tag tag -> addTagNode(tag, draft);
-			case GroupFilter.ExactStack stack -> draft.explicitItemSelectors.add(STACK_PREFIX + stack.encodedStack());
+			case GroupFilter.ExactStack stack -> {
+                String selector = STACK_PREFIX + stack.encodedStack();
+                draft.explicitItemSelectors.add(selector);
+                if (stack.payload() != null) draft.exactPayloads.put(selector, stack.payload());
+            }
 			default -> {
 				return false;
 			}

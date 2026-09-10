@@ -7,8 +7,8 @@ import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
 import com.starskyxiii.collapsible_groups.group.filter.FilterNodeKind;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
-import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataFormat;
-import com.starskyxiii.collapsible_groups.internal.version.data.VersionedDataEnvelope;
+
+
 import net.minecraft.resources.ResourceLocation;
 import org.junit.jupiter.api.Test;
 
@@ -23,9 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class LegacyNbtFilterNodeGoldenTest {
-	private static final ItemDataFormat NBT_VALUE_1_20_1 = new ItemDataFormat(
-		"collapsible_groups:nbt_value", 1, "minecraft:nbt_snbt", "1.20.1");
+class ForeignNbtFilterNodeGoldenTest {
 	private static final IngredientView ITEM = new IngredientView() {
 		@Override public String ingredientType() { return "item"; }
 		@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse("minecraft:stone"); }
@@ -43,13 +41,11 @@ class LegacyNbtFilterNodeGoldenTest {
 		GroupFilter.Any any = assertInstanceOf(GroupFilter.Any.class, group.filter());
 		GroupFilter.Unsupported nbt = assertInstanceOf(GroupFilter.Unsupported.class, any.children().get(0));
 		assertEquals("nbt", nbt.recognizedKind());
-		assertEquals(VersionedDataEnvelope.Support.CURRENT, VersionedDataEnvelope.inspect(
-			nbt.rawJson().get("nbt").getAsString(), NBT_VALUE_1_20_1).support());
+        assertEquals("minecraft:nbt", nbt.rawJson().getAsJsonObject("nbt").get("data_format").getAsString());
 		GroupFilter.Not not = assertInstanceOf(GroupFilter.Not.class, any.children().get(1));
 		GroupFilter.Unsupported nbtPath = assertInstanceOf(GroupFilter.Unsupported.class, not.child());
 		assertEquals("nbt_path", nbtPath.recognizedKind());
-		assertEquals(VersionedDataEnvelope.Support.CURRENT, VersionedDataEnvelope.inspect(
-			nbtPath.rawJson().get("value").getAsString(), NBT_VALUE_1_20_1).support());
+        assertEquals("minecraft:nbt", nbtPath.rawJson().getAsJsonObject("value").get("data_format").getAsString());
 		assertTrue(group.hasUnavailableFilter());
 		assertFalse(group.isStructurallyEditable());
 		assertEquals(CompiledFilter.Evaluation.UNAVAILABLE, group.compiledFilter().evaluate(ITEM));
@@ -62,8 +58,8 @@ class LegacyNbtFilterNodeGoldenTest {
 	}
 
 	private static String readFixture() throws IOException {
-		try (InputStream stream = LegacyNbtFilterNodeGoldenTest.class.getResourceAsStream(
-			"/golden-persistence/legacy-1.20-nbt-rules.json")) {
+		try (InputStream stream = ForeignNbtFilterNodeGoldenTest.class.getResourceAsStream(
+			"/golden-persistence/v1-1.20-nbt-rules.json")) {
 			assertNotNull(stream);
 			return new String(stream.readAllBytes(), StandardCharsets.UTF_8);
 		}
