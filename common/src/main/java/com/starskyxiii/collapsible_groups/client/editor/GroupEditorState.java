@@ -31,6 +31,7 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	AppearanceDraft appearanceDraft;
 	int editPriority;
 	private boolean nameTouched;
+	private boolean formatActionBlocked;
 
 	private GroupFilterEditorDraft contentsProjection;
 	final EditorItemSelectionHelper itemSelection;
@@ -64,7 +65,7 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 			this.editPriority = 0;
 		}
 
-		this.itemSelection = new EditorItemSelectionHelper();
+		this.itemSelection = new EditorItemSelectionHelper(core.documentFormat() == com.starskyxiii.collapsible_groups.group.GroupDocumentFormat.V1);
 		this.fluidSelection = new EditorFluidSelectionHelper();
 		this.genericSelection = new EditorGenericSelectionHelper();
 
@@ -179,11 +180,21 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		return itemSelection.isExactSelected(stack, contentsProjection().explicitItemSelectors());
 	}
 
+	boolean canSelectSingle(ItemStack stack) { return itemSelection.canSelectSingle(stack); }
+	boolean canRemoveSingle(ItemStack stack, List<ItemStack> allItems) {
+		return itemSelection.canRemoveSingle(stack, allItems, contentsProjection().explicitItemSelectors());
+	}
+	boolean formatActionBlocked() { return formatActionBlocked; }
+
 	void toggleSingleSelection(ItemStack stack) {
+		formatActionBlocked = !canSelectSingle(stack);
+		if (formatActionBlocked) return;
 		mutateContentsDraft(next -> itemSelection.toggleSingleSelection(stack, next.explicitItemSelectors()));
 	}
 
 	boolean addSingleSelectionIfAbsent(ItemStack stack) {
+		formatActionBlocked = !canSelectSingle(stack);
+		if (formatActionBlocked) return false;
 		if (itemSelection.hasPreferredSelection(stack, contentsProjection().explicitItemSelectors())) {
 			return false;
 		}
@@ -194,10 +205,13 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	}
 
 	void toggleWholeItemSelection(ItemStack stack) {
+		formatActionBlocked = false;
 		mutateContentsDraft(next -> itemSelection.toggleWholeItemSelection(stack, next.explicitItemSelectors()));
 	}
 
 	void removeSingleSelection(ItemStack stack, List<ItemStack> allItems) {
+		formatActionBlocked = !canRemoveSingle(stack, allItems);
+		if (formatActionBlocked) return;
 		mutateContentsDraft(next -> itemSelection.removeSingleSelection(
 			stack, allItems, next.explicitItemSelectors()));
 	}
@@ -288,6 +302,9 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 	public void selectRuleNode(GroupFilterRuleDraft.Node node) {
 		core.selectRuleNode(node);
 	}
+
+	@Override
+	public boolean canAddRuleKind(GroupFilterRuleDraft.NodeKind kind) { return core.canAddRuleKind(kind); }
 
 	@Override
 	public void ensureRuleSelection() {
@@ -406,6 +423,7 @@ final class GroupEditorState implements EditorRulesState, EditorSettingsState {
 		GroupFilterEditorDraft.DecodeResult decoded = decodeContentsProjection();
 		core.setContentsEditability(decoded.structurallyEditable(), decoded.flatIndexSafe());
 		contentsProjection = decoded.draft();
+		if (itemSelection != null) itemSelection.invalidateSelections();
 	}
 
 	private void mutateContentsDraft(Consumer<GroupFilterEditorDraft> mutation) {

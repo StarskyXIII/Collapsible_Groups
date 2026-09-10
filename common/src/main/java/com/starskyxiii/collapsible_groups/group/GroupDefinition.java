@@ -24,6 +24,8 @@ import java.util.Objects;
  * the resolved display text for the current language (overlay ??Minecraft lang ??fallback).
  */
 public final class GroupDefinition {
+	private final GroupDocumentFormat documentFormat;
+	private final JsonObject rawDocument;
 	private final String id;
 	private final GroupDisplayName displayName;
 	private final boolean enabled;
@@ -97,10 +99,22 @@ public final class GroupDefinition {
 		int priority,
 		JsonObject extra
 	) {
+		this(id, displayName, enabled, filter, iconIds, theme, priority, extra,
+			GroupFormatPolicy.inferredFormat(filter), null);
+	}
+
+	public GroupDefinition(String id, GroupDisplayName displayName, boolean enabled, GroupFilter filter,
+			List<?> iconIds, GroupTheme theme, int priority, JsonObject extra,
+			GroupDocumentFormat documentFormat, JsonObject rawDocument) {
+		this.documentFormat = Objects.requireNonNull(documentFormat, "documentFormat");
+		this.rawDocument = rawDocument == null ? null : rawDocument.deepCopy();
+		if (documentFormat == GroupDocumentFormat.UNSUPPORTED && rawDocument == null)
+			throw new IllegalArgumentException("Unsupported document requires original JSON");
 		this.id = Objects.requireNonNull(id, "id");
 		this.displayName = Objects.requireNonNull(displayName, "displayName");
 		this.enabled = enabled;
-		GroupFilter sourceFilter = Objects.requireNonNull(filter, "filter");
+		GroupFilter sourceFilter = documentFormat == GroupDocumentFormat.UNSUPPORTED
+			? new GroupFilter.Unsupported(this.rawDocument, "schema_version") : Objects.requireNonNull(filter, "filter");
 		this.filter = GroupFilterNormalizer.normalize(sourceFilter);
 		List<String> validationErrors = GroupFilterValidator.validate(this.filter);
 		if (!validationErrors.isEmpty()) {
@@ -116,6 +130,9 @@ public final class GroupDefinition {
 	public static GroupDefinition of(String id, String name, GroupFilter filter) {
 		return new GroupDefinition(id, name, true, filter);
 	}
+
+	public GroupDocumentFormat documentFormat() { return documentFormat; }
+	public JsonObject rawDocument() { return rawDocument == null ? null : rawDocument.deepCopy(); }
 
 	public String id() {
 		return id;
@@ -175,7 +192,7 @@ public final class GroupDefinition {
 	}
 
 	public boolean hasUnavailableFilter() {
-		return FilterNodeCapabilities.containsUnavailable(filter);
+		return documentFormat == GroupDocumentFormat.UNSUPPORTED || FilterNodeCapabilities.containsUnavailable(filter);
 	}
 
 	public boolean matchesIgnoringEnabled(ItemStack stack) {
@@ -199,7 +216,7 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition withEnabled(boolean enabled) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	/** Returns a copy with the given fallback name; the translation key is auto-generated from the group ID. */
@@ -211,27 +228,27 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition withDisplayName(GroupDisplayName displayName) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withIconIds(List<?> iconIds) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withFilter(GroupFilter filter) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withTheme(GroupTheme theme) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withPriority(int priority) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withExtra(JsonObject extra) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public boolean isStructurallyEditable() {
@@ -263,12 +280,13 @@ public final class GroupDefinition {
 			&& Objects.equals(filter, other.filter)
 			&& Objects.equals(iconIds, other.iconIds)
 			&& Objects.equals(theme, other.theme)
-			&& Objects.equals(extra, other.extra);
+			&& Objects.equals(extra, other.extra)
+			&& documentFormat == other.documentFormat && Objects.equals(rawDocument, other.rawDocument);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return Objects.hash(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	@Override

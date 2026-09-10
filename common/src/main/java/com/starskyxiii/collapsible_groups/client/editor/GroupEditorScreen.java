@@ -896,6 +896,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private Component footerStatus(int unresolved) {
+		if (state.formatActionBlocked()) return Component.translatable("collapsible_groups.editor.format.requires_new_group");
 		if (!state.canSave()) {
 			return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_SAVE_BLOCKED, saveDisabledReason().getString());
 		}

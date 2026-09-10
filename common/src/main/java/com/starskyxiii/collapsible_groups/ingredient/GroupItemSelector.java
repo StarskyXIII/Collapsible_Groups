@@ -54,7 +54,7 @@ public final class GroupItemSelector {
 	}
 
 	public static Optional<String> tryVersionedExactSelector(ItemStack stack) {
-		return EXACT_STACKS.encodeEnvelope(stack).map(encoded -> STACK_PREFIX + encoded);
+		return EXACT_STACKS.encodePayload(stack).map(payload -> STACK_PREFIX + payload.encodedValue());
 	}
 
 	public static Optional<ItemStack> decodeExactSelector(String selector) {

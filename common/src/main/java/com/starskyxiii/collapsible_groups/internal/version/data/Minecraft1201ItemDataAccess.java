@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Optional;
 
 public final class Minecraft1201ItemDataAccess implements ItemDataAccess<ItemStack, JsonElement> {
-	private static final Object REGISTRY_IDENTITY = new Object();
+	private static final Object REGISTRY_IDENTITY = BuiltInRegistries.ITEM;
 	private final ExactCodec exactCodec = new ExactCodec();
 
 	@Override
@@ -56,14 +56,14 @@ public final class Minecraft1201ItemDataAccess implements ItemDataAccess<ItemSta
 
 		@Override
 		public Optional<String> encodeLegacy(ItemStack stack) {
-			return encodeEnvelope(stack);
+			return encodePayload(stack).map(ItemDataPayload::encodedValue);
 		}
 
 		@Override
-		public Optional<String> encodeEnvelope(ItemStack stack) {
+		public Optional<ItemDataPayload> encodePayload(ItemStack stack) {
 			try {
 				CompoundTag tag = normalizedCopy(stack).save(new CompoundTag());
-				return Optional.of(VersionedDataEnvelope.wrap(format(), new JsonPrimitive(tag.toString())));
+				return Optional.of(ItemDataPayload.nbt(tag.toString()));
 			} catch (RuntimeException e) {
 				Constants.LOG.warn("Failed to encode exact group selector for {}", stack, e);
 				return Optional.empty();
@@ -84,16 +84,7 @@ public final class Minecraft1201ItemDataAccess implements ItemDataAccess<ItemSta
 				@Override
 				public Optional<ItemStack> decode(String encoded) {
 					try {
-						VersionedDataEnvelope.Inspection inspection =
-							VersionedDataEnvelope.inspect(encoded, format());
-						if (inspection.support() != VersionedDataEnvelope.Support.CURRENT) {
-							return Optional.empty();
-						}
-						JsonElement data = inspection.data().orElseThrow();
-						if (!data.isJsonPrimitive() || !data.getAsJsonPrimitive().isString()) {
-							return Optional.empty();
-						}
-						CompoundTag root = TagParser.parseTag(data.getAsString());
+						CompoundTag root = TagParser.parseTag(encoded);
 						if (!root.contains("id", Tag.TAG_STRING)
 							|| !root.contains("Count", Tag.TAG_ANY_NUMERIC)
 							|| (root.contains("tag") && !root.contains("tag", Tag.TAG_COMPOUND))) {

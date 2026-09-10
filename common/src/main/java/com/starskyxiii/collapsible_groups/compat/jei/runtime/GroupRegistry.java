@@ -495,6 +495,12 @@ public final class GroupRegistry {
 	}
 
 	/** Saves a group without triggering JEI invalidation. */
+	public static boolean saveQuietlyChecked(GroupDefinition group) {
+		if (!GroupRepository.saveQuietlyChecked(group)) return false;
+		invalidateFirstMatchCache(group.id());
+		return true;
+	}
+
 	public static void saveQuietly(GroupDefinition group) {
 		invalidateFirstMatchCache(group.id());
 		GroupRepository.saveQuietly(group);

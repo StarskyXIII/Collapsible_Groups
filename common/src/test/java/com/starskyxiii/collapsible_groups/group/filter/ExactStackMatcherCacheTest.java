@@ -112,6 +112,36 @@ class ExactStackMatcherCacheTest {
 		assertEquals(2, decodes.get());
 	}
 
+	@Test void unavailableIsRetainedAndRetryUsesRegistryIdentity() {
+		AtomicReference<Object> identity = new AtomicReference<>(new Object());
+		AtomicInteger decodes = new AtomicInteger();
+		Object unavailableRegistry = identity.get();
+		var cache = new ExactStackMatcherCache<String>(List.of("selector"), () -> {
+			Object snapshot = identity.get();
+			return new ExactStackMatcherCache.DecodeAttempt<String>() {
+				public boolean liveRegistry() { return true; }
+				public Object registryIdentity() { return snapshot; }
+				public Optional<ExactStackMatcherCache.Decoded<String>> decode(String encoded) {
+					decodes.incrementAndGet();
+					return snapshot == unavailableRegistry ? Optional.empty() : Optional.of(decoded(FACADE, "value"));
+				}
+			};
+		}, identity::get);
+		for (int i = 0; i < 100; i++) assertEquals(CompiledFilter.Evaluation.UNAVAILABLE, cache.evaluate(OTHER, value -> true));
+		assertEquals(1, decodes.get());
+		identity.set(new Object());
+		assertEquals(CompiledFilter.Evaluation.MATCH, cache.evaluate(FACADE, "value"::equals));
+		assertEquals(CompiledFilter.Evaluation.NO_MATCH, cache.evaluate(OTHER, "value"::equals));
+		assertEquals(2, decodes.get());
+	}
+
+	@Test void foldedAnyMatchesKnownReferenceButRetainsFailedSibling() {
+		var cache = new ExactStackMatcherCache<String>(List.of("valid", "invalid"), () -> attempt(true,
+			encoded -> encoded.equals("valid") ? Optional.of(decoded(FACADE, "value")) : Optional.empty()));
+		assertEquals(CompiledFilter.Evaluation.MATCH, cache.evaluate(FACADE, "value"::equals));
+		assertEquals(CompiledFilter.Evaluation.UNAVAILABLE, cache.evaluate(OTHER, "value"::equals));
+	}
+
 	private static ExactStackMatcherCache<Map<String, Object>> liveCache(
 		ExactStackMatcherCache.Decoded<Map<String, Object>> decoded) {
 		return new ExactStackMatcherCache<>(List.of("encoded"),

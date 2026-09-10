@@ -723,7 +723,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				? Component.translatable(ModTranslationKeys.MANAGER_BTN_EDIT)
 				: canCopy
 					? Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_COPY_AS_CUSTOM)
-					: Component.translatable(ModTranslationKeys.MANAGER_BTN_COPY);
+					: Component.translatable(ModTranslationKeys.EDITOR_FILTER_UNAVAILABLE);
 			if (deleteHover) pendingTooltip = deleteTooltip(card);
 		}
 	}

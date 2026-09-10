@@ -7,6 +7,8 @@ import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.client.editor.model.RuleTagResolution;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDocumentFormat;
+import com.starskyxiii.collapsible_groups.group.GroupFormatPolicy;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
@@ -89,6 +91,13 @@ final class EditorStateCore {
 		return sourceGroupId == null || sourceGroupId.isBlank() ? null : sourceGroupId;
 	}
 
+	GroupDocumentFormat documentFormat() { return existingDefinition == null ? GroupDocumentFormat.V1 : existingDefinition.documentFormat(); }
+	boolean canAddRuleKind(GroupFilterRuleDraft.NodeKind kind) {
+		return !readOnlyFilter && (documentFormat() == GroupDocumentFormat.V1
+			|| (kind != GroupFilterRuleDraft.NodeKind.NBT && kind != GroupFilterRuleDraft.NodeKind.NBT_PATH
+				&& kind != GroupFilterRuleDraft.NodeKind.EXACT_STACK));
+	}
+
 	boolean saveAsNew() {
 		return saveAsNew;
 	}
@@ -102,7 +111,7 @@ final class EditorStateCore {
 		if (readOnlyFilter) {
 			return Optional.of(existingDefinition.filter());
 		}
-		return ruleDraft.toFilter();
+		return ruleDraft.toFilter().map(filter -> GroupFormatPolicy.editorFilter(documentFormat(), filter));
 	}
 
 	GroupDefinition buildPreviewDefinition(String editId, String editName, boolean editEnabled) {
@@ -120,6 +129,7 @@ final class EditorStateCore {
 		AppearanceDraft appearance,
 		int priority
 	) {
+		if (documentFormat() == GroupDocumentFormat.UNSUPPORTED) return existingDefinition;
 		Optional<GroupFilter> currentFilter = buildCurrentFilter();
 		GroupFilter previewFilter;
 		if (currentFilter.isEmpty()) {
@@ -197,6 +207,7 @@ final class EditorStateCore {
 		if (!contentsQuickEditAvailable || ruleEditTransaction != null) {
 			return;
 		}
+		if (draft.toFilter().filter(filter -> !GroupFormatPolicy.representable(documentFormat(), filter)).isPresent()) return;
 		GroupFilterRuleDraft replacement = draft.toFilter()
 			.map(GroupFilterRuleDraft::decode)
 			.orElseGet(GroupFilterRuleDraft::empty);
@@ -231,8 +242,7 @@ final class EditorStateCore {
 					filter.get(), existingDefinition, appearance, priority)
 				: GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition,
 					appearance, priority);
-			groups.saveQuietly(saved);
-			return Optional.of(saved);
+			return groups.saveChecked(saved) ? Optional.of(saved) : Optional.empty();
 		} catch (IllegalArgumentException e) {
 			return Optional.empty();
 		}
@@ -246,7 +256,7 @@ final class EditorStateCore {
 	}
 
 	boolean canSave(String editName) {
-		if (editName == null || editName.isBlank() || ruleEditTransaction != null) return false;
+		if (documentFormat() == GroupDocumentFormat.UNSUPPORTED || editName == null || editName.isBlank() || ruleEditTransaction != null) return false;
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		return filter.isPresent() && validationErrors(filter).isEmpty();
 	}
@@ -299,6 +309,7 @@ final class EditorStateCore {
 	}
 
 	String contentsEditStatusLabel() {
+		if (documentFormat() == GroupDocumentFormat.LEGACY) return Component.translatable("collapsible_groups.editor.format.requires_new_group").getString();
 		if (readOnlyFilter) {
 			return Component.translatable(ModTranslationKeys.EDITOR_FILTER_UNAVAILABLE).getString();
 		}
@@ -340,7 +351,7 @@ final class EditorStateCore {
 
 	@Nullable
 	GroupFilterRuleDraft.Node insertRuleRelative(GroupFilterRuleDraft.NodeKind kind) {
-		if (readOnlyFilter) return null;
+		if (!canAddRuleKind(kind)) return null;
 		GroupFilterRuleDraft.Node node = ruleDraft.insertRelativeTo(selectedRuleNode, kind);
 		if (node != null) {
 			selectedRuleNode = node;
@@ -461,7 +472,9 @@ final class EditorStateCore {
 
 	private List<Component> validationErrors(Optional<GroupFilter> filter) {
 		if (!filter.equals(validatedFilter)) {
-			validationErrors = filter.map(GroupFilterValidator::validateComponents).orElse(List.of());
+			validationErrors = filter.filter(value -> !GroupFormatPolicy.representable(documentFormat(), value)).isPresent()
+				? List.of(Component.translatable("collapsible_groups.editor.format.requires_new_group"))
+				: filter.map(GroupFilterValidator::validateComponents).orElse(List.of());
 			validatedFilter = filter;
 			validationRuns++;
 		}

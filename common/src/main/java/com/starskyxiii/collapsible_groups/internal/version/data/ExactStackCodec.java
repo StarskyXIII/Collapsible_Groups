@@ -9,7 +9,7 @@ public interface ExactStackCodec<S> {
 
 	Optional<String> encodeLegacy(S stack);
 
-	Optional<String> encodeEnvelope(S stack);
+	Optional<ItemDataPayload> encodePayload(S stack);
 
 	Object registryIdentity();
 
@@ -18,10 +18,6 @@ public interface ExactStackCodec<S> {
 	boolean equivalent(S left, S right);
 
 	String itemId(S stack);
-
-	default VersionedDataEnvelope.Support support(String encoded) {
-		return VersionedDataEnvelope.inspect(encoded, format()).support();
-	}
 
 	interface DecodeSnapshot<S> {
 		boolean liveRegistry();

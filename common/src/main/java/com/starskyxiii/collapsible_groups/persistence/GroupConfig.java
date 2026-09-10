@@ -5,6 +5,9 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.starskyxiii.collapsible_groups.group.GroupDocumentFormat;
+import com.starskyxiii.collapsible_groups.group.GroupFormatPolicy;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.starskyxiii.collapsible_groups.Constants;
@@ -18,11 +21,8 @@ import com.starskyxiii.collapsible_groups.group.filter.FilterNodeCapabilities;
 import com.starskyxiii.collapsible_groups.group.filter.FilterNodeKind;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
-import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataFormat;
-import com.starskyxiii.collapsible_groups.internal.version.data.MinecraftItemDataFormats;
 import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201NbtAccess;
 import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses;
-import com.starskyxiii.collapsible_groups.internal.version.data.VersionedDataEnvelope;
 import com.starskyxiii.collapsible_groups.platform.Services;
 
 import java.io.IOException;
@@ -42,7 +42,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class GroupConfig {
-	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().serializeNulls().create();
 	private static final int UNAVAILABLE_WARNING_LIMIT = 10;
 
 	private GroupConfig() {}
@@ -259,12 +259,33 @@ public final class GroupConfig {
 	}
 
 	static boolean saveChecked(GroupDefinition group) {
+		if (!GroupFormatPolicy.writable(group)) {
+			Constants.LOG.warn("Cannot save group '{}' in its document format", group.id());
+			return false;
+		}
 		Path dir = getConfigDir();
+		Path targetFile = dir.resolve(group.id() + ".json");
 		try {
+			String json = toJson(group);
+			if (Files.exists(dir)) {
+				try (var files = Files.list(dir)) {
+					for (Path path : files.filter(file -> file.equals(targetFile) || file.toString().endsWith(".json")).toList()) {
+						JsonObject existing;
+						try { existing = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject(); }
+						catch (RuntimeException ignored) { continue; }
+						if (documentFormat(existing) == GroupDocumentFormat.UNSUPPORTED
+							&& (path.equals(targetFile) || (existing.has("id") && existing.get("id").isJsonPrimitive()
+								&& group.id().equals(existing.get("id").getAsString())))) {
+							Constants.LOG.warn("Cannot overwrite unsupported group document '{}'", path);
+							return false;
+						}
+					}
+				}
+			}
 			Files.createDirectories(dir);
-			writeAtomically(dir.resolve(group.id() + ".json"), toJson(group));
+			writeAtomically(targetFile, json);
 			return true;
-		} catch (IOException e) {
+		} catch (IOException | IllegalArgumentException e) {
 			Constants.LOG.error("Failed to save group: {}", group.id(), e);
 			return false;
 		}
@@ -320,7 +341,7 @@ public final class GroupConfig {
 				parsed.iconIds(),
 				parsed.theme(),
 				parsed.priority(),
-				parsed.extra()
+				parsed.extra(), parsed.documentFormat(), parsed.rawDocument()
 			);
 		} catch (IllegalArgumentException e) {
 			Constants.LOG.error("Group '{}': {}", id, e.getMessage());
@@ -333,11 +354,17 @@ public final class GroupConfig {
 
 	private static ParsedGroupJson parseGroupJson(String json) {
 		JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+		GroupDocumentFormat documentFormat = documentFormat(obj);
 		String id = obj.has("id") ? obj.get("id").getAsString() : null;
 		if (id == null || id.isBlank()) {
 			throw new IllegalArgumentException("Missing required non-blank 'id' field.");
 		}
 
+		if (documentFormat == GroupDocumentFormat.UNSUPPORTED) {
+			return new ParsedGroupJson(id, new GroupDisplayName.Localized(GroupTranslationHelper.keyForGroupId(id), id),
+				false, new GroupFilter.Unsupported(obj, "schema_version"), List.of(), GroupTheme.EMPTY, 0,
+				new JsonObject(), documentFormat, obj);
+		}
 		GroupDisplayName displayName = parseDisplayName(id, obj.get("name"));
 		boolean enabled = !obj.has("enabled") || obj.get("enabled").getAsBoolean();
 
@@ -355,11 +382,11 @@ public final class GroupConfig {
 			}
 		}
 
-		GroupFilter filter = parseFilter(obj.getAsJsonObject("filter"));
+		GroupFilter filter = parseFilter(obj.getAsJsonObject("filter"), documentFormat);
 		GroupTheme theme = parseTheme(id, obj.get("theme"));
 		int priority = parsePriority(id, obj.get("priority"));
 		JsonObject extra = parseExtra(id, obj.get("extra"));
-		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme, priority, extra);
+		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme, priority, extra, documentFormat, null);
 	}
 
 	private static GroupIconDefinition parseIcon(JsonElement element) {
@@ -488,7 +515,10 @@ public final class GroupConfig {
 	}
 
 	public static String toJson(GroupDefinition group) {
+		if (group.documentFormat() == GroupDocumentFormat.UNSUPPORTED) return GSON.toJson(group.rawDocument());
+		if (!GroupFormatPolicy.writable(group)) throw new IllegalArgumentException("This data requires a blank new group.");
 		JsonObject obj = new JsonObject();
+		if (group.documentFormat() == GroupDocumentFormat.V1) obj.addProperty("schema_version", 1);
 		obj.addProperty("id", group.id());
 
 		GroupDisplayName dn = group.displayName();
@@ -523,7 +553,7 @@ public final class GroupConfig {
 			obj.add("extra", group.extra());
 		}
 
-		obj.add("filter", serializeFilter(group.filter()));
+		obj.add("filter", serializeFilter(group.filter(), group.documentFormat()));
 		return GSON.toJson(obj);
 	}
 
@@ -552,7 +582,9 @@ public final class GroupConfig {
 	}
 
 	// package-private for testing (GroupConfigComponentPathTest)
-	static GroupFilter parseFilter(JsonObject obj) {
+	static GroupFilter parseFilter(JsonObject obj) { return parseFilter(obj, GroupDocumentFormat.LEGACY); }
+
+	static GroupFilter parseFilter(JsonObject obj, GroupDocumentFormat format) {
 		if (obj.has("nbt") && (!hasExactKeys(obj, "type", "nbt") || obj.has("nbt_path"))) {
 			return new GroupFilter.Unsupported(obj, "nbt");
 		}
@@ -565,84 +597,40 @@ public final class GroupConfig {
 		}
 		if (obj.has("any")) {
 			List<GroupFilter> children = new ArrayList<>();
-			obj.getAsJsonArray("any").forEach(element -> children.add(parseFilter(element.getAsJsonObject())));
+			obj.getAsJsonArray("any").forEach(element -> children.add(parseFilter(element.getAsJsonObject(), format)));
 			return new GroupFilter.Any(children);
 		}
 		if (obj.has("all")) {
 			List<GroupFilter> children = new ArrayList<>();
-			obj.getAsJsonArray("all").forEach(element -> children.add(parseFilter(element.getAsJsonObject())));
+			obj.getAsJsonArray("all").forEach(element -> children.add(parseFilter(element.getAsJsonObject(), format)));
 			return new GroupFilter.All(children);
 		}
 		if (obj.has("not")) {
-			return new GroupFilter.Not(parseFilter(obj.getAsJsonObject("not")));
+			return new GroupFilter.Not(parseFilter(obj.getAsJsonObject("not"), format));
 		}
-		if (obj.has("nbt")) {
-			if (!isItemNode(obj) || !hasExactKeys(obj, "type", "nbt")) {
-				return new GroupFilter.Unsupported(obj, "nbt");
+		if (obj.has("nbt") || obj.has("nbt_path") || obj.has("stack")) {
+			String field = obj.has("nbt") ? "nbt" : obj.has("stack") ? "stack" : "value";
+			Optional<ItemDataPayload> payload = ItemDataPayload.parse(obj.get(field));
+			if (format != GroupDocumentFormat.V1 || !isItemNode(obj) || payload.isEmpty()
+				|| !ItemDataPayload.NBT.equals(payload.get().dataFormat())
+				|| !payload.get().data().isJsonPrimitive() || !payload.get().data().getAsJsonPrimitive().isString())
+				return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
+			ItemDataPayload data = payload.get();
+			if (obj.has("stack")) {
+				if (!hasExactKeys(obj, "type", "stack") || Minecraft1201NbtAccess.canonicalRoot(data.encodedValue()).isEmpty())
+					return new GroupFilter.Unsupported(obj, "exact_stack");
+				return new GroupFilter.ExactStack(data);
 			}
-			Optional<String> expected = decodeNbtValue(obj.get("nbt"), true);
-			return expected.<GroupFilter>map(GroupFilter.Nbt::new)
-				.orElseGet(() -> new GroupFilter.Unsupported(obj, "nbt"));
-		}
-		if (obj.has("nbt_path")) {
-			if (!isItemNode(obj) || !hasExactKeys(obj, "type", "nbt_path", "value")
-				|| !obj.get("nbt_path").isJsonPrimitive()
-				|| !obj.get("nbt_path").getAsJsonPrimitive().isString()) {
+			if (obj.has("nbt")) return Minecraft1201NbtAccess.canonicalRoot(data.encodedValue()).isPresent()
+				? new GroupFilter.Nbt(data) : new GroupFilter.Unsupported(obj, "nbt");
+			JsonElement path = obj.get("nbt_path");
+			if (path == null || !path.isJsonPrimitive() || !path.getAsJsonPrimitive().isString()
+				|| !Minecraft1201NbtAccess.validPath(path.getAsString())
+				|| Minecraft1201NbtAccess.canonicalValue(data.encodedValue()).isEmpty())
 				return new GroupFilter.Unsupported(obj, "nbt_path");
-			}
-			String path = obj.get("nbt_path").getAsString();
-			Optional<String> expected = decodeNbtValue(obj.get("value"), false);
-			return Minecraft1201NbtAccess.validPath(path) && expected.isPresent()
-				? new GroupFilter.NbtPath(path, expected.get())
-				: new GroupFilter.Unsupported(obj, "nbt_path");
+			return new GroupFilter.NbtPath(path.getAsString(), data);
 		}
-		if (obj.has("component")) {
-			if (!obj.has("type")) {
-				throw new IllegalArgumentException("Component filter node requires explicit type='item': " + obj);
-			}
-			if (!"item".equals(obj.get("type").getAsString())) {
-				throw new IllegalArgumentException("Component filter node only supports type='item': " + obj);
-			}
-			if (!obj.has("value")) {
-				throw new IllegalArgumentException("Component filter node requires 'value': " + obj);
-			}
-			if (hasUnsupportedEnvelope(obj.get("value"), MinecraftItemDataFormats.COMPONENT_VALUE_1_21_1)) {
-				return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
-			}
-			// Discriminator: component + path -> ComponentPath; component alone -> HasComponent.
-			// If path is present but fails grammar validation, fail fast rather than silently falling back.
-			if (obj.has("path")) {
-				String path = obj.get("path").getAsString();
-				if (!GroupFilterValidator.PATH_PATTERN.matcher(path).matches()) {
-					throw new IllegalArgumentException(
-						"ComponentPath node has invalid path grammar: '" + path
-						+ "'. Allowed: field, parent.child, array[n], array[n].field. Node: " + obj);
-				}
-				return new GroupFilter.ComponentPath(
-					obj.get("component").getAsString(),
-					path,
-					obj.get("value").getAsString()
-				);
-			}
-			return new GroupFilter.HasComponent(
-				obj.get("component").getAsString(),
-				obj.get("value").getAsString()
-			);
-		}
-		if (obj.has("stack")) {
-			if (!obj.has("type")) {
-				throw new IllegalArgumentException("ExactStack node requires explicit type='item': " + obj);
-			}
-			String type = obj.get("type").getAsString();
-			if (!"item".equals(type)) {
-				throw new IllegalArgumentException("ExactStack only supports type='item': " + obj);
-			}
-			String encodedStack = obj.get("stack").getAsString();
-			if (!isSupportedExactStack(encodedStack)) {
-				return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
-			}
-			return new GroupFilter.ExactStack(encodedStack);
-		}
+		if (obj.has("component")) return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
 		if (obj.has("block_tag")) {
 			return new GroupFilter.BlockTag(obj.get("block_tag").getAsString());
 		}
@@ -665,11 +653,14 @@ public final class GroupConfig {
 		throw new IllegalArgumentException("Unknown filter node: " + obj);
 	}
 
-	private static boolean hasUnsupportedEnvelope(JsonElement encoded, ItemDataFormat current) {
-		if (!encoded.isJsonPrimitive() || !encoded.getAsJsonPrimitive().isString()) return false;
-		String value = encoded.getAsString();
-		if (!VersionedDataEnvelope.isEnvelope(value)) return false;
-		return VersionedDataEnvelope.inspect(value, current).support() != VersionedDataEnvelope.Support.CURRENT;
+	private static GroupDocumentFormat documentFormat(JsonObject object) {
+		if (!object.has("schema_version")) return GroupDocumentFormat.LEGACY;
+		JsonElement version = object.get("schema_version");
+		if (version.isJsonPrimitive() && version.getAsJsonPrimitive().isNumber()) {
+			try { if (version.getAsBigDecimal().compareTo(java.math.BigDecimal.ONE) == 0) return GroupDocumentFormat.V1; }
+			catch (NumberFormatException ignored) {}
+		}
+		return GroupDocumentFormat.UNSUPPORTED;
 	}
 
 	private static boolean isItemNode(JsonObject obj) {
@@ -685,37 +676,11 @@ public final class GroupConfig {
 		return true;
 	}
 
-	private static Optional<String> decodeNbtValue(JsonElement encoded, boolean root) {
-		if (encoded == null || !encoded.isJsonPrimitive() || !encoded.getAsJsonPrimitive().isString()) {
-			return Optional.empty();
-		}
-		String envelope = encoded.getAsString();
-		if (!VersionedDataEnvelope.isEnvelope(envelope)) return Optional.empty();
-		VersionedDataEnvelope.Inspection inspection =
-			VersionedDataEnvelope.inspect(envelope, MinecraftItemDataFormats.NBT_VALUE_1_20_1);
-		if (inspection.support() != VersionedDataEnvelope.Support.CURRENT) return Optional.empty();
-		JsonElement data = inspection.data().orElse(null);
-		if (data == null || !data.isJsonPrimitive() || !data.getAsJsonPrimitive().isString()) {
-			return Optional.empty();
-		}
-		return root
-			? Minecraft1201NbtAccess.canonicalRoot(data.getAsString())
-			: Minecraft1201NbtAccess.canonicalValue(data.getAsString());
-	}
-
-	private static String encodeNbtValue(String snbt) {
-		return VersionedDataEnvelope.wrap(
-			MinecraftItemDataFormats.NBT_VALUE_1_20_1, new JsonPrimitive(snbt));
-	}
-
-	private static boolean isSupportedExactStack(String encoded) {
-		return VersionedDataEnvelope.inspect(encoded, MinecraftItemDataFormats.EXACT_STACK_1_20_1).support()
-			== VersionedDataEnvelope.Support.CURRENT
-			&& ItemDataAccesses.current().exactStacks().beginDecode().decode(encoded).isPresent();
-	}
-
 	// package-private for testing (GroupConfigComponentPathTest)
-	static JsonObject serializeFilter(GroupFilter filter) {
+	static JsonObject serializeFilter(GroupFilter filter) { return serializeFilter(filter, GroupFormatPolicy.inferredFormat(filter)); }
+
+	static JsonObject serializeFilter(GroupFilter filter, GroupDocumentFormat format) {
+		if (!GroupFormatPolicy.representable(format, filter)) throw new IllegalArgumentException("This data requires a blank new group.");
 		if (filter instanceof GroupFilter.Unsupported unsupported) {
 			return unsupported.rawJson();
 		}
@@ -723,15 +688,15 @@ public final class GroupConfig {
 		if (filter instanceof GroupFilter.Any) {
 			GroupFilter.Any any = (GroupFilter.Any) filter;
 				JsonArray arr = new JsonArray();
-				any.children().forEach(child -> arr.add(serializeFilter(child)));
+				any.children().forEach(child -> arr.add(serializeFilter(child, format)));
 				obj.add("any", arr);
 		} else if (filter instanceof GroupFilter.All) {
 			GroupFilter.All all = (GroupFilter.All) filter;
 				JsonArray arr = new JsonArray();
-				all.children().forEach(child -> arr.add(serializeFilter(child)));
+				all.children().forEach(child -> arr.add(serializeFilter(child, format)));
 				obj.add("all", arr);
 		} else if (filter instanceof GroupFilter.Not) {
-			obj.add("not", serializeFilter(((GroupFilter.Not) filter).child()));
+			obj.add("not", serializeFilter(((GroupFilter.Not) filter).child(), format));
 		} else if (filter instanceof GroupFilter.Id) {
 			GroupFilter.Id id = (GroupFilter.Id) filter;
 				obj.addProperty("type", id.ingredientType());
@@ -755,31 +720,33 @@ public final class GroupConfig {
 		} else if (filter instanceof GroupFilter.ExactStack) {
 			GroupFilter.ExactStack stack = (GroupFilter.ExactStack) filter;
 			obj.addProperty("type", "item");
-			obj.addProperty("stack", stack.encodedStack());
+			obj.add("stack", payloadOrNbt(stack.payload(), stack.encodedStack()).toJson());
 		} else if (filter instanceof GroupFilter.Nbt) {
 			obj.addProperty("type", "item");
-			obj.addProperty("nbt", encodeNbtValue(((GroupFilter.Nbt) filter).expectedSnbt()));
+			obj.add("nbt", payloadOrNbt(((GroupFilter.Nbt) filter).payload(), ((GroupFilter.Nbt) filter).expectedSnbt()).toJson());
 		} else if (filter instanceof GroupFilter.NbtPath) {
 			GroupFilter.NbtPath nbtPath = (GroupFilter.NbtPath) filter;
 			obj.addProperty("type", "item");
 			obj.addProperty("nbt_path", nbtPath.path());
-			obj.addProperty("value", encodeNbtValue(nbtPath.expectedSnbt()));
+			obj.add("value", payloadOrNbt(nbtPath.payload(), nbtPath.expectedSnbt()).toJson());
 		} else if (filter instanceof GroupFilter.HasComponent) {
 			GroupFilter.HasComponent hc = (GroupFilter.HasComponent) filter;
 				obj.addProperty("type", "item");
 				obj.addProperty("component", hc.componentTypeId());
-				obj.addProperty("value", hc.encodedValue());
+				if (format == GroupDocumentFormat.V1) obj.add("value", hc.payload().toJson()); else obj.addProperty("value", hc.encodedValue());
 		} else if (filter instanceof GroupFilter.ComponentPath) {
 			GroupFilter.ComponentPath cp = (GroupFilter.ComponentPath) filter;
 				obj.addProperty("type", "item");
 				obj.addProperty("component", cp.componentTypeId());
 				obj.addProperty("path", cp.path());
-				obj.addProperty("value", cp.expectedValue());
+				if (format == GroupDocumentFormat.V1) obj.add("value", cp.payload().toJson()); else obj.addProperty("value", cp.expectedValue());
 		} else {
 			throw new AssertionError("Unsupported nodes return before serialization");
 		}
 		return obj;
 	}
+
+	private static ItemDataPayload payloadOrNbt(ItemDataPayload payload, String snbt) { return payload == null ? ItemDataPayload.nbt(snbt) : payload; }
 
 	private static FilterNodeKind nodeKind(JsonObject obj) {
 		if (obj.has("any")) return FilterNodeKind.ANY;
@@ -871,7 +838,7 @@ public final class GroupConfig {
 		List<GroupIconDefinition> iconIds,
 		GroupTheme theme,
 		int priority,
-		JsonObject extra
+		JsonObject extra, GroupDocumentFormat documentFormat, JsonObject rawDocument
 	) {}
 
 	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,

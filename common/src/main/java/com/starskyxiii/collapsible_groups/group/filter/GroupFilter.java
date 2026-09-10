@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.group.filter;
 
 import com.google.gson.JsonObject;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 
 import java.util.List;
 import java.util.Objects;
@@ -88,34 +89,49 @@ public sealed interface GroupFilter
 		}
 	}
 
-	record ExactStack(String encodedStack) implements GroupFilter {
+	record ExactStack(String encodedStack, ItemDataPayload payload) implements GroupFilter {
+		public ExactStack(String encodedStack) { this(encodedStack, null); }
+		public ExactStack(ItemDataPayload payload) { this(payload.encodedValue(), payload); }
 		public ExactStack {
+			if (payload != null) encodedStack = payload.encodedValue();
 			Objects.requireNonNull(encodedStack, "encodedStack");
 		}
 	}
 
-	record Nbt(String expectedSnbt) implements GroupFilter {
+	record Nbt(String expectedSnbt, ItemDataPayload payload) implements GroupFilter {
+		public Nbt(String expectedSnbt) { this(expectedSnbt, null); }
+		public Nbt(ItemDataPayload payload) { this(payload.encodedValue(), payload); }
 		public Nbt {
+			if (payload != null) expectedSnbt = payload.encodedValue();
 			Objects.requireNonNull(expectedSnbt, "expectedSnbt");
 		}
 	}
 
-	record NbtPath(String path, String expectedSnbt) implements GroupFilter {
+	record NbtPath(String path, String expectedSnbt, ItemDataPayload payload) implements GroupFilter {
+		public NbtPath(String path, String expectedSnbt) { this(path, expectedSnbt, null); }
+		public NbtPath(String path, ItemDataPayload payload) { this(path, payload.encodedValue(), payload); }
 		public NbtPath {
+			if (payload != null) expectedSnbt = payload.encodedValue();
 			Objects.requireNonNull(path, "path");
 			Objects.requireNonNull(expectedSnbt, "expectedSnbt");
 		}
 	}
 
-	record HasComponent(String componentTypeId, String encodedValue) implements GroupFilter {
+	record HasComponent(String componentTypeId, String encodedValue, ItemDataPayload payload) implements GroupFilter {
+		public HasComponent(String componentTypeId, String encodedValue) { this(componentTypeId, encodedValue, null); }
+		public HasComponent(String componentTypeId, ItemDataPayload payload) { this(componentTypeId, payload.encodedValue(), payload); }
 		public HasComponent {
+			if (payload != null) encodedValue = payload.encodedValue();
 			Objects.requireNonNull(componentTypeId, "componentTypeId");
 			Objects.requireNonNull(encodedValue, "encodedValue");
 		}
 	}
 
-	record ComponentPath(String componentTypeId, String path, String expectedValue) implements GroupFilter {
+	record ComponentPath(String componentTypeId, String path, String expectedValue, ItemDataPayload payload) implements GroupFilter {
+		public ComponentPath(String componentTypeId, String path, String expectedValue) { this(componentTypeId, path, expectedValue, null); }
+		public ComponentPath(String componentTypeId, String path, ItemDataPayload payload) { this(componentTypeId, path, payload.encodedValue(), payload); }
 		public ComponentPath {
+			if (payload != null) expectedValue = payload.encodedValue();
 			Objects.requireNonNull(componentTypeId, "componentTypeId");
 			Objects.requireNonNull(path, "path");
 			Objects.requireNonNull(expectedValue, "expectedValue");

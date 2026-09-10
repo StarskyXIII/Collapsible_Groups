@@ -868,6 +868,7 @@ final class EditorRulesPanel {
 	}
 
 	private boolean menuEntryEnabled(MenuEntry entry) {
+		if (!state.canAddRuleKind(entry.kind())) return false;
 		return entry.wrap() ? state.canWrapSelectedRule(entry.kind()) : state.canInsertRuleRelative();
 	}
 
@@ -909,7 +910,7 @@ final class EditorRulesPanel {
 				UiSkinRenderer.drawButton(g, font, list.x(), y, list.width(), BTN_H, menuEntryLabel(entry),
 					buttonState(menuEntryEnabled(entry), hovered));
 				if (hovered) {
-					hoverDesc = Component.translatable(RuleNodePresentation.descriptionKey(entry.kind())).getString();
+					hoverDesc = Component.translatable(state.canAddRuleKind(entry.kind()) ? RuleNodePresentation.descriptionKey(entry.kind()) : "collapsible_groups.editor.format.requires_new_group").getString();
 				}
 				y += BTN_H + 2;
 			}

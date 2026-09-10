@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.group.filter;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 
 import net.minecraft.world.item.ItemStack;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 
 import java.util.List;
 import java.util.Objects;
@@ -44,12 +45,14 @@ public final class Filters {
 		return new GroupFilter.ExactStack(encodedStack);
 	}
 
+	public static GroupFilter exactStack(ItemDataPayload payload) { return new GroupFilter.ExactStack(payload); }
+
 	public static GroupFilter nbt(String expectedSnbt) {
-		return new GroupFilter.Nbt(expectedSnbt);
+		return new GroupFilter.Nbt(ItemDataPayload.nbt(expectedSnbt));
 	}
 
 	public static GroupFilter nbtPath(String path, String expectedSnbt) {
-		return new GroupFilter.NbtPath(path, expectedSnbt);
+		return new GroupFilter.NbtPath(path, ItemDataPayload.nbt(expectedSnbt));
 	}
 
 	public static GroupFilter itemComponent(String componentTypeId, String encodedValue) {
@@ -62,7 +65,7 @@ public final class Filters {
 
 	public static GroupFilter exactStack(ItemStack stack) {
 		String selector = GroupItemSelector.exactSelector(stack);
-		return exactStack(selector.substring(STACK_PREFIX.length()));
+		return new GroupFilter.ExactStack(ItemDataPayload.nbt(selector.substring(STACK_PREFIX.length())));
 	}
 
 	public static GroupFilter itemId(String id) {

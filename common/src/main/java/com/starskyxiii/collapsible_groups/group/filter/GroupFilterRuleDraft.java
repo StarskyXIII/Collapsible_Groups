@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.group.filter;
 
 import org.jetbrains.annotations.Nullable;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -64,6 +65,7 @@ public final class GroupFilterRuleDraft {
 		private Node parent;
 		private final List<Node> children = new ArrayList<>();
 		private String ingredientType = "item";
+		private ItemDataPayload payload;
 		private String primaryValue = "";
 		private String secondaryValue = "";
 		private String tertiaryValue = "";
@@ -141,10 +143,20 @@ public final class GroupFilterRuleDraft {
 	public static GroupFilterRuleDraft decode(@Nullable GroupFilter filter) {
 		GroupFilterRuleDraft draft = new GroupFilterRuleDraft();
 		if (filter != null) {
+            if (containsUnsupportedPayload(filter)) {
+                throw new IllegalArgumentException("Unavailable filter nodes cannot be decoded into an editable rule draft");
+            }
 			draft.root = decodeNode(GroupFilterNormalizer.normalize(filter));
 		}
 		return draft;
 	}
+
+    private static boolean containsUnsupportedPayload(GroupFilter filter) {
+        if (filter instanceof GroupFilter.Any any) return any.children().stream().anyMatch(GroupFilterRuleDraft::containsUnsupportedPayload);
+        if (filter instanceof GroupFilter.All all) return all.children().stream().anyMatch(GroupFilterRuleDraft::containsUnsupportedPayload);
+        if (filter instanceof GroupFilter.Not not) return containsUnsupportedPayload(not.child());
+        return !com.starskyxiii.collapsible_groups.group.GroupFormatPolicy.nativePayloadSupported(filter);
+    }
 
 	public @Nullable Node root() {
 		return root;
@@ -223,6 +235,7 @@ public final class GroupFilterRuleDraft {
 			|| !left.primaryValue.equals(right.primaryValue)
 			|| !left.secondaryValue.equals(right.secondaryValue)
 			|| !left.tertiaryValue.equals(right.tertiaryValue)
+			|| !Objects.equals(left.payload, right.payload)
 			|| left.children.size() != right.children.size()) {
 			return false;
 		}
@@ -444,6 +457,7 @@ public final class GroupFilterRuleDraft {
 		copy.primaryValue = source.primaryValue;
 		copy.secondaryValue = source.secondaryValue;
 		copy.tertiaryValue = source.tertiaryValue;
+		copy.payload = source.payload;
 		for (Node child : source.children) {
 			copy.children.add(copyNode(child, copy));
 		}
@@ -517,18 +531,21 @@ public final class GroupFilterRuleDraft {
 		if (filter instanceof GroupFilter.ExactStack) {
 			GroupFilter.ExactStack exactStack = (GroupFilter.ExactStack) filter;
 				Node node = new Node(NodeKind.EXACT_STACK);
+			node.payload = exactStack.payload();
 				node.primaryValue = exactStack.encodedStack();
 			return node;
 		}
 		if (filter instanceof GroupFilter.Nbt) {
 			GroupFilter.Nbt nbt = (GroupFilter.Nbt) filter;
 			Node node = new Node(NodeKind.NBT);
+			node.payload = nbt.payload();
 			node.primaryValue = nbt.expectedSnbt();
 			return node;
 		}
 		if (filter instanceof GroupFilter.NbtPath) {
 			GroupFilter.NbtPath nbtPath = (GroupFilter.NbtPath) filter;
 			Node node = new Node(NodeKind.NBT_PATH);
+			node.payload = nbtPath.payload();
 			node.primaryValue = nbtPath.path();
 			node.secondaryValue = nbtPath.expectedSnbt();
 			return node;
@@ -536,6 +553,7 @@ public final class GroupFilterRuleDraft {
 		if (filter instanceof GroupFilter.HasComponent) {
 			GroupFilter.HasComponent hasComponent = (GroupFilter.HasComponent) filter;
 				Node node = new Node(NodeKind.HAS_COMPONENT);
+			node.payload = hasComponent.payload();
 				node.primaryValue = hasComponent.componentTypeId();
 				node.secondaryValue = hasComponent.encodedValue();
 			return node;
@@ -543,6 +561,7 @@ public final class GroupFilterRuleDraft {
 		if (filter instanceof GroupFilter.ComponentPath) {
 			GroupFilter.ComponentPath componentPath = (GroupFilter.ComponentPath) filter;
 				Node node = new Node(NodeKind.COMPONENT_PATH);
+			node.payload = componentPath.payload();
 				node.primaryValue = componentPath.componentTypeId();
 				node.secondaryValue = componentPath.path();
 				node.tertiaryValue = componentPath.expectedValue();
@@ -570,11 +589,11 @@ public final class GroupFilterRuleDraft {
 			case ITEM_PATH_CONTAINS -> Filters.itemPathContains(node.primaryValue);
 			case ITEM_PATH_ENDS_WITH -> Filters.itemPathEndsWith(node.primaryValue);
 			case NAMESPACE -> Filters.namespace(node.ingredientType, node.primaryValue);
-			case EXACT_STACK -> Filters.exactStack(node.primaryValue);
-			case NBT -> new GroupFilter.Nbt(node.primaryValue);
-			case NBT_PATH -> new GroupFilter.NbtPath(node.primaryValue, node.secondaryValue);
-			case HAS_COMPONENT -> Filters.itemComponent(node.primaryValue, node.secondaryValue);
-			case COMPONENT_PATH -> Filters.itemComponentPath(node.primaryValue, node.secondaryValue, node.tertiaryValue);
+			case EXACT_STACK -> new GroupFilter.ExactStack(node.primaryValue, node.payload == null ? null : ItemDataPayload.nbt(node.primaryValue));
+			case NBT -> new GroupFilter.Nbt(node.primaryValue, node.payload == null ? null : ItemDataPayload.nbt(node.primaryValue));
+			case NBT_PATH -> new GroupFilter.NbtPath(node.primaryValue, node.secondaryValue, node.payload == null ? null : ItemDataPayload.nbt(node.secondaryValue));
+			case HAS_COMPONENT -> new GroupFilter.HasComponent(node.primaryValue, node.secondaryValue, node.payload);
+			case COMPONENT_PATH -> new GroupFilter.ComponentPath(node.primaryValue, node.secondaryValue, node.tertiaryValue, node.payload);
 		};
 	}
 

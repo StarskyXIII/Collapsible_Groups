@@ -53,6 +53,14 @@ public record GroupActionEligibility(
 		};
 	}
 
+	public static GroupActionEligibility forGroup(com.starskyxiii.collapsible_groups.group.GroupDefinition group) {
+		GroupActionEligibility ordinary = forSource(GroupSource.fromGroupId(group.id()));
+		if (group.documentFormat() != com.starskyxiii.collapsible_groups.group.GroupDocumentFormat.UNSUPPORTED) return ordinary;
+		return new GroupActionEligibility(ordinary.source(), false, ordinary.enabledPersistenceKind(), false,
+			ordinary.canDelete(), ordinary.canShiftDelete(), false, ordinary.canBatchSelect(), false, false,
+			ordinary.canBatchDelete());
+	}
+
 	public boolean canRequest(GroupAction action) {
 		return switch (Objects.requireNonNull(action, "action")) {
 			case SWITCH_ENABLED -> canRequestSwitch;

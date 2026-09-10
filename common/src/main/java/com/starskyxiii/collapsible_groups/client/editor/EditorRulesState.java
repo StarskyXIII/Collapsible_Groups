@@ -7,6 +7,8 @@ import org.jetbrains.annotations.Nullable;
 import java.util.List;
 
 public interface EditorRulesState {
+	default boolean canAddRuleKind(GroupFilterRuleDraft.NodeKind kind) { return true; }
+
 	void ensureRuleSelection();
 
 	@Nullable

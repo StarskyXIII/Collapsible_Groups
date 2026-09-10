@@ -87,7 +87,10 @@ final class GroupEditorTooltipHelper {
 			List<Component> lines = ownTooltipLines(EditorItemTooltipHelper.tooltipLines(stack));
 			if (!state.canEditContents()) lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 			else if (!isExact && !isWhole) lines.add(dim(ModTranslationKeys.EDITOR_TAG_MATCHED));
-			else if (isWhole) {
+			else if (isWhole && !state.canSelectSingle(stack)) {
+				lines.add(dim("collapsible_groups.editor.format.requires_new_group"));
+				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_CTRL_REMOVE_ALL));
+			} else if (isWhole) {
 				lines.add(hint(ModTranslationKeys.EDITOR_HINT_REMOVE_ONLY_VARIANT));
 				lines.add(hint2(ModTranslationKeys.EDITOR_HINT_CTRL_REMOVE_ALL));
 			} else {
@@ -132,6 +135,11 @@ final class GroupEditorTooltipHelper {
 	}
 
 	private static void appendItemHint(List<Component> lines, GroupEditorState state, ItemStack stack) {
+		if (!state.canSelectSingle(stack)) {
+			lines.add(dim("collapsible_groups.editor.format.requires_new_group"));
+			lines.add(hint2(ModTranslationKeys.EDITOR_HINT_CTRL_SELECT_ALL));
+			return;
+		}
 		if (!state.canEditContents()) {
 			lines.add(dim(ModTranslationKeys.EDITOR_RULES_CONTENTS_LOCKED));
 		} else if (!state.isWholeItemSelected(stack) && !state.isExactSelected(stack)

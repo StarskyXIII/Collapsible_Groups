@@ -9,3 +9,7 @@ This version supports exact item selections, complete NBT conditions and NBT pat
 KubeJS 6 integration uses the client-side `CGEvents.groups` event on both loaders. KubeJS is optional. The Minecraft 1.21.1 implementation remains on its separate version branch.
 
 See [the 1.20.1 version notes](docs/minecraft-1.20.1.md) for the dependency baseline, item-data boundaries and a KubeJS example.
+
+## Group JSON
+
+See [the group JSON format](docs/group-json-format.md) for version 1 NBT payloads, exact items, and legacy editing behavior.

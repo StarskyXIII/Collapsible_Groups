@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.group.filter;
 
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
+import com.starskyxiii.collapsible_groups.group.GroupFormatPolicy;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
@@ -55,7 +56,7 @@ public final class CompiledFilter {
 	}
 
 	private static CompiledNode compileNode(GroupFilter filter) {
-		if (!FilterNodeCapabilities.isAvailable(FilterNodeCapabilities.kindOf(filter))) {
+		if (!FilterNodeCapabilities.isAvailable(FilterNodeCapabilities.kindOf(filter)) || !GroupFormatPolicy.nativePayloadSupported(filter)) {
 			return UnavailableNode.INSTANCE;
 		}
 		if (filter instanceof GroupFilter.Any) return compileAny((GroupFilter.Any) filter);
@@ -112,10 +113,11 @@ public final class CompiledFilter {
 				}
 				result.add(new IdSetNode(idsByType));
 				i = j;
-			} else if (child instanceof GroupFilter.ExactStack) {
+			} else if (child instanceof GroupFilter.ExactStack && GroupFormatPolicy.nativePayloadSupported(child)) {
 				List<String> encodedStacks = new ArrayList<>();
 				int j = i;
-				while (j < size && children.get(j) instanceof GroupFilter.ExactStack exactStack) {
+				while (j < size && children.get(j) instanceof GroupFilter.ExactStack exactStack
+					&& GroupFormatPolicy.nativePayloadSupported(exactStack)) {
 					encodedStacks.add(exactStack.encodedStack());
 					j++;
 				}
@@ -283,39 +285,6 @@ public final class CompiledFilter {
 		}
 	}
 
-	/**
-	 * Folded representation of a maximal contiguous run of {@code ExactStack} children
-	 * within an {@code Any}. The run's encoded selectors are decoded at most once (lazily, on the
-	 * first {@code item}-typed evaluation) into a base-id → decoded-reference bucket, replacing the
-	 * former per-evaluation JSON+codec decode and paired {@code normalizedCopy}. A match is then an
-	 * O(1) map lookup on the candidate's item id
-	 * plus a component deep-compare against the (usually single) reference for that id.
-	 *
-	 * <p><b>Type gate:</b> {@link #matches} short-circuits on a non-{@code item} view <em>before</em>
-	 * any initialization or decode, so unrelated ingredient types never trigger bucket construction.
-	 *
-	 * <p><b>Registry readiness:</b> the whole run is decoded against a single
-	 * {@link GroupItemSelector.ExactDecodeContext} snapshot, and the publication decision reads that
-	 * same snapshot's {@code liveRegistry()} flag — never a fresh observation of {@code Minecraft}
-	 * state, which could change between decode and decision (TOCTOU). If every selector in the batch
-	 * fails <em>and</em> the batch actually decoded against the fallback registries, the bucket is
-	 * not published and evaluation returns {@code false}, leaving the run to be retried on a later
-	 * evaluation. Individual decode failures in a live-registry batch are treated as permanently
-	 * invalid selectors (dropped from the bucket, never matching).
-	 *
-	 * <p><b>Publication:</b> the fully-built, deeply-immutable bucket ({@link Map#copyOf} of
-	 * {@link List#copyOf} lists) is published once through a volatile field via double-checked
-	 * locking; a reader observes either {@code null} (not yet built /
-	 * awaiting a live registry) or the complete immutable map — never a partially populated one.
-	 *
-	 * <p><b>Observable side-effect change:</b> the immutable bucket is successfully built and
-	 * published <em>at most once</em>; after publication no further decodes (or decode warnings)
-	 * occur. However, while decoding keeps failing against the fallback registries (bucket not yet
-	 * published), each evaluation re-attempts the decode and may log the same decode warnings
-	 * again. Callers must not rely on decode-warning counts or timing, and this node does not
-	 * preserve strict linear ordering of decode side effects relative to the surrounding
-	 * {@code Any} children.
-	 */
 	private static final class ExactStackSetNode implements CompiledNode {
 		private static final String STACK_PREFIX = "stack:";
 
@@ -337,13 +306,9 @@ public final class CompiledFilter {
 		}
 
 		@Override
-		public boolean matches(IngredientView view) {
-			// Type gate first: a non-item view must never trigger initialization or decode.
-			if (!sameType("item", view)) {
-				return false;
-			}
-			ResourceLocation resourceLocation = view.resourceLocation();
-			return cache.matches(resourceLocation, view::matchesDecodedExactStack);
+		public Evaluation evaluate(IngredientView view) {
+			if (!sameType("item", view)) return Evaluation.NO_MATCH;
+			return cache.evaluate(view.resourceLocation(), view::matchesDecodedExactStack);
 		}
 	}
 

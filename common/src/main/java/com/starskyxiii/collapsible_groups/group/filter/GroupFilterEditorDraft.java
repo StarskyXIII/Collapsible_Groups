@@ -26,6 +26,7 @@ public final class GroupFilterEditorDraft {
 	private static final String STACK_PREFIX = "stack:";
 
 	private final Set<String> explicitItemSelectors;
+	private final java.util.Map<String, com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload> exactPayloads = new java.util.LinkedHashMap<>();
 	private final List<String> itemTags;
 	private final List<String> fluidIds;
 	private final List<String> fluidTags;
@@ -264,7 +265,7 @@ public final class GroupFilterEditorDraft {
 
 		for (String selector : explicitItemSelectors) {
 			if (selector.startsWith(STACK_PREFIX)) {
-				flat.add(Filters.exactStack(selector.substring(STACK_PREFIX.length())));
+				flat.add(new GroupFilter.ExactStack(selector.substring(STACK_PREFIX.length()), exactPayloads.get(selector)));
 			} else {
 				flat.add(Filters.itemId(selector));
 			}
@@ -309,7 +310,10 @@ public final class GroupFilterEditorDraft {
 			return true;
 		}
 		if (filter instanceof GroupFilter.ExactStack) {
-			draft.explicitItemSelectors.add(STACK_PREFIX + ((GroupFilter.ExactStack) filter).encodedStack());
+			GroupFilter.ExactStack exact = (GroupFilter.ExactStack) filter;
+			String selector = STACK_PREFIX + exact.encodedStack();
+			draft.explicitItemSelectors.add(selector);
+			if (exact.payload() != null) draft.exactPayloads.put(selector, exact.payload());
 			return true;
 		}
 		return false;

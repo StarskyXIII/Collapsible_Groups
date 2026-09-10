@@ -89,7 +89,7 @@ public final class GroupFilterValidator {
 			GroupFilter.ExactStack exactStack = (GroupFilter.ExactStack) filter;
 				if (exactStack.encodedStack().isBlank()) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_EXACT_STACK_BLANK);
-				} else if (!isExactStackPayloadJsonObject(exactStack.encodedStack())) {
+				} else if (!isExactStackPayloadCompound(exactStack.encodedStack())) {
 					addError(errors, ModTranslationKeys.EDITOR_RULES_ERROR_EXACT_STACK_INVALID);
 				}
 		} else if (filter instanceof GroupFilter.Nbt) {
@@ -161,9 +161,9 @@ public final class GroupFilterValidator {
 		}
 	}
 
-	private static boolean isExactStackPayloadJsonObject(String encodedStack) {
+	private static boolean isExactStackPayloadCompound(String encodedStack) {
 		try {
-			return JsonParser.parseString(encodedStack).isJsonObject();
+			return Minecraft1201NbtAccess.canonicalRoot(encodedStack).isPresent();
 		} catch (RuntimeException e) {
 			return false;
 		}

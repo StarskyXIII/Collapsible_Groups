@@ -80,7 +80,7 @@ public final class FilterNodeCapabilities {
 		if (filter instanceof GroupFilter.Any) return ((GroupFilter.Any) filter).children().stream().anyMatch(FilterNodeCapabilities::containsUnavailable);
 		if (filter instanceof GroupFilter.All) return ((GroupFilter.All) filter).children().stream().anyMatch(FilterNodeCapabilities::containsUnavailable);
 		if (filter instanceof GroupFilter.Not) return containsUnavailable(((GroupFilter.Not) filter).child());
-		return !isAvailable(kindOf(filter));
+		return !isAvailable(kindOf(filter)) || !com.starskyxiii.collapsible_groups.group.GroupFormatPolicy.nativePayloadSupported(filter);
 	}
 
 	public static List<String> unavailableKinds(GroupFilter filter) {

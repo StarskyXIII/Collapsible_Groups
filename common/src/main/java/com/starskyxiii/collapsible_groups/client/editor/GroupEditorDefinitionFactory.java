@@ -3,6 +3,7 @@ package com.starskyxiii.collapsible_groups.client.editor;
 import com.google.gson.JsonObject;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDocumentFormat;
 import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
@@ -26,6 +27,8 @@ public final class GroupEditorDefinitionFactory {
 		GroupDefinition existing
 	) {
 		Objects.requireNonNull(id, "id");
+		if (existing != null && existing.documentFormat() == GroupDocumentFormat.UNSUPPORTED)
+			throw new IllegalArgumentException("Unsupported document cannot be edited or copied");
 		Objects.requireNonNull(fallbackName, "fallbackName");
 		Objects.requireNonNull(filter, "filter");
 
@@ -37,7 +40,8 @@ public final class GroupEditorDefinitionFactory {
 			preservedAppearance(existing).toIconIds(),
 			preservedAppearance(existing).toTheme(),
 			preservedPriority(existing),
-			preservedExtra(existing)
+			preservedExtra(existing), existing == null ? GroupDocumentFormat.V1 : existing.documentFormat(),
+			existing == null ? null : existing.rawDocument()
 		);
 	}
 
@@ -51,6 +55,8 @@ public final class GroupEditorDefinitionFactory {
 		int priority
 	) {
 		Objects.requireNonNull(id, "id");
+		if (existing != null && existing.documentFormat() == GroupDocumentFormat.UNSUPPORTED)
+			throw new IllegalArgumentException("Unsupported document cannot be edited or copied");
 		Objects.requireNonNull(fallbackName, "fallbackName");
 		Objects.requireNonNull(filter, "filter");
 
@@ -63,7 +69,8 @@ public final class GroupEditorDefinitionFactory {
 			resolvedAppearance.toIconIds(),
 			resolvedAppearance.toTheme(),
 			priority,
-			preservedExtra(existing)
+			preservedExtra(existing), existing == null ? GroupDocumentFormat.V1 : existing.documentFormat(),
+			existing == null ? null : existing.rawDocument()
 		);
 	}
 
@@ -75,6 +82,8 @@ public final class GroupEditorDefinitionFactory {
 		GroupDefinition existing
 	) {
 		Objects.requireNonNull(id, "id");
+		if (existing != null && existing.documentFormat() == GroupDocumentFormat.UNSUPPORTED)
+			throw new IllegalArgumentException("Unsupported document cannot be edited or copied");
 		Objects.requireNonNull(displayName, "displayName");
 		Objects.requireNonNull(filter, "filter");
 
@@ -86,7 +95,8 @@ public final class GroupEditorDefinitionFactory {
 			preservedAppearance(existing).toIconIds(),
 			preservedAppearance(existing).toTheme(),
 			preservedPriority(existing),
-			preservedExtra(existing)
+			preservedExtra(existing), existing == null ? GroupDocumentFormat.V1 : existing.documentFormat(),
+			existing == null ? null : existing.rawDocument()
 		);
 	}
 
@@ -100,6 +110,8 @@ public final class GroupEditorDefinitionFactory {
 		int priority
 	) {
 		Objects.requireNonNull(id, "id");
+		if (existing != null && existing.documentFormat() == GroupDocumentFormat.UNSUPPORTED)
+			throw new IllegalArgumentException("Unsupported document cannot be edited or copied");
 		Objects.requireNonNull(displayName, "displayName");
 		Objects.requireNonNull(filter, "filter");
 
@@ -112,7 +124,8 @@ public final class GroupEditorDefinitionFactory {
 			resolvedAppearance.toIconIds(),
 			resolvedAppearance.toTheme(),
 			priority,
-			preservedExtra(existing)
+			preservedExtra(existing), existing == null ? GroupDocumentFormat.V1 : existing.documentFormat(),
+			existing == null ? null : existing.rawDocument()
 		);
 	}
 

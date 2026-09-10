@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.client.editor;
 
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
@@ -125,7 +126,7 @@ class EditorStateCoreTest {
 	@Test
 	void stableLargeExactDraftReusesValidation() {
 		List<GroupFilter> filters = java.util.stream.IntStream.range(0, 6165)
-			.<GroupFilter>mapToObj(i -> new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\",\"count\":" + (i + 1) + "}"))
+			.<GroupFilter>mapToObj(i -> new GroupFilter.ExactStack(ItemDataPayload.nbt("{id:\"minecraft:stone\",Count:1b,tag:{marker:" + i + "}}")))
 			.toList();
 		EditorStateCore core = new EditorStateCore(new GroupDefinition("large", "Large", true,
 			new GroupFilter.Any(filters)), () -> {});
@@ -141,7 +142,7 @@ class EditorStateCoreTest {
 
 	@Test
 	void validationDetectsUnannouncedEditsAndDoesNotAdvancePreviewFallback() {
-		GroupFilter original = new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\"}");
+		GroupFilter original = new GroupFilter.ExactStack(ItemDataPayload.nbt("{id:\"minecraft:stone\",Count:1b}"));
 		EditorStateCore core = new EditorStateCore(new GroupDefinition("test", "Test", true, original), () -> {});
 		GroupFilterRuleDraft.Node node = core.selectedRuleNode();
 		node.setPrimaryValue("{\"id\":\"minecraft:dirt\"}");
@@ -376,8 +377,8 @@ class EditorStateCoreTest {
 		assertEquals(List.of(new GroupFilter.Not(new GroupFilter.Tag("item", "c:ingots"))),
 			decoded.preservedSubtrees());
 
-		GroupDefinition nested = new GroupDefinition("nested", "Nested", true,
-			Filters.any(Filters.not(Filters.itemTag("c:ingots"))));
+		GroupDefinition nested = GroupEditorDefinitionFactory.create("nested", "Nested", true,
+			Filters.any(Filters.not(Filters.itemTag("c:ingots"))), null);
 		EditorStateCore core = new EditorStateCore(nested, () -> {});
 		core.setContentsEditability(true, false);
 
@@ -391,7 +392,7 @@ class EditorStateCoreTest {
 		GroupFilter.Any result = assertInstanceOf(GroupFilter.Any.class, core.buildCurrentFilter().orElseThrow());
 		assertEquals(List.of(
 			new GroupFilter.Not(new GroupFilter.Tag("item", "c:ingots")),
-			new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\"}")
+			new GroupFilter.ExactStack(ItemDataPayload.nbt("{\"id\":\"minecraft:stone\"}"))
 		), result.children());
 	}
 
@@ -407,8 +408,8 @@ class EditorStateCoreTest {
 
 		GroupFilter.Any filter = assertInstanceOf(GroupFilter.Any.class, core.buildCurrentFilter().orElseThrow());
 		assertEquals(List.of(
-			new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\"}"),
-			new GroupFilter.ExactStack("{\"id\":\"minecraft:oak_boat\"}")
+			new GroupFilter.ExactStack(ItemDataPayload.nbt("{\"id\":\"minecraft:stone\"}")),
+			new GroupFilter.ExactStack(ItemDataPayload.nbt("{\"id\":\"minecraft:oak_boat\"}"))
 		), filter.children());
 	}
 }

@@ -361,6 +361,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 		if (elapsed >= thresholdMillis) Constants.LOG.info("[Perf] {} took {} ms {}", name, elapsed, details);
 	}
 	@Override public Optional<GroupDefinition> findGroup(String id) { return GroupRepository.findById(id); }
+	@Override public boolean saveChecked(GroupDefinition definition) { return GroupRepository.saveQuietlyChecked(definition); }
 	@Override public void saveQuietly(GroupDefinition definition) { GroupRepository.saveQuietly(definition); }
 	@Override public String sanitizeGeneratedIdBase(String name) {
 		return GroupRepository.sanitizeGeneratedIdBase(name);

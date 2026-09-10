@@ -43,10 +43,10 @@ class Minecraft1201ItemDataAccessTest {
 		ItemStack source = new ItemStack(Items.DIAMOND_SWORD, 17);
 		source.setTag(tag);
 
-		String encoded = access.exactStacks().encodeEnvelope(source).orElseThrow();
+		String encoded = access.exactStacks().encodePayload(source).orElseThrow().encodedValue();
 		assertEquals(17, source.getCount());
 		assertEquals(tag, source.getTag());
-		assertEquals(VersionedDataEnvelope.Support.CURRENT, access.exactStacks().support(encoded));
+		assertEquals(ItemDataPayload.NBT, access.exactStacks().encodePayload(source).orElseThrow().dataFormat());
 		ItemStack decoded = access.exactStacks().beginDecode().decode(encoded).orElseThrow();
 
 		assertEquals(1, decoded.getCount());
@@ -66,7 +66,7 @@ class Minecraft1201ItemDataAccessTest {
 
 		assertFalse(access.exactStacks().equivalent(plain, tagged));
 		assertTrue(access.exactStacks().beginDecode()
-			.decode(access.exactStacks().encodeEnvelope(plain).orElseThrow())
+			.decode(access.exactStacks().encodePayload(plain).orElseThrow().encodedValue())
 			.map(decoded -> access.exactStacks().equivalent(plain, decoded))
 			.orElse(false));
 	}
@@ -97,20 +97,10 @@ class Minecraft1201ItemDataAccessTest {
 	}
 
 	@Test
-	void rejectsLegacyForeignAndStructurallyInvalidPayloads() {
-		String malformedTag = VersionedDataEnvelope.wrap(
-			MinecraftItemDataFormats.EXACT_STACK_1_20_1,
-			new JsonPrimitive("{id:\"minecraft:stone\",Count:1b,tag:3}"));
-		String missingId = VersionedDataEnvelope.wrap(
-			MinecraftItemDataFormats.EXACT_STACK_1_20_1,
-			new JsonPrimitive("{Count:1b}"));
-		String foreign = VersionedDataEnvelope.wrap(
-			MinecraftItemDataFormats.EXACT_STACK_1_21_1,
-			new JsonPrimitive("{}"));
-
-		assertTrue(access.exactStacks().beginDecode().decode(malformedTag).isEmpty());
-		assertTrue(access.exactStacks().beginDecode().decode(missingId).isEmpty());
-		assertTrue(access.exactStacks().beginDecode().decode(foreign).isEmpty());
-		assertTrue(access.exactStacks().beginDecode().decode("{\"id\":\"minecraft:stone\"}").isEmpty());
+	void rejectsStructurallyInvalidPayloads() {
+		for (String encoded : java.util.List.of("{id:\"minecraft:stone\",Count:1b,tag:3}",
+				"{Count:1b}", "{}", "{id:\"minecraft:stone\"}", "broken trailing")) {
+			assertTrue(access.exactStacks().beginDecode().decode(encoded).isEmpty());
+		}
 	}
 }

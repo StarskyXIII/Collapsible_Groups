@@ -427,5 +427,6 @@
   "collapsible_groups.editor.unsupported_node.nbt.label": "NBT",
   "collapsible_groups.editor.unsupported_node.nbt.reason": "contains an NBT filter",
   "collapsible_groups.editor.unsupported_node.nbt_path.label": "NBT Path",
-  "collapsible_groups.editor.unsupported_node.nbt_path.reason": "contains an NBT Path filter"
+  "collapsible_groups.editor.unsupported_node.nbt_path.reason": "contains an NBT Path filter",
+  "collapsible_groups.editor.format.requires_new_group": "NBT and exact items require a blank new group."
 }

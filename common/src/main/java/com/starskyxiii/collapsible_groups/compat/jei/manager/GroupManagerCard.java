@@ -70,7 +70,7 @@ public record GroupManagerCard(
 	}
 
 	public boolean editable() {
-		return source().userEditable();
+		return actionEligibility().canEdit();
 	}
 
 	public int entryCount() {
@@ -120,7 +120,7 @@ public record GroupManagerCard(
 			displayName,
 			source,
 			group.enabled(),
-			GroupActionEligibility.forSource(source),
+			GroupActionEligibility.forGroup(group),
 			preview,
 			false
 		);

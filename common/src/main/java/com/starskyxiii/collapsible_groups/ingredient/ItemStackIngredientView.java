@@ -6,9 +6,7 @@ import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses
 import com.google.gson.JsonParser;
 import com.google.gson.JsonPrimitive;
 import com.starskyxiii.collapsible_groups.group.filter.EncodedValueNormalizer;
-import com.starskyxiii.collapsible_groups.internal.version.data.MinecraftItemDataFormats;
 import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft1201NbtAccess;
-import com.starskyxiii.collapsible_groups.internal.version.data.VersionedDataEnvelope;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.ResourceLocation;
@@ -83,13 +81,6 @@ public final class ItemStackIngredientView implements IngredientView {
 	}
 
 	public static boolean matchesEncodedValue(JsonElement encoded, String encodedValue) {
-		VersionedDataEnvelope.Inspection inspection =
-			VersionedDataEnvelope.inspect(encodedValue, MinecraftItemDataFormats.COMPONENT_VALUE_1_21_1);
-		if (VersionedDataEnvelope.isEnvelope(encodedValue)
-			&& inspection.support() != VersionedDataEnvelope.Support.CURRENT) return false;
-		if (inspection.support() == VersionedDataEnvelope.Support.CURRENT) {
-			return encoded.equals(inspection.data().orElseThrow());
-		}
 		if (encoded instanceof JsonPrimitive && ((JsonPrimitive) encoded).isString()) {
 			return EncodedValueNormalizer.normalize(encoded).equals(encodedValue);
 		}

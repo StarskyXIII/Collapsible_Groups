@@ -111,20 +111,20 @@ public final class GroupCatalog {
 		String copiedDisplayName,
 		List<String> existingGroupIds
 	) {
-		if (source == null || GroupSource.fromGroupId(source.id()) == GroupSource.USER) {
+		if (source == null || source.documentFormat() == GroupDocumentFormat.UNSUPPORTED || GroupSource.fromGroupId(source.id()) == GroupSource.USER) {
 			return Optional.empty();
 		}
 		String fallbackName = normalizedCopyName(copiedDisplayName, source);
 		String id = generateUniqueCustomCopyId(copyBaseId(source.id(), fallbackName), existingGroupIds);
 		return Optional.of(new GroupDefinition(
 			id,
-			fallbackName,
+			new GroupDisplayName.Localized(com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper.keyForGroupId(id), fallbackName),
 			source.enabled(),
 			source.filter(),
 			source.iconIds(),
 			source.theme(),
 			source.priority(),
-			source.extra()
+			source.extra(), source.documentFormat(), source.rawDocument()
 		));
 	}
 

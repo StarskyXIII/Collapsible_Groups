@@ -427,5 +427,6 @@
   "collapsible_groups.editor.unsupported_node.nbt.label": "NBT",
   "collapsible_groups.editor.unsupported_node.nbt.reason": "包含 NBT 篩選條件",
   "collapsible_groups.editor.unsupported_node.nbt_path.label": "NBT 路徑",
-  "collapsible_groups.editor.unsupported_node.nbt_path.reason": "包含 NBT 路徑篩選條件"
+  "collapsible_groups.editor.unsupported_node.nbt_path.reason": "包含 NBT 路徑篩選條件",
+  "collapsible_groups.editor.format.requires_new_group": "NBT 與精確物品條件需要從空白建立新群組。"
 }

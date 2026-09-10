@@ -245,8 +245,7 @@ class EditorValuePickerTransactionTest {
 		node.setPrimaryValue("{display:{Name:'Relic'}}");
 		invoke("confirmEditor");
 		assertFalse(core.hasRuleEditTransaction());
-		assertEquals(new com.starskyxiii.collapsible_groups.group.filter.GroupFilter.Nbt(
-			"{display:{Name:'Relic'}}"), core.buildCurrentFilter().orElseThrow());
+		assertEquals(com.starskyxiii.collapsible_groups.group.filter.Filters.nbt("{display:{Name:'Relic'}}"), core.buildCurrentFilter().orElseThrow());
 	}
 
 	@Test
