@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_iron_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_iron_block",
+    "fallback": "Chipped: Iron Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:iron_block"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

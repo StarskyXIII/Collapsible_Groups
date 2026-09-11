@@ -34,6 +34,18 @@ import java.util.concurrent.CompletableFuture;
  * rebuild completes.
  */
 public interface ViewerGroupIndex {
+	default com.starskyxiii.collapsible_groups.group.GroupEvaluation evaluation(GroupDefinition group) {
+		if (!ready()) return com.starskyxiii.collapsible_groups.group.GroupEvaluation.pending();
+		GroupCandidateIndex index = candidates().orElse(null);
+		GroupDefinition indexed = index == null ? null : index.groupSnapshot().get(group.id());
+		if (indexed == null || !indexed.filter().equals(group.filter()) || indexed.documentFormat() != group.documentFormat()) {
+			return com.starskyxiii.collapsible_groups.group.GroupEvaluation.pending();
+		}
+		return index.evaluations().getOrDefault(group.id(), com.starskyxiii.collapsible_groups.group.GroupEvaluation.pending());
+	}
+
+	default Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) { return Optional.empty(); }
+
 	/** Returns the current enabled-independent candidate generation, if one is ready. */
 	Optional<GroupCandidateIndex> candidates();
 

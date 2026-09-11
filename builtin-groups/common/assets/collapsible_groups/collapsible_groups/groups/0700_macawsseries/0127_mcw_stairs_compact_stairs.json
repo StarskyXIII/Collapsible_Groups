@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_stairs_compact_stairs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_stairs_compact_stairs",
+    "fallback": "Macaw's Stairs: Compact Stairs"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwstairs:compact_stairs"
+  }
+}

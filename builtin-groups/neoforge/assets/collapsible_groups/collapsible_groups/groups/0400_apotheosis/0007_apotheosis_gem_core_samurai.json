@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_apotheosis_gem_core_samurai",
+  "name": {
+    "translate": "collapsible_groups.group.__default_apotheosis_gem_core_samurai",
+    "fallback": "Samurai Gems"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "apotheosis:gem"
+      },
+      {
+        "type": "item",
+        "component": "apotheosis:gem",
+        "value": {
+          "data_format": "minecraft:data_component",
+          "data": "apotheosis:core/samurai"
+        }
+      }
+    ]
+  }
+}

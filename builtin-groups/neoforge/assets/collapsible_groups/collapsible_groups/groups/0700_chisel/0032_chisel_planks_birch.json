@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_planks_birch",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_planks_birch",
+    "fallback": "Chisel: Birch Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/planks_birch"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

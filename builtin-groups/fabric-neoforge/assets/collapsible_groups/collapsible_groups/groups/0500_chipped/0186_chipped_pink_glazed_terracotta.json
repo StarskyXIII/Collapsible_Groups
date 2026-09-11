@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_pink_glazed_terracotta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_pink_glazed_terracotta",
+    "fallback": "Chipped: Pink Glazed Terracotta"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:pink_glazed_terracotta"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

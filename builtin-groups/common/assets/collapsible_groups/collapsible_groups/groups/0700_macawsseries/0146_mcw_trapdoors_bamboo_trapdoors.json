@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_trapdoors_bamboo_trapdoors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_trapdoors_bamboo_trapdoors",
+    "fallback": "Macaw's Trapdoors: Bamboo Trapdoors"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "all": [
+          {
+            "type": "item",
+            "namespace": "mcwtrpdoors"
+          },
+          {
+            "item_path_ends_with": "_bamboo_trapdoor"
+          }
+        ]
+      },
+      {
+        "type": "item",
+        "id": "mcwtrpdoors:bamboo_trapdoor"
+      }
+    ]
+  }
+}

@@ -13,6 +13,7 @@ public final class ViewerIngredientUniverse<E>
 	private final List<ViewerIngredient<E>> ordered;
 	private final Map<ViewerIngredientIdentity, ViewerIngredient<E>> byIdentity;
 	private final Object sourceToken;
+	private final GroupEvaluationContext evaluationContext;
 	private IconIndex<E> iconIndex;
 
 	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered) {
@@ -20,12 +21,25 @@ public final class ViewerIngredientUniverse<E>
 	}
 
 	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered, Object sourceToken) {
+		this(ordered, sourceToken, defaultEvaluationContext(ordered));
+	}
+
+	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered, Object sourceToken, GroupEvaluationContext evaluationContext) {
 		Map<ViewerIngredientIdentity, ViewerIngredient<E>> indexed = new LinkedHashMap<>();
 		for (ViewerIngredient<E> ingredient : ordered) indexed.putIfAbsent(ingredient.identity(), ingredient);
 		this.ordered = List.copyOf(indexed.values());
 		this.byIdentity = Collections.unmodifiableMap(new LinkedHashMap<>(indexed));
 		this.sourceToken = sourceToken == null ? this : sourceToken;
+		this.evaluationContext = evaluationContext;
 	}
+
+	private static GroupEvaluationContext defaultEvaluationContext(List<? extends ViewerIngredient<?>> ordered) {
+		var types = new java.util.LinkedHashSet<>(java.util.Set.of("item", "fluid"));
+		ordered.forEach(ingredient -> types.add(ingredient.view().ingredientType()));
+		return GroupEvaluationContext.simple(types);
+	}
+
+	public GroupEvaluationContext evaluationContext() { return evaluationContext; }
 
 	private synchronized IconIndex<E> iconIndex() {
 		if (iconIndex != null) return iconIndex;

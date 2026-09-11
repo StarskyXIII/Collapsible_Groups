@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_stairs_railings",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_stairs_railings",
+    "fallback": "Macaw's Stairs: Railings"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwstairs:railings"
+  }
+}

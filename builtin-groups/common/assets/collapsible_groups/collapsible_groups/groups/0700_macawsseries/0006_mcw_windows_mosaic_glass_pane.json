@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_windows_mosaic_glass_pane",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_windows_mosaic_glass_pane",
+    "fallback": "Macaw's Windows: Mosaic Glass Pane"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwwindows:mosaic_glass_pane"
+  }
+}

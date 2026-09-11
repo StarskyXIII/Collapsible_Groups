@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_granite",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_granite",
+    "fallback": "Rechiseled: Granite"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:granite"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

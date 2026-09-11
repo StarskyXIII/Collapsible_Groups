@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_acacia_door",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_acacia_door",
+    "fallback": "Chipped: Acacia Door"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:acacia_door"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

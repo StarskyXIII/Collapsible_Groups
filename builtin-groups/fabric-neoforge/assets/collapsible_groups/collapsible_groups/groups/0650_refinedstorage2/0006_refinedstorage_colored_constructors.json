@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_constructors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_constructors",
+    "fallback": "RS2: Colored Constructors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:constructors"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:constructor"
+        }
+      }
+    ]
+  }
+}

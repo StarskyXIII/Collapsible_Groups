@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_enderio_fused_quartz",
+  "name": {
+    "translate": "collapsible_groups.group.__default_enderio_fused_quartz",
+    "fallback": "Fused Quartzs"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "tag": "c:glass_blocks/fused_quartz"
+  }
+}

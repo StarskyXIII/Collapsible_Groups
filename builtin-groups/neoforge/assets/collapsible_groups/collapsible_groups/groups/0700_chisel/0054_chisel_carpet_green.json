@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_carpet_green",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_carpet_green",
+    "fallback": "Chisel: Green Carpet"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/carpet_green"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

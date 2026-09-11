@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_hexplating_brown",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_hexplating_brown",
+    "fallback": "Chisel: Brown Hexplating"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/hexplating_brown"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

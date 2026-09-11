@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_paper",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_paper",
+    "fallback": "Chisel: Paper"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/paper"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

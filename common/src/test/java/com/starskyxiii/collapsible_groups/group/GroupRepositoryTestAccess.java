@@ -9,4 +9,8 @@ public final class GroupRepositoryTestAccess {
 	public static void replace(List<GroupDefinition> groups) {
 		GroupRepository.replaceForTesting(groups);
 	}
+
+	public static void replaceResources(GroupResourceData resources, boolean enabled) {
+		GroupRepository.replaceResourcesForTesting(resources, enabled);
+	}
 }

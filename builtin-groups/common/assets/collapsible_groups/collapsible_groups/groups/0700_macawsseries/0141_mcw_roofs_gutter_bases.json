@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_roofs_gutter_bases",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_roofs_gutter_bases",
+    "fallback": "Macaw's Roofs: Gutter Bases"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "mcwroofs"
+      },
+      {
+        "item_path_starts_with": "gutter_base"
+      }
+    ]
+  }
+}

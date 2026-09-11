@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_mud",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_mud",
+    "fallback": "Chipped: Mud"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:mud"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

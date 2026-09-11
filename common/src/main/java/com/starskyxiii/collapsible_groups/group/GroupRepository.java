@@ -1,7 +1,9 @@
 package com.starskyxiii.collapsible_groups.group;
 
 import com.starskyxiii.collapsible_groups.Constants;
-import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider;
+import com.starskyxiii.collapsible_groups.persistence.GroupFileStore;
+import com.starskyxiii.collapsible_groups.platform.Services;
+import net.minecraft.server.packs.resources.ResourceManager;
 import com.starskyxiii.collapsible_groups.persistence.GroupExpandState;
 import com.starskyxiii.collapsible_groups.persistence.GroupStore;
 
@@ -20,10 +22,6 @@ import java.util.Optional;
 public final class GroupRepository {
 	private static final GroupStore STORE = new GroupStore();
 	private static final GroupService SERVICE = new GroupService();
-	private static final GroupService.SourceKey USER_SOURCE =
-		new GroupService.SourceKey(GroupSource.USER, "persisted");
-	private static final GroupService.SourceKey BUILTIN_SOURCE =
-		new GroupService.SourceKey(GroupSource.BUILTIN, "providers");
 	private static final GroupService.SourceKey LEGACY_SCRIPT_SOURCE =
 		new GroupService.SourceKey(GroupSource.KUBEJS, "legacy");
 	private static final Map<String, PublicationAttempt> SCRIPTED_PUBLICATIONS = new LinkedHashMap<>();
@@ -31,30 +29,62 @@ public final class GroupRepository {
 	private static long publicationActivity;
 	private static long lastRejectedPublicationActivity;
 	private static long materializationCapture;
+	private static ResourceManager currentResources;
+	private static boolean initialized;
 	private enum PublicationState { PENDING, ACCEPTED, REJECTED }
 	private record PublicationAttempt(long generation, PublicationState state) {}
 
 	private GroupRepository() {}
 
-	public static void load(List<DefaultGroupProvider> providers) {
-		List<GroupDefinition> loaded = STORE.loadGroups(providers);
-		Map<GroupService.SourceKey, List<GroupDefinition>> replacements = new LinkedHashMap<>();
-		replacements.put(BUILTIN_SOURCE, loaded.stream()
-			.filter(group -> GroupSource.fromGroupId(group.id()) == GroupSource.BUILTIN).toList());
-		replacements.put(USER_SOURCE, loaded.stream()
-			.filter(group -> GroupSource.fromGroupId(group.id()) != GroupSource.BUILTIN).toList());
-		SERVICE.replaceSources(replacements, java.util.Set.of());
-		STORE.loadExpandState();
-		List<GroupDefinition> groups = SERVICE.managedRegistrationOrder();
-		long itemGroups = groups.stream().filter(GroupDefinition::hasItemFilters).count();
-		long fluidGroups = groups.stream().filter(GroupDefinition::hasFluidFilters).count();
-		long genericGroups = groups.stream().filter(GroupDefinition::hasGenericFilters).count();
-		Constants.LOG.info("[CollapsibleGroups] Loaded {} groups (item={}, fluid={}, generic={})",
-			groups.size(), itemGroups, fluidGroups, genericGroups);
+	public static synchronized void load() {
+		if (!initialized) {
+			reload(currentResources);
+		} else if (SERVICE.builtinsEnabled() != Services.CONFIG.loadDefaultGroups()) {
+			SERVICE.setBuiltinsEnabled(Services.CONFIG.loadDefaultGroups());
+			publish(GroupChangeEvent.Kind.ENABLED);
+		}
+	}
+
+	public static synchronized boolean reload(ResourceManager manager) {
+		currentResources = manager;
+		GroupResourceData incoming = GroupResourceLoader.load(manager, Services.PLATFORM.getConfigDir());
+		boolean accepted = SERVICE.replaceManaged(incoming, STORE.loadEnabledOverrides(), Services.CONFIG.loadDefaultGroups());
+		if (!initialized) STORE.loadExpandState();
+		initialized = true;
+		for (GroupLoadProblem problem : incoming.problems()) {
+			Constants.LOG.warn("Group source {}: {}", problem.origin().location(), problem.reason());
+		}
+		Constants.LOG.info("[CollapsibleGroups] {} {} group definitions", accepted ? "Loaded" : "Retained",
+			SERVICE.managedRegistrationOrder().size());
+		publish(GroupChangeEvent.Kind.FULL);
+		return accepted;
+	}
+
+	public record ReadSnapshot(List<GroupDefinition> groups, GroupResourceData resources, boolean builtinsEnabled) {}
+
+	public static ReadSnapshot readSnapshot() {
+		GroupService.ReadSnapshot current = SERVICE.readSnapshot();
+		return new ReadSnapshot(current.groups(), current.resources(), current.builtinsEnabled());
+	}
+
+	public static GroupResourceData resourceData() { return SERVICE.resources(); }
+
+	public static GroupSource sourceOf(String id) {
+		GroupOrigin origin = SERVICE.resources().origin(id);
+		if (origin != null) return origin.source();
+		GroupSource source = SERVICE.visibleCategory(id);
+		return source == null ? GroupSource.USER : source;
+	}
+
+	public static boolean isActive(GroupDefinition group) {
+		if (group == null || !group.enabled()) return false;
+		GroupService.ReadSnapshot current = SERVICE.readSnapshot();
+		if (current.resources().rejected() && current.resources().groups().isEmpty()) return false;
+		return current.builtinsEnabled() || !current.resources().builtinIds().contains(group.id());
 	}
 
 	public static boolean isBuiltin(String id) {
-		return id != null && id.startsWith("__default_");
+		return id != null && SERVICE.resources().builtinIds().contains(id);
 	}
 
 	public static List<GroupDefinition> getAll() {
@@ -240,11 +270,33 @@ public final class GroupRepository {
     }
 
     private static boolean saveQuietlyInternal(GroupDefinition group) {
-        if (group.documentFormat() == GroupDocumentFormat.UNSUPPORTED) return false;
+		if (group.documentFormat() == GroupDocumentFormat.UNSUPPORTED || SERVICE.resources().stale()) return false;
 		SERVICE.validateGroup(group);
-		if (!STORE.saveChecked(group)) return false;
-		SERVICE.saveOrReplace(USER_SOURCE, group);
-		return true;
+		GroupOrigin origin = SERVICE.resources().origin(group.id());
+		if (origin == null) {
+			if (SERVICE.findById(group.id()).isPresent()) return false;
+			origin = GroupFileStore.create(group, GroupSource.USER, Services.PLATFORM.getConfigDir()).orElse(null);
+			if (origin == null) return false;
+		} else if (!GroupFileStore.save(group, origin, Services.PLATFORM.getConfigDir())) {
+			return false;
+		}
+		return SERVICE.replaceManaged(SERVICE.resources().withDefinition(group, origin), STORE.loadEnabledOverrides(),
+			SERVICE.builtinsEnabled());
+	}
+
+	public static synchronized boolean createLocalOverrideQuietly(String id) {
+		GroupDefinition group = findById(id).orElse(null);
+		if (group == null || group.documentFormat() == GroupDocumentFormat.UNSUPPORTED || SERVICE.resources().stale()) return false;
+		GroupSource source = sourceOf(id);
+		if (source == GroupSource.USER || source == GroupSource.OVERRIDE) return false;
+		GroupOrigin origin = GroupFileStore.create(group, GroupSource.OVERRIDE, Services.PLATFORM.getConfigDir()).orElse(null);
+		return origin != null && SERVICE.replaceManaged(SERVICE.resources().withDefinition(group, origin),
+			STORE.loadEnabledOverrides(), SERVICE.builtinsEnabled());
+	}
+
+	public static synchronized boolean restoreSourceQuietly(String id) {
+		if (sourceOf(id) != GroupSource.OVERRIDE) return false;
+		return deleteQuietlyInternal(id);
 	}
 
 	public static Optional<GroupDefinition> copyAsCustomQuietly(String sourceId, String copiedDisplayName) {
@@ -270,9 +322,7 @@ public final class GroupRepository {
 		GroupDefinition existing = SERVICE.findById(id).orElse(null);
 		if (existing == null || existing.documentFormat() == GroupDocumentFormat.UNSUPPORTED) return false;
 		if (existing.enabled() == enabled) return true;
-		GroupSource source = SERVICE.visibleCategory(id);
-		if ((source != null && source.usesEnabledOverride())
-			|| GroupSource.fromGroupId(id).usesEnabledOverride()) {
+		if (isBuiltin(id) || sourceOf(id).usesEnabledOverride()) {
 			if (!STORE.saveEnabledOverrideChecked(id, enabled)) return false;
 			return SERVICE.updateVisible(id, current -> current.withEnabled(enabled));
 		}
@@ -290,10 +340,18 @@ public final class GroupRepository {
 		deleteQuietlyInternal(id);
 	}
 
+	public static synchronized boolean deleteQuietlyChecked(String id) {
+		return deleteQuietlyInternal(id);
+	}
+
 	private static boolean deleteQuietlyInternal(String id) {
-		if (!STORE.deleteChecked(id)) return false;
-		SERVICE.removeGroup(USER_SOURCE, id);
-		return true;
+		if (SERVICE.resources().stale()) return false;
+		GroupOrigin origin = SERVICE.resources().origin(id);
+		if (!GroupFileStore.delete(id, origin, Services.PLATFORM.getConfigDir())) return false;
+		boolean changed = SERVICE.replaceManaged(SERVICE.resources().withoutOwnedDefinition(id), STORE.loadEnabledOverrides(),
+			SERVICE.builtinsEnabled());
+		if (changed && findById(id).isEmpty()) GroupExpandState.remove(id);
+		return changed;
 	}
 
 	public static void notifyViewer() { publish(GroupChangeEvent.Kind.FULL); }
@@ -319,14 +377,28 @@ public final class GroupRepository {
 
 	/** Test seam for deterministic repository fixtures without reflective state mutation. */
 	static void replaceForTesting(List<GroupDefinition> groups) {
-		Map<GroupService.SourceKey, List<GroupDefinition>> sources = new LinkedHashMap<>();
-		sources.put(BUILTIN_SOURCE, groups.stream()
-			.filter(group -> GroupSource.fromGroupId(group.id()) == GroupSource.BUILTIN).toList());
-		sources.put(USER_SOURCE, groups.stream()
-			.filter(group -> GroupSource.fromGroupId(group.id()) != GroupSource.BUILTIN).toList());
-		SERVICE.reset(sources);
+		SERVICE.reset(Map.of());
+		var ids = new java.util.LinkedHashSet<String>();
+		Map<String, List<GroupOrigin>> origins = new LinkedHashMap<>();
+		Map<String, List<GroupDefinition>> definitions = new LinkedHashMap<>();
+		for (GroupDefinition group : groups) {
+			boolean builtin = group.id().startsWith("__default_");
+			if (builtin) ids.add(group.id());
+			var path = builtin ? null : Services.PLATFORM.getConfigDir().resolve("collapsiblegroups/groups/" + group.id() + ".json");
+			origins.put(group.id(), List.of(new GroupOrigin(builtin ? GroupSource.BUILTIN : GroupSource.USER,
+				"test", group.id(), path)));
+			definitions.put(group.id(), List.of(group));
+		}
+		SERVICE.replaceManaged(new GroupResourceData(groups, ids, origins, definitions, List.of(), false, false), Map.of(), true);
+		currentResources = null;
+		initialized = false;
 		SCRIPTED_PUBLICATIONS.clear();
 		++scriptedGeneration;
 		lastRejectedPublicationActivity = ++publicationActivity;
+	}
+
+	static void replaceResourcesForTesting(GroupResourceData resources, boolean enabled) {
+		replaceForTesting(List.of());
+		SERVICE.replaceManaged(resources, Map.of(), enabled);
 	}
 }

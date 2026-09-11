@@ -4,7 +4,6 @@ import com.starskyxiii.collapsible_groups.client.preview.PreviewTooltipComponent
 import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
 import com.starskyxiii.collapsible_groups.config.FabricConfig;
-import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.command.v2.ClientCommandRegistrationCallback;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
@@ -36,6 +35,7 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
                 @Override
                 public void onResourceManagerReload(ResourceManager resourceManager) {
                     GroupLangBootstrap.refresh();
+                    GroupRepository.reload(resourceManager);
                 }
             }
         );
@@ -56,7 +56,6 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
 
     public static void reloadGroupsFromCurrentConfig() {
         GroupLangBootstrap.refresh();
-        GroupRepository.load(DefaultGroupProviders.loadAll("Fabric", 5));
-        GroupRepository.notifyViewer();
+        GroupRepository.load();
     }
 }

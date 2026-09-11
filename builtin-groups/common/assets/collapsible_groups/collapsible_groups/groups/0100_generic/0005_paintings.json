@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_paintings",
+  "name": {
+    "translate": "collapsible_groups.group.__default_paintings",
+    "fallback": "Paintings"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "id": "minecraft:painting"
+  }
+}

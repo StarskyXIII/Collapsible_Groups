@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_metal_double_gates",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_metal_double_gates",
+    "fallback": "Macaw's Fences: Metal Double Gates"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:metal_double_gates"
+  }
+}

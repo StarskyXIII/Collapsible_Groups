@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.client.manager.model.GroupSource;
 import com.starskyxiii.collapsible_groups.client.preview.model.PreviewPaneModel;
 import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupEvaluation;
 import java.util.List;
 import java.util.Objects;
 
@@ -17,8 +18,14 @@ public record GroupManagerCard(
 	int itemCount,
 	int fluidCount,
 	int genericCount,
-	GroupCardViewModel viewModel
+	GroupCardViewModel viewModel,
+	GroupEvaluation evaluation
 ) {
+	public GroupManagerCard(GroupDefinition group, List<GroupPreviewEntry> previews, List<GroupPreviewEntry> headers,
+		int items, int fluids, int generic, GroupCardViewModel viewModel) {
+		this(group, previews, headers, items, fluids, generic, viewModel, GroupEvaluation.pending());
+	}
+
 	public GroupManagerCard {
 		group = Objects.requireNonNull(group, "group");
 		previewEntries = List.copyOf(Objects.requireNonNull(previewEntries, "previewEntries"));
@@ -27,6 +34,7 @@ public record GroupManagerCard(
 			throw new IllegalArgumentException("preview counts must not be negative");
 		}
 		viewModel = viewModel != null ? viewModel : buildViewModel(group, itemCount, fluidCount, genericCount);
+		evaluation = evaluation == null ? GroupEvaluation.pending() : evaluation;
 	}
 
 	public static GroupManagerCard create(
@@ -93,8 +101,13 @@ public record GroupManagerCard(
 			itemCount,
 			fluidCount,
 			genericCount,
-			buildViewModel(updatedGroup, itemCount(), fluidCount(), genericCount())
+			buildViewModel(updatedGroup, itemCount(), fluidCount(), genericCount()), evaluation
 		);
+	}
+
+	public GroupManagerCard withEvaluation(GroupEvaluation result) {
+		return new GroupManagerCard(group, previewEntries, headerEntries, result.itemCount(), result.fluidCount(),
+			result.genericCount(), buildViewModel(group, result.itemCount(), result.fluidCount(), result.genericCount()), result);
 	}
 
 	private static GroupCardViewModel buildViewModel(

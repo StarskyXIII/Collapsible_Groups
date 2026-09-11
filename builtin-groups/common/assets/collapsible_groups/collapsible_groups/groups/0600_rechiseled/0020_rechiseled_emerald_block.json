@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_emerald_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_emerald_block",
+    "fallback": "Rechiseled: Emerald Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:emerald_block"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

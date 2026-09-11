@@ -15,6 +15,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Supplier;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -88,15 +90,41 @@ class GroupManagerCardAssemblerTest {
 		assertEquals(List.of("published"), working.stream().map(GroupManagerCard::id).toList());
 	}
 
+	@Test void generationReplacedDuringAssemblyDiscardsEveryPartialCard() {
+		var first = new GroupCandidateIndex(Map.of(), Map.of(), 0, 0, 0);
+		var second = new GroupCandidateIndex(Map.of(), Map.of(), 0, 0, 0);
+		var current = new AtomicReference<>(Optional.of(first));
+		ViewerGroupIndex published = index(current::get, CompletableFuture.completedFuture(null), group -> {
+			current.set(Optional.of(second));
+			return Optional.of(new ViewerGroupPreviewSnapshot(
+				List.of(ViewerPreviewValue.rendered((graphics, x, y) -> {})), List.of(), List.of()));
+		});
+		var result = GroupManagerCardAssembler.build(List.of(group("first"), group("second")), published);
+		assertTrue(result.generationPending());
+		assertEquals(0, result.totalItems());
+		assertEquals(0, result.totalFluids());
+		assertEquals(0, result.totalGeneric());
+		assertTrue(result.cards().stream().allMatch(card -> card.entryCount() == 0
+			&& card.evaluation().status() == com.starskyxiii.collapsible_groups.group.GroupEvaluation.Status.PENDING));
+	}
+
 	private static ViewerGroupIndex index(Optional<GroupCandidateIndex> candidates,
 		CompletableFuture<Void> readiness, SnapshotResolver resolver) {
+		return index(() -> candidates, readiness, resolver);
+	}
+
+	private static ViewerGroupIndex index(Supplier<Optional<GroupCandidateIndex>> candidates,
+		CompletableFuture<Void> readiness, SnapshotResolver resolver) {
 		return new ViewerGroupIndex() {
-			@Override public Optional<GroupCandidateIndex> candidates() { return candidates; }
-			@Override public boolean ready() { return candidates.isPresent(); }
+			@Override public Optional<GroupCandidateIndex> candidates() { return candidates.get(); }
+			@Override public boolean ready() { return candidates.get().isPresent(); }
 			@Override public CompletableFuture<Void> whenReady() { return readiness; }
 			@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
-				return resolver.resolve(group);
-			}
+                throw new AssertionError("Manager must not invoke the synchronous full-match resolver");
+            }
+            @Override public Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) {
+                return resolver.resolve(group);
+            }
 			@Override public Optional<String> resolveOwner(ViewerIngredientIdentity identity,
 				List<GroupDefinition> groups) { return Optional.empty(); }
 			@Override public Map<ViewerIngredientIdentity, String> resolveOwnership(

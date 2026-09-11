@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_roofs_roof_blocks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_roofs_roof_blocks",
+    "fallback": "Macaw's Roofs: Roof Blocks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "mcwroofs"
+      },
+      {
+        "item_path_ends_with": "_roof_block"
+      }
+    ]
+  }
+}

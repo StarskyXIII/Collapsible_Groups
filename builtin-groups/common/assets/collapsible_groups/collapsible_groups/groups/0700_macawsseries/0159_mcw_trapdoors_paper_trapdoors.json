@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_trapdoors_paper_trapdoors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_trapdoors_paper_trapdoors",
+    "fallback": "Macaw's Trapdoors: Paper Trapdoors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "mcwtrpdoors"
+      },
+      {
+        "item_path_ends_with": "_paper_trapdoor"
+      }
+    ]
+  }
+}

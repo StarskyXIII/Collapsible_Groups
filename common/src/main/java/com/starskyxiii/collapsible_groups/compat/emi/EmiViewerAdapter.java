@@ -421,7 +421,19 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 			buckets.forEach((id, values) -> discovered.add(new ViewerIngredientType<>(id,
 				IngredientTypeIds.getAliases().entrySet().stream().filter(e -> e.getValue().equals(id))
 					.map(Map.Entry::getKey).toList(), values)));
-			return new BootstrapData(new ViewerIngredientUniverse<>(entries), List.copyOf(discovered),
+			Set<String> availableTypes = new LinkedHashSet<>(Set.of("item", "fluid"));
+			availableTypes.addAll(buckets.keySet());
+			Map<String, com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics.Availability> tagAvailability = new LinkedHashMap<>();
+			buckets.forEach((id, values) -> {
+				if ("item".equals(id) || "fluid".equals(id)) return;
+				var sources = values.stream().map(value -> {
+					var tags = value.view() instanceof EmiIngredientView view ? view.tags() : EmiRegistryTagBridge.Tags.UNPREPARED;
+					return new com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics.Source(tags.available(), tags.existing());
+				}).toList();
+				tagAvailability.put(id, com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics.summarize(sources).availability());
+			});
+			var context = com.starskyxiii.collapsible_groups.viewer.GroupEvaluationContext.minecraft(availableTypes, tagAvailability);
+			return new BootstrapData(new ViewerIngredientUniverse<>(entries, null, context), List.copyOf(discovered),
 				java.util.Collections.unmodifiableMap(identities), Map.copyOf(stable), bridge.snapshot(), source, epoch, session);
 		}
 

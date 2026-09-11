@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_yellow_concrete",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_yellow_concrete",
+    "fallback": "Chipped: Yellow Concrete"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:yellow_concrete"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

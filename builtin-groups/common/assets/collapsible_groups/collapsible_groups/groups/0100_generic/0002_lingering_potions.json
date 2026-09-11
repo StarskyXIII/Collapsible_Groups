@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_lingering_potions",
+  "name": {
+    "translate": "collapsible_groups.group.__default_lingering_potions",
+    "fallback": "Lingering Potions"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "id": "minecraft:lingering_potion"
+  }
+}

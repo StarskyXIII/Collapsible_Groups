@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_apotheosis_gem_twilight_queen",
+  "name": {
+    "translate": "collapsible_groups.group.__default_apotheosis_gem_twilight_queen",
+    "fallback": "Frozen Queen Gems"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "apotheosis:gem"
+      },
+      {
+        "type": "item",
+        "component": "apotheosis:gem",
+        "value": {
+          "data_format": "minecraft:data_component",
+          "data": "apotheosis:twilight/queen"
+        }
+      }
+    ]
+  }
+}

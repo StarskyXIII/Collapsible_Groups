@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_railing_walls",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_railing_walls",
+    "fallback": "Macaw's Fences: Railing Walls"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:railing_walls"
+  }
+}

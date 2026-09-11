@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_special_soul_lantern",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_special_soul_lantern",
+    "fallback": "Chipped: Special Soul Lantern"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:special_soul_lantern"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

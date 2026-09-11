@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_tipped_arrows",
+  "name": {
+    "translate": "collapsible_groups.group.__default_tipped_arrows",
+    "fallback": "Tipped Arrows"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "id": "minecraft:tipped_arrow"
+  }
+}

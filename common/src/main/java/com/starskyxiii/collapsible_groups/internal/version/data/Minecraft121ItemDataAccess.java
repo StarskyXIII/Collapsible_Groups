@@ -35,6 +35,13 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 	private static final AtomicBoolean FALLBACK_WARNING_LOGGED = new AtomicBoolean(false);
 
 	private final ExactCodec exactCodec = new ExactCodec();
+	private volatile ComponentValidationContext componentValidation;
+
+	private record ComponentRule(String typeId, String path, String legacy, ItemDataPayload payload) {}
+	private record PreparedComponent(DataComponentType<?> type, String path, String legacy, JsonElement expected,
+		boolean typed, boolean valid) {}
+	private record ComponentValidationContext(Object registryIdentity, Object resources, RegistryOps<JsonElement> ops,
+		java.util.concurrent.ConcurrentMap<ComponentRule, PreparedComponent> rules) {}
 
 	@Override
 	public ExactStackCodec<ItemStack> exactStacks() {
@@ -63,42 +70,63 @@ public final class Minecraft121ItemDataAccess implements ItemDataAccess<ItemStac
 
     private Evaluation evaluateComponent(ItemStack stack, String dataTypeId, String path, String legacyValue, ItemDataPayload payload) {
         try {
-            DataComponentType<?> type = componentType(dataTypeId);
-            if (type == null || type.codec() == null) return Evaluation.UNAVAILABLE;
-            if (payload != null && !ItemDataPayload.DATA_COMPONENT.equals(payload.dataFormat())) return Evaluation.UNAVAILABLE;
-            if (path != null && !com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator.PATH_PATTERN.matcher(path).matches()) {
-                return Evaluation.UNAVAILABLE;
-            }
-            return evaluateComponent(stack, type, path, legacyValue, payload, serializationContext());
+            ComponentValidationContext context = componentValidationContext();
+            PreparedComponent prepared = context.rules().computeIfAbsent(new ComponentRule(dataTypeId, path, legacyValue, payload),
+                rule -> prepareComponent(rule, context.ops()));
+            if (!prepared.valid()) return Evaluation.UNAVAILABLE;
+            return evaluateComponent(stack, prepared.type(), prepared, context.ops());
         } catch (RuntimeException exception) {
             return Evaluation.UNAVAILABLE;
         }
     }
 
-    private <T> Evaluation evaluateComponent(ItemStack stack, DataComponentType<T> type, String path,
-        String legacyValue, ItemDataPayload payload, RegistryOps<JsonElement> ops) {
-        if (path == null) {
-            if (payload != null) {
-                if (type.codec().parse(ops, payload.data()).result().isEmpty()) return Evaluation.UNAVAILABLE;
-            } else {
-                boolean valid = type.codec().parse(ops, new JsonPrimitive(legacyValue)).result().isPresent();
-                if (!valid) {
-                    try {
-                        valid = type.codec().parse(ops, JsonParser.parseString(legacyValue)).result().isPresent();
-                    } catch (RuntimeException ignored) {
-                        valid = false;
-                    }
-                }
-                if (!valid) return Evaluation.UNAVAILABLE;
+    private ComponentValidationContext componentValidationContext() {
+        Object registry = currentRegistryIdentity();
+        Object resources = com.starskyxiii.collapsible_groups.group.GroupRepository.resourceData();
+        ComponentValidationContext current = componentValidation;
+        if (current != null && current.registryIdentity() == registry && current.resources() == resources) return current;
+        synchronized (this) {
+            current = componentValidation;
+            if (current == null || current.registryIdentity() != registry || current.resources() != resources) {
+                current = new ComponentValidationContext(registry, resources, serializationContext(), new java.util.concurrent.ConcurrentHashMap<>());
+                componentValidation = current;
             }
+            return current;
         }
+    }
+
+    private static PreparedComponent prepareComponent(ComponentRule rule, RegistryOps<JsonElement> ops) {
+        DataComponentType<?> type = componentType(rule.typeId());
+        boolean typed = rule.payload() != null;
+        JsonElement expected = null;
+        try { expected = typed ? rule.payload().data() : JsonParser.parseString(rule.legacy()); }
+        catch (RuntimeException ignored) {}
+        boolean valid = type != null && type.codec() != null
+            && (!typed || ItemDataPayload.DATA_COMPONENT.equals(rule.payload().dataFormat()))
+            && (rule.path() == null || com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator.PATH_PATTERN.matcher(rule.path()).matches());
+        if (valid && rule.path() == null) {
+            try {
+                valid = (!typed && type.codec().parse(ops, new JsonPrimitive(rule.legacy())).result().isPresent())
+                    || (expected != null && type.codec().parse(ops, expected).result().isPresent());
+            } catch (RuntimeException failure) { valid = false; }
+        }
+        return new PreparedComponent(type, rule.path(), rule.legacy(), expected, typed, valid);
+    }
+
+    private <T> Evaluation evaluateComponent(ItemStack stack, DataComponentType<T> type, PreparedComponent rule,
+        RegistryOps<JsonElement> ops) {
         T actual = stack.get(type);
         if (actual == null) return Evaluation.NO_MATCH;
         Optional<JsonElement> encoded = type.codec().encodeStart(ops, actual).result();
         if (encoded.isEmpty()) return Evaluation.UNAVAILABLE;
-        JsonElement value = path == null ? encoded.get() : ComponentPathNavigator.navigatePath(encoded.get(), path);
+        JsonElement value = rule.path() == null ? encoded.get() : ComponentPathNavigator.navigatePath(encoded.get(), rule.path());
         if (value == null) return Evaluation.NO_MATCH;
-        boolean matches = payload == null ? matchesEncodedValue(value, legacyValue) : matchesEncodedValue(value, payload);
+        boolean matches;
+        if (!rule.typed() && ((value instanceof JsonPrimitive primitive && primitive.isString()) || rule.expected() == null)) {
+            matches = EncodedValueNormalizer.normalize(value).equals(rule.legacy());
+        } else {
+            matches = serializedValueEquals(value, rule.expected());
+        }
         return matches ? Evaluation.MATCH : Evaluation.NO_MATCH;
     }
 

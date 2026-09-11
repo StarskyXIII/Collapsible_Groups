@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glassdyed_yellow",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glassdyed_yellow",
+    "fallback": "Chisel: Yellow Dyed Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glassdyed_yellow"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_ae2_colored_covered_cables",
+  "name": {
+    "translate": "collapsible_groups.group.__default_ae2_colored_covered_cables",
+    "fallback": "AE2: Colored Covered Cables"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "ae2:covered_cable"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "ae2:fluix_covered_cable"
+        }
+      }
+    ]
+  }
+}

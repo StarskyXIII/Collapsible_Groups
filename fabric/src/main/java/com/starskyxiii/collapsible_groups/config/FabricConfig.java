@@ -19,17 +19,6 @@ import java.nio.file.Path;
 public final class FabricConfig implements IConfigProvider {
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
-	private static final String[] MACAWS_SERIES_MODS = {
-		"mcwwindows",
-		"mcwbridges",
-		"mcwdoors",
-		"mcwfences",
-		"mcwfurnitures",
-		"mcwlights",
-		"mcwpaths",
-		"mcwstairs",
-		"mcwtrpdoors",
-	};
 	private static final Path CONFIG_PATH = FabricLoader.getInstance()
 		.getConfigDir()
 		.resolve("collapsiblegroups")
@@ -71,32 +60,6 @@ public final class FabricConfig implements IConfigProvider {
 	// IConfigProvider
 
 	@Override public boolean loadDefaultGroups()                    { return data.defaultGroups.enabled; }
-	@Override public boolean loadGenericGroups()                    { return data.defaultGroups.loadGeneric; }
-	@Override public boolean loadVanillaGroups()                    { return data.defaultGroups.loadVanilla; }
-	@Override public boolean shouldLoadChipped()   {
-		return data.defaultGroups.enabled
-			&& data.defaultGroups.modIntegration.loadModIntegration
-			&& data.defaultGroups.modIntegration.loadChipped
-			&& FabricLoader.getInstance().isModLoaded("chipped");
-	}
-	@Override public boolean shouldLoadRechiseled() {
-		return data.defaultGroups.enabled
-			&& data.defaultGroups.modIntegration.loadModIntegration
-			&& data.defaultGroups.modIntegration.loadRechiseled
-			&& FabricLoader.getInstance().isModLoaded("rechiseled");
-	}
-	@Override public boolean shouldLoadRS2() {
-		return data.defaultGroups.enabled
-			&& data.defaultGroups.modIntegration.loadModIntegration
-			&& data.defaultGroups.modIntegration.loadRS2
-			&& FabricLoader.getInstance().isModLoaded("refinedstorage");
-	}
-	@Override public boolean shouldLoadMacawsSeries() {
-		return data.defaultGroups.enabled
-			&& data.defaultGroups.modIntegration.loadModIntegration
-			&& data.defaultGroups.modIntegration.loadMacawsSeries
-			&& isAnyMacawsSeriesLoaded();
-	}
 	@Override public boolean showManagerButton()                    { return data.ui.showManagerButton; }
 	@Override public boolean showGroupBackgrounds()                 { return data.ui.showGroupBackgrounds; }
 	@Override public boolean searchUngroupSmallGroups()             { return data.ui.searchUngroupSmallGroups; }
@@ -126,18 +89,7 @@ public final class FabricConfig implements IConfigProvider {
 	}
 
 	public static final class DefaultGroupsData {
-		public boolean           enabled        = true;
-		public boolean           loadGeneric    = true;
-		public boolean           loadVanilla    = true;
-		public ModIntegrationData modIntegration = new ModIntegrationData();
-	}
-
-	public static final class ModIntegrationData {
-		public boolean loadModIntegration = true;
-		public boolean loadChipped        = true;
-		public boolean loadRechiseled     = true;
-		public boolean loadRS2            = true;
-		public boolean loadMacawsSeries   = true;
+		public boolean enabled = true;
 	}
 
 	public static final class UiData {
@@ -162,13 +114,4 @@ public final class FabricConfig implements IConfigProvider {
 		public boolean verifyEditorPreviewIndex  = false;
 	}
 
-	private static boolean isAnyMacawsSeriesLoaded() {
-		FabricLoader loader = FabricLoader.getInstance();
-		for (String modId : MACAWS_SERIES_MODS) {
-			if (loader.isModLoaded(modId)) {
-				return true;
-			}
-		}
-		return false;
-	}
 }

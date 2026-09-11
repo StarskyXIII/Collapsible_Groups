@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_crying_obsidian",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_crying_obsidian",
+    "fallback": "Chipped: Crying Obsidian"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:crying_obsidian"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

@@ -19,6 +19,7 @@ public final class GroupUiState {
 		ALL("all"),
 		USER("user"),
 		BUILTIN("builtin"),
+		RESOURCE_PACK("resource_pack"),
 		KUBEJS("kubejs");
 
 		private final String id;
@@ -44,6 +45,7 @@ public final class GroupUiState {
 	private static boolean hideUsed = false;
 	private static ManagerSourceFilter managerSourceFilter = ManagerSourceFilter.ALL;
 	private static GroupSortMode managerSortMode = GroupSortMode.PRIORITY;
+	private static boolean managerShowEmpty;
 	private static boolean loaded = false;
 
 	private static final ExecutorService PERSIST_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
@@ -126,7 +128,19 @@ public final class GroupUiState {
 		hideUsed = state.hideUsed();
 		managerSourceFilter = ManagerSourceFilter.fromId(state.managerSourceFilter());
 		managerSortMode = GroupSortMode.fromId(state.managerSortMode());
+		managerShowEmpty = state.managerShowEmpty();
 		loaded = true;
+	}
+
+	public static boolean managerShowEmpty() {
+		ensureLoaded();
+		return managerShowEmpty;
+	}
+
+	public static void setManagerShowEmpty(boolean value) {
+		ensureLoaded();
+		managerShowEmpty = value;
+		persist();
 	}
 
 	private static void persist() {
@@ -135,9 +149,10 @@ public final class GroupUiState {
 		boolean hideUsedSnapshot = hideUsed;
 		String sourceFilterSnapshot = managerSourceFilter.id();
 		String sortModeSnapshot = managerSortMode.id();
+		boolean showEmptySnapshot = managerShowEmpty;
 		PERSIST_EXECUTOR.submit(() ->
 			GroupConfig.saveUiState(builtinSnapshot, kubeJsSnapshot, hideUsedSnapshot,
-				sourceFilterSnapshot, sortModeSnapshot));
+				sourceFilterSnapshot, sortModeSnapshot, showEmptySnapshot));
 	}
 
 	private static void shutdownPersistExecutor() {

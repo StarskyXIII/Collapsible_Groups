@@ -18,6 +18,7 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GroupConfigVersionedItemDataTest {
+    @org.junit.jupiter.api.AfterEach void resetRepository() { GroupRepositoryTestAccess.replace(List.of()); }
     private static final IngredientView ITEM = new IngredientView() {
         public String ingredientType() { return "item"; }
         public ResourceLocation resourceLocation() { return ResourceLocation.parse("minecraft:stone"); }
@@ -50,6 +51,7 @@ class GroupConfigVersionedItemDataTest {
         GroupDefinition group = GroupConfig.fromJson(source);
         assertNotNull(group);
         GroupDefinition edited = GroupEditorDefinitionFactory.create(group.id(), "Edited", false, group.filter(), group);
+        GroupRepositoryTestAccess.replace(List.of(group));
         GroupDefinition copied = GroupCatalog.createCustomCopy(group, "Copy", List.of()).orElseThrow();
         for (GroupDefinition value : List.of(group, edited, copied)) {
             assertEquals(GroupDocumentFormat.LEGACY, value.documentFormat());
@@ -65,6 +67,7 @@ class GroupConfigVersionedItemDataTest {
     @Test void blankOrdinaryGroupUsesV1AndCopiesRetainSourceFormat() {
         GroupDefinition blank = GroupEditorDefinitionFactory.create("__default_new", "New", true, Filters.itemId("minecraft:stone"), null);
         assertEquals(GroupDocumentFormat.V1, blank.documentFormat());
+        GroupRepositoryTestAccess.replace(List.of(blank));
         assertEquals(GroupDocumentFormat.V1, GroupCatalog.createCustomCopy(blank, "Copied", List.of()).orElseThrow().documentFormat());
         assertEquals(1, JsonParser.parseString(GroupConfig.toJson(blank)).getAsJsonObject().get("schema_version").getAsInt());
     }

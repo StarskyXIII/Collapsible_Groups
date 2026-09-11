@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_birch_log",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_birch_log",
+    "fallback": "Chipped: Birch Log"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:birch_log"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

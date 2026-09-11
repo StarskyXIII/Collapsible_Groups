@@ -18,9 +18,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GroupActionAndBatchContractTest {
 	@Test
-	void classifiesGroupSourcesFromCurrentPrefixes() {
-		assertEquals(GroupSource.BUILTIN, GroupSource.fromGroupId("__default_food"));
-		assertEquals(GroupSource.KUBEJS, GroupSource.fromGroupId("__kjs_custom_pack"));
+	void unregisteredPrefixesDoNotConferSourceOwnership() {
+        com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess.replace(List.of());
+		assertEquals(GroupSource.USER, GroupSource.fromGroupId("__default_food"));
+		assertEquals(GroupSource.USER, GroupSource.fromGroupId("__kjs_custom_pack"));
 		assertEquals(GroupSource.USER, GroupSource.fromGroupId("custom_group"));
 	}
 
@@ -43,7 +44,7 @@ class GroupActionAndBatchContractTest {
 
 	@Test
 	void exposesReadonlyActionMatrixWithEnabledOverridePersistence() {
-		for (GroupSource source : List.of(GroupSource.BUILTIN, GroupSource.KUBEJS)) {
+		for (GroupSource source : List.of(GroupSource.BUILTIN, GroupSource.KUBEJS, GroupSource.RESOURCE_PACK)) {
 			GroupActionEligibility eligibility = GroupActionEligibility.forSource(source);
 
 			assertTrue(eligibility.canRequest(GroupAction.SWITCH_ENABLED));
@@ -155,6 +156,8 @@ class GroupActionAndBatchContractTest {
 	}
 
 	private static GroupCardViewModel card(String groupId, boolean enabled) {
-		return GroupCardViewModel.of(groupId, groupId, enabled, 0, 0, 0, List.of());
+		GroupSource source = groupId.startsWith("__default_") ? GroupSource.BUILTIN
+            : groupId.startsWith("__kjs_") ? GroupSource.KUBEJS : GroupSource.USER;
+        return new GroupCardViewModel(groupId, groupId, source, enabled, null, null, false);
 	}
 }

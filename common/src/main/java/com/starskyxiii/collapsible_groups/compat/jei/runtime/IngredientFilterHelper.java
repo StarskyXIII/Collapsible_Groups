@@ -103,14 +103,18 @@ public final class IngredientFilterHelper {
 			new IdentityHashMap<>(Math.max(16, orderedEntries.size() * 2));
 		Map<String, List<IngredientFilterItemIndex.ItemEntry>> fullMatchEntriesByGroup = newEntryMap(allGroups);
 		Map<String, List<IngredientFilterItemIndex.ItemEntry>> resolvedEntriesByGroup = newEntryMap(allGroups);
+		Map<String, String> failures = new LinkedHashMap<>();
 		List<GroupDefinition> itemGroups = allGroups.stream()
 			.filter(GroupDefinition::hasItemFilters)
 			.toList();
 
 		for (IngredientFilterItemIndex.ItemEntry entry : orderedEntries) {
 			for (GroupDefinition group : itemGroups) {
-				if (!group.matchesIgnoringEnabled(entry.stack())) continue;
-				fullMatchEntriesByGroup.get(group.id()).add(entry);
+				if (com.starskyxiii.collapsible_groups.viewer.GroupEvaluations.evaluate(group,
+					new com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView(entry.stack()), failures)
+					== com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.Evaluation.MATCH) {
+					fullMatchEntriesByGroup.get(group.id()).add(entry);
+				}
 			}
 		}
 
@@ -121,7 +125,7 @@ public final class IngredientFilterHelper {
 			ingredientGroupIndex,
 			IngredientFilterItemIndex.ItemEntry::typed
 		);
-		return finalizeBuildResult(ingredientGroupIndex, fullMatchEntriesByGroup, resolvedEntriesByGroup);
+		return finalizeBuildResult(ingredientGroupIndex, fullMatchEntriesByGroup, resolvedEntriesByGroup).withFailures(failures);
 	}
 
 	static ItemOwnershipBuildResult buildOptimizedItemOwnershipResult(
@@ -130,6 +134,7 @@ public final class IngredientFilterHelper {
 	) {
 		Map<String, List<IngredientFilterItemIndex.ItemEntry>> fullMatchEntriesByGroup = newEntryMap(allGroups);
 		Map<String, List<IngredientFilterItemIndex.ItemEntry>> resolvedEntriesByGroup = newEntryMap(allGroups);
+		Map<String, String> failures = new LinkedHashMap<>();
 
 		for (GroupDefinition group : allGroups) {
 			if (!group.hasItemFilters()) {
@@ -149,7 +154,9 @@ public final class IngredientFilterHelper {
 
 			List<IngredientFilterItemIndex.ItemEntry> verified = fullMatchEntriesByGroup.get(group.id());
 			for (IngredientFilterItemIndex.ItemEntry entry : domain) {
-				if (group.matchesIgnoringEnabled(entry.stack())) {
+				if (com.starskyxiii.collapsible_groups.viewer.GroupEvaluations.evaluate(group,
+					new com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView(entry.stack()), failures)
+					== com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.Evaluation.MATCH) {
 					verified.add(entry);
 				}
 			}
@@ -165,7 +172,7 @@ public final class IngredientFilterHelper {
 			IngredientFilterItemIndex.ItemEntry::typed
 		);
 
-		return finalizeBuildResult(ingredientGroupIndex, fullMatchEntriesByGroup, resolvedEntriesByGroup);
+		return finalizeBuildResult(ingredientGroupIndex, fullMatchEntriesByGroup, resolvedEntriesByGroup).withFailures(failures);
 	}
 
 	static <T> void assignFirstEnabledOwners(
@@ -179,7 +186,7 @@ public final class IngredientFilterHelper {
 			new IdentityHashMap<>(Math.max(16, fullMatchEntriesByGroup.size() * 2));
 
 		for (GroupDefinition group : allGroups) {
-			if (!group.enabled()) {
+			if (!com.starskyxiii.collapsible_groups.group.GroupRepository.isActive(group)) {
 				continue;
 			}
 			List<T> fullMatchEntries = fullMatchEntriesByGroup.get(group.id());

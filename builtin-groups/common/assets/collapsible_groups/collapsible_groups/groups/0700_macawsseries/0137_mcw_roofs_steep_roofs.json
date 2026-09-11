@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_roofs_steep_roofs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_roofs_steep_roofs",
+    "fallback": "Macaw's Roofs: Steep Roofs"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "mcwroofs"
+      },
+      {
+        "item_path_ends_with": "_steep_roof"
+      },
+      {
+        "not": {
+          "all": [
+            {
+              "type": "item",
+              "namespace": "mcwroofs"
+            },
+            {
+              "item_path_ends_with": "_upper_steep_roof"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

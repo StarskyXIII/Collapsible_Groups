@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glassdyed_green",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glassdyed_green",
+    "fallback": "Chisel: Green Dyed Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glassdyed_green"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

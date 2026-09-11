@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_stairs_platforms",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_stairs_platforms",
+    "fallback": "Macaw's Stairs: Platforms"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwstairs:platforms"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_hedges",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_hedges",
+    "fallback": "Macaw's Fences: Hedges"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:hedges"
+  }
+}

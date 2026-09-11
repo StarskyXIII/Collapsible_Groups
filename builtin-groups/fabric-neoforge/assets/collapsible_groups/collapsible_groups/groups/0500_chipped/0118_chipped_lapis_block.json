@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_lapis_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_lapis_block",
+    "fallback": "Chipped: Lapis Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:lapis_block"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

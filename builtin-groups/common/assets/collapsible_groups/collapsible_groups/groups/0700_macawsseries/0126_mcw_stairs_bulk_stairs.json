@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_stairs_bulk_stairs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_stairs_bulk_stairs",
+    "fallback": "Macaw's Stairs: Bulk Stairs"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwstairs:bulk_stairs"
+  }
+}

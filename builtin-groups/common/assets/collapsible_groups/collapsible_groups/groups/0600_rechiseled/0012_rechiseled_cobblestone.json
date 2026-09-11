@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_cobblestone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_cobblestone",
+    "fallback": "Rechiseled: Cobblestone"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:cobblestone"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

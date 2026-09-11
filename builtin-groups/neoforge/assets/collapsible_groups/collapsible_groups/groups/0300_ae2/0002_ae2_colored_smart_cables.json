@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_ae2_colored_smart_cables",
+  "name": {
+    "translate": "collapsible_groups.group.__default_ae2_colored_smart_cables",
+    "fallback": "AE2: Colored Smart Cables"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "ae2:smart_cable"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "ae2:fluix_smart_cable"
+        }
+      }
+    ]
+  }
+}

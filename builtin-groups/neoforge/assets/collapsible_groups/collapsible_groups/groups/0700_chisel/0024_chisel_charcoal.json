@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_charcoal",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_charcoal",
+    "fallback": "Chisel: Charcoal"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/charcoal"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

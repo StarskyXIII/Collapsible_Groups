@@ -42,7 +42,11 @@ class GroupRegistryCopyAsCustomTest {
 			extra
 		);
 
-		GroupDefinition copied = GroupRegistry.createCustomCopy(
+		if (source.id().startsWith("__kjs_")) {
+            GroupRepositoryTestAccess.replace(List.of());
+            com.starskyxiii.collapsible_groups.group.GroupRepository.setScriptedGroups(List.of(source));
+        } else GroupRepositoryTestAccess.replace(List.of(source));
+        GroupDefinition copied = GroupRegistry.createCustomCopy(
 			source,
 			"Stone Family Copy",
 			List.of(source.id())
@@ -70,7 +74,11 @@ class GroupRegistryCopyAsCustomTest {
 			Filters.itemId("minecraft:diamond")
 		);
 
-		GroupDefinition copied = GroupRegistry.createCustomCopy(
+		if (source.id().startsWith("__kjs_")) {
+            GroupRepositoryTestAccess.replace(List.of());
+            com.starskyxiii.collapsible_groups.group.GroupRepository.setScriptedGroups(List.of(source));
+        } else GroupRepositoryTestAccess.replace(List.of(source));
+        GroupDefinition copied = GroupRegistry.createCustomCopy(
 			source,
 			"Scripted Group Copy",
 			List.of(source.id())
@@ -104,7 +112,11 @@ class GroupRegistryCopyAsCustomTest {
 			Filters.itemId("minecraft:stone")
 		);
 
-		GroupDefinition copied = GroupRegistry.createCustomCopy(
+		if (source.id().startsWith("__kjs_")) {
+            GroupRepositoryTestAccess.replace(List.of());
+            com.starskyxiii.collapsible_groups.group.GroupRepository.setScriptedGroups(List.of(source));
+        } else GroupRepositoryTestAccess.replace(List.of(source));
+        GroupDefinition copied = GroupRegistry.createCustomCopy(
 			source,
 			"Stone Family Copy",
 			List.of(source.id(), "stone_family_copy", "stone_family_copy_2")

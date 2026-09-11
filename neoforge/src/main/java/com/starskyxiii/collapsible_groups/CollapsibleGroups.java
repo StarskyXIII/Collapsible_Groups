@@ -4,7 +4,6 @@ import com.starskyxiii.collapsible_groups.config.NeoForgeConfig;
 import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
 import com.starskyxiii.collapsible_groups.client.preview.PreviewTooltipComponent;
-import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import com.starskyxiii.collapsible_groups.viewer.JeiSoftDependencyBootstrap;
 import com.starskyxiii.collapsible_groups.viewer.LoaderViewerEnvironment;
@@ -74,7 +73,10 @@ public class CollapsibleGroups {
 	private void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
 		event.registerReloadListener(
 			(net.minecraft.server.packs.resources.ResourceManagerReloadListener)
-				resourceManager -> GroupLangBootstrap.refresh()
+				resourceManager -> {
+                    GroupLangBootstrap.refresh();
+                    GroupRepository.reload(resourceManager);
+                }
 		);
 	}
 
@@ -94,7 +96,6 @@ public class CollapsibleGroups {
 	private void onConfigReload(ModConfigEvent.Reloading event) {
 		if (event.getConfig().getSpec() == NeoForgeConfig.SPEC) {
 			reloadGroupsFromCurrentConfig();
-			GroupRepository.notifyViewer();
 		}
 	}
 
@@ -109,7 +110,7 @@ public class CollapsibleGroups {
 
 	public static void reloadGroupsFromCurrentConfig() {
 		GroupLangBootstrap.refresh();
-		GroupRepository.load(DefaultGroupProviders.loadAll("NeoForge", 8));
+		GroupRepository.load();
 	}
 
 	private void registerTooltipComponentFactories(RegisterClientTooltipComponentFactoriesEvent event) {

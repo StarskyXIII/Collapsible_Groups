@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_packed_mud",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_packed_mud",
+    "fallback": "Chipped: Packed Mud"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:packed_mud"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

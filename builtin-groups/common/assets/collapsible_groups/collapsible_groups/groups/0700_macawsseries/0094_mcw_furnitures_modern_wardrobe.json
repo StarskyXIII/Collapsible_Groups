@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_modern_wardrobe",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_modern_wardrobe",
+    "fallback": "Macaw's Furnitures: Modern Wardrobe"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:modern_wardrobe"
+  }
+}

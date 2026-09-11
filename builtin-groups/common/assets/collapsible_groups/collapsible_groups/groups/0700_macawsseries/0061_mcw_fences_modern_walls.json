@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_modern_walls",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_modern_walls",
+    "fallback": "Macaw's Fences: Modern Walls"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "block_tag": "mcwfences:modern_walls"
+      },
+      {
+        "type": "item",
+        "id": "mcwfences:modern_prismarine_wall"
+      }
+    ]
+  }
+}

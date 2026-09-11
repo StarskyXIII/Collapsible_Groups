@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_cobbled_deepslate",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_cobbled_deepslate",
+    "fallback": "Rechiseled: Cobbled Deepslate"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:cobbled_deepslate"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

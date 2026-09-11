@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "__default_irons_spellbooks_scroll_firefly_swarm",
+  "name": {
+    "translate": "collapsible_groups.group.__default_irons_spellbooks_scroll_firefly_swarm",
+    "fallback": "Firefly Swarm Scrolls"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "irons_spellbooks:scroll"
+      },
+      {
+        "type": "item",
+        "component": "irons_spellbooks:spell_container",
+        "path": "data[0].id",
+        "value": {
+          "data_format": "minecraft:data_component",
+          "data": "irons_spellbooks:firefly_swarm"
+        }
+      }
+    ]
+  }
+}

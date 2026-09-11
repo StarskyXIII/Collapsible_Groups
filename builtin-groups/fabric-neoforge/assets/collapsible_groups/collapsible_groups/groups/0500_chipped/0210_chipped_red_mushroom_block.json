@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_red_mushroom_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_red_mushroom_block",
+    "fallback": "Chipped: Red Mushroom Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:red_mushroom_block"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

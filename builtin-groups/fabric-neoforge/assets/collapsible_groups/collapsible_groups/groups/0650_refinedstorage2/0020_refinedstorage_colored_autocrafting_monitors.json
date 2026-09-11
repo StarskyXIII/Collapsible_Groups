@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_autocrafting_monitors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_autocrafting_monitors",
+    "fallback": "RS2: Colored Autocrafting Monitors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:autocrafting_monitors"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:autocrafting_monitor"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_vanilla_glazed_terracottas",
+  "name": {
+    "translate": "collapsible_groups.group.__default_vanilla_glazed_terracottas",
+    "fallback": "Vanilla Glazed Terracottas"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "c:glazed_terracottas"
+      },
+      {
+        "type": "item",
+        "namespace": "minecraft"
+      }
+    ]
+  }
+}

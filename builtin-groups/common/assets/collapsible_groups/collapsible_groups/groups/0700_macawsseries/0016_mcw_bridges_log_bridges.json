@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_bridges_log_bridges",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_bridges_log_bridges",
+    "fallback": "Macaw's Bridges: Log Bridges"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwbridges:log_bridges"
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_windows_pane_windows",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_windows_pane_windows",
+    "fallback": "Macaw's Windows: Pane Windows"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "mcwwindows"
+      },
+      {
+        "item_path_ends_with": "_pane_window"
+      }
+    ]
+  }
+}

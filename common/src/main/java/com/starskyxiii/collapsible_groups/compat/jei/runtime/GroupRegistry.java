@@ -8,7 +8,6 @@ import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
-import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProvider;
 import com.starskyxiii.collapsible_groups.group.GroupCatalog;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupRepository;
@@ -47,7 +46,7 @@ import java.util.Set;
  * <p>Expand/collapse state is managed by {@link GroupExpandState}.
  *
  * <p>Groups are loaded from {@code config/collapsiblegroups/groups/*.json}.
- * Call {@link #load(List)} on client setup; call {@link #save(GroupDefinition)} or
+ * Call {@link #load()} on client setup; call {@link #save(GroupDefinition)} or
  * {@link #delete(String)} from the manager UI to persist changes.
  */
 public final class GroupRegistry {
@@ -77,20 +76,8 @@ public final class GroupRegistry {
 	// Load / init
 	// -----------------------------------------------------------------------
 
-	/**
-	 * Loads all groups and the saved expand state.
-	 *
-	 * <p>Provider groups (IDs prefixed with {@code __default_}) are always read-only.
-	 * Disk JSON files whose ID starts with {@code __default_} are skipped to prevent
-	 * conflicts with built-in groups.
-	 *
-	 * @param providers built-in default group providers; pass an empty list for none
-	 */
-	public static void load(List<DefaultGroupProvider> providers) {
-		GroupRepository.load(providers);
-	}
+	public static void load() { GroupRepository.load(); }
 
-	/** Returns true if the group ID belongs to a built-in provider default (prefixed with {@code __default_}). */
 	public static boolean isBuiltin(String id) { return GroupRepository.isBuiltin(id); }
 
 	// -----------------------------------------------------------------------
@@ -120,7 +107,7 @@ public final class GroupRegistry {
 	 */
 	public static Optional<GroupDefinition> findGroup(ItemStack stack) {
 		for (GroupDefinition group : getAllIncludingKubeJs()) {
-			if (group.matches(stack)) return Optional.of(group);
+			if (GroupRepository.isActive(group) && group.matchesIgnoringEnabled(stack)) return Optional.of(group);
 		}
 		return Optional.empty();
 	}
@@ -132,7 +119,7 @@ public final class GroupRegistry {
 	 */
 	public static Optional<GroupDefinition> findFluidGroup(Object stack) {
 		for (GroupDefinition group : getAllIncludingKubeJs()) {
-			if (GroupMatcher.matchesFluid(group, stack)) return Optional.of(group);
+			if (GroupRepository.isActive(group) && GroupMatcher.matchesFluidIgnoringEnabled(group, stack)) return Optional.of(group);
 		}
 		return Optional.empty();
 	}
@@ -146,7 +133,7 @@ public final class GroupRegistry {
 		String typeId, T ingredient, IIngredientHelper<T> helper
 	) {
 		for (GroupDefinition group : getAllIncludingKubeJs()) {
-			if (GroupMatcher.matchesGeneric(group, typeId, ingredient, helper)) return Optional.of(group);
+			if (GroupRepository.isActive(group) && GroupMatcher.matchesGenericIgnoringEnabled(group, typeId, ingredient, helper)) return Optional.of(group);
 		}
 		return Optional.empty();
 	}

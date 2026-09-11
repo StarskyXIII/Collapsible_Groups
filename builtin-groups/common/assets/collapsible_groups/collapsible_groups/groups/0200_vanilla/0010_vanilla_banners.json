@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_vanilla_banners",
+  "name": {
+    "translate": "collapsible_groups.group.__default_vanilla_banners",
+    "fallback": "Vanilla Banners"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "minecraft:banners"
+      },
+      {
+        "type": "item",
+        "namespace": "minecraft"
+      }
+    ]
+  }
+}

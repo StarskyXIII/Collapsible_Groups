@@ -1,6 +1,6 @@
 # Group JSON format
 
-A group created from the editor’s blank form uses `"schema_version": 1`. Editing an existing group keeps its source format, as do supported copy actions for built-in and KubeJS groups. Unversioned groups stay unversioned; there is no automatic upgrade or upgrade tool.
+A group created from the editor’s blank form uses `"schema_version": 1`. Editing an existing group keeps its source format, as do supported copy and local-override actions for built-in, resource-pack, and KubeJS groups. Unversioned groups stay unversioned; there is no automatic upgrade or upgrade tool.
 
 The version belongs to the whole document, including every nested `any`, `all`, and `not` condition. The existing `id`, `name`, `enabled`, `icon`, `theme`, `priority`, and `extra` fields keep their meanings. Ordinary ingredient IDs, tags, namespaces, and item-path conditions do not use data payload objects.
 
@@ -71,4 +71,4 @@ The `minecraft:nbt` payload is used by the Minecraft 1.20.1 branch, with SNBT st
 
 Existing `Filters.itemComponent(String, String)`, `Filters.itemComponentPath(String, String, String)`, and exact-stack String APIs retain their existing behavior. New typed entry points are `Filters.itemComponentValue(String, JsonElement)`, `Filters.itemComponentPathValue(String, String, JsonElement)`, and `Filters.exactStackValue(ItemStack)`; constructing a definition from typed conditions selects version 1. `Filters.exactStack(ItemDataPayload)` accepts an explicit payload.
 
-A definition mixing a released component String condition with typed conditions cannot be saved by guessing a conversion. Serialization rejects that mixture and checked saving returns failure before changing a file. Existing providers and KubeJS String-based groups stay on their original format.
+A definition mixing a released component String condition with typed conditions cannot be saved by guessing a conversion. Serialization rejects that mixture and checked saving returns failure before changing a file. Existing KubeJS String-based groups stay on their original format. Bundled definitions now use JSON; the Java built-in provider extension has been removed. See [resource-pack loading and local overrides](builtin-groups-and-translations.md) for supported definition sources.

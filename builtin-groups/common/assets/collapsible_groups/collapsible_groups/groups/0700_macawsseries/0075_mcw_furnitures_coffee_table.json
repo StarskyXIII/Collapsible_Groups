@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_coffee_table",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_coffee_table",
+    "fallback": "Macaw's Furnitures: Coffee Table"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:coffee_table"
+  }
+}

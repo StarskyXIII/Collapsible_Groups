@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glass_stained_brown",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glass_stained_brown",
+    "fallback": "Chisel: Brown Stained Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glass_stained_brown"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

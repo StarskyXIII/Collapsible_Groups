@@ -23,6 +23,25 @@ import java.nio.file.Path;
 public class ForgePlatformHelper implements IPlatformHelper {
 
     @Override
+    public java.util.List<net.minecraft.server.packs.PackResources> groupResourcePacks(
+        net.minecraft.server.packs.resources.ResourceManager manager) {
+        java.util.List<net.minecraft.server.packs.PackResources> result = new java.util.ArrayList<>();
+        try (var packs = manager.listPacks()) { packs.forEach(pack -> appendGroupPack(result, pack)); }
+        return java.util.List.copyOf(result);
+    }
+
+    private static void appendGroupPack(java.util.List<net.minecraft.server.packs.PackResources> result,
+        net.minecraft.server.packs.PackResources pack) {
+        if (pack instanceof net.minecraftforge.resource.DelegatingPackResources delegated) {
+            var children = new java.util.ArrayList<>(delegated.getChildren());
+            java.util.Collections.reverse(children);
+            children.forEach(child -> appendGroupPack(result, child));
+        } else {
+            result.add(pack);
+        }
+    }
+
+    @Override
     public Path getConfigDir() {
         return FMLPaths.CONFIGDIR.get();
     }
