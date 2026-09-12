@@ -1,6 +1,6 @@
 # Group JSON format
 
-Groups created from a blank editor use `schema_version: 1`. Editing or copying an existing group keeps its source format. A group without `schema_version` remains a legacy group; there is no upgrade command.
+Groups created from a blank editor use `schema_version: 1`. Editing, copying, or creating a local override of an existing group keeps its source format. A group without `schema_version` remains a legacy group; there is no upgrade command.
 
 The version belongs to the whole document, including conditions nested inside `any`, `all`, and `not`. Existing names, icons, themes, priority, extra metadata, and ordinary ID, tag, namespace, and item-path conditions keep their existing meaning.
 
@@ -57,3 +57,5 @@ The Java and KubeJS native-item helpers create version 1 data: `Filters.nbt(snbt
 Unknown document versions, including string `"1"`, fractional values, and JSON null, remain unsupported. Their full original JSON is retained, and editor, copy, and save operations cannot replace them with a known format. Malformed or unsupported conditions retain their original subtree. An unavailable condition stays unavailable under `not`; normal missing item data is a non-match.
 
 The earlier internal string-envelope format is no longer read or generated.
+
+Bundled definitions use JSON; the Java built-in provider extension has been removed. See [resource-pack loading and local overrides](builtin-groups-and-translations.md) for supported definition sources.

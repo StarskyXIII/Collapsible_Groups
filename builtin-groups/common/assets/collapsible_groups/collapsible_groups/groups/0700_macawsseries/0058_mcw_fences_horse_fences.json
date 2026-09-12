@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_horse_fences",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_horse_fences",
+    "fallback": "Macaw's Fences: Horse Fences"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:horse_fences"
+  }
+}

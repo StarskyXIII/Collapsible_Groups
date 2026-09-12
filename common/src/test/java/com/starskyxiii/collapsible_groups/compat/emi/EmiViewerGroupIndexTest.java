@@ -119,7 +119,7 @@ class EmiViewerGroupIndexTest {
 			() -> assertTrue(requested.isDone()));
 	}
 
-	@Test void newestBuildFailureSettlesEveryReadinessFutureExceptionally() {
+	@Test void candidateEvaluationFailurePublishesVisibleUnavailableDiagnostic() {
 		ControlledExecutor executor = new ControlledExecutor();
 		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor);
 		CompletableFuture<Void> initial = index.whenReady();
@@ -135,9 +135,14 @@ class EmiViewerGroupIndexTest {
 			new ViewerIngredientUniverse<>(List.of(broken)), List.of(group("broken", "minecraft:stone")));
 
 		executor.runNext();
-		assertTrue(initial.isCompletedExceptionally());
-		assertTrue(requested.isCompletedExceptionally());
-		assertFalse(index.ready());
+		assertTrue(initial.isDone());
+        assertFalse(initial.isCompletedExceptionally());
+        assertTrue(requested.isDone());
+        assertTrue(index.ready());
+        var evaluation = index.evaluation(group("broken", "minecraft:stone"));
+        assertEquals(com.starskyxiii.collapsible_groups.group.GroupEvaluation.Status.UNAVAILABLE, evaluation.status());
+        assertFalse(evaluation.empty());
+        assertTrue(evaluation.issues().stream().anyMatch(issue -> issue.reason().contains("broken")));
 	}
 
 	@Test void publishesStableOrderAndThreeNonNullFullMatchBucketsIncludingEmptyOnes() {

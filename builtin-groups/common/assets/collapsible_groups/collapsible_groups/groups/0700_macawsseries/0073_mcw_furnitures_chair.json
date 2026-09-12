@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_chair",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_chair",
+    "fallback": "Macaw's Furnitures: Chair"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:chair"
+  }
+}

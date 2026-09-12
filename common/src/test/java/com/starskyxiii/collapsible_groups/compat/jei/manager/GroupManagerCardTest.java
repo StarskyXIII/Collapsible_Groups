@@ -18,6 +18,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GroupManagerCardTest {
+    @org.junit.jupiter.api.AfterEach void resetRepository() {
+        com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess.replace(List.of());
+    }
 	@Test
 	void buildsUserCardViewModelFromResolvedCounts() {
 		GroupDefinition group = new GroupDefinition(
@@ -57,7 +60,8 @@ class GroupManagerCardTest {
 			Filters.itemId("minecraft:apple")
 		);
 
-		GroupManagerCard card = GroupManagerCard.create(group, 0, 0, 0, List.of());
+		com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess.replace(List.of(group));
+        GroupManagerCard card = GroupManagerCard.create(group, 0, 0, 0, List.of());
 
 		assertEquals(GroupSource.BUILTIN, card.source());
 		assertFalse(card.editable());

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_modern_desk",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_modern_desk",
+    "fallback": "Macaw's Furnitures: Modern Desk"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:modern_desk"
+  }
+}

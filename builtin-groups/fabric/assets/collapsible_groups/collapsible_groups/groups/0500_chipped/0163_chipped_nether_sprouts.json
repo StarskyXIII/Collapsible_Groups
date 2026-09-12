@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_nether_sprouts",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_nether_sprouts",
+    "fallback": "Chipped: Nether Sprouts"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:nether_sprouts"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

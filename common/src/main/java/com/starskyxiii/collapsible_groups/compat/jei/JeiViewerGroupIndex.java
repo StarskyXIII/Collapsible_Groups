@@ -203,6 +203,20 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 	@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
 		if (published == null) return Optional.empty();
 		FullMatchEntry entry = fullMatchEntry(group);
+		return Optional.of(preview(entry));
+	}
+
+	@Override public Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) {
+		Generation captured = published;
+		if (!ready() || captured == null) return Optional.empty();
+		GroupDefinition indexed = captured.candidates().groupSnapshot().get(group.id());
+		if (indexed == null || !indexed.filter().equals(group.filter())) return Optional.empty();
+		FullMatchEntry entry = new FullMatchCacheSnapshot(captured.fullMatchItems(), captured.fullMatchFluids(),
+			captured.fullMatchGeneric()).entry(group.id());
+		return entry == null ? Optional.empty() : Optional.of(preview(entry));
+	}
+
+	private static ViewerGroupPreviewSnapshot preview(FullMatchEntry entry) {
 		List<ItemStack> items = entry.items();
 		List<Object> fluids = entry.fluids();
 		List<GenericIngredientRef> generic = entry.generic();
@@ -211,7 +225,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 			(graphics, x, y) -> PreviewIngredientRenderer.renderFluid(graphics, fluid, x, y))).toList();
 		List<ViewerPreviewValue> genericValues = generic.stream().map(ref -> ViewerPreviewValue.rendered(
 			(graphics, x, y) -> renderGeneric(graphics, ref, x, y))).toList();
-		return Optional.of(new ViewerGroupPreviewSnapshot(itemValues, fluidValues, genericValues));
+		return new ViewerGroupPreviewSnapshot(itemValues, fluidValues, genericValues);
 	}
 
 	public FullMatchEntry fullMatchEntry(GroupDefinition group) {

@@ -13,35 +13,10 @@ public final class ForgeConfig implements IConfigProvider {
 	private static final int GROUP_NAME_COLOR_DEFAULT                 = 0x00FFAA00;
 	private static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
 
-	private static final String[] MACAWS_SERIES_MODS = {
-		"mcwwindows",
-		"mcwbridges",
-		"mcwdoors",
-		"mcwfences",
-		"mcwfurnitures",
-		"mcwlights",
-		"mcwpaths",
-		"mcwstairs",
-		"mcwtrpdoors",
-	};
 
 	// IConfigProvider
 
 	@Override public boolean loadDefaultGroups()                   { return LOAD_DEFAULT_GROUPS.get(); }
-	@Override public boolean loadGenericGroups()                   { return LOAD_GENERIC_GROUPS.get(); }
-	@Override public boolean loadVanillaGroups()                   { return LOAD_VANILLA_GROUPS.get(); }
-	@Override public boolean shouldLoadRechiseled() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_RECHISELED.get()
-			&& net.minecraftforge.fml.ModList.get().isLoaded("rechiseled");
-	}
-	@Override public boolean shouldLoadMacawsSeries() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_MACAWS_SERIES.get()
-			&& isAnyMacawsSeriesLoaded();
-	}
 	@Override public boolean showManagerButton()                   { return SHOW_MANAGER_BUTTON.get(); }
 	@Override public boolean showGroupBackgrounds()                { return SHOW_GROUP_BACKGROUNDS.get(); }
 	@Override public boolean searchUngroupSmallGroups()            { return SEARCH_UNGROUP_SMALL_GROUPS.get(); }
@@ -66,31 +41,6 @@ public final class ForgeConfig implements IConfigProvider {
 
 	/** Master switch: set to false for a completely clean slate with no built-in groups. */
 	public static final ForgeConfigSpec.BooleanValue LOAD_DEFAULT_GROUPS;
-
-	/** Whether to load built-in generic cross-mod groups (potions, enchanted books, spawn eggs, etc.). */
-	public static final ForgeConfigSpec.BooleanValue LOAD_GENERIC_GROUPS;
-
-	/** Whether to load built-in vanilla groupings (wool, concrete, terracotta, etc.). */
-	public static final ForgeConfigSpec.BooleanValue LOAD_VANILLA_GROUPS;
-
-	// defaultGroups.ModIntegration
-
-	/** Master switch for all mod-integration groups. */
-	public static final ForgeConfigSpec.BooleanValue LOAD_MOD_INTEGRATION_GROUPS;
-
-	/**
-	 * Whether to load built-in Rechiseled block-variant groups.
-	 * Ignored if Rechiseled is not installed; the setting cannot take effect without the mod.
-	 */
-	public static final ForgeConfigSpec.BooleanValue LOAD_RECHISELED;
-
-	/**
-	 * Whether to load built-in Macaw's series groups.
-	 * Ignored if none of the supported Macaw's mods are installed.
-	 */
-	public static final ForgeConfigSpec.BooleanValue LOAD_MACAWS_SERIES;
-
-	/** auto, jei, or emi. Sampled at startup; changes require a restart. */
 
 	// ui
 
@@ -142,37 +92,7 @@ public final class ForgeConfig implements IConfigProvider {
 				"Set to false to start with a completely clean slate (no default groups)."
 			)
 			.define("enabled", true);
-		LOAD_GENERIC_GROUPS = builder
-			.comment("Whether to load built-in generic cross-mod groups (potions, enchanted books, spawn eggs, etc.)")
-			.define("loadGeneric", true);
-		LOAD_VANILLA_GROUPS = builder
-			.comment("Whether to load built-in vanilla item groupings (wool, concrete, terracotta, etc.)")
-			.define("loadVanilla", true);
-
-		// [defaultGroups.ModIntegration]
-		builder.push("ModIntegration");
-		LOAD_MOD_INTEGRATION_GROUPS = builder
-			.comment(
-				"Whether to load built-in mod-integration groups.",
-				"Groups for mods that are not currently installed are always skipped."
-			)
-			.define("loadModIntegration", true);
-		LOAD_RECHISELED = builder
-			.comment(
-				"Whether to load built-in Rechiseled block-variant groups (one group per block type).",
-				"Has no effect if Rechiseled is not installed."
-			)
-			.define("loadRechiseled", true);
-		LOAD_MACAWS_SERIES = builder
-			.comment(
-				"Whether to load built-in Macaw's series block-tag groups.",
-				"Has no effect if none of the supported Macaw's mods are installed."
-			)
-			.define("loadMacawsSeries", true);
-		// Forge leaves Chipped and Refined Storage 2 integration groups disabled through
-		// the IConfigProvider defaults.
-		builder.pop(); // ModIntegration
-		builder.pop(); // defaultGroups
+		builder.pop();
 
 		// [ui]
 		builder.push("ui");
@@ -250,13 +170,4 @@ public final class ForgeConfig implements IConfigProvider {
 
 	public ForgeConfig() {}
 
-	private static boolean isAnyMacawsSeriesLoaded() {
-		net.minecraftforge.fml.ModList modList = net.minecraftforge.fml.ModList.get();
-		for (String modId : MACAWS_SERIES_MODS) {
-			if (modList.isLoaded(modId)) {
-				return true;
-			}
-		}
-		return false;
-	}
 }

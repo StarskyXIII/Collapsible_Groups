@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_basalt",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_basalt",
+    "fallback": "Rechiseled: Basalt"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:basalt"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

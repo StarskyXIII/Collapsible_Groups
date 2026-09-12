@@ -181,9 +181,16 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
+		return cachedFullMatchSnapshot(group);
+	}
+
+	@Override public Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) {
+		if (!ready()) return Optional.empty();
 		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
 		if (current == null) return Optional.empty();
 		String groupId = group.id();
+		GroupDefinition indexed = current.candidates().groupSnapshot().get(groupId);
+		if (indexed == null || !indexed.filter().equals(group.filter()) || indexed.documentFormat() != group.documentFormat()) return Optional.empty();
 		if (!current.fullMatchItems().containsKey(groupId)
 			|| !current.fullMatchFluids().containsKey(groupId)
 			|| !current.fullMatchGeneric().containsKey(groupId)) return Optional.empty();

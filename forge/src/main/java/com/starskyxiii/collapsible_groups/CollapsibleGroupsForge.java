@@ -4,7 +4,6 @@ import com.starskyxiii.collapsible_groups.client.preview.PreviewTooltipComponent
 import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
 import com.starskyxiii.collapsible_groups.config.ForgeConfig;
-import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
@@ -42,7 +41,10 @@ public class CollapsibleGroupsForge {
     private void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
         event.registerReloadListener(
             (net.minecraft.server.packs.resources.ResourceManagerReloadListener)
-                resourceManager -> GroupLangBootstrap.refresh()
+                resourceManager -> {
+                    GroupLangBootstrap.refresh();
+                    GroupRepository.reload(resourceManager);
+                }
         );
     }
 
@@ -62,7 +64,6 @@ public class CollapsibleGroupsForge {
     private void onConfigReload(ModConfigEvent.Reloading event) {
         if (event.getConfig().getSpec() == ForgeConfig.SPEC) {
             reloadGroupsFromCurrentConfig();
-            GroupRepository.notifyViewer();
         }
     }
 
@@ -72,6 +73,6 @@ public class CollapsibleGroupsForge {
 
     public static void reloadGroupsFromCurrentConfig() {
         GroupLangBootstrap.refresh();
-        GroupRepository.load(DefaultGroupProviders.loadAll("Forge", 3));
+        GroupRepository.load();
     }
 }

@@ -125,3 +125,10 @@ tasks.named('processResources') {
 tasks.named('sourcesJar') {
     dependsOn(rootProject.tasks.named('generateGroupLang'))
 }
+
+['processResources', 'sourcesJar'].each { taskName ->
+    tasks.named(taskName) {
+        dependsOn(rootProject.tasks.named('generateBuiltinGroups'))
+        from(layout.buildDirectory.dir('generated/builtin-groups'))
+    }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_bamboo_planks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_bamboo_planks",
+    "fallback": "Rechiseled: Bamboo Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:bamboo_planks"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

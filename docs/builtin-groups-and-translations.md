@@ -1,0 +1,124 @@
+# Built-in groups, resource packs, and translations
+
+This guide covers Minecraft 1.20.1. Built-in definitions use the same JSON format as custom groups. The in-game manager identifies the effective source and supports local overrides without editing a mod jar or resource pack.
+
+## Built-in definitions and the global switch
+
+The repository contains 528 definitions. Loader coverage is preserved: Fabric packages 528, Forge 229. Each loader retains the relative order of the definitions it previously provided. Definitions are loaded independently of whether the corresponding mod is installed; matching against the current viewer determines their content.
+
+`defaultGroups.enabled` is the single built-in switch. Turning it off disables the grouping effect of every ID in the bundled catalog, including resource-pack or local replacements for those IDs. Definitions, individual enabled preferences, and expansion state remain available. Turning the switch back on preserves the individual choices. A custom copy with a new ID is independent of this switch.
+
+The previous Generic, Vanilla, integration master, and per-mod loading settings are retired and have no effect. There is no conversion of their old values into individual group preferences. Folder-based configuration inheritance or environment metadata is deferred; directory names do not act as mod-loading conditions.
+
+## Resource-pack definitions
+
+Place group JSON in a client resource pack at:
+
+```text
+pack.mcmeta
+assets/<namespace>/collapsible_groups/groups/<path>.json
+assets/<namespace>/lang/en_us.json
+assets/<namespace>/lang/zh_tw.json
+```
+
+Subdirectories below `groups` are supported. A minimal resource pack for Minecraft 1.20.1 can use:
+
+```json
+{"pack":{"pack_format":15,"description":"My group definitions"}}
+```
+
+A complete group definition might be:
+
+```json
+{
+  "schema_version": 1,
+  "id": "my_stones",
+  "name": {"translate": "my_pack.group.stones", "fallback": "Stones"},
+  "enabled": true,
+  "priority": 0,
+  "filter": {
+    "any": [
+      {"type": "item", "id": "minecraft:stone"},
+      {"type": "item", "id": "minecraft:cobblestone"}
+    ]
+  }
+}
+```
+
+Use the existing ID to replace a group or a new ID to add an independent group. Names, filters, icons, theme, enabled value, format, and priority all come from the selected definition; fields are not merged with lower sources. The numeric `priority` still controls ingredient ownership between different group IDs.
+
+Source precedence, highest first:
+
+| Source | Location or selection |
+| --- | --- |
+| Local override | `config/collapsiblegroups/overrides/**/*.json` |
+| Ordinary custom group | `config/collapsiblegroups/groups/*.json` |
+| Client resource pack | Minecraft's selected pack order, highest pack wins |
+| Built-in definition | The current loader's bundled catalog |
+| KubeJS group | Published script definition |
+
+The loader examines every group resource layer before resolving IDs. Resource paths and group IDs are separate: two definitions at the same path can still have different IDs. Minecraft resource-pack filters suppress matching lower resource paths. An explicit disabled replacement does not expose a lower definition of the same ID.
+
+A duplicate ID within one resource pack, the bundled set, or the local-override set is an error. Ordinary custom files retain their earlier filename-sorted, last-valid-definition behavior. Existing ordinary files with IDs beginning `__default_` remain ignored; use the dedicated override directory for those IDs.
+
+Reload client resources after changing packs or files. A failed resource or override reload retains the last successfully published definition set and marks the sources stale. If no successful set exists, the failed set is not published. Source problems remain visible in the manager. Fix the reported file and reload; exports reject stale sources.
+
+## Managing groups
+
+The source badge distinguishes built-in, resource-pack, local-override, and KubeJS groups from ordinary custom groups. The source filter includes local overrides under Custom. Provenance comes from the loaded source, rather than an ID prefix.
+
+For a built-in, resource-pack, or KubeJS group, **Create local override** creates an editable definition with the same ID in the override directory. **Restore source** removes that owned override file and reveals the currently selected lower source. Individual enabled and expansion preferences are preserved. **Copy as custom** creates an ordinary custom group with a new ID and preserves the original JSON format.
+
+Saving or removing a file checks its ownership, directory, and ID. Saving also rejects an unsupported document version. A file with a different ID or a path outside its source directory is left untouched; a failed removal is reported in the manager.
+
+Use **Sort and filter** beside the search box for the existing sort modes and **Show empty groups**. Empty groups are hidden by default. This preference and the sort mode survive reopening the manager. The footer reports the number hidden by the current search and source selection; clicking the notice shows those groups. A newly saved empty group has a notice that can reveal it even if the current search would hide it.
+
+“Empty” means a complete evaluation found zero items, fluids, and other supported ingredient types. One match is nonempty even though the viewer needs at least two visible ingredients to draw a collapsible header. Counts include disabled groups and ingredients owned by higher-priority groups, and do not depend on the viewer's search text. Pending evaluations, invalid rules, unavailable types or codecs, and incomplete tag support remain visible with a status. Hiding empty groups removes them from the current batch selection.
+
+## Translation worklists
+
+Built-in English names are part of the standard `assets/collapsible_groups/lang/en_us.json`. Resource packs can translate them through normal language files. Explicit files in `config/collapsiblegroups/lang/<locale>.json` still take precedence.
+
+The mod no longer copies bundled language files into the config directory. Existing local files are preserved, so a file copied by an earlier release may continue to mask resource-pack translations. Review those files manually when changing translation sources.
+
+Enter a world and wait for the viewer's group index to finish, then run:
+
+```text
+/cg group_key worklist zh_tw
+/cg group_key worklist zh_tw all
+/cg group_key worklist zh_tw missing
+```
+
+The default is `all`. Every command creates a fresh directory below `config/collapsiblegroups/translation-work/` containing `<locale>.json` and `report.json`. It does not modify a live translation file or overwrite a previous worklist.
+
+Both modes use all effective source groups with complete, nonzero content, including disabled groups. The manager's search, source filter, empty-group preference, ownership, and global built-in switch do not narrow the export.
+
+| Mode | Output values |
+| --- | --- |
+| `all` | Preserve existing target-locale values; use the group's fallback where a target entry is absent. |
+| `missing` | Include only keys absent from the requested locale, using each group's fallback. |
+
+The command reads the requested locale directly from the active resource stack and its local overlay. It does not use the current language or English fallback to decide whether a target entry exists. An existing value identical to English is still an existing entry. A missing locale file is an empty input; an unreadable or malformed locale file is an error.
+
+The report records the Minecraft version, viewer, evaluation generation, source locations, content counts, omitted empty groups, and uncertain groups. Built-in fallbacks are labeled `en_us`; custom, pack, override, and script fallbacks have an unspecified language. Equal fallbacks sharing a key are deduplicated. Different fallbacks sharing a key are omitted and reported as a conflict, even when a target translation already exists.
+
+An incomplete report is explicitly identified in command feedback. Check its uncertain groups, source errors, and key conflicts before using it. Pending or mixed evaluations, stale sources, or a source change during export require a retry. “Missing” describes absent entries, not translation quality.
+
+The existing `group_key` dump and `clean` commands retain their previous behavior. Use `worklist` for the separate nonempty, target-locale workflow above.
+
+## Maintaining bundled definitions
+
+Bundled source JSON lives in two packaging roots:
+
+| Directory | Packaged by | Definitions |
+| --- | --- | ---: |
+| `builtin-groups/common` | Fabric, Forge | 229 |
+| `builtin-groups/fabric` | Fabric | 299 |
+
+Keep each resource path unique across these roots. Filename prefixes preserve the original provider ordering; they do not alter a group's numeric priority. Built-in names must have a `collapsible_groups.group.*` translation key and a nonempty English fallback. No Java provider registration or per-group config option is required.
+
+Normal resource processing and source-jar builds automatically generate the platform catalog and merge all 528 English names into the standard English file. Generation reads JSON directly, without launching Minecraft, a datagen client, or installed integration mods. Edit the JSON fallback, build normally, and commit the JSON, generated English file, and `builtin-groups/generated-language-keys.json` together.
+
+The manifest tracks generator-owned keys and their previous values. Removal deletes only previously owned keys; manual UI keys and unrelated manual entries are retained. A new generated key colliding with a manual key, conflicting fallbacks, duplicate IDs, missing names, or an inconsistent ownership manifest fails generation. Identical input produces identical output without timestamps, and concurrent loader builds share a writer lock.
+
+For CI, run the read-only `verifyGeneratedGroupLang` task **before** a build that could update the English file. It fails if checked-in generated output has drifted. Ordinary builds still regenerate automatically; no extra author command is required.

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_roofs_striped_awnings",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_roofs_striped_awnings",
+    "fallback": "Macaw's Roofs: Striped Awnings"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "mcwroofs"
+      },
+      {
+        "item_path_ends_with": "_striped_awning"
+      }
+    ]
+  }
+}

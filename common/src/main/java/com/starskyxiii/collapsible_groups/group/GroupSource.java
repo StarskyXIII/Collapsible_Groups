@@ -2,17 +2,16 @@ package com.starskyxiii.collapsible_groups.group;
 
 import java.util.Objects;
 
-/** Stable source classification derived from reserved group ID prefixes. */
 public enum GroupSource {
 	USER,
 	BUILTIN,
+	RESOURCE_PACK,
+	OVERRIDE,
 	KUBEJS;
 
 	public static GroupSource fromGroupId(String groupId) {
 		Objects.requireNonNull(groupId, "groupId");
-		if (groupId.startsWith("__default_")) return BUILTIN;
-		if (groupId.startsWith("__kjs_")) return KUBEJS;
-		return USER;
+		return GroupRepository.sourceOf(groupId);
 	}
 
 	public boolean usesEnabledOverride() {

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_oak_log",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_oak_log",
+    "fallback": "Chipped: Oak Log"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:oak_log"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

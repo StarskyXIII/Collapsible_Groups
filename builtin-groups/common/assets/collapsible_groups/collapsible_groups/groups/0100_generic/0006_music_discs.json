@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_music_discs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_music_discs",
+    "fallback": "Music Discs"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "tag": "c:music_discs"
+  }
+}

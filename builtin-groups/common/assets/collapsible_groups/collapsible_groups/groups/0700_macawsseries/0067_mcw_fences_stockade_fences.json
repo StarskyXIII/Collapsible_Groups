@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_stockade_fences",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_stockade_fences",
+    "fallback": "Macaw's Fences: Stockade Fences"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:stockade_fences"
+  }
+}

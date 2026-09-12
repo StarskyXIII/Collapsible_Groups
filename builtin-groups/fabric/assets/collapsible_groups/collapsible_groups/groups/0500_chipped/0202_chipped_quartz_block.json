@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_quartz_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_quartz_block",
+    "fallback": "Chipped: Quartz Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:quartz_block"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

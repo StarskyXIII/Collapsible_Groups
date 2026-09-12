@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_raw_copper_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_raw_copper_block",
+    "fallback": "Chipped: Raw Copper Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:raw_copper_block"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

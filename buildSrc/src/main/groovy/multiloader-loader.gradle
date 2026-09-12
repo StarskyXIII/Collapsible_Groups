@@ -44,3 +44,10 @@ tasks.named('sourcesJar', Jar) {
     dependsOn(configurations.commonResources)
     from(configurations.commonResources)
 }
+
+['processResources', 'sourcesJar'].each { taskName ->
+    tasks.named(taskName) {
+        dependsOn(rootProject.tasks.named('generateBuiltinGroups'))
+        from(layout.buildDirectory.dir('generated/builtin-groups'))
+    }
+}

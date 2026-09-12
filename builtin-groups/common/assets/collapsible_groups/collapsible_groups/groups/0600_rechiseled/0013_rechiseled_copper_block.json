@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_copper_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_copper_block",
+    "fallback": "Rechiseled: Copper Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:copper_block"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

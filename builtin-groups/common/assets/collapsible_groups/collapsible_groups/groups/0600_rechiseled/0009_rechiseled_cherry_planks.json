@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_cherry_planks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_cherry_planks",
+    "fallback": "Rechiseled: Cherry Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:cherry_planks"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

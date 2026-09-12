@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_lime_terracotta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_lime_terracotta",
+    "fallback": "Chipped: Lime Terracotta"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:lime_terracotta"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

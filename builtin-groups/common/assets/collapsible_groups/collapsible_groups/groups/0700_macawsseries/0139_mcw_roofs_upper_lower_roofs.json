@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_roofs_upper_lower_roofs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_roofs_upper_lower_roofs",
+    "fallback": "Macaw's Roofs: Upper Lower Roofs"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "mcwroofs"
+      },
+      {
+        "item_path_ends_with": "_upper_lower_roof"
+      }
+    ]
+  }
+}

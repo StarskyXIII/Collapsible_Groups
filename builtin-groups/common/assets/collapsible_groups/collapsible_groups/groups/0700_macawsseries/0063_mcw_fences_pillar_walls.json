@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_pillar_walls",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_pillar_walls",
+    "fallback": "Macaw's Fences: Pillar Walls"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:pillar_walls"
+  }
+}

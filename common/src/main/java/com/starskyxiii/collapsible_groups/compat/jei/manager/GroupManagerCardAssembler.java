@@ -14,7 +14,8 @@ final class GroupManagerCardAssembler {
 	private GroupManagerCardAssembler() {}
 
 	static Result build(List<GroupDefinition> groups, ViewerGroupIndex index) {
-		boolean generationPending = index.candidates().isEmpty();
+		boolean generationPending = !index.ready();
+		var generation = index.candidates().orElse(null);
 		List<GroupManagerCard> cards = new ArrayList<>(groups.size());
 		int totalItems = 0;
 		int totalFluids = 0;
@@ -22,12 +23,15 @@ final class GroupManagerCardAssembler {
 		for (GroupDefinition group : groups) {
 			ViewerGroupPreviewSnapshot snapshot = generationPending
 				? emptySnapshot()
-				: index.fullMatchSnapshot(group).orElseGet(GroupManagerCardAssembler::emptySnapshot);
+				: index.cachedFullMatchSnapshot(group).orElseGet(GroupManagerCardAssembler::emptySnapshot);
 			totalItems += snapshot.items().size();
 			totalFluids += snapshot.fluids().size();
 			totalGeneric += snapshot.generic().size();
 			cards.add(GroupManagerCard.create(group, snapshot.items().size(), snapshot.fluids().size(),
-				snapshot.generic().size(), previewEntries(snapshot.allValues())));
+				snapshot.generic().size(), previewEntries(snapshot.allValues())).withEvaluation(index.evaluation(group)));
+		}
+		if (!generationPending && (!index.ready() || index.candidates().orElse(null) != generation)) {
+			return new Result(groups.stream().map(group -> GroupManagerCard.create(group, 0, 0, 0, List.of())).toList(), true, 0, 0, 0);
 		}
 		return new Result(cards, generationPending, totalItems, totalFluids, totalGeneric);
 	}

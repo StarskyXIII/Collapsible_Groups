@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_jungle_planks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_jungle_planks",
+    "fallback": "Chipped: Jungle Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:jungle_planks"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

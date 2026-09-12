@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_acacia_planks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_acacia_planks",
+    "fallback": "Rechiseled: Acacia Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:acacia_planks"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

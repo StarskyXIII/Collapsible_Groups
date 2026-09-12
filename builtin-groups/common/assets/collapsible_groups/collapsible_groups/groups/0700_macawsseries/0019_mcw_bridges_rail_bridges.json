@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_bridges_rail_bridges",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_bridges_rail_bridges",
+    "fallback": "Macaw's Bridges: Rail Bridges"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwbridges:rail_bridges"
+  }
+}

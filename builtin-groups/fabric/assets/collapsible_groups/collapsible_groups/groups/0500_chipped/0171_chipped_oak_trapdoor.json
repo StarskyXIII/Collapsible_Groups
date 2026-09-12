@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_oak_trapdoor",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_oak_trapdoor",
+    "fallback": "Chipped: Oak Trapdoor"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:oak_trapdoor"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

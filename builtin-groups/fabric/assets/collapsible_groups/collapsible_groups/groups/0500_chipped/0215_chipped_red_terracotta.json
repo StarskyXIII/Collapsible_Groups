@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_red_terracotta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_red_terracotta",
+    "fallback": "Chipped: Red Terracotta"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:red_terracotta"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

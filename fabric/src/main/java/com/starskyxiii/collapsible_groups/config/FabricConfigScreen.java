@@ -43,13 +43,6 @@ public class FabricConfigScreen extends Screen {
 	// Mutable copy of settings being edited (snapshotted once on first init())
 	private boolean initialized;
 	private boolean defaultGroupsEnabled;
-	private boolean loadGeneric;
-	private boolean loadVanilla;
-	private boolean loadModIntegration;
-	private boolean loadChipped;
-	private boolean loadRechiseled;
-	private boolean loadRS2;
-	private boolean loadMacawsSeries;
 	private boolean showManagerButton;
 	private boolean showGroupBackgrounds;
 	private boolean searchUngroupSmallGroups;
@@ -98,13 +91,6 @@ public class FabricConfigScreen extends Screen {
 		if (!initialized) {
 			FabricConfig.FabricConfigData d = FabricConfig.getData();
 			defaultGroupsEnabled = d.defaultGroups.enabled;
-			loadGeneric          = d.defaultGroups.loadGeneric;
-			loadVanilla          = d.defaultGroups.loadVanilla;
-			loadModIntegration   = d.defaultGroups.modIntegration.loadModIntegration;
-			loadChipped          = d.defaultGroups.modIntegration.loadChipped;
-			loadRechiseled       = d.defaultGroups.modIntegration.loadRechiseled;
-			loadRS2              = d.defaultGroups.modIntegration.loadRS2;
-			loadMacawsSeries     = d.defaultGroups.modIntegration.loadMacawsSeries;
 			showManagerButton    = d.ui.showManagerButton;
 			showGroupBackgrounds = d.ui.showGroupBackgrounds;
 			searchUngroupSmallGroups = d.ui.searchUngroupSmallGroups;
@@ -126,27 +112,6 @@ public class FabricConfigScreen extends Screen {
 
 		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_DEFAULT_GROUPS_ENABLED,
 			() -> defaultGroupsEnabled, v -> defaultGroupsEnabled = v); y += ROW_H + ROW_GAP;
-		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_LOAD_GENERIC,
-			() -> loadGeneric, v -> loadGeneric = v);                  y += ROW_H + ROW_GAP;
-		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_LOAD_VANILLA,
-			() -> loadVanilla, v -> loadVanilla = v);                  y += ROW_H + ROW_GAP;
-
-		// ── Mod Integration ──
-		y += SEC_GAP;
-		recordSection(y, ModTranslationKeys.CONFIG_SECTION_MOD_INTEGRATION);
-		y += SEC_H + ROW_GAP;
-
-		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_LOAD_MOD_INTEGRATION,
-			() -> loadModIntegration, v -> loadModIntegration = v);    y += ROW_H + ROW_GAP;
-		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_LOAD_CHIPPED,
-			() -> loadChipped, v -> loadChipped = v);                  y += ROW_H + ROW_GAP;
-		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_LOAD_RECHISELED,
-			() -> loadRechiseled, v -> loadRechiseled = v);            y += ROW_H + ROW_GAP;
-		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_LOAD_RS2,
-			() -> loadRS2, v -> loadRS2 = v);                          y += ROW_H + ROW_GAP;
-		addToggle(cx, y, ModTranslationKeys.CONFIG_OPT_LOAD_MACAWS_SERIES,
-			() -> loadMacawsSeries, v -> loadMacawsSeries = v);        y += ROW_H + ROW_GAP;
-
 		// ── UI ──
 		y += SEC_GAP;
 		recordSection(y, ModTranslationKeys.CONFIG_SECTION_UI);
@@ -279,13 +244,6 @@ public class FabricConfigScreen extends Screen {
 
 		FabricConfig.FabricConfigData newData = new FabricConfig.FabricConfigData();
 		newData.defaultGroups.enabled                              = defaultGroupsEnabled;
-		newData.defaultGroups.loadGeneric                          = loadGeneric;
-		newData.defaultGroups.loadVanilla                          = loadVanilla;
-		newData.defaultGroups.modIntegration.loadModIntegration    = loadModIntegration;
-		newData.defaultGroups.modIntegration.loadChipped           = loadChipped;
-		newData.defaultGroups.modIntegration.loadRechiseled        = loadRechiseled;
-		newData.defaultGroups.modIntegration.loadRS2               = loadRS2;
-		newData.defaultGroups.modIntegration.loadMacawsSeries      = loadMacawsSeries;
 		newData.ui.showManagerButton                               = showManagerButton;
 		newData.ui.showGroupBackgrounds                            = showGroupBackgrounds;
 		newData.ui.searchUngroupSmallGroups                        = searchUngroupSmallGroups;

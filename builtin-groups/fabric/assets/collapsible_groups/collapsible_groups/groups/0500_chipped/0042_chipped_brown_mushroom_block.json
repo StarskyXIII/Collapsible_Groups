@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_brown_mushroom_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_brown_mushroom_block",
+    "fallback": "Chipped: Brown Mushroom Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:brown_mushroom_block"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

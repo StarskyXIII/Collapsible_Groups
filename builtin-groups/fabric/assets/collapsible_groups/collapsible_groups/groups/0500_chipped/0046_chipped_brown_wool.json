@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_brown_wool",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_brown_wool",
+    "fallback": "Chipped: Brown Wool"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:brown_wool"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_end_stone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_end_stone",
+    "fallback": "Rechiseled: End Stone"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:end_stone"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

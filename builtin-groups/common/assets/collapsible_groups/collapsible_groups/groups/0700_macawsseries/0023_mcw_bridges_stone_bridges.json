@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_bridges_stone_bridges",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_bridges_stone_bridges",
+    "fallback": "Macaw's Bridges: Stone Bridges"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwbridges:stone_bridges"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_shroomlight",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_shroomlight",
+    "fallback": "Chipped: Shroomlight"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:shroomlight"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

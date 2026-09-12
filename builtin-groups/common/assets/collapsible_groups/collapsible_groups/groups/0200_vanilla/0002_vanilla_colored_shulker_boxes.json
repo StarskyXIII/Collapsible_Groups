@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_vanilla_colored_shulker_boxes",
+  "name": {
+    "translate": "collapsible_groups.group.__default_vanilla_colored_shulker_boxes",
+    "fallback": "Vanilla Colored Shulker Boxes"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "c:shulker_boxes"
+      },
+      {
+        "type": "item",
+        "tag": "c:dyed"
+      },
+      {
+        "type": "item",
+        "namespace": "minecraft"
+      }
+    ]
+  }
+}

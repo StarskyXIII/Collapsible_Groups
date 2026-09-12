@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_brown_glazed_terracotta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_brown_glazed_terracotta",
+    "fallback": "Chipped: Brown Glazed Terracotta"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:brown_glazed_terracotta"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

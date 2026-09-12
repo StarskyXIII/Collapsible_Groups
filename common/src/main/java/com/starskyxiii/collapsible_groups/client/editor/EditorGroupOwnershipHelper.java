@@ -16,7 +16,7 @@ public final class EditorGroupOwnershipHelper {
 	static Map<String, String> enabledGroupDisplayNames(List<GroupDefinition> groups, String editId) {
 		Map<String, String> groupNames = new HashMap<>();
 		for (GroupDefinition group : groups) {
-			if (!group.id().equals(editId) && group.enabled()) {
+			if (!group.id().equals(editId) && com.starskyxiii.collapsible_groups.group.GroupRepository.isActive(group)) {
 				groupNames.put(group.id(), displayName(group));
 			}
 		}
@@ -25,7 +25,7 @@ public final class EditorGroupOwnershipHelper {
 
 	static List<GroupDefinition> enabledOtherGroups(List<GroupDefinition> groups, String editId) {
 		return groups.stream()
-			.filter(group -> !group.id().equals(editId) && group.enabled())
+			.filter(group -> !group.id().equals(editId) && com.starskyxiii.collapsible_groups.group.GroupRepository.isActive(group))
 			.toList();
 	}
 

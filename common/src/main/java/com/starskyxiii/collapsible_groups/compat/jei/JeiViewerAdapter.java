@@ -208,6 +208,12 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		List<GroupDefinition> groups,
 		Map<ITypedIngredient<?>, List<String>> matches
 	) {
+		return buildOwnershipIndexFromMatches(ingredients, manager, groups, matches, Map.of());
+	}
+
+	public PreparedOwnershipBuild buildOwnershipIndexFromMatches(List<ITypedIngredient<?>> ingredients,
+		IIngredientManager manager, List<GroupDefinition> groups, Map<ITypedIngredient<?>, List<String>> matches,
+		Map<String, String> failures) {
 		ProjectionContext context = updateBootstrap(ingredients, manager);
 		ViewerIngredientUniverse<ITypedIngredient<?>> universe = context.universe();
 		JeiViewerGroupIndex.instance().updateUniverse(universe);
@@ -225,7 +231,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		Map<String, GroupDefinition> snapshot = new LinkedHashMap<>();
 		for (GroupDefinition group : groups) snapshot.put(group.id(), group);
 		return new PreparedOwnershipBuild(context,
-			new GroupCandidateIndex(candidates, snapshot, edges, candidates.size(), maxCandidates));
+			GroupCandidateIndex.completed(candidates, snapshot, edges, universe.ordered().size(), maxCandidates, universe, failures));
 	}
 
 	public record PreparedOwnershipBuild(
@@ -286,7 +292,18 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	) {
 		List<ViewerIngredient<ITypedIngredient<?>>> entries = new ArrayList<>(ingredients.size());
 		for (ITypedIngredient<?> ingredient : ingredients) entries.add(createIngredient(ingredient, manager));
-		return new ViewerIngredientUniverse<>(entries);
+		Set<String> types = new LinkedHashSet<>();
+		for (IIngredientType<?> type : manager.getRegisteredIngredientTypes()) {
+			if (type == VanillaTypes.ITEM_STACK) types.add("item");
+			else if (type == JeiIngredientTypes.getFluidType()) types.add("fluid");
+			else {
+				String id = JeiIngredientTypes.getCanonicalId(type);
+				if (id != null) types.add(id);
+			}
+		}
+		entries.forEach(ingredient -> types.add(ingredient.view().ingredientType()));
+		return new ViewerIngredientUniverse<>(entries, null,
+			com.starskyxiii.collapsible_groups.viewer.GroupEvaluationContext.minecraft(types, Map.of()));
 	}
 
 	private static List<ITypedIngredient<?>> enumerate(IIngredientManager manager) {

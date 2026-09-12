@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_network_receivers",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_network_receivers",
+    "fallback": "RS2: Colored Network Receivers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:network_receivers"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:network_receiver"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_highley_gates",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_highley_gates",
+    "fallback": "Macaw's Fences: Highley Gates"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:highley_gates"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_paths_stone_pavings",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_paths_stone_pavings",
+    "fallback": "Macaw's Paths: Stone Pavings"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwpaths:stone_pavings"
+  }
+}

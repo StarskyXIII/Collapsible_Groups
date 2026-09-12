@@ -181,139 +181,45 @@ tasks.register('verifyEmiOnlyLinkage') {
     }
 }
 
-def groupLangSourceTrees = [
-    fileTree('common/src/main/java') { include '**/defaults/**/*.java' },
-    fileTree('fabric/src/main/java') { include '**/defaults/**/*.java' },
-    fileTree('forge/src/main/java') { include '**/defaults/**/*.java' },
-]
-
-def groupLangOutputFile = file(
-    'common/src/main/resources/assets/collapsible_groups/group_lang/en_us.json'
-)
+def builtinRoots = ['common', 'fabric'].collect { file("builtin-groups/${it}") }
+def groupLangOutputFile = file('common/src/main/resources/assets/collapsible_groups/lang/en_us.json')
+def groupLangManifestFile = file('builtin-groups/generated-language-keys.json')
 
 tasks.register('generateGroupLang') {
-    description = 'Generate built-in group lang entries from default group provider sources'
+    description = 'Merge built-in group English names into the standard language file'
     group = 'datagen'
-
-    inputs.files(groupLangSourceTrees)
-    outputs.file(groupLangOutputFile)
-
+    inputs.files(builtinRoots.collect { fileTree(it) })
+    inputs.files(groupLangOutputFile, groupLangManifestFile)
+    outputs.files(groupLangOutputFile, groupLangManifestFile)
+    outputs.file(layout.buildDirectory.file('reports/builtin-groups/language.json'))
+    outputs.upToDateWhen { false }
     doLast {
-        def addEntry = { Map<String, String> map, String groupId, String fallbackName, File sourceFile ->
-            def translationKey = "collapsible_groups.group.${groupId}"
-            def previous = map.putIfAbsent(translationKey, fallbackName)
-            if (previous != null && previous != fallbackName) {
-                throw new GradleException(
-                    "Conflicting fallback names for ${translationKey}: '${previous}' vs '${fallbackName}' in ${sourceFile}"
-                )
-            }
+        def report = BuiltinGroupData.language(builtinRoots, groupLangOutputFile, groupLangManifestFile,
+            file('.gradle/builtin-group-language.lock'))
+        def reportFile = layout.buildDirectory.file('reports/builtin-groups/language.json').get().asFile
+        reportFile.parentFile.mkdirs()
+        reportFile.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(report)) + '\n', 'UTF-8')
+    }
+}
+
+tasks.register('generateBuiltinGroups') {
+    description = 'Package built-in JSON definitions and catalogs for each loader'
+    group = 'datagen'
+    inputs.files(builtinRoots.collect { fileTree(it) })
+    def packaged = [common: builtinRoots, fabric: builtinRoots, forge: builtinRoots.take(1)]
+    outputs.dirs(packaged.keySet().collect { project(":${it}").layout.buildDirectory.dir('generated/builtin-groups') })
+    doLast {
+        packaged.each { module, roots ->
+            BuiltinGroupData.resources(roots, project(":${module}").layout.buildDirectory.dir('generated/builtin-groups').get().asFile)
         }
-        def titleCase = { String snakeCase ->
-            snakeCase
-                .split('_')
-                .collect { word -> word.isEmpty() ? word : Character.toString(Character.toUpperCase(word.charAt(0))) + word.substring(1) }
-                .join(' ')
-        }
+    }
+}
 
-        def sourceFiles = groupLangSourceTrees
-            .collectMany { it.files }
-            .findAll { it.name.endsWith('.java') }
-            .sort { a, b -> a.absolutePath.replace('\\', '/') <=> b.absolutePath.replace('\\', '/') }
-
-        // Matches any method call whose first string literal argument starts with "__default_".
-        // Convention: every method inside a DefaultGroupProvider that wraps group()
-        // MUST pass groupId (which always starts with "__default_") as the first string
-        // literal and fallbackName as the second string literal.
-        // Using the "__default_" prefix as a discriminator avoids false matches on nested
-        // helper calls (e.g. component(), item()) whose first argument is a registry key.
-        def pattern = ~/\w+\(\s*"(__default_[^"]+)"\s*,\s*"([^"]+)"/
-        def moduleSpecPattern = ~/(?s)private\s+static\s+final\s+ModuleSpec\s+(\w+)\s*=\s*new\s+ModuleSpec\(\s*"([^"]+)"\s*,\s*"(__default_[^"]+)"\s*,\s*"([^"]+)"\s*,\s*new String\[\]\s*\{(.*?)\}\s*\);/
-        def moduleSpecTagPattern = ~/"([^"]+)"/
-        def displayNameOverridePattern = ~/case\s+"([^"]+)"\s*->\s*"([^"]+)"/
-        def pathGroupArrayPattern = ~/(?s)private\s+static\s+final\s+PathGroupSpec\[\]\s+(\w+)\s*=\s*\{(.*?)\};/
-        def pathGroupEntryPattern = ~/new\s+PathGroupSpec\(\s*"([^"]+)"\s*,\s*"([^"]+)"/
-        def pathGroupPrefixPattern = ~/(?s)for\s*\(\s*PathGroupSpec\s+(\w+)\s*:\s*(\w+)\s*\)\s*\{\s*groups\.add\(group\(\s*"(__default_[^"]+)"\s*\+\s*\1\.idSuffix\(\)\s*,\s*\1\.displayName\(\)/
-        def entries = [:]
-
-        sourceFiles.each { sourceFile ->
-            def content = sourceFile.getText('UTF-8')
-            def displayNameOverrides = [:]
-            def displayNameOverrideMatcher = displayNameOverridePattern.matcher(content)
-            while (displayNameOverrideMatcher.find()) {
-                displayNameOverrides[displayNameOverrideMatcher.group(1)] = displayNameOverrideMatcher.group(2)
-            }
-
-            def matcher = pattern.matcher(content)
-            while (matcher.find()) {
-                addEntry(entries, matcher.group(1), matcher.group(2), sourceFile)
-            }
-
-            def moduleSpecMatcher = moduleSpecPattern.matcher(content)
-            while (moduleSpecMatcher.find()) {
-                def groupIdPrefix = moduleSpecMatcher.group(3)
-                def displayPrefix = moduleSpecMatcher.group(4)
-                def tagsBody = moduleSpecMatcher.group(5)
-                def moduleSpecTagMatcher = moduleSpecTagPattern.matcher(tagsBody)
-                while (moduleSpecTagMatcher.find()) {
-                    def tag = moduleSpecTagMatcher.group(1)
-                    def displayName = displayNameOverrides.getOrDefault(tag, titleCase(tag))
-                    addEntry(entries, groupIdPrefix + tag, displayPrefix + displayName, sourceFile)
-                }
-            }
-
-            def pathGroupPrefixes = [:]
-            def parsedPathGroupEntries = [:].withDefault { 0 }
-            def prefixMatcher = pathGroupPrefixPattern.matcher(content)
-            while (prefixMatcher.find()) {
-                def arrayName = prefixMatcher.group(2)
-                def groupIdPrefix = prefixMatcher.group(3)
-                pathGroupPrefixes[arrayName] = groupIdPrefix
-            }
-
-            def pathGroupArrayMatcher = pathGroupArrayPattern.matcher(content)
-            while (pathGroupArrayMatcher.find()) {
-                def arrayName = pathGroupArrayMatcher.group(1)
-                def body = pathGroupArrayMatcher.group(2)
-                def groupIdPrefix = pathGroupPrefixes[arrayName]
-                if (groupIdPrefix == null) {
-                    continue
-                }
-
-                def pathGroupEntryMatcher = pathGroupEntryPattern.matcher(body)
-                while (pathGroupEntryMatcher.find()) {
-                    def groupId = groupIdPrefix + pathGroupEntryMatcher.group(1)
-                    def fallbackName = pathGroupEntryMatcher.group(2)
-                    addEntry(entries, groupId, fallbackName, sourceFile)
-                    parsedPathGroupEntries[arrayName] = parsedPathGroupEntries[arrayName] + 1
-                }
-            }
-
-            pathGroupPrefixes.each { arrayName, groupIdPrefix ->
-                if (parsedPathGroupEntries[arrayName] == 0) {
-                    throw new GradleException(
-                        "No PathGroupSpec entries were generated for ${arrayName} (${groupIdPrefix}*) in ${sourceFile}. " +
-                        "Check generateGroupLang regex compatibility with the current source layout."
-                    )
-                }
-            }
-
-        }
-
-        if (entries.isEmpty()) {
-            throw new GradleException(
-                'No built-in group entries found. Check the default provider source scan paths and group(...) call pattern.'
-            )
-        }
-
-        def sortedEntries = new TreeMap<String, String>(entries)
-        groupLangOutputFile.parentFile.mkdirs()
-        groupLangOutputFile.setText(
-            JsonOutput.prettyPrint(JsonOutput.toJson(sortedEntries)),
-            'UTF-8'
-        )
-
-        logger.lifecycle(
-            "Generated ${project.relativePath(groupLangOutputFile)} with ${sortedEntries.size()} entries"
-        )
+tasks.register('verifyGeneratedGroupLang') {
+    description = 'Check committed built-in English generation without changing source files'
+    group = 'verification'
+    doLast {
+        BuiltinGroupData.verifyLanguage(builtinRoots, groupLangOutputFile, groupLangManifestFile,
+            layout.buildDirectory.dir('tmp/verify-group-language').get().asFile)
     }
 }

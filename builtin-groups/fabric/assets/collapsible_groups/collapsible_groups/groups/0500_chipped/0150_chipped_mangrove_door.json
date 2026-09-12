@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_mangrove_door",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_mangrove_door",
+    "fallback": "Chipped: Mangrove Door"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:mangrove_door"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

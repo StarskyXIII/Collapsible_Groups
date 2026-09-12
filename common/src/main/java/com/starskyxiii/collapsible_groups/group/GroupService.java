@@ -27,15 +27,51 @@ final class GroupService {
 		Map<SourceKey, List<GroupDefinition>> sources,
 		Set<SourceKey> appliedSources,
 		GroupCatalog.Snapshot managed,
-		GroupCatalog.Snapshot all
+		GroupCatalog.Snapshot all,
+		GroupResourceData resources,
+		boolean builtinsEnabled
 	) {
 		private static Snapshot empty() {
 			GroupCatalog.Snapshot empty = GroupCatalog.Snapshot.from(List.of());
-			return new Snapshot(Map.of(), Set.of(), empty, empty);
+			return new Snapshot(Map.of(), Set.of(), empty, empty, GroupResourceData.empty(), true);
 		}
 	}
 
 	private volatile Snapshot snapshot = Snapshot.empty();
+
+	record ReadSnapshot(List<GroupDefinition> groups, GroupResourceData resources, boolean builtinsEnabled) {}
+
+	ReadSnapshot readSnapshot() {
+		Snapshot current = snapshot;
+		return new ReadSnapshot(current.all().priorityOrder(), current.resources(), current.builtinsEnabled());
+	}
+
+	GroupResourceData resources() { return snapshot.resources(); }
+	boolean builtinsEnabled() { return snapshot.builtinsEnabled(); }
+
+	synchronized boolean replaceManaged(GroupResourceData incoming, Map<String, Boolean> enabledOverrides, boolean enabled) {
+		if (incoming.rejected()) {
+			snapshot = new Snapshot(snapshot.sources(), snapshot.appliedSources(), snapshot.managed(), snapshot.all(),
+				incoming.retaining(snapshot.resources()), enabled);
+			return false;
+		}
+		List<GroupDefinition> effective = incoming.groups().stream().map(group -> {
+			GroupOrigin origin = incoming.origin(group.id());
+			Boolean preference = incoming.builtinIds().contains(group.id()) || origin.source().usesEnabledOverride()
+				? enabledOverrides.get(group.id()) : null;
+			return preference == null || preference == group.enabled() ? group : group.withEnabled(preference);
+		}).toList();
+		LinkedHashMap<SourceKey, List<GroupDefinition>> sources = mutableSources(snapshot.sources());
+		sources.keySet().removeIf(key -> key.category() != GroupSource.KUBEJS);
+		sources.put(new SourceKey(GroupSource.USER, "resources"), validate(effective));
+		publish(sources, snapshot.appliedSources(), incoming, enabled);
+		return true;
+	}
+
+	synchronized void setBuiltinsEnabled(boolean enabled) {
+		snapshot = new Snapshot(snapshot.sources(), snapshot.appliedSources(), snapshot.managed(), snapshot.all(),
+			snapshot.resources(), enabled);
+	}
 
 	List<GroupDefinition> managedRegistrationOrder() {
 		return snapshot.managed().registrationOrder();
@@ -185,7 +221,8 @@ final class GroupService {
 		if (snapshot.appliedSources().contains(key)) return;
 		Set<SourceKey> applied = new LinkedHashSet<>(snapshot.appliedSources());
 		applied.add(key);
-		snapshot = new Snapshot(snapshot.sources(), immutableSet(applied), snapshot.managed(), snapshot.all());
+		snapshot = new Snapshot(snapshot.sources(), immutableSet(applied), snapshot.managed(), snapshot.all(),
+			snapshot.resources(), snapshot.builtinsEnabled());
 	}
 
 	boolean isApplied(SourceKey key) {
@@ -211,11 +248,16 @@ final class GroupService {
 
 	private void publish(LinkedHashMap<SourceKey, List<GroupDefinition>> sources,
 		Set<SourceKey> appliedSources) {
+		publish(sources, appliedSources, snapshot.resources(), snapshot.builtinsEnabled());
+	}
+
+	private void publish(LinkedHashMap<SourceKey, List<GroupDefinition>> sources, Set<SourceKey> appliedSources,
+		GroupResourceData resources, boolean builtinsEnabled) {
 		Map<SourceKey, List<GroupDefinition>> frozenSources = immutableMap(sources);
-		List<GroupDefinition> managed = merge(frozenSources, EnumSet.of(GroupSource.USER, GroupSource.BUILTIN));
+		List<GroupDefinition> managed = merge(frozenSources, EnumSet.complementOf(EnumSet.of(GroupSource.KUBEJS)));
 		List<GroupDefinition> all = merge(frozenSources, EnumSet.allOf(GroupSource.class));
 		snapshot = new Snapshot(frozenSources, immutableSet(appliedSources),
-			GroupCatalog.Snapshot.from(managed), GroupCatalog.Snapshot.from(all));
+			GroupCatalog.Snapshot.from(managed), GroupCatalog.Snapshot.from(all), resources, builtinsEnabled);
 	}
 
 	private static List<GroupDefinition> validate(List<GroupDefinition> incoming) {
@@ -235,7 +277,7 @@ final class GroupService {
 		Set<GroupSource> included) {
 		List<Entry> entries = new ArrayList<>();
 		Map<String, Integer> positions = new HashMap<>();
-		for (GroupSource category : List.of(GroupSource.BUILTIN, GroupSource.USER, GroupSource.KUBEJS)) {
+		for (GroupSource category : List.of(GroupSource.BUILTIN, GroupSource.RESOURCE_PACK, GroupSource.USER, GroupSource.OVERRIDE, GroupSource.KUBEJS)) {
 			if (!included.contains(category)) continue;
 			for (Map.Entry<SourceKey, List<GroupDefinition>> source : sources.entrySet()) {
 				if (source.getKey().category() != category) continue;
@@ -256,7 +298,9 @@ final class GroupService {
 
 	private static int authority(GroupSource source) {
 		return switch (source) {
-			case USER -> 3;
+			case OVERRIDE -> 5;
+			case USER -> 4;
+			case RESOURCE_PACK -> 3;
 			case BUILTIN -> 2;
 			case KUBEJS -> 1;
 		};

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_blue_carpet",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_blue_carpet",
+    "fallback": "Chipped: Blue Carpet"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:blue_carpet"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

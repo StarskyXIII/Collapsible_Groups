@@ -122,7 +122,8 @@ public final class GroupConfig {
 				&& obj.get("manager_sort_mode").getAsJsonPrimitive().isString()) {
 				managerSortMode = obj.get("manager_sort_mode").getAsString();
 			}
-			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode);
+			boolean showEmpty = obj.has("manager_show_empty") && obj.get("manager_show_empty").getAsBoolean();
+			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, showEmpty);
 		} catch (Exception e) {
 			Constants.LOG.warn("Failed to load {}, using defaults: {}", label, e.getMessage());
 			return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT, UiState.SORT_MODE_DEFAULT);
@@ -131,6 +132,11 @@ public final class GroupConfig {
 
 	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
 	                               String managerSourceFilter, String managerSortMode) {
+		saveUiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, false);
+	}
+
+	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+		String managerSourceFilter, String managerSortMode, boolean managerShowEmpty) {
 		Path file = getUiStateFile();
 		try {
 			Files.createDirectories(file.getParent());
@@ -140,6 +146,7 @@ public final class GroupConfig {
 			obj.addProperty("hide_used", hideUsed);
 			obj.addProperty("manager_source_filter", managerSourceFilter);
 			obj.addProperty("manager_sort_mode", managerSortMode);
+			obj.addProperty("manager_show_empty", managerShowEmpty);
 			writeAtomically(file, GSON.toJson(obj));
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save UI state", e);
@@ -331,18 +338,7 @@ public final class GroupConfig {
 	public static GroupDefinition fromJson(String json) {
 		String id = null;
 		try {
-			ParsedGroupJson parsed = parseGroupJson(json);
-			id = parsed.id();
-			return new GroupDefinition(
-				parsed.id(),
-				parsed.displayName(),
-				parsed.enabled(),
-				parsed.filter(),
-				parsed.iconIds(),
-				parsed.theme(),
-				parsed.priority(),
-				parsed.extra(), parsed.documentFormat(), parsed.rawDocument()
-			);
+			return fromJsonChecked(json);
 		} catch (IllegalArgumentException e) {
 			Constants.LOG.error("Group '{}': {}", id, e.getMessage());
 			return null;
@@ -350,6 +346,12 @@ public final class GroupConfig {
 			Constants.LOG.error("Invalid group JSON: {}", json, e);
 			return null;
 		}
+	}
+
+	public static GroupDefinition fromJsonChecked(String json) {
+		ParsedGroupJson parsed = parseGroupJson(json);
+		return new GroupDefinition(parsed.id(), parsed.displayName(), parsed.enabled(), parsed.filter(),
+			parsed.iconIds(), parsed.theme(), parsed.priority(), parsed.extra(), parsed.documentFormat(), parsed.rawDocument());
 	}
 
 	private static ParsedGroupJson parseGroupJson(String json) {
@@ -653,7 +655,7 @@ public final class GroupConfig {
 		throw new IllegalArgumentException("Unknown filter node: " + obj);
 	}
 
-	private static GroupDocumentFormat documentFormat(JsonObject object) {
+	static GroupDocumentFormat documentFormat(JsonObject object) {
 		if (!object.has("schema_version")) return GroupDocumentFormat.LEGACY;
 		JsonElement version = object.get("schema_version");
 		if (version.isJsonPrimitive() && version.getAsJsonPrimitive().isNumber()) {
@@ -842,7 +844,10 @@ public final class GroupConfig {
 	) {}
 
 	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
-	                      String managerSourceFilter, String managerSortMode) {
+	                      String managerSourceFilter, String managerSortMode, boolean managerShowEmpty) {
+		public UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String source, String sort) {
+			this(showBuiltin, showKubeJs, hideUsed, source, sort, false);
+		}
 		public static final String SOURCE_FILTER_DEFAULT = "all";
 		public static final String SORT_MODE_DEFAULT = "priority";
 	}

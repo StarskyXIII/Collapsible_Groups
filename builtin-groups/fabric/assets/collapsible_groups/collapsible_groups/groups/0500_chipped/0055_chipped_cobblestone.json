@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_cobblestone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_cobblestone",
+    "fallback": "Chipped: Cobblestone"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:cobblestone"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

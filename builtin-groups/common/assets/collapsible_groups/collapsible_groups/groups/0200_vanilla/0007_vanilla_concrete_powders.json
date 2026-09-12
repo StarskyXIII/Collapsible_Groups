@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_vanilla_concrete_powders",
+  "name": {
+    "translate": "collapsible_groups.group.__default_vanilla_concrete_powders",
+    "fallback": "Vanilla Concrete Powders"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "c:concrete_powders"
+      },
+      {
+        "type": "item",
+        "namespace": "minecraft"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_stripped_jungle_log",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_stripped_jungle_log",
+    "fallback": "Chipped: Stripped Jungle Log"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:stripped_jungle_log"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

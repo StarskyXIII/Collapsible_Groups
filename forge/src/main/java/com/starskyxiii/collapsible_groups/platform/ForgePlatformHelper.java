@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.platform;
 
+import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.platform.fluid.FluidAmount;
 import com.starskyxiii.collapsible_groups.platform.fluid.FluidAmountUnit;
@@ -21,6 +22,33 @@ import net.minecraftforge.fluids.FluidStack;
 import java.nio.file.Path;
 
 public class ForgePlatformHelper implements IPlatformHelper {
+
+    @Override
+    public java.util.List<net.minecraft.server.packs.PackResources> groupResourcePacks(
+        net.minecraft.server.packs.resources.ResourceManager manager) {
+        return groupResourcePacks(manager, net.minecraftforge.resource.ResourcePackLoader.getPackFor(Constants.MOD_ID).orElse(null));
+    }
+
+    static java.util.List<net.minecraft.server.packs.PackResources> groupResourcePacks(
+        net.minecraft.server.packs.resources.ResourceManager manager, net.minecraft.server.packs.PackResources bundledPack) {
+        java.util.List<net.minecraft.server.packs.PackResources> result = new java.util.ArrayList<>();
+        try (var packs = manager.listPacks()) { packs.forEach(pack -> appendGroupPack(result, pack, bundledPack)); }
+        return java.util.List.copyOf(result);
+    }
+
+    private static void appendGroupPack(java.util.List<net.minecraft.server.packs.PackResources> result,
+        net.minecraft.server.packs.PackResources pack, net.minecraft.server.packs.PackResources bundledPack) {
+        if (pack == bundledPack || (pack instanceof net.minecraftforge.resource.PathPackResources pathPack
+            && bundledPack instanceof net.minecraftforge.resource.PathPackResources bundledPath
+            && pathPack.getSource().equals(bundledPath.getSource()))) return;
+        if (pack instanceof net.minecraftforge.resource.DelegatingPackResources delegated) {
+            var children = new java.util.ArrayList<>(delegated.getChildren());
+            java.util.Collections.reverse(children);
+            children.forEach(child -> appendGroupPack(result, child, bundledPack));
+        } else {
+            result.add(pack);
+        }
+    }
 
     @Override
     public Path getConfigDir() {

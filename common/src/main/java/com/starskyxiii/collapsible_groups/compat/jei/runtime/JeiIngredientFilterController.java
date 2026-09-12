@@ -35,6 +35,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -162,6 +163,7 @@ public final class JeiIngredientFilterController {
 			IngredientFilterHelper.buildItemOwnershipResult(all, allGroups);
 		Map<ITypedIngredient<?>, GroupDefinition> index = itemResult.ingredientGroupIndex();
 		Map<ITypedIngredient<?>, List<String>> candidateGroups = new IdentityHashMap<>();
+		Map<String, String> failures = new LinkedHashMap<>(itemResult.evaluationFailures());
 		for (GroupDefinition group : allGroups) {
 			for (IngredientFilterItemIndex.ItemEntry entry : itemResult.fullMatchEntriesByGroup().get(group.id())) {
 				candidateGroups.computeIfAbsent(entry.typed(), ignored -> new ArrayList<>()).add(group.id());
@@ -181,9 +183,10 @@ public final class JeiIngredientFilterController {
 			if (fluid != null) {
 				GroupDefinition firstMatch = null;
 				for (GroupDefinition group : fluidGroups) {
-					if (!GroupMatcher.matchesFluidIgnoringEnabled(group, fluid.fluid())) continue;
+					if (com.starskyxiii.collapsible_groups.viewer.GroupEvaluations.evaluate(group, fluid.fluid().view(), failures)
+						!= com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.Evaluation.MATCH) continue;
 					candidateGroups.computeIfAbsent(typed, ignored -> new ArrayList<>()).add(group.id());
-					if (firstMatch == null && group.enabled()) {
+					if (firstMatch == null && com.starskyxiii.collapsible_groups.group.GroupRepository.isActive(group)) {
 						firstMatch = group;
 						index.put(typed, group);
 						fluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid.viewerValue());
@@ -196,7 +199,7 @@ public final class JeiIngredientFilterController {
 			}
 			if (!genericGroups.isEmpty() && hooks.canIndexGeneric(ingredientManager)) {
 				hooks.genericProbe().index(typed, ingredientManager, index, genericGroups,
-					fullMatchGenericByGroup, candidateGroups);
+					fullMatchGenericByGroup, candidateGroups, failures);
 			}
 		}
 
@@ -207,7 +210,7 @@ public final class JeiIngredientFilterController {
 		}
 		JeiViewerAdapter.PreparedOwnershipBuild prepared =
 			JeiViewerAdapter.instance().buildOwnershipIndexFromMatches(
-			all, ingredientManager, allGroups, candidateGroups);
+			all, ingredientManager, allGroups, candidateGroups, failures);
 		JeiViewerGroupIndex.Generation generation = new JeiViewerGroupIndex.Generation(
 			prepared.candidates(),
 			IngredientFilterHelper.toStackMap(itemResult.resolvedEntriesByGroup()),
@@ -433,7 +436,7 @@ public final class JeiIngredientFilterController {
 		void index(ITypedIngredient<?> typed, IIngredientManager manager,
 			Map<ITypedIngredient<?>, GroupDefinition> index, List<GroupDefinition> groups,
 			Map<String, List<GenericIngredientRef>> fullMatches,
-			Map<ITypedIngredient<?>, List<String>> candidateGroups);
+			Map<ITypedIngredient<?>, List<String>> candidateGroups, Map<String, String> failures);
 	}
 
 	public static GenericProbe castGenericProbe() {
@@ -448,13 +451,13 @@ public final class JeiIngredientFilterController {
 	private static <T> void indexGenericByCast(ITypedIngredient<?> typed, IIngredientManager manager,
 		Map<ITypedIngredient<?>, GroupDefinition> index, List<GroupDefinition> groups,
 		Map<String, List<GenericIngredientRef>> fullMatches,
-		Map<ITypedIngredient<?>, List<String>> candidateGroups) {
+		Map<ITypedIngredient<?>, List<String>> candidateGroups, Map<String, String> failures) {
 		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
 			IIngredientType<T> type = (IIngredientType<T>) entry.getValue();
 			T cast = typed.getIngredient(type).orElse(null);
 			if (cast == null) continue;
 			indexGeneric(entry.getKey(), type, cast, typed, manager, index, groups,
-				fullMatches, candidateGroups);
+				fullMatches, candidateGroups, failures);
 			return;
 		}
 	}
@@ -463,12 +466,12 @@ public final class JeiIngredientFilterController {
 	private static <T> void indexGenericByExactType(ITypedIngredient<?> typed, IIngredientManager manager,
 		Map<ITypedIngredient<?>, GroupDefinition> index, List<GroupDefinition> groups,
 		Map<String, List<GenericIngredientRef>> fullMatches,
-		Map<ITypedIngredient<?>, List<String>> candidateGroups) {
+		Map<ITypedIngredient<?>, List<String>> candidateGroups, Map<String, String> failures) {
 		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
 			IIngredientType<T> type = (IIngredientType<T>) entry.getValue();
 			if (!typed.getType().equals(type)) continue;
 			indexGeneric(entry.getKey(), type, ((ITypedIngredient<T>) typed).getIngredient(), typed,
-				manager, index, groups, fullMatches, candidateGroups);
+				manager, index, groups, fullMatches, candidateGroups, failures);
 			break;
 		}
 	}
@@ -477,13 +480,15 @@ public final class JeiIngredientFilterController {
 	private static <T> void indexGeneric(String typeId, IIngredientType<T> type, T ingredient,
 		ITypedIngredient<?> typed, IIngredientManager manager, Map<ITypedIngredient<?>, GroupDefinition> index,
 		List<GroupDefinition> groups, Map<String, List<GenericIngredientRef>> fullMatches,
-		Map<ITypedIngredient<?>, List<String>> candidateGroups) {
+		Map<ITypedIngredient<?>, List<String>> candidateGroups, Map<String, String> failures) {
 		IIngredientHelper<T> helper = manager.getIngredientHelper(type);
 		GroupDefinition firstMatch = null;
 		for (GroupDefinition group : groups) {
-			if (!GroupMatcher.matchesGenericIgnoringEnabled(group, typeId, ingredient, helper)) continue;
+			if (com.starskyxiii.collapsible_groups.viewer.GroupEvaluations.evaluate(group,
+				new GenericJeiIngredientView<>(typeId, ingredient, helper), failures)
+				!= com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.Evaluation.MATCH) continue;
 			candidateGroups.computeIfAbsent(typed, ignored -> new ArrayList<>()).add(group.id());
-			if (firstMatch == null && group.enabled()) {
+			if (firstMatch == null && com.starskyxiii.collapsible_groups.group.GroupRepository.isActive(group)) {
 				firstMatch = group;
 				index.put(typed, group);
 			}
