@@ -444,7 +444,7 @@ public class GroupEditorScreen extends Screen {
 				UiPalette.OUTLINE_HOVER);
 		}
 		if (disableSourceAfterCopy) {
-			renderCheckboxMark(g, checkbox);
+			UiSkinRenderer.drawCheckboxMark(g, checkbox.x(), checkbox.y(), UiPalette.TEXT_SELECTED);
 		}
 
 		String text = disableSourceLabel().getString();
@@ -462,15 +462,7 @@ public class GroupEditorScreen extends Screen {
 		return true;
 	}
 
-	private void renderCheckboxMark(GuiGraphics g, EditorShellLayout.Rect checkbox) {
-		int color = UiPalette.TEXT_SELECTED;
-		int x = checkbox.x();
-		int y = checkbox.y();
-		g.fill(x + 3, y + 7, x + 5, y + 9, color);
-		g.fill(x + 5, y + 9, x + 7, y + 11, color);
-		g.fill(x + 7, y + 6, x + 9, y + 9, color);
-		g.fill(x + 9, y + 4, x + 11, y + 7, color);
-	}
+
 
 	private void renderShellPanels(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
 		UiSkinRenderer.drawPanel(g, shell.editorPanel().x(), shell.editorPanel().y(),
@@ -486,13 +478,12 @@ public class GroupEditorScreen extends Screen {
 			renderSettingsPanel(g, mouseX, mouseY);
 		}
 		renderPreviewPanel(g, mouseX, mouseY);
-		if (editorDataLoading) {
-			Component loading = Component.translatable(ModTranslationKeys.EDITOR_LOADING);
-			g.drawCenteredString(font, loading,
-				(shell.editorPanel().x() + shell.previewPanel().right()) / 2,
-				shell.editorPanel().y() + shell.editorPanel().height() / 2,
-				UiPalette.TEXT_HINT);
-		}
+	}
+
+	private void renderLoading(GuiGraphics g, EditorShellLayout.Rect area) {
+		g.drawCenteredString(font, Component.translatable(ModTranslationKeys.EDITOR_LOADING),
+			area.x() + area.width() / 2, area.y() + (area.height() - font.lineHeight) / 2,
+			UiPalette.TEXT_HINT);
 	}
 
 	private void renderModeSegments(GuiGraphics g, int mouseX, int mouseY) {
@@ -512,7 +503,12 @@ public class GroupEditorScreen extends Screen {
 		renderHideUsedButton(g, mouseX, mouseY);
 
 		renderSourceCount(g);
-		leftPanel.render(g, mouseX, mouseY, layout);
+		if (editorDataLoading) {
+			renderLoading(g, new EditorShellLayout.Rect(layout.leftGridX(), layout.gridTop(),
+				layout.leftGridWidth(), layout.gridHeight()));
+		} else {
+			leftPanel.render(g, mouseX, mouseY, layout);
+		}
 		renderOreScrollbar(g, layout.leftScrollbarX(), layout.gridTop(), layout.gridHeight(),
 			layout.leftRows(), leftPanel.totalRows(layout), leftPanel.scrollRow);
 	}
@@ -599,7 +595,9 @@ public class GroupEditorScreen extends Screen {
 		boolean blockPreviewHover = activeMode == EditorShellMode.RULES && rulesPanel.isModalOpen();
 		int panelMouseX = blockPreviewHover ? Integer.MIN_VALUE : mouseX;
 		int panelMouseY = blockPreviewHover ? Integer.MIN_VALUE : mouseY;
-		if (previewEntryCount() == 0) {
+		if (editorDataLoading && activeMode == EditorShellMode.RULES) {
+			renderLoading(g, shell.previewBody());
+		} else if (previewEntryCount() == 0) {
 			renderPreviewEmptyState(g);
 		} else {
 			rightPanel.render(g, panelMouseX, panelMouseY, previewLayout);
@@ -622,6 +620,11 @@ public class GroupEditorScreen extends Screen {
 		}
 
 		EditorShellLayout.Rect area = settingsPreviewAreaRect();
+		if (editorDataLoading) {
+			settingsPreviewLayout = null;
+			renderLoading(g, area);
+			return;
+		}
 		List<EditorRuntimeAccess.PreviewEntry> entries = settingsPreviewEntries();
 		settingsPreviewLayout = EditorRuntimeServices.get().renderPreview(g, sampleRect(area), settingsPreviewExpanded,
 			settingsPreviewPage, state.appearanceDraft, settingsSampleHeaderIcons(entries), entries,
@@ -1062,6 +1065,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private boolean handleSettingsPreviewClick(double mouseX, double mouseY) {
+		if (editorDataLoading) return false;
 		EditorRuntimeAccess.PreviewLayout layout = settingsPreviewLayout != null
 			? settingsPreviewLayout
 			: EditorRuntimeServices.get().layoutPreview(sampleRect(settingsPreviewAreaRect()), settingsPreviewExpanded,

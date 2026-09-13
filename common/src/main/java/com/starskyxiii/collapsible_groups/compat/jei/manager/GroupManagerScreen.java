@@ -460,13 +460,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		int optionY = showEmptyOptionY();
 		boolean optionHover = isMouseOver(mouseX, mouseY, x, optionY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT);
 		if (optionHover) g.fill(x, optionY, x + SORT_MENU_WIDTH, optionY + SORT_MENU_ROW_HEIGHT, UiPalette.SURFACE);
-		UiSkinRenderer.drawOutline(g, x + 5, optionY + 3, 11, 11, UiPalette.TEXT_MUTED);
-		if (showEmptyGroups) {
-			g.fill(x + 7, optionY + 8, x + 9, optionY + 10, UiPalette.TEXT_PRIMARY);
-			g.fill(x + 9, optionY + 6, x + 11, optionY + 9, UiPalette.TEXT_PRIMARY);
-			g.fill(x + 11, optionY + 4, x + 13, optionY + 7, UiPalette.TEXT_PRIMARY);
-		}
-		g.drawString(font, Component.translatable(ModTranslationKeys.MANAGER_SHOW_EMPTY), x + 21, optionY + 5, UiPalette.TEXT_PRIMARY, false);
+		UiSkinRenderer.drawOutline(g, x + 5, optionY + 2, 14, 14, UiPalette.TEXT_MUTED);
+		if (showEmptyGroups) UiSkinRenderer.drawCheckboxMark(g, x + 5, optionY + 2, UiPalette.TEXT_PRIMARY);
+		g.drawString(font, Component.translatable(ModTranslationKeys.MANAGER_SHOW_EMPTY), x + 24, optionY + 5, UiPalette.TEXT_PRIMARY, false);
 		g.pose().popPose();
 	}
 
@@ -667,7 +663,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		int y = pos[1];
 		if (y + CARD_HEIGHT < headerHeight() || y > this.height - FOOTER_HEIGHT) return;
 
-		boolean cardHover = isMouseOver(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
+		boolean cardHover = isInsideCardViewport(mouseX, mouseY) && isMouseOver(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
 		boolean batchSelected = batchMode && batchSelection.isSelected(card.id());
 		boolean savedHighlight = card.id().equals(highlightedSavedGroupId)
 			&& System.currentTimeMillis() < highlightedSavedUntil;
@@ -678,8 +674,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 		renderHeaderPreview(g, card, x + 6, y + CARD_TITLE_Y, switchControlX(x) - 4, cardHover);
 		renderCardPreview(g, card, x + 6, y + CARD_PREVIEW_Y, previewScrollOffsets.getOrDefault(card.id(), 0));
-		renderSourceTab(g, card, x, y);
-		if (cardHover) pendingTooltip = cardDetails(card);
+		renderSourceTab(g, card, x, y, cardHover ? mouseX : Integer.MIN_VALUE, mouseY);
+		if (cardHover) recordEvaluationTooltip(card, x, y, mouseX, mouseY);
 		if (!card.group().enabled()) {
 			renderDisabledOverlay(g, x, y);
 		}
@@ -769,7 +765,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		boolean canShiftDelete = card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE);
 		boolean canUseMiddleAction = canEdit || canCopy;
 
-		boolean controlsInteractive = !batchMode;
+		boolean controlsInteractive = !batchMode && isInsideCardViewport(mouseX, mouseY);
 		boolean rawSwitchHover = controlsInteractive && isMouseOver(mouseX, mouseY, switchX, switchY, SWITCH_WIDTH, SWITCH_HEIGHT);
 		boolean switchHover = effectiveSwitchHover(card.id(), rawSwitchHover);
 		boolean editHover = controlsInteractive && isMouseOver(mouseX, mouseY, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
@@ -816,7 +812,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		g.pose().popPose();
 	}
 
-	private void renderSourceTab(GuiGraphics g, GroupManagerCard card, int cardX, int cardY) {
+	private void renderSourceTab(GuiGraphics g, GroupManagerCard card, int cardX, int cardY, int mouseX, int mouseY) {
 		String label = switch (card.source()) {
 			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_BUILTIN).getString();
 			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_KUBEJS).getString();
@@ -829,6 +825,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		int left = cardX + 1;
 		int bottom = cardY + CARD_HEIGHT - 1;
 		int top = bottom - tabHeight;
+		if (card.source() == GroupSource.BUILTIN && !GroupRepository.readSnapshot().builtinsEnabled()
+			&& isMouseOver(mouseX, mouseY, left, top, tabWidth, tabHeight)) {
+			pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_BUILTINS_DISABLED);
+		}
 		g.fill(left, top, left + tabWidth, bottom, UiPalette.SURFACE_DARK);
 		g.fill(left, top, left + tabWidth, top + 1, UiPalette.OUTLINE_DARK);
 		g.fill(left + tabWidth - 1, top, left + tabWidth, bottom, UiPalette.OUTLINE_DARK);
@@ -1352,21 +1352,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		};
 	}
 
-	private Component cardDetails(GroupManagerCard card) {
-		var detail = localizedDisplayName(card).copy();
-		var origin = GroupRepository.resourceData().origin(card.id());
-		if (origin != null) detail.append("\n" + origin.sourceId() + "\n" + origin.location());
-		for (var lower : GroupRepository.resourceData().origins().getOrDefault(card.id(), List.of()).stream().skip(1).toList()) {
-			detail.append("\n").append(Component.translatable(ModTranslationKeys.MANAGER_SHADOWED_SOURCE, lower.sourceId(), lower.location()));
-		}
-		if (GroupRepository.isBuiltin(card.id()) && !GroupRepository.readSnapshot().builtinsEnabled()) {
-			detail.append("\n").append(Component.translatable(ModTranslationKeys.MANAGER_BUILTINS_DISABLED));
-		}
-		if (!card.evaluation().complete()) {
-			detail.append("\n").append(Component.translatable(evaluationLabel(card.evaluation().status())));
-			card.evaluation().issues().forEach(issue -> detail.append("\n" + issue.reason()));
-		}
-		return detail;
+	private void recordEvaluationTooltip(GroupManagerCard card, int x, int y, int mouseX, int mouseY) {
+		int textX = x + 6 + HEADER_PREVIEW_SIZE + 6;
+		if (card.evaluation().complete() || !isMouseOver(mouseX, mouseY, textX, y + CARD_TITLE_Y + 12,
+			switchControlX(x) - 4 - textX, font.lineHeight)) return;
+		var detail = Component.translatable(evaluationLabel(card.evaluation().status()));
+		card.evaluation().issues().forEach(issue -> detail.append("\n" + issue.reason()));
+		pendingTooltip = detail;
 	}
 
 	private GroupManagerCard findCurrentCard(String id) {
@@ -1588,6 +1580,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private boolean scrollHoveredPreview(double mouseX, double mouseY, double deltaY) {
+		if (!isInsideCardViewport(mouseX, mouseY)) return false;
 		for (int i = 0; i < filteredCards.size(); i++) {
 			GroupManagerCard card = filteredCards.get(i);
 			int[] pos = cardPos(i);
@@ -1735,7 +1728,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private boolean isHeldSwitchHovered(double mouseX, double mouseY) {
-		if (heldSwitchGroupId == null) return false;
+		if (heldSwitchGroupId == null || !isInsideCardViewport(mouseX, mouseY)) return false;
 		for (int i = 0; i < filteredCards.size(); i++) {
 			GroupManagerCard card = filteredCards.get(i);
 			if (!card.id().equals(heldSwitchGroupId)) continue;

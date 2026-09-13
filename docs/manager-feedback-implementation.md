@@ -14,7 +14,13 @@ Validation: common production/test sources and Fabric, Forge and NeoForge produc
 
 ## 2. Manager interaction and loading presentation
 
-Pending.
+- Restricted card hover, control hints, held switches and preview wheel handling to the visible card viewport.
+- Removed blanket file/source-path tooltips. Evaluation details are available on the status text, and the built-in badge explains global disabling.
+- Shared the editor's existing checkmark shape with the show-empty option at the same 14-pixel size.
+- Centered loading text within the Contents source grid, Rules preview body, or Look preview area. The loading Look preview does not accept hidden preview clicks.
+
+Validation: common production and test sources compiled successfully. Static review identified an invisible Look preview click path; it was gated while loading before commit. No tests or game sessions ran. Runtime acceptance covers header/footer clipping, preview scrolling, checkmark rendering and loading placement.
+
 
 ## 3. Save return and index display continuity
 
