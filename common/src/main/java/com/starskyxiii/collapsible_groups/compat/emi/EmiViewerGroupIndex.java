@@ -181,26 +181,12 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 			.orElseGet(Map::of);
 	}
 
-	@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
-		return cachedFullMatchSnapshot(group);
-	}
-
 	@Override public synchronized ViewerGroupDisplaySnapshot displaySnapshot() {
 		Generation captured = runtimeCurrent.getAsBoolean() ? published : null;
 		var readiness = readyFuture;
 		return new ViewerGroupDisplaySnapshot(captured == null ? null : captured.candidates(), id ->
 			captured == null ? Optional.empty() : preview(captured, id), readiness,
 			!readiness.isDone(), readiness.isCompletedExceptionally());
-	}
-
-	@Override public Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) {
-		if (!ready()) return Optional.empty();
-		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
-		if (current == null) return Optional.empty();
-		String groupId = group.id();
-		GroupDefinition indexed = current.candidates().groupSnapshot().get(groupId);
-		if (indexed == null || !indexed.filter().equals(group.filter()) || indexed.documentFormat() != group.documentFormat()) return Optional.empty();
-		return preview(current, groupId);
 	}
 
 	private static Optional<ViewerGroupPreviewSnapshot> preview(Generation current, String groupId) {
@@ -287,14 +273,11 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 		return current == null ? List.of() : current.fullMatchGeneric().getOrDefault(groupId, List.of());
 	}
 
-
 	private static Map<String, List<ViewerIngredient<EmiIngredient>>> buckets(List<GroupDefinition> groups) {
 		Map<String, List<ViewerIngredient<EmiIngredient>>> result = new LinkedHashMap<>();
 		groups.forEach(group -> result.put(group.id(), new ArrayList<>()));
 		return result;
 	}
-
-
 
 	private static Map<String, List<ViewerIngredient<EmiIngredient>>> freeze(
 		Map<String, List<ViewerIngredient<EmiIngredient>>> source) {

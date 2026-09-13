@@ -417,7 +417,6 @@
   "collapsible_groups.manager.evaluation.error": "規則錯誤",
   "collapsible_groups.manager.evaluation.unavailable": "無法完整評估",
   "collapsible_groups.manager.evaluation.complete": "評估完成",
-  "collapsible_groups.manager.shadowed_source": "覆蓋 %s：%s",
   "collapsible_groups.manager.builtins_disabled": "內建群組總開關目前關閉。",
   "collapsible_groups.command.worklist_pending": "群組尚未完成評估，請等待物品清單載入後重試。",
   "collapsible_groups.command.worklist_success": "已匯出 %s 個翻譯工作清單鍵至 %s",

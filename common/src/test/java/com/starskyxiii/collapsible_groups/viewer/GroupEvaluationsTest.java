@@ -128,7 +128,6 @@ class GroupEvaluationsTest {
             public Optional<GroupCandidateIndex> candidates() { return Optional.of(candidates); }
             public boolean ready() { return ready; }
             public CompletableFuture<Void> whenReady() { return CompletableFuture.completedFuture(null); }
-            public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) { throw new AssertionError("Unexpected full scan"); }
             public Optional<String> resolveOwner(ViewerIngredientIdentity identity, List<GroupDefinition> groups) { return Optional.empty(); }
             public Map<ViewerIngredientIdentity, String> resolveOwnership(List<GroupDefinition> groups) { return Map.of(); }
             public void onGroupChange(GroupChangeEvent.Kind kind, List<GroupDefinition> groups) {}

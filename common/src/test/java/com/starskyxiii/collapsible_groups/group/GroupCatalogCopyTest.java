@@ -1,12 +1,7 @@
-package com.starskyxiii.collapsible_groups.compat.jei.runtime;
+package com.starskyxiii.collapsible_groups.group;
 
 import com.google.gson.JsonObject;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
-import com.starskyxiii.collapsible_groups.group.GroupDefinition;
-import com.starskyxiii.collapsible_groups.group.GroupCatalog;
-import com.starskyxiii.collapsible_groups.group.GroupRepository;
-import com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess;
-import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -18,11 +13,10 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class GroupRegistryCopyAsCustomTest {
+class GroupCatalogCopyTest {
 	@AfterEach
-	void resetRegistryState() throws Exception {
-		replaceRegistrySnapshot(List.of());
-		KubeJsGroupStore.clearAll();
+	void resetRegistryState() {
+		GroupRepositoryTestAccess.replace(List.of());
 	}
 
 	@Test
@@ -114,14 +108,14 @@ class GroupRegistryCopyAsCustomTest {
 	}
 
 	@Test
-	void createsCopyDraftWithoutSavingItToRegistry() throws Exception {
+	void createsCopyDraftWithoutSavingItToRegistry() {
 		GroupDefinition source = new GroupDefinition(
 			"__default_stone_family",
 			"Stone Family",
 			true,
 			Filters.itemId("minecraft:stone")
 		);
-		replaceRegistrySnapshot(List.of(source));
+		GroupRepositoryTestAccess.replace(List.of(source));
 
 		GroupDefinition draft = GroupRepository.createCustomCopyDraft(source.id(), "Stone Family Copy").orElseThrow();
 
@@ -132,7 +126,7 @@ class GroupRegistryCopyAsCustomTest {
 	}
 
 	@Test
-	void copyDraftUsesUniqueIdWithoutSavingCollisionCandidate() throws Exception {
+	void copyDraftUsesUniqueIdWithoutSavingCollisionCandidate() {
 		GroupDefinition source = new GroupDefinition(
 			"__default_stone_family",
 			"Stone Family",
@@ -145,7 +139,7 @@ class GroupRegistryCopyAsCustomTest {
 			true,
 			Filters.itemId("minecraft:cobblestone")
 		);
-		replaceRegistrySnapshot(List.of(source, existingCopy));
+		GroupRepositoryTestAccess.replace(List.of(source, existingCopy));
 
 		GroupDefinition draft = GroupRepository.createCustomCopyDraft(source.id(), "Stone Family Copy").orElseThrow();
 
@@ -153,7 +147,4 @@ class GroupRegistryCopyAsCustomTest {
 		assertTrue(GroupRepository.findById(draft.id()).isEmpty());
 	}
 
-	private static void replaceRegistrySnapshot(List<GroupDefinition> groups) throws Exception {
-		GroupRepositoryTestAccess.replace(groups);
-	}
 }

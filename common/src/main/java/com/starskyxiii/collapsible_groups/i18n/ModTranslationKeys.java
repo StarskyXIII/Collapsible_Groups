@@ -6,7 +6,6 @@ public final class ModTranslationKeys {
 	public static final String MANAGER_COPY_SOURCE_DISABLE_FAILED = "collapsible_groups.manager.copy_source_disable_failed";
 	private ModTranslationKeys() {}
 	public static final String MANAGER_BUILTINS_DISABLED = "collapsible_groups.manager.builtins_disabled";
-	public static final String MANAGER_SHADOWED_SOURCE = "collapsible_groups.manager.shadowed_source";
 	public static final String MANAGER_EVALUATION_COMPLETE = "collapsible_groups.manager.evaluation.complete";
 	public static final String MANAGER_EVALUATION_UNAVAILABLE = "collapsible_groups.manager.evaluation.unavailable";
 	public static final String MANAGER_EVALUATION_ERROR = "collapsible_groups.manager.evaluation.error";

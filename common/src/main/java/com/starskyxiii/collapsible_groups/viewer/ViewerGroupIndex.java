@@ -25,8 +25,6 @@ public interface ViewerGroupIndex {
 		return index.evaluations().getOrDefault(group.id(), com.starskyxiii.collapsible_groups.group.GroupEvaluation.pending());
 	}
 
-	default Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) { return Optional.empty(); }
-
 	/** Returns the current enabled-independent candidate generation, if one is ready. */
 	Optional<GroupCandidateIndex> candidates();
 
@@ -35,13 +33,6 @@ public interface ViewerGroupIndex {
 
 	/** Completes when the current asynchronous rebuild, if any, has published its generation. */
 	CompletableFuture<Void> whenReady();
-
-	/**
-	 * Returns one coherent, enabled-independent full-match preview from the published generation.
-	 * An empty optional means no generation has been published (or the viewer must still populate
-	 * that generation's preview cache); present snapshots retain explicit empty kind buckets.
-	 */
-	Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group);
 
 	/** Resolves one current enabled owner by walking only this identity's candidate list. */
 	Optional<String> resolveOwner(ViewerIngredientIdentity identity, List<GroupDefinition> groups);

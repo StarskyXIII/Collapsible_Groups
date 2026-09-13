@@ -4,7 +4,6 @@ import com.starskyxiii.collapsible_groups.Constants;
 
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewIngredientRenderer;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientSourceState;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
@@ -173,15 +172,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		published = generation;
 	}
 
-	/** Test/compatibility publication path; production rebuilds publish a complete generation. */
-	public synchronized void publishCandidateIndex(GroupCandidateIndex index, List<GroupDefinition> groups) {
-		Resolved resolved = resolve(index, groups);
-		Generation old = published;
-		desiredRevision++;
-		published = new Generation(index, resolved.items(), resolved.fluids(),
-			old == null ? null : old.fullMatchItems(), old == null ? null : old.fullMatchFluids(),
-			old == null ? null : old.fullMatchGeneric(), resolved.itemIds(), resolved.fluidIds(), null);
-	}
+
 
 	@Override public Optional<GroupCandidateIndex> candidates() {
 		Generation current = published;
@@ -207,12 +198,6 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 
 	@Override public CompletableFuture<Void> whenReady() { return readyFuture; }
 
-	@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
-		if (published == null) return Optional.empty();
-		FullMatchEntry entry = fullMatchEntry(group);
-		return Optional.of(preview(entry));
-	}
-
 	@Override public synchronized ViewerGroupDisplaySnapshot displaySnapshot() {
 		Generation captured = published;
 		var readiness = readyFuture;
@@ -224,10 +209,6 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 				captured.fullMatchFluids(), captured.fullMatchGeneric()).entry(id);
 			return entry == null ? Optional.empty() : Optional.of(preview(entry));
 		}, readiness, !readiness.isDone(), readiness.isCompletedExceptionally());
-	}
-
-	@Override public Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) {
-		return cachedFullMatchEntry(group).map(JeiViewerGroupIndex::preview);
 	}
 
 	public synchronized Optional<FullMatchEntry> cachedFullMatchEntry(GroupDefinition group) {
@@ -252,26 +233,6 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		List<ViewerPreviewValue> genericValues = generic.stream().map(ref -> ViewerPreviewValue.rendered(
 			(graphics, x, y) -> renderGeneric(graphics, ref, x, y))).toList();
 		return new ViewerGroupPreviewSnapshot(itemValues, fluidValues, genericValues);
-	}
-
-	public FullMatchEntry fullMatchEntry(GroupDefinition group) {
-		return fullMatchEntry(group, () -> JeiIngredientSourceState.resolveFullMatch(group));
-	}
-
-	FullMatchEntry fullMatchEntry(GroupDefinition group,
-		Supplier<JeiIngredientSourceState.FullMatch> resolver) {
-		Generation captured = published;
-		FullMatchEntry cached = !matches(captured, group) ? null : new FullMatchCacheSnapshot(
-			captured.fullMatchItems(), captured.fullMatchFluids(), captured.fullMatchGeneric()).entry(group.id());
-		if (cached != null) return cached;
-		JeiIngredientSourceState.FullMatch resolved = resolver.get();
-		FullMatchEntry entry = new FullMatchEntry(resolved.items(), resolved.fluids(), resolved.generic());
-		synchronized (this) {
-			if (published == captured && matches(captured, group)) {
-				updateFullMatchEntry(group.id(), entry.items(), entry.fluids(), entry.generic());
-			}
-		}
-		return entry;
 	}
 
 	@SuppressWarnings("unchecked")
@@ -534,33 +495,13 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 	public @Nullable List<Object> resolvedFluids(String groupId) {
 		Map<String, List<Object>> cache = resolvedFluidsCache(); return cache == null ? null : cache.get(groupId);
 	}
-	public @Nullable Map<String, List<ItemStack>> fullMatchItems() {
-		Generation current = published; return current == null ? null : current.fullMatchItems();
-	}
-	public @Nullable Map<String, List<Object>> fullMatchFluids() {
-		Generation current = published; return current == null ? null : current.fullMatchFluids();
-	}
-	public @Nullable Map<String, List<GenericIngredientRef>> fullMatchGeneric() {
-		Generation current = published; return current == null ? null : current.fullMatchGeneric();
-	}
-	public FullMatchCacheSnapshot fullMatchSnapshot() {
-		Generation current = published;
-		return current == null
-			? new FullMatchCacheSnapshot(null, null, null)
-			: new FullMatchCacheSnapshot(current.fullMatchItems(), current.fullMatchFluids(),
-				current.fullMatchGeneric());
-	}
 	public @Nullable Map<String, Set<String>> itemReverseIndex() {
 		Generation current = published; return current == null ? null : current.itemReverseIndex();
 	}
 	public @Nullable Map<String, Set<String>> fluidReverseIndex() {
 		Generation current = published; return current == null ? null : current.fluidReverseIndex();
 	}
-	public boolean previewCachesValid() {
-		Generation current = published;
-		return current != null && current.fullMatchItems() != null
-			&& current.fullMatchFluids() != null && current.fullMatchGeneric() != null;
-	}
+
 
 	public synchronized void setResolvedItemsByGroup(Map<String, List<ItemStack>> values) {
 		Generation g = baseGeneration(); published = new Generation(g.candidates(), values, g.resolvedFluids(),
@@ -571,13 +512,6 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		Generation g = baseGeneration(); published = new Generation(g.candidates(), g.resolvedItems(), values,
 			g.fullMatchItems(), g.fullMatchFluids(), g.fullMatchGeneric(), g.itemReverseIndex(), g.fluidReverseIndex(),
 			g.projectionContext());
-	}
-	public synchronized void setFullMatchCachesByGroup(Map<String, List<ItemStack>> items,
-		Map<String, List<Object>> fluids, Map<String, List<GenericIngredientRef>> generic) {
-		Generation g = baseGeneration();
-		desiredRevision++;
-		published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
-			items, fluids, generic, g.itemReverseIndex(), g.fluidReverseIndex(), g.projectionContext());
 	}
 	public synchronized void setItemCaches(Map<String, List<ItemStack>> resolvedItems,
 		Map<String, List<ItemStack>> fullMatchItems, Map<String, Set<String>> itemReverseIndex) {
@@ -629,19 +563,6 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 			g.projectionContext());
 	}
 
-	public synchronized void updateFullMatchEntry(String groupId, List<ItemStack> items,
-		List<Object> fluids, List<GenericIngredientRef> generic) {
-		Generation g = baseGeneration();
-		Map<String, List<ItemStack>> nextItems = copyWith(g.fullMatchItems(), groupId, items);
-		Map<String, List<Object>> nextFluids = copyWith(g.fullMatchFluids(), groupId, fluids);
-		Map<String, List<GenericIngredientRef>> nextGeneric =
-			copyWith(g.fullMatchGeneric(), groupId, generic);
-		desiredRevision++;
-		published = new Generation(g.candidates(), g.resolvedItems(), g.resolvedFluids(),
-			nextItems, nextFluids, nextGeneric, g.itemReverseIndex(), g.fluidReverseIndex(),
-			g.projectionContext());
-	}
-
 	private Generation baseGeneration() {
 		Generation current = published;
 		if (current != null) return current;
@@ -672,12 +593,4 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		return copy;
 	}
 
-	private static <T> Map<String, List<T>> copyWith(@Nullable Map<String, List<T>> source,
-		String groupId, List<T> values) {
-		Map<String, List<T>> copy = source == null
-			? new LinkedHashMap<>()
-			: new LinkedHashMap<>(source);
-		copy.put(groupId, List.copyOf(values));
-		return copy;
-	}
 }

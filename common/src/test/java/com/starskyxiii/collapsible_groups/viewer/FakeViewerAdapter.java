@@ -20,10 +20,6 @@ final class FakeViewerAdapter implements ViewerAdapter<String, String> {
 		@Override public java.util.concurrent.CompletableFuture<Void> whenReady() {
 			return java.util.concurrent.CompletableFuture.completedFuture(null);
 		}
-		@Override public java.util.Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(
-			com.starskyxiii.collapsible_groups.group.GroupDefinition group) {
-			return java.util.Optional.of(new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of()));
-		}
 		@Override public java.util.Optional<String> resolveOwner(ViewerIngredientIdentity identity,
 			List<com.starskyxiii.collapsible_groups.group.GroupDefinition> groups) { return java.util.Optional.empty(); }
 		@Override public java.util.Map<ViewerIngredientIdentity, String> resolveOwnership(

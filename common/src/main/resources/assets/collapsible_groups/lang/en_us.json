@@ -354,7 +354,6 @@
   "collapsible_groups.manager.saved_empty": "Saved %s; hidden because it is empty. Click to show.",
   "collapsible_groups.manager.search_hint": "Search groups...",
   "collapsible_groups.manager.search_label": "Search groups...",
-  "collapsible_groups.manager.shadowed_source": "Overrides %s: %s",
   "collapsible_groups.manager.show_empty": "Show empty groups",
   "collapsible_groups.manager.sort.name_asc": "A to Z",
   "collapsible_groups.manager.sort.name_desc": "Z to A",

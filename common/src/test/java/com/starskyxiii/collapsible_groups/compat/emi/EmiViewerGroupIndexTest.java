@@ -49,7 +49,7 @@ class EmiViewerGroupIndexTest {
 		loaded.set(false);
 		assertFalse(index.ready());
 		assertTrue(index.candidates().isEmpty());
-		assertTrue(index.fullMatchSnapshot(group).isEmpty());
+		assertTrue(index.displaySnapshot().preview(group).isEmpty());
 		assertTrue(index.resolveOwnership(List.of(group)).isEmpty());
 		index.reset();
 		index.requestRebuild(2, universe, List.of(group));
@@ -179,7 +179,7 @@ class EmiViewerGroupIndexTest {
 		assertTrue(index.fullMatchItems("empty").isEmpty());
 		assertTrue(index.fullMatchFluids("empty").isEmpty());
 		assertTrue(index.fullMatchGeneric("empty").isEmpty());
-		assertTrue(index.fullMatchSnapshot(empty).isPresent());
+		assertTrue(index.displaySnapshot().preview(empty).isPresent());
 	}
 
 	@Test void transientProjectionStatesAreNeverMemoized() {

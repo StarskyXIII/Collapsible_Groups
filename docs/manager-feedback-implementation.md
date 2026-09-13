@@ -50,4 +50,39 @@ Validation: all production sources, common test sources and generator test sourc
 
 ## 5. Cleanup and final artifact checks
 
-Pending.
+- Removed the former Java-provider migration fixture (about 400 KB) and its 895 fixed historical comparisons. Source contracts now check actual definition parsing, IDs, paths, loader root membership, catalog order and separate English fallback coverage.
+- Removed unused JEI lazy-preview lookup records, fallback resolution, per-entry mutation and forwarding methods. Removed their exclusive tests while retaining generation immutability, event coalescing, invalidation, failure recovery and display capture coverage.
+- Removed the obsolete full-match methods from the shared viewer interface and its implementations. Kept the published full-match maps and the editor's definition-checked cache entry reader.
+- Moved copy tests beside the catalog/repository and removed redundant reset forwarding, stale comments and unused imports. Removed the unused source-path tooltip translation, leaving 424 UI keys per supported UI locale.
+- Updated public documentation and retained the earlier verification document explicitly as historical evidence.
+
+Validation: common production/test sources and all three loader production sources compiled successfully. Runtime and source jars were rebuilt; the static EMI-only linkage check passed. Final Subagent review passed with no blocking findings. The six-jar inventory below passed, including absence of retired paths and removed lazy-preview classes. No automated tests or game sessions ran. Compiled test sources are not reported as executed tests.
+
+## User acceptance
+
+1. Scroll Manager so cards are partly behind the header/footer. Hidden portions must produce no card tooltip, hover effect, switch interaction or preview-wheel capture. Visible controls and status diagnostics should work; hovering an ordinary card should not show file paths.
+2. Check the show-empty checkmark and loading text in Contents, Rules and Look. Loading Look previews should not accept invisible preview clicks.
+3. Copy a built-in/resource-pack/scripted group: cancel without saving, then copy and save with and without disabling its source. The draft must never create a local override. Existing custom groups remain editable/deletable.
+4. Edit/save a group, change metadata only, edit rules, and save several groups in succession. Unaffected previews, empty filtering and view position should remain stable; only affected groups wait. Edit rules, resize the editor, then cancel to confirm that an unsaved preview does not leak into Manager.
+5. Reload resources/tags and switch language. Group names should follow `group_lang`, normal pack priority, selected locale and English fallback. Confirm that worklists use only the requested locale plus its explicit config overlay.
+6. Repeat the main Manager flow under the supported JEI versions and EMI configuration. Compilation does not establish runtime viewer or mixin compatibility.
+
+## Commits
+
+- `70dba7e` — custom copies and full local override retirement.
+- `94ab87c` — visible interaction bounds, checkbox and loading placement.
+- `9e41ce6` — display continuity, source invalidation and save return.
+- `183846d` — short group paths and separate group translations.
+- The final cleanup commit contains this record and the completed artifact results below.
+
+## Final artifacts (2026-09-14)
+
+All runtime and source jars contain matching catalogs and short group paths, one 424-key UI English file, one matching UI Traditional Chinese key set, and one separate 895-key group English file. UI/group keys do not overlap. Every catalog entry resolves to the expected group ID, and the common client language mixin is included. The retired long resource path and deleted lazy-preview classes are absent.
+
+| Loader | Packaged groups | Runtime jar | Runtime SHA-256 |
+| --- | ---: | --- | --- |
+| Fabric | 528 | `fabric/build/libs/collapsible_groups-fabric-1.21.1-1.5.0.jar` | `ffabdaab662e1f6033339f5a6ac1edd0e67b02cc13443fb8562bbe35653e6776` |
+| Forge | 229 | `forge/build/libs/collapsible_groups-forge-1.21.1-1.5.0.jar` | `63712a831eeffb7a11f340fca689dcfb2cc2cc6b53e652f6a398b1cb55953443` |
+| NeoForge | 895 | `neoforge/build/libs/collapsible_groups-neoforge-1.21.1-1.5.0.jar` | `3705fd16670c8fa8aa4c8a774d174978678454c23f521736ed097b2781e13b85` |
+
+Corresponding `-sources.jar` files passed the same resource inventory. Existing optional JEI mixin target and deprecated API compilation warnings remain; game acceptance is required to establish runtime behavior across supported viewer versions. These artifacts have not been installed into a launcher instance.

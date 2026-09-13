@@ -19,18 +19,6 @@ import java.util.List;
 import java.util.Map;
 
 public final class JeiIngredientSourceState {
-	public record FullMatch(
-		List<ItemStack> items,
-		List<Object> fluids,
-		List<GenericIngredientRef> generic
-	) {
-		public FullMatch {
-			items = List.copyOf(items);
-			fluids = List.copyOf(fluids);
-			generic = List.copyOf(generic);
-		}
-	}
-
 	private static volatile List<ItemStack> allItems = List.of();
 	private static volatile List<JeiFluidIngredient> allFluids = List.of();
 	private static volatile EditorItemIndex editorItemIndex;
@@ -84,21 +72,6 @@ public final class JeiIngredientSourceState {
 			appendAll(entry.getKey(), entry.getValue(), manager, result);
 		}
 		return List.copyOf(result);
-	}
-
-	public static FullMatch resolveFullMatch(GroupDefinition group) {
-		GroupDefinition enabled = group.enabled() ? group : group.withEnabled(true);
-		List<ItemStack> items;
-		GroupFilterEditorDraft.DecodeResult decoded = GroupFilterEditorDraft.decode(group.filter());
-		if (decoded.flatIndexSafe()) {
-			populateIfEmpty();
-			items = allItems.isEmpty()
-				? resolveItems(enabled)
-				: editorIndex().resolveDraft(decoded.draft());
-		} else {
-			items = resolveItems(enabled);
-		}
-		return new FullMatch(items, resolveFluids(enabled), resolveGeneric(enabled));
 	}
 
 	public static void setItems(List<ItemStack> items) {
