@@ -83,7 +83,7 @@ public interface EditorRuntimeAccess extends EditorGroupAccess, EditorIngredient
 	void invalidateFullMatchCache(String id);
 	void populateFullMatchCacheFromSaved(GroupDefinition definition);
 	void notifyViewer();
-	void setEnabledQuietlyWithoutEvent(String id, boolean enabled);
+	boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled);
 	List<PreviewEntry> resolveHeaderIcons(List<GroupIconDefinition> iconIds, List<PreviewEntry> fallbackEntries);
 
 	PreviewLayout renderPreview(GuiGraphics graphics, PreviewRect area, boolean expanded, int page,

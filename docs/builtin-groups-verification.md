@@ -1,5 +1,7 @@
 # Built-in group implementation and verification
 
+This is a historical verification record. The unpublished local full-override feature has since been retired; see the [current implementation record](manager-feedback-implementation.md).
+
 Implementation date: 2026-09-12. Minecraft branch: 1.21.1. Comparison baseline: `398f8f08eca7ff467cfd022cdc051747702ed7c2`.
 
 ## Implemented behavior

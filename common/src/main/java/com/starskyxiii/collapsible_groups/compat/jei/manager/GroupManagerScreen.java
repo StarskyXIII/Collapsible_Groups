@@ -132,9 +132,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private int hiddenEmptyCount;
 	private Component operationMessage;
 	private String lastSavedGroupId;
-	private String sourceMenuGroupId;
-	private int sourceMenuLeft;
-	private int sourceMenuTop;
 	private GroupSortMode heldSortMode = null;
 	private boolean isDraggingScrollbar = false;
 	private String heldSwitchGroupId = null;
@@ -376,10 +373,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			pendingTooltip = null;
 			renderSortMenu(g, mouseX, mouseY);
 		}
-		if (sourceMenuGroupId != null && !hasPendingDialog()) {
-			pendingTooltip = null;
-			renderSourceMenu(g, mouseX, mouseY);
-		}
+
 		if (hasPendingDialog()) {
 			pendingTooltip = null;
 			renderPendingDialog(g, mouseX, mouseY);
@@ -641,7 +635,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private String sourceSearchLabel(GroupSource source) {
 		return switch (source) {
-			case OVERRIDE -> Component.translatable(ModTranslationKeys.MANAGER_SOURCE_OVERRIDE).getString();
 			case USER -> Component.translatable(ModTranslationKeys.MANAGER_FILTER_USER).getString();
 			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_BUILTIN).getString();
 			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_KUBEJS).getString();
@@ -773,7 +766,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		boolean canEdit = card.actionEligibility().canRequest(GroupAction.EDIT);
 		boolean canCopy = card.actionEligibility().canRequest(GroupAction.COPY_AS_CUSTOM);
 		boolean canDelete = card.actionEligibility().canRequest(GroupAction.DELETE);
-		boolean canRestore = card.actionEligibility().canRequest(GroupAction.RESTORE_SOURCE);
 		boolean canShiftDelete = card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE);
 		boolean canUseMiddleAction = canEdit || canCopy;
 
@@ -791,8 +783,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			card.group().enabled(), canSwitch, switchHover, switchPressed);
 		renderIconButton(g, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
 			UiSkinRenderer.ICON_EDIT, canUseMiddleAction, editHover, false);
-		if (canRestore) renderButton(g, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT, "...", true, deleteHover, false);
-		else renderIconButton(g, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
+		renderIconButton(g, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
 			UiSkinRenderer.ICON_DELETE, canDelete || shiftDeleteArmed, deleteHover, shiftDeleteArmed);
 		g.pose().popPose();
 
@@ -801,14 +792,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			if (editHover) pendingTooltip = canEdit
 				? Component.translatable(ModTranslationKeys.MANAGER_BTN_EDIT)
 				: canCopy
-					? Component.translatable(ModTranslationKeys.MANAGER_SOURCE_ACTIONS)
+					? Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_COPY_AS_CUSTOM)
 					: Component.translatable(ModTranslationKeys.MANAGER_BTN_COPY);
 			if (deleteHover) pendingTooltip = deleteTooltip(card);
 		}
 	}
 
 	private Component deleteTooltip(GroupManagerCard card) {
-		if (card.actionEligibility().canRequest(GroupAction.RESTORE_SOURCE)) return Component.translatable(ModTranslationKeys.MANAGER_SOURCE_ACTIONS);
 		if (card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE) && Screen.hasShiftDown()) {
 			return Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_SHIFT_DELETE);
 		}
@@ -831,7 +821,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_BUILTIN).getString();
 			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_KUBEJS).getString();
 			case RESOURCE_PACK -> Component.translatable(ModTranslationKeys.MANAGER_SOURCE_RESOURCE_PACK).getString();
-			case OVERRIDE -> Component.translatable(ModTranslationKeys.MANAGER_SOURCE_OVERRIDE).getString();
 			case USER -> null;
 		};
 		if (label == null) return;
@@ -1063,21 +1052,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		if (hasPendingDialog()) {
 			return handlePendingDialogClick(mouseX, mouseY, button);
 		}
-		if (sourceMenuGroupId != null) {
-			if (button == 0) {
-				List<GroupAction> actions = sourceMenuActions();
-				for (int i = 0; i < actions.size(); i++) {
-					if (isMouseOver(mouseX, mouseY, sourceMenuLeft, sourceMenuTop + i * 20, sourceMenuWidth(), 20)) {
-						String id = sourceMenuGroupId;
-						clearTransientInputState();
-						executeSourceAction(id, actions.get(i));
-						return true;
-					}
-				}
-				sourceMenuGroupId = null;
-			}
-			return true;
-		}
+
 		if (button == 0 && (hiddenEmptyCount > 0 || savedGroupIsHiddenEmpty()) && mouseY >= this.height - FOOTER_HEIGHT) {
 			if (savedGroupIsHiddenEmpty()) {
 				searchField.setValue("");
@@ -1170,12 +1145,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				if (card.actionEligibility().canRequest(GroupAction.EDIT)) {
 					openEditor(card.group());
 				} else if (card.actionEligibility().canRequest(GroupAction.COPY_AS_CUSTOM)) {
-					openSourceMenu(card, x, y);
+					if (!executeCopyAsCustom(card.id())) operationMessage = Component.translatable("collapsible_groups.manager.operation_failed");
 				}
 				return true;
 			}
 			if (deleteClick) {
-				if (card.actionEligibility().canRequest(GroupAction.RESTORE_SOURCE)) { openSourceMenu(card, x, y); return true; }
 				if (Screen.hasShiftDown()) {
 					if (!card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE)) return true;
 					executeSingleDelete(card.id(), GroupAction.SHIFT_DELETE);
@@ -1395,62 +1369,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return detail;
 	}
 
-	private List<GroupAction> sourceMenuActions() {
-		GroupManagerCard card = findCurrentCard(sourceMenuGroupId);
-		if (card == null) return List.of();
-		return List.of(GroupAction.CREATE_LOCAL_OVERRIDE, GroupAction.COPY_AS_CUSTOM, GroupAction.RESTORE_SOURCE).stream()
-			.filter(card.actionEligibility()::canRequest).toList();
-	}
-
-	private int sourceMenuWidth() { return Math.min(190, this.width - 12); }
-
-	private void openSourceMenu(GroupManagerCard card, int x, int y) {
-		clearTransientInputState();
-		sourceMenuGroupId = card.id();
-		sourceMenuLeft = clamp(editButtonX(x), 6, Math.max(6, this.width - sourceMenuWidth() - 6));
-		sourceMenuTop = clamp(y + CARD_FOOTER_Y, 6, Math.max(6, this.height - sourceMenuActions().size() * 20 - 6));
-	}
-
-	private static String sourceActionLabel(GroupAction action) {
-		return switch (action) {
-			case CREATE_LOCAL_OVERRIDE -> ModTranslationKeys.MANAGER_CREATE_OVERRIDE;
-			case COPY_AS_CUSTOM -> ModTranslationKeys.MANAGER_TOOLTIP_COPY_AS_CUSTOM;
-			case RESTORE_SOURCE -> ModTranslationKeys.MANAGER_RESTORE_SOURCE;
-			default -> throw new IllegalArgumentException("Not a source action");
-		};
-	}
-
-	private void renderSourceMenu(GuiGraphics g, int mouseX, int mouseY) {
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 400);
-		List<GroupAction> actions = sourceMenuActions();
-		for (int i = 0; i < actions.size(); i++) {
-			int y = sourceMenuTop + i * 20;
-			boolean hovered = isMouseOver(mouseX, mouseY, sourceMenuLeft, y, sourceMenuWidth(), 20);
-			renderButton(g, sourceMenuLeft, y, sourceMenuWidth(), 20,
-				Component.translatable(sourceActionLabel(actions.get(i))).getString(), true, hovered, false);
-		}
-		g.pose().popPose();
-	}
-
-	private void executeSourceAction(String id, GroupAction action) {
-		operationMessage = null;
-		boolean succeeded = switch (action) {
-			case COPY_AS_CUSTOM -> executeCopyAsCustom(id);
-			case CREATE_LOCAL_OVERRIDE -> GroupRepository.createLocalOverrideQuietly(id);
-			case RESTORE_SOURCE -> GroupRepository.restoreSourceQuietly(id);
-			default -> false;
-		};
-		if (!succeeded) {
-			operationMessage = Component.translatable("collapsible_groups.manager.operation_failed");
-			return;
-		}
-		if (action == GroupAction.COPY_AS_CUSTOM) return;
-		GroupRepository.notifyViewer();
-		if (action == GroupAction.CREATE_LOCAL_OVERRIDE) GroupRepository.findById(id).ifPresent(this::openEditor);
-		else rebuildCards();
-	}
-
 	private GroupManagerCard findCurrentCard(String id) {
 		if (id == null || id.isBlank()) return null;
 		for (GroupManagerCard card : allCards) {
@@ -1460,7 +1378,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void clearTransientInputState() {
-		sourceMenuGroupId = null;
 		heldShowEmpty = false;
 		backButtonHeld = false;
 		heldSegmentIndex = -1;
@@ -1610,7 +1527,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
-		if (sourceMenuGroupId != null) return true;
 		if (hasPendingDialog()) return true;
 		if (sortMenuOpen) return true;
 		suppressedSwitchHoverGroupId = null;
@@ -1624,10 +1540,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (sourceMenuGroupId != null) {
-			if (keyCode == GLFW.GLFW_KEY_ESCAPE) sourceMenuGroupId = null;
-			return true;
-		}
+
 		if (hasPendingDialog() && keyCode == GLFW.GLFW_KEY_ESCAPE) {
 			cancelPendingDialog();
 			return true;
@@ -1718,6 +1631,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	@Override
 	public void onGroupSaved(SavedGroupContext context) {
 		lastSavedGroupId = context.groupId();
+		operationMessage = context.warningKey() == null ? null : Component.translatable(context.warningKey());
 		rebuildCards();
 		if (!context.shouldReveal()) {
 			scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());

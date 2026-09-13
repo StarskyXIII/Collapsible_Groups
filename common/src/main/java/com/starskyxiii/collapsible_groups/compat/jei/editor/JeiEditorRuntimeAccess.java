@@ -260,8 +260,8 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		GroupRegistry.populateFullMatchCacheFromSaved(definition);
 	}
 	@Override public void notifyViewer() { GroupRegistry.notifyJei(); }
-	@Override public void setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
-		GroupRegistry.setEnabledQuietlyWithoutEvent(id, enabled);
+	@Override public boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
+		return GroupRegistry.setEnabledQuietlyWithoutEvent(id, enabled);
 	}
 
 	@Override

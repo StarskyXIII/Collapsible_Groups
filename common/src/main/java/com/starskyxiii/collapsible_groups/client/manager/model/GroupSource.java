@@ -4,7 +4,6 @@ public enum GroupSource {
 	USER,
 	BUILTIN,
 	RESOURCE_PACK,
-	OVERRIDE,
 	KUBEJS;
 
 	public static GroupSource fromGroupId(String groupId) {
@@ -12,13 +11,12 @@ public enum GroupSource {
 			case USER -> USER;
 			case BUILTIN -> BUILTIN;
 			case RESOURCE_PACK -> RESOURCE_PACK;
-			case OVERRIDE -> OVERRIDE;
 			case KUBEJS -> KUBEJS;
 		};
 	}
 
 	public boolean userEditable() {
-		return this == USER || this == OVERRIDE;
+		return this == USER;
 	}
 
 	public boolean readOnlyDefinition() {

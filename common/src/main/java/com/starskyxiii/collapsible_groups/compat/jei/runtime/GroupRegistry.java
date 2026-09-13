@@ -492,13 +492,7 @@ public final class GroupRegistry {
         return true;
     }
 
-	public static Optional<GroupDefinition> copyAsCustomQuietly(String sourceId, String copiedDisplayName) {
-		return GroupRepository.copyAsCustomQuietly(sourceId, copiedDisplayName);
-	}
 
-	public static Optional<GroupDefinition> createCustomCopyDraft(String sourceId, String copiedDisplayName) {
-		return GroupRepository.createCustomCopyDraft(sourceId, copiedDisplayName);
-	}
 
 	/**
 	 * Updates enabled state and publishes an enabled-only change event.
@@ -555,14 +549,6 @@ public final class GroupRegistry {
 	/** Generates a unique group ID that avoids both persisted/provider groups and ephemeral KubeJS groups. */
 	public static String generateUniqueIdIncludingKubeJs(String base) {
 		return GroupRepository.generateUniqueIdIncludingScripted(base);
-	}
-
-	static Optional<GroupDefinition> createCustomCopy(
-		GroupDefinition source,
-		String copiedDisplayName,
-		List<String> existingGroupIds
-	) {
-		return GroupCatalog.createCustomCopy(source, copiedDisplayName, existingGroupIds);
 	}
 
 	/**

@@ -16,20 +16,19 @@ import static org.junit.jupiter.api.Assertions.*;
 class GroupResourceLoaderTest {
     @TempDir Path config;
 
-    @Test void wholeDefinitionPriorityUsesExplicitLocalThenConfigThenPackThenBuiltinThenScript() {
+    @Test void wholeDefinitionPriorityUsesConfigThenPackThenBuiltinThenScript() {
         var data = GroupResourceLoader.assemble(List.of(
             layer(doc(GroupSource.BUILTIN, "builtin", "same", "minecraft:stone", true, 0)),
             layer(doc(GroupSource.RESOURCE_PACK, "low", "same", "minecraft:dirt", true, 50)),
             layer(doc(GroupSource.RESOURCE_PACK, "high", "same", "minecraft:diamond", true, -1)),
-            new GroupResourceLoader.Layer(List.of(doc(GroupSource.USER, "user", "same", "minecraft:apple", true, 1)), true),
-            layer(doc(GroupSource.OVERRIDE, "override", "same", "minecraft:gold_ingot", false, 0))));
+            new GroupResourceLoader.Layer(List.of(doc(GroupSource.USER, "user", "same", "minecraft:apple", false, 1)), true)));
         assertTrue(data.complete());
         assertEquals(List.of("same"), data.groups().stream().map(GroupDefinition::id).toList());
-        assertEquals("minecraft:gold_ingot", ((com.starskyxiii.collapsible_groups.group.filter.GroupFilter.Id) data.groups().getFirst().filter()).id());
+        assertEquals("minecraft:apple", ((com.starskyxiii.collapsible_groups.group.filter.GroupFilter.Id) data.groups().getFirst().filter()).id());
         assertFalse(data.groups().getFirst().enabled());
-        assertEquals(0, data.groups().getFirst().priority());
+        assertEquals(1, data.groups().getFirst().priority());
         assertTrue(data.builtinIds().contains("same"));
-        assertEquals(List.of("override", "user", "high", "low", "builtin"),
+        assertEquals(List.of("user", "high", "low", "builtin"),
             data.origins().get("same").stream().map(GroupOrigin::sourceId).toList());
         GroupService service = new GroupService();
         service.replaceSource(new GroupService.SourceKey(GroupSource.KUBEJS, "script"),
@@ -55,7 +54,7 @@ class GroupResourceLoaderTest {
     }
 
     @Test void invalidHighLayerRetainsPreviousGenerationAndFreshFailureStaysEmpty() {
-        var malformed = new GroupResourceLoader.Document(new GroupOrigin(GroupSource.OVERRIDE, "bad", "bad.json", null), "{");
+        var malformed = new GroupResourceLoader.Document(new GroupOrigin(GroupSource.RESOURCE_PACK, "bad", "bad.json", null), "{");
         var rejected = GroupResourceLoader.assemble(List.of(layer(doc(GroupSource.BUILTIN, "builtin", "same", "minecraft:stone", true, 0)), layer(malformed)));
         GroupService service = new GroupService();
         assertFalse(service.replaceManaged(rejected, Map.of(), true));
@@ -71,7 +70,7 @@ class GroupResourceLoaderTest {
         Files.writeString(directory.resolve("b.json"), doc(GroupSource.USER, "b", "ordinary", "minecraft:dirt", false, 1).json());
         Files.writeString(directory.resolve("c.json"), "{\"id\":\"ordinary\",\"filter\":null}");
         Files.writeString(directory.resolve("old.json"), doc(GroupSource.USER, "old", "__default_ignored", "minecraft:diamond", true, 0).json());
-        var data = GroupResourceLoader.assemble(List.of(GroupResourceLoader.readDirectory(directory, GroupSource.USER, true)));
+        var data = GroupResourceLoader.assemble(List.of(GroupResourceLoader.readDirectory(directory)));
         assertFalse(data.rejected());
         assertEquals(1, data.groups().size());
         assertFalse(data.groups().getFirst().enabled());
@@ -89,10 +88,10 @@ class GroupResourceLoaderTest {
         assertEquals(GroupSource.USER, data.origin("same").source());
     }
 
-    @Test void restoringDeletesOnlyOwnedFileAndPreservesLowerDefinitionAndPreferences() throws Exception {
+    @Test void deletingCustomFilePreservesLowerDefinitionAndPreferences() throws Exception {
         var lower = GroupResourceLoader.assemble(List.of(layer(doc(GroupSource.BUILTIN, "builtin", "same", "minecraft:stone", true, 0))));
-        GroupDefinition definition = GroupConfig.fromJsonChecked(doc(GroupSource.OVERRIDE, "local", "same", "minecraft:diamond", false, 0).json());
-        GroupOrigin origin = GroupFileStore.create(definition, GroupSource.OVERRIDE, config).orElseThrow();
+        GroupDefinition definition = GroupConfig.fromJsonChecked(doc(GroupSource.USER, "local", "same", "minecraft:diamond", false, 0).json());
+        GroupOrigin origin = GroupFileStore.create(definition, config).orElseThrow();
         Path unrelated = origin.file().resolveSibling("unrelated.json");
         Files.writeString(unrelated, "manual content");
         var data = lower.withDefinition(definition, origin);
@@ -113,7 +112,7 @@ class GroupResourceLoaderTest {
         var escaped = new GroupOrigin(GroupSource.USER, "user", "outside", outside);
         assertFalse(GroupFileStore.save(group, escaped, config));
         assertFalse(GroupFileStore.delete(group.id(), escaped, config));
-        GroupOrigin owned = GroupFileStore.create(group, GroupSource.USER, config).orElseThrow();
+        GroupOrigin owned = GroupFileStore.create(group, config).orElseThrow();
         String unknown = "{\"id\":\"same\",\"schema_version\":2}";
         Files.writeString(owned.file(), unknown);
         assertFalse(GroupFileStore.save(group, owned, config));

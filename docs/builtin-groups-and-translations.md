@@ -1,12 +1,12 @@
 # Built-in groups, resource packs, and translations
 
-This guide covers Minecraft 1.21.1. Built-in definitions use the same JSON format as custom groups. The in-game manager identifies the effective source and supports local overrides without editing a mod jar or resource pack.
+This guide covers Minecraft 1.21.1. Built-in definitions use the same JSON format as custom groups. The in-game manager identifies the effective source and creates editable custom copies without editing a mod jar or resource pack.
 
 ## Built-in definitions and the global switch
 
 The repository contains 895 definitions. Loader coverage is preserved: Fabric packages 528, Forge 229, and NeoForge 895. Each loader retains the relative order of the definitions it previously provided. Definitions are loaded independently of whether the corresponding mod is installed; matching against the current viewer determines their content.
 
-`defaultGroups.enabled` is the single built-in switch. Turning it off disables the grouping effect of every ID in the bundled catalog, including resource-pack or local replacements for those IDs. Definitions, individual enabled preferences, and expansion state remain available. Turning the switch back on preserves the individual choices. A custom copy with a new ID is independent of this switch.
+`defaultGroups.enabled` is the single built-in switch. Turning it off disables the grouping effect of every ID in the bundled catalog, including resource-pack or custom replacements for those IDs. Definitions, individual enabled preferences, and expansion state remain available. Turning the switch back on preserves the individual choices. A custom copy with a new ID is independent of this switch.
 
 The previous Generic, Vanilla, integration master, and per-mod loading settings are retired and have no effect. There is no conversion of their old values into individual group preferences. Folder-based configuration inheritance or environment metadata is deferred; directory names do not act as mod-loading conditions.
 
@@ -51,7 +51,6 @@ Source precedence, highest first:
 
 | Source | Location or selection |
 | --- | --- |
-| Local override | `config/collapsiblegroups/overrides/**/*.json` |
 | Ordinary custom group | `config/collapsiblegroups/groups/*.json` |
 | Client resource pack | Minecraft's selected pack order, highest pack wins |
 | Built-in definition | The current loader's bundled catalog |
@@ -59,15 +58,17 @@ Source precedence, highest first:
 
 The loader examines every group resource layer before resolving IDs. Resource paths and group IDs are separate: two definitions at the same path can still have different IDs. Minecraft resource-pack filters suppress matching lower resource paths. An explicit disabled replacement does not expose a lower definition of the same ID.
 
-A duplicate ID within one resource pack, the bundled set, or the local-override set is an error. Ordinary custom files retain their earlier filename-sorted, last-valid-definition behavior. Existing ordinary files with IDs beginning `__default_` remain ignored; use the dedicated override directory for those IDs.
+A duplicate ID within one resource pack, the bundled set, or a resource set is an error. Ordinary custom files retain their earlier filename-sorted, last-valid-definition behavior. Existing ordinary files with IDs beginning `__default_` remain ignored; create a custom copy with a new ID instead.
 
-Reload client resources after changing packs or files. A failed resource or override reload retains the last successfully published definition set and marks the sources stale. If no successful set exists, the failed set is not published. Source problems remain visible in the manager. Fix the reported file and reload; exports reject stale sources.
+Reload client resources after changing packs or files. A failed resource reload retains the last successfully published definition set and marks the sources stale. If no successful set exists, the failed set is not published. Source problems remain visible in the manager. Fix the reported file and reload; exports reject stale sources.
 
 ## Managing groups
 
-The source badge distinguishes built-in, resource-pack, local-override, and KubeJS groups from ordinary custom groups. The source filter includes local overrides under Custom. Provenance comes from the loaded source, rather than an ID prefix.
+The source badge distinguishes built-in, resource-pack, and KubeJS groups from ordinary custom groups. Provenance comes from the loaded source, rather than an ID prefix.
 
-For a built-in, resource-pack, or KubeJS group, **Create local override** creates an editable definition with the same ID in the override directory. **Restore source** removes that owned override file and reveals the currently selected lower source. Individual enabled and expansion preferences are preserved. **Copy as custom** creates an ordinary custom group with a new ID and preserves the original JSON format.
+For a built-in, resource-pack, or KubeJS group, **Copy as custom** opens an editable draft with a new ID and preserves the original JSON format. Nothing is written until Save. The optional original-group disable runs only after the copy has been saved. If disabling fails, the saved copy remains available and the manager reports the incomplete action.
+
+The unpublished local-definition override feature has been removed. Files under `config/collapsiblegroups/overrides` are ignored and left untouched. Individual enabled preferences in `enabled_overrides.json` remain supported.
 
 Saving or removing a file checks its ownership, directory, and ID. Saving also rejects an unsupported document version. A file with a different ID or a path outside its source directory is left untouched; a failed removal is reported in the manager.
 

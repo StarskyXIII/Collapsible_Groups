@@ -277,7 +277,7 @@ final class GroupService {
 		Set<GroupSource> included) {
 		List<Entry> entries = new ArrayList<>();
 		Map<String, Integer> positions = new HashMap<>();
-		for (GroupSource category : List.of(GroupSource.BUILTIN, GroupSource.RESOURCE_PACK, GroupSource.USER, GroupSource.OVERRIDE, GroupSource.KUBEJS)) {
+		for (GroupSource category : List.of(GroupSource.BUILTIN, GroupSource.RESOURCE_PACK, GroupSource.USER, GroupSource.KUBEJS)) {
 			if (!included.contains(category)) continue;
 			for (Map.Entry<SourceKey, List<GroupDefinition>> source : sources.entrySet()) {
 				if (source.getKey().category() != category) continue;
@@ -298,7 +298,6 @@ final class GroupService {
 
 	private static int authority(GroupSource source) {
 		return switch (source) {
-			case OVERRIDE -> 5;
 			case USER -> 4;
 			case RESOURCE_PACK -> 3;
 			case BUILTIN -> 2;

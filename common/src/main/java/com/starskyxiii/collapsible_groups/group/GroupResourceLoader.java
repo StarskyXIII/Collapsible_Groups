@@ -56,8 +56,7 @@ public final class GroupResourceLoader {
                 layers.add(new Layer(List.of(failure(GroupSource.RESOURCE_PACK, "resources", "resources", failure)), false));
             }
         }
-        layers.add(readDirectory(configDirectory.resolve("collapsiblegroups/groups"), GroupSource.USER, true));
-        layers.add(readDirectory(configDirectory.resolve("collapsiblegroups/overrides"), GroupSource.OVERRIDE, false));
+        layers.add(readDirectory(configDirectory.resolve("collapsiblegroups/groups")));
         GroupResourceData data = assemble(layers);
         Set<String> builtinIds = new LinkedHashSet<>(data.builtinIds());
         catalog.stream().map(Document::expectedId).filter(java.util.Objects::nonNull).forEach(builtinIds::add);
@@ -161,14 +160,14 @@ public final class GroupResourceLoader {
         return new Layer(documents, false);
     }
 
-    public static Layer readDirectory(Path directory, GroupSource source, boolean legacy) {
+    public static Layer readDirectory(Path directory) {
         List<Document> documents = new ArrayList<>();
-        if (Files.notExists(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return new Layer(documents, legacy);
-        if (!Files.isDirectory(directory)) return new Layer(List.of(failure(source, source.name(), directory.toString(),
-            new IOException("Group source directory is unavailable or is not a directory"))), legacy);
-        try (var paths = legacy ? Files.list(directory) : Files.walk(directory)) {
+        if (Files.notExists(directory, java.nio.file.LinkOption.NOFOLLOW_LINKS)) return new Layer(documents, true);
+        if (!Files.isDirectory(directory)) return new Layer(List.of(failure(GroupSource.USER, GroupSource.USER.name(), directory.toString(),
+            new IOException("Group source directory is unavailable or is not a directory"))), true);
+        try (var paths = Files.list(directory)) {
             for (Path path : paths.filter(Files::isRegularFile).filter(p -> p.toString().endsWith(".json")).sorted().toList()) {
-                GroupOrigin origin = new GroupOrigin(source, source.name(), path.toAbsolutePath().normalize().toString(), path);
+                GroupOrigin origin = new GroupOrigin(GroupSource.USER, GroupSource.USER.name(), path.toAbsolutePath().normalize().toString(), path);
                 try {
                     if (!path.toRealPath().startsWith(directory.toRealPath())) throw new IOException("Group file is outside its source directory");
                     documents.add(new Document(origin, Files.readString(path, StandardCharsets.UTF_8)));
@@ -177,9 +176,9 @@ public final class GroupResourceLoader {
                 }
             }
         } catch (IOException | RuntimeException failure) {
-            documents.add(failure(source, source.name(), directory.toString(), failure));
+            documents.add(failure(GroupSource.USER, GroupSource.USER.name(), directory.toString(), failure));
         }
-        return new Layer(documents, legacy);
+        return new Layer(documents, true);
     }
 
     public static GroupResourceData assemble(List<Layer> layers) {

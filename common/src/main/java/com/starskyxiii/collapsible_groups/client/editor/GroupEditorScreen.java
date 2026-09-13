@@ -1416,16 +1416,19 @@ public class GroupEditorScreen extends Screen {
 		var groups = EditorRuntimeServices.groups();
 		groups.invalidateFullMatchCache(saved.id());
 		groups.populateFullMatchCacheFromSaved(saved);
-		disableSourceAfterCopyIfRequested();
-		parent.onGroupSaved(new SavedGroupContext(saved.id(), saveKind));
+		String warningKey = disableSourceAfterCopyIfRequested();
+		parent.onGroupSaved(new SavedGroupContext(saved.id(), saveKind, warningKey));
 		groups.notifyViewer();
 		Minecraft.getInstance().setScreen(parent.asScreen());
 	}
 
-	private void disableSourceAfterCopyIfRequested() {
+	private String disableSourceAfterCopyIfRequested() {
 		String sourceGroupId = state.sourceGroupId();
-		if (!state.isCopyDraft() || !disableSourceAfterCopy || sourceGroupId == null) return;
-		EditorRuntimeServices.groups().setEnabledQuietlyWithoutEvent(sourceGroupId, false);
+		if (!state.isCopyDraft() || !disableSourceAfterCopy || sourceGroupId == null) return null;
+		var groups = EditorRuntimeServices.groups();
+		if (groups.findGroup(sourceGroupId).isEmpty()) return ModTranslationKeys.MANAGER_COPY_SOURCE_MISSING;
+		return groups.setEnabledQuietlyWithoutEvent(sourceGroupId, false)
+			? null : ModTranslationKeys.MANAGER_COPY_SOURCE_DISABLE_FAILED;
 	}
 
 	private void clearRightHover() {

@@ -46,8 +46,8 @@ class GroupResourcePackIntegrationTest {
             Files.writeString(ordinary.resolve("same.json"), json("same", "minecraft:diamond"));
             Files.writeString(overrides.resolve("same.json"), json("same", "minecraft:gold_ingot"));
             var local = GroupResourceLoader.load(manager, config);
-            assertEquals(GroupSource.OVERRIDE, local.origin("same").source());
-            assertEquals(List.of(GroupSource.OVERRIDE, GroupSource.USER, GroupSource.RESOURCE_PACK, GroupSource.RESOURCE_PACK),
+            assertEquals(GroupSource.USER, local.origin("same").source());
+            assertEquals(List.of(GroupSource.USER, GroupSource.RESOURCE_PACK, GroupSource.RESOURCE_PACK),
                 local.origins().get("same").stream().map(GroupOrigin::source).toList());
         }
     }
@@ -81,12 +81,12 @@ class GroupResourcePackIntegrationTest {
         }
     }
 
-    @Test void sourcePathThatIsAFileIsAnErrorInsteadOfAnAbsentOverrideDirectory() throws Exception {
+    @Test void retiredOverridePathIsIgnoredAndLeftUntouched() throws Exception {
         Files.createDirectories(config.resolve("collapsiblegroups"));
         Files.writeString(config.resolve("collapsiblegroups/overrides"), "unrelated file");
         var data = GroupResourceLoader.load(null, config);
-        assertTrue(data.rejected());
-        assertTrue(data.problems().stream().anyMatch(problem -> problem.origin().source() == GroupSource.OVERRIDE));
+        assertFalse(data.rejected());
+        assertEquals("unrelated file", Files.readString(config.resolve("collapsiblegroups/overrides")));
     }
 
     private static String path(String name) { return "test:collapsible_groups/groups/" + name + ".json"; }

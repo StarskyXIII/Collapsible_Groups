@@ -20,5 +20,5 @@ interface EditorGroupAccess {
 	void invalidateFullMatchCache(String id);
 	void populateFullMatchCacheFromSaved(GroupDefinition definition);
 	void notifyViewer();
-	void setEnabledQuietlyWithoutEvent(String id, boolean enabled);
+	boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled);
 }

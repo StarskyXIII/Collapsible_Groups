@@ -371,8 +371,8 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 		return GroupRepository.generateUniqueIdIncludingScripted(name);
 	}
 	@Override public void notifyViewer() { GroupRepository.notifyViewer(); }
-	@Override public void setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
-		GroupRepository.setEnabledQuietlyWithoutEvent(id, enabled);
+	@Override public boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
+		return GroupRepository.setEnabledQuietlyWithoutEvent(id, enabled);
 	}
 
 	@Override public List<PreviewEntry> resolveHeaderIcons(List<GroupIconDefinition> iconIds,

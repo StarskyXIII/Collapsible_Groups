@@ -111,7 +111,7 @@ public final class GroupCatalog {
 		String copiedDisplayName,
 		List<String> existingGroupIds
 	) {
-		if (source == null || source.documentFormat() == GroupDocumentFormat.UNSUPPORTED || GroupSource.fromGroupId(source.id()) == GroupSource.USER) {
+		if (source == null || source.documentFormat() == GroupDocumentFormat.UNSUPPORTED) {
 			return Optional.empty();
 		}
 		String fallbackName = normalizedCopyName(copiedDisplayName, source);
