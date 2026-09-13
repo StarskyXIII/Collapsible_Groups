@@ -11,9 +11,7 @@ import mezz.jei.api.recipe.IFocus;
 import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.runtime.IRecipesGui;
 import mezz.jei.common.gui.JeiTooltip;
-import mezz.jei.common.input.IInternalKeyMappings;
 import mezz.jei.gui.bookmarks.IBookmark;
-import mezz.jei.gui.input.UserInput;
 import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.elements.IngredientElement;
 import mezz.jei.gui.overlay.ingredients.IngredientGridTooltipHelper;
@@ -46,7 +44,6 @@ public class GroupChildElement implements IElement<ItemStack>, PreRenderIngredie
 	@Override public void show(IRecipesGui recipesGui, FocusUtil focusUtil, List<RecipeIngredientRole> roles) { delegate.show(recipesGui, focusUtil, roles); }
 	@Override public void getTooltip(JeiTooltip tooltip, IngredientGridTooltipHelper helper, IIngredientRenderer<ItemStack> renderer, IIngredientHelper<ItemStack> ingredientHelper) { delegate.getTooltip(tooltip, helper, renderer, ingredientHelper); }
 	@Override public boolean isVisible()                              { return delegate.isVisible(); }
-	@Override public boolean handleClick(UserInput input, IInternalKeyMappings keyBindings) { return delegate.handleClick(input, keyBindings); }
 
 	@Override
 	public void drawPreRender(GuiGraphics guiGraphics, int xOffset, int yOffset) {

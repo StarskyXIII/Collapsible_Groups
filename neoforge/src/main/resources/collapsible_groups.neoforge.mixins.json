@@ -1,12 +1,13 @@
 {
   "required": true,
-  "minVersion": "0.8",
+  "minVersion": "0.8.7",
   "package": "com.starskyxiii.collapsible_groups.mixin",
   "plugin": "com.starskyxiii.collapsible_groups.mixin.CollapsibleGroupsMixinPlugin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [],
   "client": [
     "MixinBookmarkList",
+    "MixinJeiElement",
     "MixinIngredientFilter",
     "MixinIngredientListRenderer",
     "MixinIngredientListOverlay",

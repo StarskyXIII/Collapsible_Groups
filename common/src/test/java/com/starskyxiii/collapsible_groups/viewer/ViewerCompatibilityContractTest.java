@@ -19,18 +19,20 @@ class ViewerCompatibilityContractTest {
 		assertEquals("*", metadata.getAsJsonObject("suggests").get("jei").getAsString());
 	}
 
-	@ParameterizedTest
-	@ValueSource(strings = {"forge/src/main/resources/META-INF/mods.toml",
-		"neoforge/src/main/resources/META-INF/neoforge.mods.toml"})
-	void forgeMetadataKeepsJeiOptionalWithoutLoaderVersionGate(String relative) throws IOException {
-		String metadata = Files.readString(root().resolve(relative));
-		int start = metadata.indexOf("modId = \"jei\"");
-		assertTrue(start >= 0);
-		int end = metadata.indexOf("[[dependencies.", start + 1);
-		String block = metadata.substring(start, end < 0 ? metadata.length() : end);
+	@Test
+	void forgeMetadataKeepsJeiOptionalWithDeclaredMinimumVersion() throws IOException {
+		String block = jeiDependencyBlock("forge/src/main/resources/META-INF/mods.toml");
+		assertTrue(block.contains("side = \"CLIENT\""));
+		assertTrue(block.contains("mandatory = false"));
+		assertTrue(block.contains("versionRange = \"[${jei_version},)\""));
+	}
+
+	@Test
+	void neoForgeMetadataKeepsJeiOptionalWithoutLoaderVersionGate() throws IOException {
+		String block = jeiDependencyBlock("neoforge/src/main/resources/META-INF/neoforge.mods.toml");
 		assertTrue(block.contains("side = \"CLIENT\""));
 		assertFalse(block.contains("versionRange"));
-		assertTrue(block.contains(relative.startsWith("forge/") ? "mandatory = false" : "type = \"optional\""));
+		assertTrue(block.contains("type = \"optional\""));
 	}
 
 	@ParameterizedTest
@@ -67,6 +69,14 @@ class ViewerCompatibilityContractTest {
 			assertFalse(source.contains("net.minecraftforge"));
 			assertFalse(source.contains("net.neoforged"));
 		}
+	}
+
+	private static String jeiDependencyBlock(String relative) throws IOException {
+		String metadata = Files.readString(root().resolve(relative));
+		int start = metadata.indexOf("modId = \"jei\"");
+		assertTrue(start >= 0);
+		int end = metadata.indexOf("[[dependencies.", start + 1);
+		return metadata.substring(start, end < 0 ? metadata.length() : end);
 	}
 
 	private static Path root() {

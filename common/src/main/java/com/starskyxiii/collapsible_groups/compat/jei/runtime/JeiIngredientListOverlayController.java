@@ -7,9 +7,6 @@ import com.starskyxiii.collapsible_groups.viewer.ViewerOverlayHook;
 import mezz.jei.common.util.ImmutableRect2i;
 import mezz.jei.gui.elements.IconButton;
 import mezz.jei.gui.input.GuiTextFieldFilter;
-import mezz.jei.gui.input.IUserInputHandler;
-import mezz.jei.gui.input.handlers.CombinedInputHandler;
-import mezz.jei.gui.input.handlers.ProxyInputHandler;
 import net.minecraft.client.gui.GuiGraphics;
 
 import java.util.function.BooleanSupplier;
@@ -50,10 +47,8 @@ public final class JeiIngredientListOverlayController {
 		if (shouldShowGroupsButton()) groupsButton.drawTooltips(graphics, mouseX, mouseY);
 	}
 
-	public IUserInputHandler wrapInputHandler(IUserInputHandler original) {
-		IUserInputHandler groupsHandler = groupsButton.createInputHandler();
-		IUserInputHandler combined = new CombinedInputHandler("IngredientListOverlay_withGroups", groupsHandler, original);
-		return new ProxyInputHandler(() -> shouldShowGroupsButton() ? combined : original);
+	public Object wrapInputHandler(Object original, String jeiVersion) {
+		return JeiInputHandlerAdapter.wrap(groupsButton, original, this::shouldShowGroupsButton, jeiVersion);
 	}
 
 	private void syncBoundsToConfigButton(boolean showGroupsButton) {

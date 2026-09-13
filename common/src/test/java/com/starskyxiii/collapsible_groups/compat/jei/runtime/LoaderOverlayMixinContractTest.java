@@ -33,8 +33,14 @@ class LoaderOverlayMixinContractTest {
 				"method = \"drawTooltips(Lnet/minecraft/client/Minecraft;" +
 					"Lnet/minecraft/client/gui/GuiGraphics;II)V\""));
 		}
-		assertTrue(source.contains(
-			"method = \"createInputHandler()Lmezz/jei/gui/input/IUserInputHandler;\""));
+		String inputHook = source.substring(source.lastIndexOf("\t@Inject("));
+		assertTrue(inputHook.contains("\"createInputHandler()Lmezz/jei/gui/input/IUserInputHandler;\""));
+		assertTrue(inputHook.contains("\"createInputHandler()Lmezz/jei/common/input/IUserInputHandler;\""));
+		assertTrue(inputHook.contains("method = {"));
+		assertTrue(inputHook.contains("require = 1"));
+		assertTrue(inputHook.contains("allow = 1"));
+		assertTrue(inputHook.contains("CallbackInfoReturnable<Object>"));
+		assertFalse(source.contains("import mezz.jei.gui.input.IUserInputHandler;"));
 		assertFalse(source.contains("method = \"drawScreen"));
 		assertFalse(source.contains("require = 0"));
 	}

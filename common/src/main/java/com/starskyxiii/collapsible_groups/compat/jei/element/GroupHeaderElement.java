@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import mezz.jei.api.gui.drawable.IDrawable;
+import mezz.jei.api.gui.inputs.IJeiUserInput;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.ITypedIngredient;
@@ -15,7 +16,6 @@ import mezz.jei.api.runtime.IRecipesGui;
 import mezz.jei.common.gui.JeiTooltip;
 import mezz.jei.common.input.IInternalKeyMappings;
 import mezz.jei.gui.bookmarks.IBookmark;
-import mezz.jei.gui.input.UserInput;
 import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.ingredients.IngredientGridTooltipHelper;
 import mezz.jei.gui.util.FocusUtil;
@@ -32,7 +32,7 @@ import java.util.Optional;
  * Unified JEI element for all collapsible group header slots.
  * Uses {@link GroupIcon} as the ingredient type for full rendering control.
  */
-public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderIngredientGridElement {
+public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderIngredientGridElement, JeiClickableElement {
 
 	private final ITypedIngredient<GroupIcon> typedIcon;
 	private final Component countLabel;
@@ -94,7 +94,7 @@ public final class GroupHeaderElement implements IElement<GroupIcon>, PreRenderI
 	}
 
 	@Override
-	public boolean handleClick(UserInput input, IInternalKeyMappings keyBindings) {
+	public boolean handleJeiClick(IJeiUserInput input, IInternalKeyMappings keyBindings) {
 		if (!input.is(keyBindings.getLeftClick())) return false;
 		if (!input.isSimulate()) {
 			GroupRegistry.toggleById(icon().groupId());

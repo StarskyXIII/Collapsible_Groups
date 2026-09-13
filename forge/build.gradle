@@ -103,7 +103,7 @@ sourceSets.main.resources.srcDir 'src/generated/resources'
 
 dependencies {
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
+    annotationProcessor("org.spongepowered:mixin:0.8.7:processor")
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     // JEI Forge API — public API surface (mezz.jei.api.*)
     compileOnly "mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}"
