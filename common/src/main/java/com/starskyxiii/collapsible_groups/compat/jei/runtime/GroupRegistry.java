@@ -597,14 +597,7 @@ public final class GroupRegistry {
 		return group.enabled() ? group : group.withEnabled(true);
 	}
 
-	/**
-	 * Writes the given group's full-match preview cache entries immediately after save.
-	 * This bridges the window before the async JEI rebuild republishes the authoritative maps.
-	 */
-	public static void populateFullMatchCacheFromSaved(GroupDefinition saved) {
-		JeiIngredientSourceState.FullMatch resolved = JeiIngredientSourceState.resolveFullMatch(saved);
-		VIEWER_INDEX.updateFullMatchEntry(saved.id(), resolved.items(), resolved.fluids(), resolved.generic());
-	}
+
 
 	static List<GroupDefinition> orderByPriority(List<GroupDefinition> source) {
 		return GroupCatalog.orderByPriority(source);

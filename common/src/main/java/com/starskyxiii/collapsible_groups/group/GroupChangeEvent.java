@@ -17,6 +17,7 @@ public final class GroupChangeEvent {
 
 	public enum Kind {
 		FULL,
+		SOURCE_RELOAD,
 		STRUCTURE,
 		ENABLED,
 		KUBEJS_REPLACE

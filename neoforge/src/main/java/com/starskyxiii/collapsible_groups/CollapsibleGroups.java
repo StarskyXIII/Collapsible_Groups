@@ -42,6 +42,7 @@ public class CollapsibleGroups {
 		eventBus.addListener(this::registerTooltipComponentFactories);
 		eventBus.addListener(this::onRegisterReloadListeners);
 		NeoForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
+		NeoForge.EVENT_BUS.addListener(this::onTagsUpdated);
 		if (ModList.get().isLoaded("emi") || ModList.get().isLoaded(ViewerLifecycleCoordinator.TMRV_MOD_ID)
 			|| ModList.get().isLoaded("kubejs")) {
 			NeoForge.EVENT_BUS.addListener(this::onClientLogout);
@@ -69,6 +70,12 @@ public class CollapsibleGroups {
 			)
 		);
 	}
+
+    private void onTagsUpdated(net.neoforged.neoforge.event.TagsUpdatedEvent event) {
+        if (event.getUpdateCause() == net.neoforged.neoforge.event.TagsUpdatedEvent.UpdateCause.CLIENT_PACKET_RECEIVED) {
+            net.minecraft.client.Minecraft.getInstance().execute(GroupRepository::notifySourceReload);
+        }
+    }
 
 	private void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {
 		event.registerReloadListener(

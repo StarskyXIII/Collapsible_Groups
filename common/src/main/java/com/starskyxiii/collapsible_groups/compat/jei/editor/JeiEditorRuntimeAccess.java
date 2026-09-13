@@ -224,21 +224,20 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 		long startedAt = PerformanceTrace.begin();
 		return JeiViewerGroupIndex.instance().prepareEditorAsync(GroupRegistry.getAllIncludingKubeJs(), () -> {
 			GroupRegistry.warmEditorItemIndex();
-			GroupRegistry.populateFullMatchCacheFromSaved(definition);
 		}).whenComplete((ignored, error) -> PerformanceTrace.logIfSlow("GroupEditorScreen.entry", startedAt, 0,
 			"group=" + definition.id() + " ready=" + (error == null)
 				+ " elapsedMillis=" + PerformanceTrace.elapsedMillis(startedAt)));
 	}
 	@Override public List<ItemStack> cachedFullMatchItems(GroupDefinition definition) {
-		return GroupRegistry.getFullMatchItemsCached(definition.id());
+		return JeiViewerGroupIndex.instance().cachedFullMatchEntry(definition).map(JeiViewerGroupIndex.FullMatchEntry::items).orElse(null);
 	}
 	@Override public List<EditorFluidIngredientView> cachedFullMatchFluids(GroupDefinition definition, String traceName) {
-		List<Object> values = GroupRegistry.getFullMatchFluidsCached(definition.id());
+		List<Object> values = JeiViewerGroupIndex.instance().cachedFullMatchEntry(definition).map(JeiViewerGroupIndex.FullMatchEntry::fluids).orElse(null);
 		return values == null ? null : EditorFluidIngredientHelper.buildViews(values, traceName);
 	}
 	@Override public List<EditorGenericIngredientView> cachedFullMatchGeneric(GroupDefinition definition, String traceName) {
 		List<com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef> values =
-			GroupRegistry.getFullMatchGenericCached(definition.id());
+			JeiViewerGroupIndex.instance().cachedFullMatchEntry(definition).map(JeiViewerGroupIndex.FullMatchEntry::generic).orElse(null);
 		return values == null ? null : EditorGenericIngredientHelper.buildViews(values, traceName);
 	}
 	@Override public boolean verifyItemIndex() { return EditorItemIndex.isVerifyEnabled(); }
@@ -254,10 +253,6 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	@Override public String generateUniqueId(String name) { return GroupRegistry.generateUniqueId(name); }
 	@Override public String generateUniqueIdIncludingKubeJs(String name) {
 		return GroupRegistry.generateUniqueIdIncludingKubeJs(name);
-	}
-	@Override public void invalidateFullMatchCache(String id) { GroupRegistry.invalidateFullMatchCache(id); }
-	@Override public void populateFullMatchCacheFromSaved(GroupDefinition definition) {
-		GroupRegistry.populateFullMatchCacheFromSaved(definition);
 	}
 	@Override public void notifyViewer() { GroupRegistry.notifyJei(); }
 	@Override public boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled) {

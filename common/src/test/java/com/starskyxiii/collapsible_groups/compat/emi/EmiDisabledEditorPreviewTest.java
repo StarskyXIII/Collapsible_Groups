@@ -47,7 +47,9 @@ class EmiDisabledEditorPreviewTest {
 		assertEquals(1, runtime.resolveEditorDraftItems(draft, true).size());
 		assertTrue(runtime.resolveEditorDraftItems(draft, false).isEmpty());
 		runtime.closeEditor();
-		index.prepareFullMatch(group);
+		var changed = new GroupDefinition("stone", "Draft", true, new GroupFilter.Id("item", "minecraft:dirt"));
+		assertNull(runtime.cachedFullMatchItems(changed));
+		assertEquals(1, index.displaySnapshot().preview(group).orElseThrow().items().size());
 		assertEquals(1, runtime.cachedFullMatchItems(group).size());
 	}
 }

@@ -8,32 +8,13 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-/**
- * Viewer-neutral ownership/cache seam used by viewer integrations.
- *
- * <p>The implementation is the single source of truth for the following lifecycle contract.
- * “Rebuild” is asynchronous, “re-resolve” walks the already-built candidate edges only, and
- * “retain” means that the exact cache generation remains available.
- *
- * <table>
- *   <caption>Event-by-cache-layer lifecycle contract</caption>
- *   <tr><th>Event</th><th>Candidate index</th><th>Enabled-dependent resolved caches</th>
- *       <th>Enabled-independent full-match caches</th><th>Preview caches</th></tr>
- *   <tr><td>FULL</td><td>rebuild asynchronously</td><td>repopulate with rebuild</td>
- *       <td>clear; refill lazily or with rebuild</td><td>clear</td></tr>
- *   <tr><td>ENABLED</td><td>retain</td><td>re-resolve immediately from candidates</td>
- *       <td>retain</td><td>retain</td></tr>
- *   <tr><td>STRUCTURE</td><td>retain</td><td>retain</td><td>retain</td><td>retain</td></tr>
- *   <tr><td>KUBEJS_REPLACE</td><td>rebuild asynchronously</td><td>repopulate with rebuild</td>
- *       <td>clear</td><td>clear</td></tr>
- * </table>
- *
- * <p>Editor entry must use {@link #ready()} and {@link #whenReady()} rather than forcing a
- * synchronous candidate rebuild. Implementations may derive editor ownership from the ready
- * candidate index; otherwise the editor displays a loading placeholder until the asynchronous
- * rebuild completes.
- */
 public interface ViewerGroupIndex {
+	default ViewerGroupDisplaySnapshot displaySnapshot() {
+		var readiness = whenReady();
+		return new ViewerGroupDisplaySnapshot(null, id -> Optional.empty(), readiness,
+			!readiness.isDone(), readiness.isCompletedExceptionally());
+	}
+
 	default com.starskyxiii.collapsible_groups.group.GroupEvaluation evaluation(GroupDefinition group) {
 		if (!ready()) return com.starskyxiii.collapsible_groups.group.GroupEvaluation.pending();
 		GroupCandidateIndex index = candidates().orElse(null);

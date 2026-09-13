@@ -17,8 +17,6 @@ interface EditorGroupAccess {
 	String sanitizeGeneratedIdBase(String name);
 	String generateUniqueId(String name);
 	String generateUniqueIdIncludingKubeJs(String name);
-	void invalidateFullMatchCache(String id);
-	void populateFullMatchCacheFromSaved(GroupDefinition definition);
 	void notifyViewer();
 	boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled);
 }

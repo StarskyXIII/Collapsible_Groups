@@ -56,15 +56,15 @@ public final class GroupRepository {
 		}
 		Constants.LOG.info("[CollapsibleGroups] {} {} group definitions", accepted ? "Loaded" : "Retained",
 			SERVICE.managedRegistrationOrder().size());
-		publish(GroupChangeEvent.Kind.FULL);
+		publish(GroupChangeEvent.Kind.SOURCE_RELOAD);
 		return accepted;
 	}
 
-	public record ReadSnapshot(List<GroupDefinition> groups, GroupResourceData resources, boolean builtinsEnabled) {}
+	public record ReadSnapshot(List<GroupDefinition> groups, GroupResourceData resources, boolean builtinsEnabled, Map<String, GroupSource> winningSources) {}
 
 	public static ReadSnapshot readSnapshot() {
 		GroupService.ReadSnapshot current = SERVICE.readSnapshot();
-		return new ReadSnapshot(current.groups(), current.resources(), current.builtinsEnabled());
+		return new ReadSnapshot(current.groups(), current.resources(), current.builtinsEnabled(), current.winningSources());
 	}
 
 	public static GroupResourceData resourceData() { return SERVICE.resources(); }
@@ -332,6 +332,8 @@ public final class GroupRepository {
 		if (changed && findById(id).isEmpty()) GroupExpandState.remove(id);
 		return changed;
 	}
+
+	public static void notifySourceReload() { publish(GroupChangeEvent.Kind.SOURCE_RELOAD); }
 
 	public static void notifyViewer() { publish(GroupChangeEvent.Kind.FULL); }
 	public static void notifyStructureChanged() { publish(GroupChangeEvent.Kind.STRUCTURE); }

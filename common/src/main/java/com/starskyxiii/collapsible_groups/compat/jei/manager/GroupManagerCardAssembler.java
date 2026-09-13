@@ -2,7 +2,6 @@ package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
 import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
-import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupPreviewSnapshot;
 import com.starskyxiii.collapsible_groups.viewer.ViewerPreviewValue;
 
@@ -13,32 +12,23 @@ import java.util.List;
 final class GroupManagerCardAssembler {
 	private GroupManagerCardAssembler() {}
 
-	static Result build(List<GroupDefinition> groups, ViewerGroupIndex index) {
-		boolean generationPending = !index.ready();
-		var generation = index.candidates().orElse(null);
-		List<GroupManagerCard> cards = new ArrayList<>(groups.size());
+	static Result build(com.starskyxiii.collapsible_groups.group.GroupRepository.ReadSnapshot repository,
+		com.starskyxiii.collapsible_groups.viewer.ViewerGroupDisplaySnapshot display) {
+		List<GroupManagerCard> cards = new ArrayList<>(repository.groups().size());
 		int totalItems = 0;
 		int totalFluids = 0;
 		int totalGeneric = 0;
-		for (GroupDefinition group : groups) {
-			ViewerGroupPreviewSnapshot snapshot = generationPending
-				? emptySnapshot()
-				: index.cachedFullMatchSnapshot(group).orElseGet(GroupManagerCardAssembler::emptySnapshot);
-			totalItems += snapshot.items().size();
-			totalFluids += snapshot.fluids().size();
-			totalGeneric += snapshot.generic().size();
-			cards.add(GroupManagerCard.create(group, snapshot.items().size(), snapshot.fluids().size(),
-				snapshot.generic().size(), previewEntries(snapshot.allValues())).withEvaluation(index.evaluation(group)));
+		for (GroupDefinition group : repository.groups()) {
+			var evaluation = display.evaluation(group);
+			var snapshot = display.preview(group).orElseGet(GroupManagerCardAssembler::emptySnapshot);
+			totalItems += evaluation.itemCount();
+			totalFluids += evaluation.fluidCount();
+			totalGeneric += evaluation.genericCount();
+			cards.add(GroupManagerCard.create(group,
+				com.starskyxiii.collapsible_groups.client.manager.model.GroupSource.from(repository.winningSources().get(group.id())),
+				evaluation, previewEntries(snapshot.allValues())));
 		}
-		if (!generationPending && (!index.ready() || index.candidates().orElse(null) != generation)) {
-			return new Result(groups.stream().map(group -> GroupManagerCard.create(group, 0, 0, 0, List.of())).toList(), true, 0, 0, 0);
-		}
-		return new Result(cards, generationPending, totalItems, totalFluids, totalGeneric);
-	}
-
-	/** Takes mutable ownership of an assembler or pending snapshot for screen-local state changes. */
-	static List<GroupManagerCard> mutableWorkingCopy(List<GroupManagerCard> snapshot) {
-		return new ArrayList<>(snapshot);
+		return new Result(cards, display.pending(), totalItems, totalFluids, totalGeneric);
 	}
 
 	private static ViewerGroupPreviewSnapshot emptySnapshot() {

@@ -33,7 +33,7 @@ class JeiViewerGroupIndexContractTest {
 	@TestFactory
 	Stream<DynamicTest> everyLifecycleTableCellIsEnforced() {
 		return Stream.of(GroupChangeEvent.Kind.FULL, GroupChangeEvent.Kind.ENABLED,
-				GroupChangeEvent.Kind.STRUCTURE, GroupChangeEvent.Kind.KUBEJS_REPLACE)
+				GroupChangeEvent.Kind.STRUCTURE, GroupChangeEvent.Kind.KUBEJS_REPLACE, GroupChangeEvent.Kind.SOURCE_RELOAD)
 			.flatMap(event -> Stream.of(Layer.values()).map(layer -> DynamicTest.dynamicTest(
 				event + " / " + layer, () -> assertCell(event, layer))));
 	}
@@ -57,7 +57,8 @@ class JeiViewerGroupIndexContractTest {
 		index.onGroupChange(event, currentGroups);
 		index.whenReady().join();
 
-		boolean rebuild = event == GroupChangeEvent.Kind.FULL || event == GroupChangeEvent.Kind.KUBEJS_REPLACE;
+		boolean rebuild = event == GroupChangeEvent.Kind.FULL || event == GroupChangeEvent.Kind.KUBEJS_REPLACE
+			|| event == GroupChangeEvent.Kind.SOURCE_RELOAD;
 		switch (layer) {
 			case CANDIDATES -> {
 				if (rebuild) {
@@ -117,6 +118,14 @@ class JeiViewerGroupIndexContractTest {
 		assertNotNull(index.fullMatchFluids());
 		assertNotNull(index.fullMatchGeneric());
 		assertEquals(1, builds.get());
+		var display = index.displaySnapshot();
+		assertTrue(display.pending());
+		assertTrue(display.preview(group).isPresent());
+		index.updateUniverse(new ViewerIngredientUniverse<>(List.of()));
+		assertTrue(display.preview(group).isPresent());
+		index.onGroupChange(GroupChangeEvent.Kind.SOURCE_RELOAD, List.of(group));
+		assertTrue(index.displaySnapshot().preview(group).isEmpty());
+		assertTrue(display.preview(group).isPresent());
 		release.countDown();
 		first.join();
 		assertEquals(2, builds.get());

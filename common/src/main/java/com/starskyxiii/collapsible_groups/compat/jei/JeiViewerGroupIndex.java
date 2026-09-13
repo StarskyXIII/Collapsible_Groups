@@ -10,6 +10,7 @@ import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.GroupProjectionEngine;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
+import com.starskyxiii.collapsible_groups.viewer.ViewerGroupDisplaySnapshot;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupPreviewSnapshot;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
@@ -124,6 +125,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 	private volatile @Nullable Supplier<Generation> rebuildSource;
 	private volatile Executor completionExecutor = Runnable::run;
 	private volatile Runnable rebuildListener = () -> {};
+	private Runnable sourceInvalidation = () -> {};
 	private volatile List<GroupDefinition> currentGroups = List.of();
 	private long resetSequence;
 	private long desiredRevision;
@@ -139,6 +141,10 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		this.rebuildListener = rebuildListener;
 	}
 
+	public synchronized void configureSourceInvalidation(Runnable invalidation) {
+		sourceInvalidation = invalidation;
+	}
+
 	public void updateUniverse(ViewerIngredientUniverse<ITypedIngredient<?>> universe) {
 		this.universe = universe;
 	}
@@ -152,6 +158,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		rebuildSource = null;
 		completionExecutor = Runnable::run;
 		rebuildListener = () -> {};
+		sourceInvalidation = () -> {};
 		currentGroups = List.of();
 	}
 
@@ -183,7 +190,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 
 	@Override public boolean ready() {
 		Generation current = published;
-		return readyFuture.isDone() && current != null
+		return readyFuture.isDone() && !readyFuture.isCompletedExceptionally() && current != null
 			&& current.resolvedItems() != null && current.resolvedFluids() != null;
 	}
 
@@ -206,14 +213,33 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		return Optional.of(preview(entry));
 	}
 
-	@Override public Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) {
+	@Override public synchronized ViewerGroupDisplaySnapshot displaySnapshot() {
 		Generation captured = published;
-		if (!ready() || captured == null) return Optional.empty();
-		GroupDefinition indexed = captured.candidates().groupSnapshot().get(group.id());
-		if (indexed == null || !indexed.filter().equals(group.filter())) return Optional.empty();
-		FullMatchEntry entry = new FullMatchCacheSnapshot(captured.fullMatchItems(), captured.fullMatchFluids(),
-			captured.fullMatchGeneric()).entry(group.id());
-		return entry == null ? Optional.empty() : Optional.of(preview(entry));
+		var readiness = readyFuture;
+		boolean readable = captured != null && captured.fullMatchItems() != null
+			&& captured.fullMatchFluids() != null && captured.fullMatchGeneric() != null;
+		return new ViewerGroupDisplaySnapshot(readable ? captured.candidates() : null, id -> {
+			if (!readable) return Optional.empty();
+			FullMatchEntry entry = new FullMatchCacheSnapshot(captured.fullMatchItems(),
+				captured.fullMatchFluids(), captured.fullMatchGeneric()).entry(id);
+			return entry == null ? Optional.empty() : Optional.of(preview(entry));
+		}, readiness, !readiness.isDone(), readiness.isCompletedExceptionally());
+	}
+
+	@Override public Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) {
+		return cachedFullMatchEntry(group).map(JeiViewerGroupIndex::preview);
+	}
+
+	public synchronized Optional<FullMatchEntry> cachedFullMatchEntry(GroupDefinition group) {
+		Generation captured = published;
+		if (!ready() || !matches(captured, group)) return Optional.empty();
+		return Optional.ofNullable(new FullMatchCacheSnapshot(captured.fullMatchItems(), captured.fullMatchFluids(),
+			captured.fullMatchGeneric()).entry(group.id()));
+	}
+
+	private static boolean matches(Generation generation, GroupDefinition group) {
+		GroupDefinition indexed = generation == null ? null : generation.candidates().groupSnapshot().get(group.id());
+		return indexed != null && indexed.filter().equals(group.filter()) && indexed.documentFormat() == group.documentFormat();
 	}
 
 	private static ViewerGroupPreviewSnapshot preview(FullMatchEntry entry) {
@@ -235,13 +261,13 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 	FullMatchEntry fullMatchEntry(GroupDefinition group,
 		Supplier<JeiIngredientSourceState.FullMatch> resolver) {
 		Generation captured = published;
-		FullMatchEntry cached = captured == null ? null : new FullMatchCacheSnapshot(
+		FullMatchEntry cached = !matches(captured, group) ? null : new FullMatchCacheSnapshot(
 			captured.fullMatchItems(), captured.fullMatchFluids(), captured.fullMatchGeneric()).entry(group.id());
 		if (cached != null) return cached;
 		JeiIngredientSourceState.FullMatch resolved = resolver.get();
 		FullMatchEntry entry = new FullMatchEntry(resolved.items(), resolved.fluids(), resolved.generic());
 		synchronized (this) {
-			if (published == captured) {
+			if (published == captured && matches(captured, group)) {
 				updateFullMatchEntry(group.id(), entry.items(), entry.fluids(), entry.generic());
 			}
 		}
@@ -352,8 +378,8 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 				desiredRevision++;
 				startConfiguredRebuild();
 			}
-			case KUBEJS_REPLACE -> {
-				// Script replacement may redefine every group, so no preview entry is safe to retain.
+			case SOURCE_RELOAD, KUBEJS_REPLACE -> {
+				sourceInvalidation.run();
 				Generation current = published;
 				if (current != null) {
 					published = new Generation(current.candidates(), null, null,
@@ -405,21 +431,21 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 					loop.complete(null);
 					return;
 				}
-				if (failure != null) {
+				trailing = capturedRevision != desiredRevision;
+				if (failure != null && !trailing) {
 					Constants.LOG.error("JEI group index rebuild failed", failure);
 					loop.completeExceptionally(failure);
 					return;
 				}
-				trailing = capturedRevision != desiredRevision;
 				if (!trailing) {
 					published = withCurrentEnabledState(generation);
+					loop.complete(null);
 				}
 			}
 			if (trailing) {
 				scheduleRebuild(sequence, loop);
 				return;
 			}
-			loop.complete(null);
 			completionExecutor.execute(() -> {
 				synchronized (this) {
 					if (sequence != resetSequence || readyFuture != loop) return;

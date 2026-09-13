@@ -135,6 +135,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private GroupSortMode heldSortMode = null;
 	private boolean isDraggingScrollbar = false;
 	private String heldSwitchGroupId = null;
+	private boolean activeManager;
+	private boolean builtinsEnabled = true;
+	private SavedGroupContext pendingSavedContext;
+	private final List<com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Subscription> subscriptions = new ArrayList<>();
 	private String suppressedSwitchHoverGroupId = null;
 	private double sbDragStartMouseY;
 	private int sbDragStartPixelOffset;
@@ -154,6 +158,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	protected void init() {
+		activeManager = true;
+		if (subscriptions.isEmpty()) {
+			for (var kind : com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Kind.values()) {
+				subscriptions.add(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.subscribe(kind,
+					() -> Minecraft.getInstance().tell(this::refreshIfActive)));
+			}
+		}
 		if (!kubeJsLoaded && sourceFilter == GroupUiState.ManagerSourceFilter.KUBEJS) {
 			sourceFilter = GroupUiState.ManagerSourceFilter.ALL;
 		}
@@ -162,6 +173,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		rebuildCards();
 		calcLayout();
 		createSearchField();
+		applySavedContext();
 		if (!searchFieldLayout().visible()) {
 			sortMenuOpen = false;
 			sortButtonHeld = false;
@@ -175,15 +187,14 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		long traceStart = PerformanceTrace.begin();
 		ViewerGroupIndex index = ViewerLifecycleCoordinator.global().activeAdapter()
 			.map(adapter -> adapter.groupIndex()).orElse(UnavailableViewerGroupIndex.INSTANCE);
-		GroupManagerCardAssembler.Result result = GroupManagerCardAssembler.build(
-			GroupRepository.getAllIncludingScripted(), index);
-		CompletableFuture<Void> readiness = index.whenReady();
-		boolean generationPending = result.generationPending();
-		this.generationPending = generationPending;
-		publicationRefresh.schedule(!readiness.isDone(), readiness,
-			command -> Minecraft.getInstance().execute(command), this::rebuildCards);
-
-		allCards = GroupManagerCardAssembler.mutableWorkingCopy(result.cards());
+		var repository = GroupRepository.readSnapshot();
+		var display = index.displaySnapshot();
+		builtinsEnabled = repository.builtinsEnabled();
+		GroupManagerCardAssembler.Result result = GroupManagerCardAssembler.build(repository, display);
+		this.generationPending = result.generationPending();
+		publicationRefresh.schedule(display.pending(), display.readiness(),
+			command -> Minecraft.getInstance().tell(command), this::refreshIfActive);
+		allCards = new ArrayList<>(result.cards());
 		previewScrollOffsets.keySet().retainAll(
 			allCards.stream().map(GroupManagerCard::id).collect(Collectors.toSet()));
 		rebuildFilteredCards();
@@ -192,6 +203,19 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				+ " totalItems=" + result.totalItems()
 				+ " totalFluids=" + result.totalFluids()
 				+ " totalGeneric=" + result.totalGeneric());
+	}
+
+	private void refreshIfActive() {
+		if (activeManager && Minecraft.getInstance().screen == this) rebuildCards();
+	}
+
+	@Override
+	public void removed() {
+		activeManager = false;
+		subscriptions.forEach(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Subscription::close);
+		subscriptions.clear();
+		publicationRefresh.clear();
+		super.removed();
 	}
 
 	private void rebuildFilteredCards() {
@@ -825,7 +849,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		int left = cardX + 1;
 		int bottom = cardY + CARD_HEIGHT - 1;
 		int top = bottom - tabHeight;
-		if (card.source() == GroupSource.BUILTIN && !GroupRepository.readSnapshot().builtinsEnabled()
+		if (card.source() == GroupSource.BUILTIN && !builtinsEnabled
 			&& isMouseOver(mouseX, mouseY, left, top, tabWidth, tabHeight)) {
 			pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_BUILTINS_DISABLED);
 		}
@@ -1623,9 +1647,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public void onGroupSaved(SavedGroupContext context) {
+		pendingSavedContext = context;
 		lastSavedGroupId = context.groupId();
 		operationMessage = context.warningKey() == null ? null : Component.translatable(context.warningKey());
-		rebuildCards();
+	}
+
+	private void applySavedContext() {
+		SavedGroupContext context = pendingSavedContext;
+		pendingSavedContext = null;
+		if (context == null) return;
 		if (!context.shouldReveal()) {
 			scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
 			return;

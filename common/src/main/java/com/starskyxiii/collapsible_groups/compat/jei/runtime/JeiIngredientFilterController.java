@@ -64,7 +64,8 @@ public final class JeiIngredientFilterController {
 	private @Nullable List<String> baseListGroupIds;
 	private @Nullable Map<String, List<IElement<?>>> childrenByGroupId;
 	private @Nullable ViewerProjection<ITypedIngredient<?>> projection;
-	private @Nullable List<ITypedIngredient<?>> cachedFullList;
+	private volatile @Nullable List<ITypedIngredient<?>> cachedFullList;
+	private long sourceRevision;
 	private String searchTextForCache = "";
 
 	public JeiIngredientFilterController(
@@ -96,6 +97,7 @@ public final class JeiIngredientFilterController {
 		viewerIndex.reset();
 		viewerIndex.configureRebuild(this::buildConfiguredIndex, Minecraft.getInstance()::execute,
 			this::rebuildCompleted);
+		viewerIndex.configureSourceInvalidation(this::invalidateSource);
 		fullChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.FULL,
 			() -> handleIndexedChange(GroupChangeEvent.Kind.FULL));
 		structureChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.STRUCTURE,
@@ -124,10 +126,25 @@ public final class JeiIngredientFilterController {
 		notifyListeners.run();
 	}
 
+	private synchronized void invalidateSource() {
+		sourceRevision++;
+		cachedFullList = null;
+		GroupRegistry.clearJeiAllItems();
+		GroupRegistry.clearJeiAllFluids();
+		clearStructureCaches();
+	}
+
 	private JeiViewerGroupIndex.Generation buildConfiguredIndex() {
-		List<ITypedIngredient<?>> snapshot = cachedFullList;
+		long revision;
+		List<ITypedIngredient<?>> snapshot;
+		synchronized (this) {
+			revision = sourceRevision;
+			snapshot = cachedFullList;
+		}
 		if (snapshot == null) snapshot = uncachedIngredients.apply("").toList();
-		cachedFullList = snapshot;
+		synchronized (this) {
+			if (sourceRevision == revision) cachedFullList = snapshot;
+		}
 		return buildIngredientGroupIndex(snapshot);
 	}
 

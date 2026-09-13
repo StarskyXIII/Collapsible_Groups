@@ -19,6 +19,24 @@ import java.util.concurrent.Executor;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmiViewerGroupIndexTest {
+	@Test void bootstrapFailureSettlesWaitersAndReloadCanRecover() {
+		ControlledExecutor executor = new ControlledExecutor();
+		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor);
+		var waiting = index.whenReady();
+		index.failRebuild(new IllegalStateException("bootstrap failed"));
+		assertTrue(waiting.isCompletedExceptionally());
+		assertTrue(index.displaySnapshot().failed());
+		assertFalse(index.displaySnapshot().pending());
+		index.reset();
+		var group = group("stone", "minecraft:stone");
+		var universe = new ViewerIngredientUniverse<>(List.of(ingredient("stone", "minecraft:stone")));
+		index.requestRebuild(2, universe, List.of(group));
+		executor.runNext();
+		assertTrue(index.ready());
+		assertFalse(index.displaySnapshot().failed());
+		assertTrue(index.displaySnapshot().preview(group).isPresent());
+	}
+
 	@Test void reloadGateHidesPublishedResultsAndRejectsLateBuilds() {
 		ControlledExecutor executor = new ControlledExecutor();
 		var loaded = new java.util.concurrent.atomic.AtomicBoolean(true);

@@ -1418,8 +1418,6 @@ public class GroupEditorScreen extends Screen {
 		}
 		if (nameField != null) nameField.setTextColor(UiPalette.TEXT_PRIMARY);
 		var groups = EditorRuntimeServices.groups();
-		groups.invalidateFullMatchCache(saved.id());
-		groups.populateFullMatchCacheFromSaved(saved);
 		String warningKey = disableSourceAfterCopyIfRequested();
 		parent.onGroupSaved(new SavedGroupContext(saved.id(), saveKind, warningKey));
 		groups.notifyViewer();

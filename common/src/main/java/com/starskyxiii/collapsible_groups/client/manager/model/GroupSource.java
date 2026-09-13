@@ -7,7 +7,11 @@ public enum GroupSource {
 	KUBEJS;
 
 	public static GroupSource fromGroupId(String groupId) {
-		return switch (com.starskyxiii.collapsible_groups.group.GroupSource.fromGroupId(groupId)) {
+		return from(com.starskyxiii.collapsible_groups.group.GroupSource.fromGroupId(groupId));
+	}
+
+	public static GroupSource from(com.starskyxiii.collapsible_groups.group.GroupSource source) {
+		return switch (source) {
 			case USER -> USER;
 			case BUILTIN -> BUILTIN;
 			case RESOURCE_PACK -> RESOURCE_PACK;

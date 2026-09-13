@@ -202,26 +202,7 @@ class GroupRegistryLifecycleTest {
 		assertNull(cache("fullMatchGenericByGroup"));
 	}
 
-	@Test
-	void savedPreviewPopulationCreatesEntriesForEveryFullMatchCache() throws Exception {
-		GroupDefinition group = new GroupDefinition(
-			"preview_group",
-			"Preview Group",
-			false,
-			Filters.id("mekanism:chemical", "mekanism:hydrogen")
-		);
-		GroupRegistry.clearManagerPreviewCaches();
 
-		GroupRegistry.populateFullMatchCacheFromSaved(group);
-
-		assertTrue(callbackOrder.isEmpty());
-		assertTrue(cacheContains("fullMatchItemsByGroup", group.id()));
-		assertTrue(cacheContains("fullMatchFluidsByGroup", group.id()));
-		assertTrue(cacheContains("fullMatchGenericByGroup", group.id()));
-		assertTrue(GroupRegistry.getFullMatchItemsLookup(group).cacheHit());
-		assertTrue(GroupRegistry.getFullMatchFluidsLookup(group).cacheHit());
-		assertTrue(GroupRegistry.getFullMatchGenericIngredientsLookup(group).cacheHit());
-	}
 
 	private static GroupDefinition group(String id, boolean enabled) {
 		return new GroupDefinition(id, id, enabled, Filters.itemId("minecraft:stone"));

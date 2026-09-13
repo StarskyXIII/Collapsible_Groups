@@ -24,7 +24,17 @@ Validation: common production and test sources compiled successfully. Static rev
 
 ## 3. Save return and index display continuity
 
-Pending.
+- Manager assembles cards from one captured repository source map and one captured viewer display generation. Unchanged filters and document formats retain full-match previews and evaluations while a local rebuild runs; changed/new groups wait independently.
+- Saving records the result, publishes the change, and returns to Manager. Removed synchronous saved-preview population and the redundant pre-return card rebuild.
+- Editor drafts no longer write into published viewer preview maps. Cache reads require the indexed filter and document format to match; changed drafts use editor resolution.
+- Added SOURCE_RELOAD for resource/config reload and client tag updates on Fabric, Forge and NeoForge. JEI clears source caches before scheduling its rebuild; EMI invalidates its bootstrap epoch and re-enumerates its source. Script replacement and runtime reset also invalidate retained display results.
+- Manager subscriptions exist only while its screen is active. Captured readiness completion, including failures, schedules the display refresh; closing the screen cancels queued refresh ownership.
+- Closed the JEI publication/future completion gap and suppressed obsolete failed builds when a newer revision is requested. EMI bootstrap failures now settle readiness exceptionally instead of leaving an indefinite wait.
+- Winning source categories are calculated once per repository publication, retaining constant-time snapshot reads on ownership hot paths.
+- Removed the assembler's all-card fallback clearing and mutable-copy wrapper, and updated focused test sources for display retention, source capture, draft isolation and completion handling.
+
+Validation: common production/test sources and all three loader production sources compiled successfully. Subagent static re-review confirmed that the four blocking findings were resolved. No tests or game sessions ran. Runtime acceptance covers edit/save/cancel, unchanged empty groups, view position, rapid consecutive saves, source reload and failed rebuild display.
+
 
 ## 4. Short resource paths and separate group translations
 
