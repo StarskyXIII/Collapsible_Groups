@@ -68,7 +68,7 @@ class BuiltinGroupDataContractTest {
         var data = GroupResourceLoader.assemble(List.of(new GroupResourceLoader.Layer(bundled, false)));
         assertTrue(data.complete(), data.problems().toString());
         assertEquals(895, data.groups().size());
-        JsonObject english = resource("assets/collapsible_groups/lang/en_us.json");
+        JsonObject english = resource("assets/collapsible_groups/group_lang/en_us.json");
         for (GroupDefinition group : data.groups()) {
             assertEquals(group.displayName().fallback(), english.get(group.displayName().key()).getAsString(), group.id());
             assertEquals(GroupSource.BUILTIN, data.origin(group.id()).source());

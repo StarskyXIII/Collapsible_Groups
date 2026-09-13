@@ -16,12 +16,12 @@ Place group JSON in a client resource pack at:
 
 ```text
 pack.mcmeta
-assets/<namespace>/collapsible_groups/groups/<path>.json
-assets/<namespace>/lang/en_us.json
-assets/<namespace>/lang/zh_tw.json
+assets/collapsible_groups/groups/<path>.json
+assets/collapsible_groups/group_lang/en_us.json
+assets/collapsible_groups/group_lang/zh_tw.json
 ```
 
-Subdirectories below `groups` are supported. A minimal resource pack for Minecraft 1.21.1 can use:
+Only the `collapsible_groups` namespace is scanned for group definitions. The former double-directory path is no longer read. Subdirectories below `groups` are supported. A minimal resource pack for Minecraft 1.21.1 can use:
 
 ```json
 {"pack":{"pack_format":34,"description":"My group definitions"}}
@@ -78,7 +78,11 @@ Use **Sort and filter** beside the search box for the existing sort modes and **
 
 ## Translation worklists
 
-Built-in English names are part of the standard `assets/collapsible_groups/lang/en_us.json`. Resource packs can translate them through normal language files. Explicit files in `config/collapsiblegroups/lang/<locale>.json` still take precedence.
+UI translations remain in `assets/collapsible_groups/lang/<locale>.json`. Built-in English group names are generated into `assets/collapsible_groups/group_lang/en_us.json`; manual group translations use `group_lang/<locale>.json`. Empty locale files are not generated.
+
+Both directories participate in Minecraft language loading. Pack priority applies across both files; within one pack, `group_lang` takes precedence over `lang`. A higher-priority pack's standard `lang` entry can replace a lower-priority pack's `group_lang` entry. Minecraft's English fallback and selected locale order remain in effect. Malformed group language files are skipped individually during client language reload.
+
+Resource packs may use either normal language files or the dedicated group files. Explicit files in `config/collapsiblegroups/lang/<locale>.json` retain their existing highest precedence for group names.
 
 The mod no longer copies bundled language files into the config directory. Existing local files are preserved, so a file copied by an earlier release may continue to mask resource-pack translations. Review those files manually when changing translation sources.
 
@@ -99,7 +103,7 @@ Both modes use all effective source groups with complete, nonzero content, inclu
 | `all` | Preserve existing target-locale values; use the group's fallback where a target entry is absent. |
 | `missing` | Include only keys absent from the requested locale, using each group's fallback. |
 
-The command reads the requested locale directly from the active resource stack and its local overlay. It does not use the current language or English fallback to decide whether a target entry exists. An existing value identical to English is still an existing entry. A missing locale file is an empty input; an unreadable or malformed locale file is an error.
+The command reads only the requested locale from both language directories in the same pack order, followed by its local overlay. It does not use the current language or English fallback to decide whether a target entry exists. An existing value identical to English is still an existing entry. A missing locale file is an empty input; an unreadable or malformed locale file is an error.
 
 The report records the Minecraft version, viewer, evaluation generation, source locations, content counts, omitted empty groups, and uncertain groups. Built-in fallbacks are labeled `en_us`; custom, pack, override, and script fallbacks have an unspecified language. Equal fallbacks sharing a key are deduplicated. Different fallbacks sharing a key are omitted and reported as a conflict, even when a target translation already exists.
 
@@ -119,8 +123,6 @@ Bundled source JSON lives in three packaging roots:
 
 Keep each resource path unique across these roots. Filename prefixes preserve the original provider ordering; they do not alter a group's numeric priority. Built-in names must have a `collapsible_groups.group.*` translation key and a nonempty English fallback. No Java provider registration or per-group config option is required.
 
-Normal resource processing and source-jar builds automatically generate the platform catalog and merge all 895 English names into the standard English file. Generation reads JSON directly, without launching Minecraft, a datagen client, or installed integration mods. Edit the JSON fallback, build normally, and commit the JSON, generated English file, and `builtin-groups/generated-language-keys.json` together.
+Normal resource processing and source-jar builds automatically generate the platform catalog and the separate group English file from JSON fallbacks. Generation reads JSON directly, without launching Minecraft, a datagen client, or installed integration mods. Commit the edited source definitions; generated output lives below `build/generated/` and is included in each loader's resources and source jar.
 
-The manifest tracks generator-owned keys and their previous values. Removal deletes only previously owned keys; manual UI keys and unrelated manual entries are retained. A new generated key colliding with a manual key, conflicting fallbacks, duplicate IDs, missing names, or an inconsistent ownership manifest fails generation. Identical input produces identical output without timestamps, and concurrent loader builds share a writer lock.
-
-For CI, run the read-only `verifyGeneratedGroupLang` task **before** a build that could update the English file. It fails if checked-in generated output has drifted. Ordinary builds still regenerate automatically; no extra author command is required.
+The language generator never rewrites manual UI files. Conflicting fallbacks, duplicate IDs or resource paths, missing names, and collisions with manual UI keys fail generation before replacing its output. Identical input produces identical output without timestamps. There is no ownership manifest, writer lock, two-file rollback, or checked-in generated language verification task.

@@ -55,7 +55,7 @@ class GroupResourcePackIntegrationTest {
     @Test void minecraftFilterRemovesLowerPathsButNotReplacementOrCatalogMembership() {
         var blocked = pack("blocked", Map.of(path("blocked"), json("blocked", "minecraft:stone")), null);
         var filter = ResourceFilterSection.TYPE.fromJson(JsonParser.parseString(
-            "{\"block\":[{\"namespace\":\".*\",\"path\":\"collapsible_groups/groups/.*\"}]}").getAsJsonObject());
+            "{\"block\":[{\"namespace\":\".*\",\"path\":\"groups/.*\"}]}").getAsJsonObject());
         var high = pack("filter", Map.of(path("kept"), json("kept", "minecraft:dirt")), filter);
         var original = GroupResourceLoader.load(null, config);
         assertFalse(original.builtinIds().isEmpty());
@@ -68,16 +68,15 @@ class GroupResourcePackIntegrationTest {
         }
     }
 
-    @Test void samePackDuplicateAcrossNamespacesRejectsPublication() {
-        var duplicate = pack("duplicate", Map.of(path("one"), json("same", "minecraft:stone"),
-            "other:collapsible_groups/groups/two.json", json("same", "minecraft:dirt")), null);
-        try (var manager = new MultiPackResourceManager(PackType.CLIENT_RESOURCES, List.of(duplicate))) {
+    @Test void foreignNamespacesAndRetiredResourcePathsAreIgnored() {
+        var pack = pack("mixed", Map.of(path("one"), json("same", "minecraft:stone"),
+            "other:groups/two.json", json("same", "minecraft:dirt"),
+            "collapsible_groups:collapsible_groups/groups/retired.json", json("retired", "minecraft:dirt")), null);
+        try (var manager = new MultiPackResourceManager(PackType.CLIENT_RESOURCES, List.of(pack))) {
             var data = GroupResourceLoader.load(manager, config);
-            assertTrue(data.rejected());
-            assertTrue(data.problems().stream().anyMatch(problem -> problem.reason().contains("Duplicate ID")));
-            var service = new GroupService();
-            assertFalse(service.replaceManaged(data, Map.of(), true));
-            assertTrue(service.allPriorityOrder().isEmpty());
+            assertFalse(data.rejected());
+            assertEquals(1, data.origins().get("same").size());
+            assertNull(data.origin("retired"));
         }
     }
 
@@ -89,7 +88,7 @@ class GroupResourcePackIntegrationTest {
         assertEquals("unrelated file", Files.readString(config.resolve("collapsiblegroups/overrides")));
     }
 
-    private static String path(String name) { return "test:collapsible_groups/groups/" + name + ".json"; }
+    private static String path(String name) { return "collapsible_groups:groups/" + name + ".json"; }
 
     private static String json(String id, String item) {
         return GroupResourceLoaderTest.doc(GroupSource.RESOURCE_PACK, id, id, item, true, 0).json();

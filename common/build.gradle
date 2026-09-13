@@ -131,10 +131,12 @@ artifacts {
 
 tasks.named('processResources') {
     dependsOn(rootProject.tasks.named('generateGroupLang'))
+    from(rootProject.layout.buildDirectory.dir('generated/group-language'))
 }
 
 tasks.named('sourcesJar') {
     dependsOn(rootProject.tasks.named('generateGroupLang'))
+    from(rootProject.layout.buildDirectory.dir('generated/group-language'))
 }
 
 ['processResources', 'sourcesJar'].each { taskName ->
@@ -142,4 +144,13 @@ tasks.named('sourcesJar') {
         dependsOn(rootProject.tasks.named('generateBuiltinGroups'))
         from(layout.buildDirectory.dir('generated/builtin-groups'))
     }
+}
+
+tasks.withType(Jar).configureEach {
+    includeEmptyDirs = false
+    exclude('assets/collapsible_groups/collapsible_groups/groups/**')
+}
+
+tasks.named('processResources') {
+    includeEmptyDirs = false
 }

@@ -100,23 +100,18 @@ tasks.register('verifyEmiOnlyLinkage') {
 }
 
 def builtinRoots = ['common', 'fabric-neoforge', 'neoforge'].collect { file("builtin-groups/${it}") }
-def groupLangOutputFile = file('common/src/main/resources/assets/collapsible_groups/lang/en_us.json')
-def groupLangManifestFile = file('builtin-groups/generated-language-keys.json')
+def groupLangUiFile = file('common/src/main/resources/assets/collapsible_groups/lang/en_us.json')
+def groupLangOutput = layout.buildDirectory.dir('generated/group-language')
 
 tasks.register('generateGroupLang') {
-    description = 'Merge built-in group English names into the standard language file'
+    description = 'Generate built-in English group translations separately from UI language'
     group = 'datagen'
     inputs.files(builtinRoots.collect { fileTree(it) })
-    inputs.files(groupLangOutputFile, groupLangManifestFile)
-    outputs.files(groupLangOutputFile, groupLangManifestFile)
-    outputs.file(layout.buildDirectory.file('reports/builtin-groups/language.json'))
-    outputs.upToDateWhen { false }
+    inputs.file(groupLangUiFile)
+    outputs.dir(groupLangOutput)
     doLast {
-        def report = BuiltinGroupData.language(builtinRoots, groupLangOutputFile, groupLangManifestFile,
-            file('.gradle/builtin-group-language.lock'))
-        def reportFile = layout.buildDirectory.file('reports/builtin-groups/language.json').get().asFile
-        reportFile.parentFile.mkdirs()
-        reportFile.setText(groovy.json.JsonOutput.prettyPrint(groovy.json.JsonOutput.toJson(report)) + '\n', 'UTF-8')
+        BuiltinGroupData.language(builtinRoots, groupLangUiFile,
+            groupLangOutput.get().file('assets/collapsible_groups/group_lang/en_us.json').asFile)
     }
 }
 
@@ -130,14 +125,5 @@ tasks.register('generateBuiltinGroups') {
         packaged.each { module, roots ->
             BuiltinGroupData.resources(roots, project(":${module}").layout.buildDirectory.dir('generated/builtin-groups').get().asFile)
         }
-    }
-}
-
-tasks.register('verifyGeneratedGroupLang') {
-    description = 'Check committed built-in English generation without changing source files'
-    group = 'verification'
-    doLast {
-        BuiltinGroupData.verifyLanguage(builtinRoots, groupLangOutputFile, groupLangManifestFile,
-            layout.buildDirectory.dir('tmp/verify-group-language').get().asFile)
     }
 }

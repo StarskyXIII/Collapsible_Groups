@@ -28,6 +28,7 @@ tasks.named('compileJava', JavaCompile) {
 
 processResources {
     dependsOn(rootProject.tasks.named('generateGroupLang'))
+    from(rootProject.layout.buildDirectory.dir('generated/group-language'))
     dependsOn(configurations.commonResources)
     from(configurations.commonResources)
 }
@@ -39,6 +40,7 @@ tasks.named('javadoc', Javadoc).configure {
 
 tasks.named('sourcesJar', Jar) {
     dependsOn(rootProject.tasks.named('generateGroupLang'))
+    from(rootProject.layout.buildDirectory.dir('generated/group-language'))
     dependsOn(configurations.commonJava)
     from(configurations.commonJava)
     dependsOn(configurations.commonResources)
@@ -50,4 +52,13 @@ tasks.named('sourcesJar', Jar) {
         dependsOn(rootProject.tasks.named('generateBuiltinGroups'))
         from(layout.buildDirectory.dir('generated/builtin-groups'))
     }
+}
+
+tasks.withType(Jar).configureEach {
+    includeEmptyDirs = false
+    exclude('assets/collapsible_groups/collapsible_groups/groups/**')
+}
+
+tasks.named('processResources') {
+    includeEmptyDirs = false
 }

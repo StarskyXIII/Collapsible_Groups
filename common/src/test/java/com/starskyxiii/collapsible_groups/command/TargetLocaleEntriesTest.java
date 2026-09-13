@@ -69,6 +69,7 @@ class TargetLocaleEntriesTest {
         return (ResourceManager) Proxy.newProxyInstance(ResourceManager.class.getClassLoader(), new Class<?>[]{ResourceManager.class},
             (proxy, method, args) -> switch (method.getName()) {
                 case "getNamespaces" -> Set.of("collapsible_groups");
+                case "listPacks" -> resources.values().stream().flatMap(List::stream).map(Resource::source);
                 case "getResourceStack" -> resources.getOrDefault(((ResourceLocation) args[0]).getPath(), List.of());
                 default -> throw new AssertionError("Unexpected resource lookup: " + method.getName());
             });

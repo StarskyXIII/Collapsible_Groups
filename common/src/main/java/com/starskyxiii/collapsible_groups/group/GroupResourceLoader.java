@@ -27,7 +27,7 @@ import java.util.Map;
 import java.util.Set;
 
 public final class GroupResourceLoader {
-    public static final String RESOURCE_DIRECTORY = "collapsible_groups/groups";
+    public static final String RESOURCE_DIRECTORY = "groups";
     public static final String CATALOG_RESOURCE = "assets/collapsible_groups/builtin_catalog.json";
     private static volatile List<Document> bundled;
 
@@ -120,7 +120,7 @@ public final class GroupResourceLoader {
             JsonObject entry = element.getAsJsonObject();
             String path = entry.get("path").getAsString();
             String id = entry.get("id").getAsString();
-            if (!path.matches("assets/[a-z0-9_.-]+/collapsible_groups/groups/[a-z0-9_./-]+\\.json")
+            if (!path.matches("assets/collapsible_groups/groups/[a-z0-9_./-]+\\.json")
                 || path.contains("..") || !paths.add(path)) {
                 throw new IOException("Invalid or duplicate built-in resource path: " + path);
             }
@@ -142,8 +142,7 @@ public final class GroupResourceLoader {
     private static Layer readPack(PackResources pack) {
         List<Document> documents = new ArrayList<>();
         try {
-            for (String namespace : pack.getNamespaces(PackType.CLIENT_RESOURCES).stream().sorted().toList()) {
-                pack.listResources(PackType.CLIENT_RESOURCES, namespace, RESOURCE_DIRECTORY, (location, supplier) -> {
+            pack.listResources(PackType.CLIENT_RESOURCES, Constants.MOD_ID, RESOURCE_DIRECTORY, (location, supplier) -> {
                     if (!location.getPath().endsWith(".json")) return;
                     GroupOrigin origin = new GroupOrigin(GroupSource.RESOURCE_PACK, pack.packId(), location.toString(), null);
                     try (InputStream input = supplier.get()) {
@@ -151,8 +150,7 @@ public final class GroupResourceLoader {
                     } catch (IOException | RuntimeException failure) {
                         documents.add(new Document(origin, null, null, failure.toString()));
                     }
-                });
-            }
+            });
         } catch (RuntimeException failure) {
             documents.add(failure(GroupSource.RESOURCE_PACK, pack.packId(), pack.packId(), failure));
         }

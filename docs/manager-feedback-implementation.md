@@ -38,7 +38,15 @@ Validation: common production/test sources and all three loader production sourc
 
 ## 4. Short resource paths and separate group translations
 
-Pending.
+- Moved all 895 source definitions to `assets/collapsible_groups/groups/`. The loader scans only this namespace/path; the retired long path is ignored.
+- Used the existing ownership manifest to identify exactly 895 generated group keys and checked every fallback before removing them from UI English. All 425 manual UI entries were preserved. Removed the manifest afterwards.
+- Replaced source-language merging with a pure generator that emits `build/generated/group-language/assets/collapsible_groups/group_lang/en_us.json`. Removed the writer lock, hash/ownership bookkeeping, two-file rollback and drift-verification task. Manual group locales remain supported without generating empty locale files.
+- Added one shared client language mixin and shared resource ordering. Pack identity determines priority across normal and group language files; within a pack, group language wins. Native locale fallback and resource filters remain in effect.
+- Group language resources are fully validated before native parsing; malformed group files become per-resource IO failures. Translation worklists use the same ordering, read only the requested locale, and fail without output on malformed input.
+- Connected generated group language to resource processing and source jars, excluding only retired group paths and empty directories. Updated the resource-pack guide and focused generator/language test sources.
+
+Validation: all production sources, common test sources and generator test sources compiled; Subagent static review passed. All six runtime/source jars contain the expected catalogs and short group paths (Fabric 528, Forge 229, NeoForge 895), exactly one 425-key UI English file and one 895-key group English file, and the common language mixin. No retired group path was present. No tests or game sessions ran. Native language reload and selected-language behavior remain for user acceptance.
+
 
 ## 5. Cleanup and final artifact checks
 

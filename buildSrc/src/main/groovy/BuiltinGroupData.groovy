@@ -2,14 +2,11 @@ import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.GradleException
 
-import java.nio.channels.FileChannel
 import java.nio.charset.StandardCharsets
 import java.nio.file.AtomicMoveNotSupportedException
 import java.nio.file.Files
 import java.nio.file.Path
 import java.nio.file.StandardCopyOption
-import java.nio.file.StandardOpenOption
-import java.security.MessageDigest
 
 final class BuiltinGroupData {
     static List<Map> read(List<File> roots) {
@@ -21,7 +18,7 @@ final class BuiltinGroupData {
             root.eachFileRecurse { file ->
                 if (!file.isFile() || !file.name.endsWith('.json')) return
                 String path = root.toPath().relativize(file.toPath()).toString().replace('\\', '/')
-                if (!(path ==~ /assets\/[a-z0-9_.-]+\/collapsible_groups\/groups\/[a-z0-9_.\/-]+\.json/)) {
+                if (!(path ==~ /assets\/collapsible_groups\/groups\/[a-z0-9_.\/-]+\.json/)) {
                     throw new GradleException("Invalid built-in resource path: ${path}")
                 }
                 Map group = object(file)
@@ -65,93 +62,19 @@ final class BuiltinGroupData {
         output.each { path, text -> writeIfChanged(new File(destination, path).toPath(), text) }
     }
 
-    static synchronized Map language(List<File> roots, File languageFile, File manifestFile, File lockFile) {
-        lockFile.parentFile.mkdirs()
-        FileChannel.open(lockFile.toPath(), StandardOpenOption.CREATE, StandardOpenOption.WRITE).withCloseable { channel ->
-            channel.lock().withCloseable { ignored ->
-                mergeLanguage(read(roots), languageFile, manifestFile)
-            }
-        }
-    }
-
-    static void verifyLanguage(List<File> roots, File languageFile, File manifestFile, File workingDirectory) {
-        workingDirectory.mkdirs()
-        Path temporary = Files.createTempDirectory(workingDirectory.toPath(), 'verify-language-')
-        try {
-            File languageCopy = temporary.resolve(languageFile.name).toFile()
-            File manifestCopy = temporary.resolve(manifestFile.name).toFile()
-            Files.copy(languageFile.toPath(), languageCopy.toPath())
-            Files.copy(manifestFile.toPath(), manifestCopy.toPath())
-            mergeLanguage(read(roots), languageCopy, manifestCopy)
-            if (!Arrays.equals(languageCopy.bytes, languageFile.bytes) || !Arrays.equals(manifestCopy.bytes, manifestFile.bytes)) {
-                throw new GradleException('Generated built-in English entries are out of date. Run a normal build and commit the updated language file and ownership manifest.')
-            }
-        } finally {
-            temporary.toFile().eachFile { file -> Files.delete(file.toPath()) }
-            Files.delete(temporary)
-        }
-    }
-
-    private static Map mergeLanguage(List<Map> entries, File languageFile, File manifestFile) {
-        Map language = strings(object(languageFile), languageFile.name)
-        Map manifest = object(manifestFile)
-        if (manifest.keySet() != ['version', 'keys', 'sha256'] as Set || manifest.version != 1
-            || !(manifest.keys instanceof List) || !(manifest.sha256 instanceof String)
-            || manifest.keys.any { !(it instanceof String) }
-            || manifest.keys != manifest.keys.toSorted().unique()) {
-            throw new GradleException('Invalid generated group language ownership manifest')
-        }
-        Map<String, String> owned = new TreeMap<>()
-        manifest.keys.each { key ->
-            if (!language.containsKey(key)) throw new GradleException("Missing owned group language key: ${key}")
-            owned[key] = language[key]
-        }
-        if (digest(owned) != manifest.sha256) {
-            throw new GradleException('Generated group language entries and ownership manifest do not match')
-        }
+    static void language(List<File> roots, File uiFile, File destination) {
+        Map ui = strings(object(uiFile), uiFile.name)
         Map<String, String> generated = new TreeMap<>()
-        entries.each { entry ->
+        read(roots).each { entry ->
             String key = entry.definition.name.translate
             String value = entry.definition.name.fallback
             if (generated.containsKey(key) && generated[key] != value) {
                 throw new GradleException("Conflicting English fallback for ${key}: ${entry.path}")
             }
-            if (language.containsKey(key) && !owned.containsKey(key)) {
-                throw new GradleException("Generated group key collides with a manually owned language entry: ${key}")
-            }
+            if (ui.containsKey(key)) throw new GradleException("Generated group key collides with UI language entry: ${key}")
             generated[key] = value
         }
-        Map<String, String> merged = new TreeMap<>(language)
-        owned.keySet().each { merged.remove(it) }
-        merged.putAll(generated)
-        String nextLanguage = json(merged)
-        String nextManifest = json([version: 1, keys: generated.keySet().toList(), sha256: digest(generated)])
-        Map checkedLanguage = strings(new JsonSlurper().parseText(nextLanguage) as Map, languageFile.name)
-        Map checkedManifest = new JsonSlurper().parseText(nextManifest) as Map
-        if (digest(checkedLanguage.findAll { key, value -> generated.containsKey(key) }) != checkedManifest.sha256) {
-            throw new GradleException('Generated group language validation failed')
-        }
-        Path stagedLanguage = stage(languageFile.toPath(), nextLanguage)
-        Path stagedManifest = stage(manifestFile.toPath(), nextManifest)
-        byte[] previousLanguage = Files.readAllBytes(languageFile.toPath())
-        byte[] previousManifest = Files.readAllBytes(manifestFile.toPath())
-        try {
-            replaceIfChanged(stagedLanguage, languageFile.toPath())
-            replaceIfChanged(stagedManifest, manifestFile.toPath())
-        } catch (Exception failed) {
-            writeIfChanged(languageFile.toPath(), new String(previousLanguage, StandardCharsets.UTF_8))
-            writeIfChanged(manifestFile.toPath(), new String(previousManifest, StandardCharsets.UTF_8))
-            throw failed
-        } finally {
-            Files.deleteIfExists(stagedLanguage)
-            Files.deleteIfExists(stagedManifest)
-        }
-        [definitions: entries.size(), generatedKeys: generated.size(), deduplicatedKeys: entries.size() - generated.size(), conflicts: 0, missing: 0]
-    }
-
-    static String digest(Map values) {
-        byte[] bytes = JsonOutput.toJson(new TreeMap(values)).getBytes(StandardCharsets.UTF_8)
-        MessageDigest.getInstance('SHA-256').digest(bytes).encodeHex().toString()
+        writeIfChanged(destination.toPath(), json(generated))
     }
 
     private static Map object(File file) {
