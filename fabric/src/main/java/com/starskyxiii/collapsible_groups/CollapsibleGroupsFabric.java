@@ -22,7 +22,7 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
             .requireCompatibleSelectedViewer();
         Constants.LOG.info("Initializing {} on Fabric", Constants.MOD_NAME);
         CommonClass.init();
-        FabricConfig.load();
+        com.starskyxiii.collapsible_groups.platform.Services.CONFIG.settings().initialize();
         if (net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("kubejs")) {
             ViewerLifecycleCoordinator.global().setScriptedGroupBootstrap(
                 com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge::applyGroupsNeutral

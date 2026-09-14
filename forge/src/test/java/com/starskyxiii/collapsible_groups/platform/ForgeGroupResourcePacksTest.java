@@ -13,6 +13,7 @@ import net.minecraft.server.packs.resources.MultiPackResourceManager;
 import net.minecraftforge.resource.DelegatingPackResources;
 import net.minecraftforge.resource.PathPackResources;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
@@ -24,6 +25,12 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class ForgeGroupResourcePacksTest {
+    @TempDir static Path gameDirectory;
+
+    @BeforeAll static void initializeGamePaths() {
+        net.minecraftforge.fml.loading.FMLPaths.loadAbsolutePaths(gameDirectory);
+    }
+
     private static final ResourceLocation RESOURCE = new ResourceLocation("test", "groups/same.json");
     @TempDir Path directory;
 

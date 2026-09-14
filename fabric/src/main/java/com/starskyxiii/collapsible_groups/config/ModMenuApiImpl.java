@@ -12,6 +12,6 @@ public class ModMenuApiImpl implements ModMenuApi {
 
 	@Override
 	public ConfigScreenFactory<?> getModConfigScreenFactory() {
-		return FabricConfigScreen::new;
+		return com.starskyxiii.collapsible_groups.client.config.GroupConfigScreen::new;
 	}
 }

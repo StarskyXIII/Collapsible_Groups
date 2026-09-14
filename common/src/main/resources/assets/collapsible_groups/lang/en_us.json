@@ -468,5 +468,13 @@
   "collapsible_groups.tooltip.collapse": "Left-click to collapse",
   "collapsible_groups.tooltip.expand": "Left-click to expand",
   "collapsible_groups.manager.copy_source_disable_failed": "Copy saved, but the original group could not be disabled. Disable it manually.",
-  "collapsible_groups.manager.copy_source_missing": "Copy saved. The original group is no longer available."
+  "collapsible_groups.manager.copy_source_missing": "Copy saved. The original group is no longer available.",
+  "collapsible_groups.config.tab.general": "General",
+  "collapsible_groups.config.tab.appearance": "Appearance",
+  "collapsible_groups.config.tab.advanced": "Advanced",
+  "collapsible_groups.config.open": "Settings",
+  "collapsible_groups.config.read_failed": "Could not read settings. Check the file and reopen this screen.",
+  "collapsible_groups.config.save_failed": "Could not save settings. Your changes are still here; try again.",
+  "collapsible_groups.config.apply_pending": "Saved. Some changes are still waiting to apply; save again to retry.",
+  "collapsible_groups.config.invalid_threshold": "Enter a whole number from 0 to 2147483647."
 }

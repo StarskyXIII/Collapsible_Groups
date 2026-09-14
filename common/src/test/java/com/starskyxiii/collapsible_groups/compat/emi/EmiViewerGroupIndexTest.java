@@ -81,6 +81,10 @@ class EmiViewerGroupIndexTest {
 		index.requestRebuild(1, universe, List.of(stable, edited)).join();
 		var retained = index.fullMatchItems("stable");
 		calls.clear();
+        index.onGroupChange(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Kind.STRUCTURE, List.of(stable, edited));
+        assertTrue(calls.isEmpty());
+        assertSame(retained, index.fullMatchItems("stable"));
+        assertTrue(index.ready());
 		edited = edited.withFilter(new GroupFilter.Tag("item", "test:after"));
 		var groups = List.of(stable, edited);
 		index.requestRebuild(1, universe, groups).join();

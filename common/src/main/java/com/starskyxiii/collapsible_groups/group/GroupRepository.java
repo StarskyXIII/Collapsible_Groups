@@ -40,10 +40,14 @@ public final class GroupRepository {
 		if (!initialized) {
 			reload(currentResources);
 		} else if (SERVICE.builtinsEnabled() != Services.CONFIG.loadDefaultGroups()) {
-			SERVICE.setBuiltinsEnabled(Services.CONFIG.loadDefaultGroups());
-			publish(GroupChangeEvent.Kind.ENABLED);
+			applyBuiltinSetting();
 		}
 	}
+
+    public static synchronized void applyBuiltinSetting() {
+        SERVICE.setBuiltinsEnabled(Services.CONFIG.loadDefaultGroups());
+        publish(GroupChangeEvent.Kind.ENABLED);
+    }
 
 	public static synchronized boolean reload(ResourceManager manager) {
 		currentResources = manager;

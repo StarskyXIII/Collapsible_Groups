@@ -6,6 +6,9 @@ package com.starskyxiii.collapsible_groups.platform.services;
  * Fabric/Forge via their respective config systems).
  */
 public interface IConfigProvider {
+    default com.starskyxiii.collapsible_groups.config.SettingsController settings() {
+        throw new UnsupportedOperationException("Settings are not editable");
+    }
 	/** Master switch: false means no built-in default groups are loaded. */
 	boolean loadDefaultGroups();
 

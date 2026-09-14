@@ -468,5 +468,13 @@
   "collapsible_groups.command.worklist_success": "已匯出 %s 個翻譯工作清單鍵至 %s",
   "collapsible_groups.command.worklist_incomplete": "已匯出 %s 個鍵至 %s。工作清單不完整，請查看 report.json 中的評估問題與衝突。",
   "collapsible_groups.command.worklist_error": "無法匯出翻譯工作清單：%s",
-  "collapsible_groups.manager.operation_failed": "無法儲存變更，請檢查群組來源與檔案權限。"
+  "collapsible_groups.manager.operation_failed": "無法儲存變更，請檢查群組來源與檔案權限。",
+  "collapsible_groups.config.tab.general": "一般",
+  "collapsible_groups.config.tab.appearance": "外觀",
+  "collapsible_groups.config.tab.advanced": "進階",
+  "collapsible_groups.config.open": "設定",
+  "collapsible_groups.config.read_failed": "無法讀取設定。請檢查檔案並重新開啟此畫面。",
+  "collapsible_groups.config.save_failed": "無法儲存設定。修改仍保留在畫面上，請重試。",
+  "collapsible_groups.config.apply_pending": "已儲存，但部分設定尚未套用；再次儲存可重試。",
+  "collapsible_groups.config.invalid_threshold": "請輸入 0 到 2147483647 之間的整數。"
 }

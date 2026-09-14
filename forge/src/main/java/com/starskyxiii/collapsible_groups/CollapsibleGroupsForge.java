@@ -5,12 +5,11 @@ import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
 import com.starskyxiii.collapsible_groups.config.ForgeConfig;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
-import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.client.event.RegisterClientCommandsEvent;
 import net.minecraftforge.client.event.RegisterClientReloadListenersEvent;
 import net.minecraftforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
 import net.minecraftforge.common.MinecraftForge;
-import net.minecraftforge.eventbus.api.SubscribeEvent;
+
 import net.minecraftforge.fml.ModLoadingContext;
 import net.minecraftforge.fml.ModList;
 import net.minecraftforge.fml.common.Mod;
@@ -33,6 +32,10 @@ public class CollapsibleGroupsForge {
             "collapsiblegroups/collapsiblegroups.toml");
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onClientSetup);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onConfigReload);
+        FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onConfigLoading);
+        ModLoadingContext.get().registerExtensionPoint(net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory.class,
+            () -> new net.minecraftforge.client.ConfigScreenHandler.ConfigScreenFactory(
+                com.starskyxiii.collapsible_groups.client.config.GroupConfigScreen::new));
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::registerTooltipFactories);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onRegisterReloadListeners);
         MinecraftForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
@@ -60,17 +63,26 @@ public class CollapsibleGroupsForge {
     }
 
     private void onClientSetup(FMLClientSetupEvent event) {
-        if (ModList.get().isLoaded("kubejs")) {
-            ViewerLifecycleCoordinator.global().setScriptedGroupBootstrap(
-                com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge::applyGroupsNeutral
-            );
-        }
-        reloadGroupsFromCurrentConfig();
+        event.enqueueWork(() -> {
+            com.starskyxiii.collapsible_groups.platform.Services.CONFIG.settings().initialize();
+            if (ModList.get().isLoaded("kubejs")) {
+                ViewerLifecycleCoordinator.global().setScriptedGroupBootstrap(
+                    com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge::applyGroupsNeutral
+                );
+            }
+            reloadGroupsFromCurrentConfig();
+        });
+    }
+
+    private void onConfigLoading(ModConfigEvent.Loading event) {
+        if (event.getConfig().getSpec() == ForgeConfig.SPEC) ForgeConfig.bind(event.getConfig());
     }
 
     private void onConfigReload(ModConfigEvent.Reloading event) {
         if (event.getConfig().getSpec() == ForgeConfig.SPEC) {
-            reloadGroupsFromCurrentConfig();
+            ForgeConfig.bind(event.getConfig());
+            net.minecraft.client.Minecraft.getInstance().execute(() ->
+                com.starskyxiii.collapsible_groups.platform.Services.CONFIG.settings().reload());
         }
     }
 
