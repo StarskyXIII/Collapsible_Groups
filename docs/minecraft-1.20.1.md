@@ -18,6 +18,23 @@ This branch targets Java 17, Forge and Fabric. It is separate from the Minecraft
 
 JEI, EMI and KubeJS integrations are optional. Use the artifact for the selected loader.
 
+## JEI compatibility update (2026-09-09)
+
+The overlay initialization and bookmark hooks now accommodate the signatures in JEI 15.20.0.102, 15.20.0.130 and 15.20.0.133 on both loaders, while retaining .102 as the compile baseline. These are compatibility targets, not newly verified runtime results. Automated and in-game tests for this update were skipped at the user's request. JEI 15.58.0.209 remains a future target.
+
+Use the same updated artifact for each loader across its three JEI versions. Manually check:
+
+- Enter a world, open the inventory, then leave and re-enter without a crash.
+- Expand/collapse groups, search, and check backgrounds, tooltips, the manager button and search-field input/layout.
+- Edit an NBT rule, save, confirm the ingredient list refreshes, and reopen the editor.
+- Attempt to bookmark a group header (blocked), then ordinary item, fluid and other ingredient children (normal JEI behavior); check recipe lookup as well.
+- On .130 and .133, enable/disable lookup history and move it between the left and right sides; check layout and input.
+- Check pure EMI and JEI+EMI with EMI selected, including grouping and native bookmarks; also check startup without either viewer.
+
+The previous validation results below describe the earlier artifacts and do not validate this update.
+
+On 2026-09-15, `:common:check :fabric:build :forge:build` passed with Java 17. The common, Fabric and Forge test tasks were then rerun and passed. A separate review checked the native bookmark signatures and overlay constructors in all six Fabric/Forge JEI .102, .130 and .133 JARs, with no blocking findings. No in-game validation was performed for this update.
+
 ## Item data
 
 Exact item selections use native Minecraft NBT, with item counts normalized to one. Matching compares the item and its complete NBT. Numeric NBT types, lists and typed arrays retain their native meaning.

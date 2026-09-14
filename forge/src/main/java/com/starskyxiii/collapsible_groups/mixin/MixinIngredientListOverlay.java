@@ -25,10 +25,7 @@ public abstract class MixinIngredientListOverlay {
 	@Unique private JeiIngredientListOverlayController cg$controller;
 
 	@Inject(
-		method = "<init>(Lmezz/jei/gui/overlay/IIngredientGridSource;Lmezz/jei/gui/filter/IFilterTextSource;" +
-			"Lmezz/jei/api/runtime/IScreenHelper;Lmezz/jei/gui/overlay/IngredientGridWithNavigation;" +
-			"Lmezz/jei/common/config/IClientConfig;" +
-			"Lmezz/jei/common/config/IClientToggleState;Lmezz/jei/common/input/IInternalKeyMappings;)V",
+		method = "<init>",
 		at = @At("TAIL"),
 		require = 1
 	)
