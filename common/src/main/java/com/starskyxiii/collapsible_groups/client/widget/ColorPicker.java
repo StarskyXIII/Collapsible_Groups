@@ -39,10 +39,10 @@ public final class ColorPicker {
         hex = new EditBox(font, 0, 0, 1, 12, Component.literal(rgb ? "#RRGGBB" : "#AARRGGBB"));
         hex.setBordered(false);
         hex.setMaxLength(10);
+        setBounds(available);
         hex.setValue(SettingsSnapshot.hex(color, rgb));
         hex.setResponder(this::typed);
         hex.setFocused(true);
-        setBounds(available);
     }
 
     public boolean isOpen() { return open; }
@@ -177,4 +177,3 @@ public final class ColorPicker {
         return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }
 }
-

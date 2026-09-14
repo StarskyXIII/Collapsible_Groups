@@ -97,7 +97,8 @@ public final class GroupConfigScreen extends Screen {
             for (int line = 0; line < Math.min(2, lines.size()); line++)
                 graphics.drawString(font, lines.get(line), left() + 8, y + (lines.size() > 1 ? 8 : 14) + line * 10, UiPalette.TEXT_PRIMARY, false);
             boolean hot = contains(left(), y, right() - left() - 10, ROW - 3, rowMouseX, mouseY);
-            if (hot) tooltip = Component.translatable("collapsible_groups.configuration." + key + ".tooltip");
+            if (hot && !(page == 0 && i == 3 && threshold.isFocused()))
+                tooltip = Component.translatable("collapsible_groups.configuration." + key + ".tooltip");
             if (page == 0 && i == 3) {
                 graphics.fill(right() - 98, y + 7, right() - 12, y + 29, UiPalette.SURFACE_DARK);
                 UiSkinRenderer.drawOutline(graphics, right() - 98, y + 7, 86, 22,
@@ -113,7 +114,7 @@ public final class GroupConfigScreen extends Screen {
             } else UiSkinRenderer.drawSwitch(graphics, right() - 58, y + 7, 44, 22, enabled(i), true, hot, false);
         }
         graphics.disableScissor();
-        UiSkinRenderer.drawScrollbarPixels(graphics, right() - 6, TOP, bottom() - TOP,
+        if (maxScroll() > 0) UiSkinRenderer.drawScrollbarPixels(graphics, right() - 6, TOP, bottom() - TOP,
             bottom() - TOP, KEYS.get(page).size() * ROW, scroll);
         Component status = message;
         if (status == null && !controller.writable()) status = text("read_failed");
@@ -133,7 +134,7 @@ public final class GroupConfigScreen extends Screen {
             graphics.pose().translate(0, 0, 500);
             picker.render(graphics, mouseX, mouseY);
             graphics.pose().popPose();
-        } else if (tooltip != null) graphics.renderTooltip(font, tooltip, mouseX, mouseY);
+        } else if (tooltip != null) graphics.renderTooltip(font, font.split(tooltip, Math.min(260, width - 24)), mouseX, mouseY);
     }
 
     private static Component text(String key) { return Component.translatable("collapsible_groups.config." + key); }

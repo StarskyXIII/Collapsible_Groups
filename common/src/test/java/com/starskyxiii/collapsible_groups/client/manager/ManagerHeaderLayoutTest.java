@@ -39,6 +39,9 @@ class ManagerHeaderLayoutTest {
     @Test void batchControlsWrapWithoutMovingTheSearchHitboxAwayFromItsVisualPosition() {
         var narrow = ManagerHeaderLayout.create(320, 5, 104, 5);
         var wide = ManagerHeaderLayout.create(960, 5, 104, 5);
+        assertTrue(narrow.actionsY() >= 29);
+        assertTrue(narrow.titleWidth() >= 120);
+        assertEquals(5, wide.actionsY());
         assertTrue(narrow.height() > wide.height());
         assertEquals(narrow.search().y(), narrow.sort().y());
         assertEquals(narrow.search().x() + narrow.search().width() + 4, narrow.sort().x());

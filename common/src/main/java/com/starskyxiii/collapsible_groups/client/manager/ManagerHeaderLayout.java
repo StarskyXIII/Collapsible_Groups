@@ -13,7 +13,7 @@ public record ManagerHeaderLayout(List<Rect> sources, List<Rect> batchActions, R
 
     public static ManagerHeaderLayout create(int width, int sourceCount, int sourceWidth, int batchCount) {
         int usable = Math.max(1, width - 12);
-        int actionsY = width >= 304 ? 5 : 29;
+        int actionsY = width - 306 >= 120 ? 5 : 29;
         var flow = new Row(width, actionsY + 26);
         int segmentWidth = Math.min(sourceWidth, Math.max(40, (usable + sourceCount - 1) / Math.max(1, sourceCount)));
         List<Rect> sources = new ArrayList<>();

@@ -276,14 +276,10 @@ public final class EditorSettingsPanel {
 		}
 	}
 
-	/** Renders the color / icon picker modals at the caller-established top Z. */
 	public void renderModals(GuiGraphics g, int mouseX, int mouseY) {
 		if (!isModalOpen()) return;
-		// Lift the whole modal above the row list's renderItem draws (~z150).
-		// The modal backdrop lands at z200, its own items at ~z350, still below the
-		// ConfirmDialog at z500. Panel-drawn tooltips inside stay on this pose.
 		g.pose().pushPose();
-		g.pose().translate(0, 0, 200);
+		g.pose().translate(0, 0, 500);
 		if (isColorPickerOpen()) {
 			colorPicker.render(g, mouseX, mouseY);
 		} else if (iconPickerOpen) {
