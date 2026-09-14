@@ -203,11 +203,11 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		var readiness = readyFuture;
 		boolean readable = captured != null && captured.fullMatchItems() != null
 			&& captured.fullMatchFluids() != null && captured.fullMatchGeneric() != null;
-		return new ViewerGroupDisplaySnapshot(readable ? captured.candidates() : null, id -> {
+		return new ViewerGroupDisplaySnapshot(readable ? captured.candidates() : null, group -> {
 			if (!readable) return Optional.empty();
 			FullMatchEntry entry = new FullMatchCacheSnapshot(captured.fullMatchItems(),
-				captured.fullMatchFluids(), captured.fullMatchGeneric()).entry(id);
-			return entry == null ? Optional.empty() : Optional.of(preview(entry));
+				captured.fullMatchFluids(), captured.fullMatchGeneric()).entry(group.id());
+			return entry == null ? Optional.empty() : Optional.of(preview(entry, group, captured.projectionContext()));
 		}, readiness, !readiness.isDone(), readiness.isCompletedExceptionally());
 	}
 
@@ -223,7 +223,8 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		return indexed != null && indexed.filter().equals(group.filter()) && indexed.documentFormat() == group.documentFormat();
 	}
 
-	private static ViewerGroupPreviewSnapshot preview(FullMatchEntry entry) {
+	private static ViewerGroupPreviewSnapshot preview(FullMatchEntry entry, GroupDefinition group,
+		@Nullable JeiViewerAdapter.ProjectionContext context) {
 		List<ItemStack> items = entry.items();
 		List<Object> fluids = entry.fluids();
 		List<GenericIngredientRef> generic = entry.generic();
@@ -232,7 +233,21 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 			(graphics, x, y) -> PreviewIngredientRenderer.renderFluid(graphics, fluid, x, y))).toList();
 		List<ViewerPreviewValue> genericValues = generic.stream().map(ref -> ViewerPreviewValue.rendered(
 			(graphics, x, y) -> renderGeneric(graphics, ref, x, y))).toList();
-		return new ViewerGroupPreviewSnapshot(itemValues, fluidValues, genericValues);
+		List<ViewerPreviewValue> headers = context == null ? List.of()
+			: JeiHeaderIconResolver.resolve(group.iconIds(), context.universe()).stream()
+				.map(JeiViewerGroupIndex::previewIcon).toList();
+		if (headers.isEmpty()) {
+			headers = java.util.stream.Stream.of(itemValues, fluidValues, genericValues)
+				.flatMap(List::stream).limit(2).toList();
+		}
+		return new ViewerGroupPreviewSnapshot(itemValues, fluidValues, genericValues, headers);
+	}
+
+	@SuppressWarnings("unchecked")
+	private static ViewerPreviewValue previewIcon(ITypedIngredient<?> ingredient) {
+		return ingredient.getItemStack().map(ViewerPreviewValue::item).orElseGet(() ->
+			ViewerPreviewValue.rendered((graphics, x, y) -> PreviewIngredientRenderer.renderGeneric(graphics,
+				(mezz.jei.api.ingredients.IIngredientType<Object>) ingredient.getType(), ingredient.getIngredient(), x, y)));
 	}
 
 	@SuppressWarnings("unchecked")

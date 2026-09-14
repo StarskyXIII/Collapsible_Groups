@@ -8,7 +8,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 
 public record ViewerGroupDisplaySnapshot(GroupCandidateIndex candidates,
-    Function<String, Optional<ViewerGroupPreviewSnapshot>> previews,
+    Function<GroupDefinition, Optional<ViewerGroupPreviewSnapshot>> previews,
     CompletableFuture<Void> readiness, boolean pending, boolean failed) {
 
     public boolean matches(GroupDefinition group) {
@@ -24,6 +24,6 @@ public record ViewerGroupDisplaySnapshot(GroupCandidateIndex candidates,
     }
 
     public Optional<ViewerGroupPreviewSnapshot> preview(GroupDefinition group) {
-        return matches(group) ? previews.apply(group.id()) : Optional.empty();
+        return matches(group) ? previews.apply(group) : Optional.empty();
     }
 }

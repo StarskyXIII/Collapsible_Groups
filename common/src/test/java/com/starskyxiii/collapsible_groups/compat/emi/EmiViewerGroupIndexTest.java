@@ -19,6 +19,36 @@ import java.util.concurrent.Executor;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmiViewerGroupIndexTest {
+	@Test void headerEditUsesCapturedUniverseAndPreservesFullMatches() {
+		var rendered = new java.util.ArrayList<String>();
+		var first = ingredient("first", "minecraft:stone");
+		var second = ingredient("second", "minecraft:stone");
+		var iconTemplate = ingredient("icon", "test:icon");
+		EmiIngredient icon = (EmiIngredient) java.lang.reflect.Proxy.newProxyInstance(
+			EmiIngredient.class.getClassLoader(), new Class<?>[]{EmiIngredient.class}, (proxy, method, args) -> {
+				if (method.getName().equals("render")) rendered.add("icon");
+				return null;
+			});
+		var iconEntry = new ViewerIngredient<>(iconTemplate.identity(), iconTemplate.kind(), icon, iconTemplate.view());
+		var universe = new ViewerIngredientUniverse<>(List.of(first, second, iconEntry));
+		var group = group("bees", "minecraft:stone");
+		var index = new EmiViewerGroupIndex(Runnable::run);
+		index.requestRebuild(1, universe, List.of(group)).join();
+		var matches = index.fullMatchItems(group.id());
+		var display = index.displaySnapshot();
+		index.updateSource(2, new ViewerIngredientUniverse<>(List.of()));
+		var edited = group.withIconIds(List.of(com.starskyxiii.collapsible_groups.group.GroupIconDefinition.item("test:icon")));
+		var preview = display.preview(edited).orElseThrow();
+		preview.headers().getFirst().renderer().render(null, 0, 0);
+		assertEquals(List.of("icon"), rendered);
+		assertEquals(2, preview.headers().size());
+		assertEquals(2, preview.items().size());
+		assertSame(matches, index.fullMatchItems(group.id()));
+		assertEquals(2, display.preview(group.withIconIds(List.of(
+			com.starskyxiii.collapsible_groups.group.GroupIconDefinition.item("test:missing"))))
+			.orElseThrow().headers().size());
+	}
+
 	@Test void replacementSourceCannotPublishAnInFlightResultWithTheSameEpoch() {
 		var executor = new ControlledExecutor();
 		var index = new EmiViewerGroupIndex(executor);

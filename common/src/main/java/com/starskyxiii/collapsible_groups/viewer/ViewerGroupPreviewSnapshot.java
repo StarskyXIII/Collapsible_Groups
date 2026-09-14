@@ -7,12 +7,14 @@ import java.util.Objects;
 public record ViewerGroupPreviewSnapshot(
 	List<ViewerPreviewValue> items,
 	List<ViewerPreviewValue> fluids,
-	List<ViewerPreviewValue> generic
+	List<ViewerPreviewValue> generic,
+	List<ViewerPreviewValue> headers
 ) {
 	public ViewerGroupPreviewSnapshot {
 		items = List.copyOf(Objects.requireNonNull(items, "items"));
 		fluids = List.copyOf(Objects.requireNonNull(fluids, "fluids"));
 		generic = List.copyOf(Objects.requireNonNull(generic, "generic"));
+		headers = List.copyOf(Objects.requireNonNull(headers, "headers"));
 	}
 
 	public List<ViewerPreviewValue> allValues() {

@@ -26,13 +26,13 @@ final class GroupManagerCardAssembler {
 			totalGeneric += evaluation.genericCount();
 			cards.add(GroupManagerCard.create(group,
 				com.starskyxiii.collapsible_groups.client.manager.model.GroupSource.from(repository.winningSources().get(group.id())),
-				evaluation, previewEntries(snapshot.allValues())));
+				evaluation, previewEntries(snapshot.allValues()), previewEntries(snapshot.headers())));
 		}
 		return new Result(cards, display.pending(), totalItems, totalFluids, totalGeneric);
 	}
 
 	private static ViewerGroupPreviewSnapshot emptySnapshot() {
-		return new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of());
+		return new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of(), List.of());
 	}
 
 	private static List<GroupPreviewEntry> previewEntries(List<ViewerPreviewValue> values) {

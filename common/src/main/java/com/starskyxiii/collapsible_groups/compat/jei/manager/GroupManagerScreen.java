@@ -1080,6 +1080,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			g.drawString(font, truncated, x, y, color, true);
 			return;
 		}
+		g.flush();
 		g.enableScissor(x, y - 1, x + safeWidth, y + font.lineHeight + 1);
 		int gap = 20;
 		int totalCycle = textWidth + gap;

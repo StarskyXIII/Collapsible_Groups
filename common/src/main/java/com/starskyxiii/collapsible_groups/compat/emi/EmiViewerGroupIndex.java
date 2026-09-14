@@ -9,6 +9,7 @@ import com.starskyxiii.collapsible_groups.viewer.GroupProjectionEngine;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupDisplaySnapshot;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupPreviewSnapshot;
+import com.starskyxiii.collapsible_groups.viewer.ViewerHeaderIconResolver;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
@@ -197,19 +198,24 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	@Override public synchronized ViewerGroupDisplaySnapshot displaySnapshot() {
 		Generation captured = runtimeCurrent.getAsBoolean() ? published : null;
 		var readiness = readyFuture;
-		return new ViewerGroupDisplaySnapshot(captured == null ? null : captured.candidates(), id ->
-			captured == null ? Optional.empty() : preview(captured, id), readiness,
+		return new ViewerGroupDisplaySnapshot(captured == null ? null : captured.candidates(), group ->
+			captured == null ? Optional.empty() : preview(captured, group), readiness,
 			!readiness.isDone(), readiness.isCompletedExceptionally());
 	}
 
-	private static Optional<ViewerGroupPreviewSnapshot> preview(Generation current, String groupId) {
+	private static Optional<ViewerGroupPreviewSnapshot> preview(Generation current, GroupDefinition group) {
+		String groupId = group.id();
 		if (!current.fullMatchItems().containsKey(groupId)
 			|| !current.fullMatchFluids().containsKey(groupId)
 			|| !current.fullMatchGeneric().containsKey(groupId)) return Optional.empty();
+		var fallback = java.util.stream.Stream.of(current.fullMatchItems().get(groupId),
+			current.fullMatchFluids().get(groupId), current.fullMatchGeneric().get(groupId))
+			.flatMap(List::stream).limit(2).toList();
+		var headers = ViewerHeaderIconResolver.resolve(group.iconIds(), fallback, current.universe());
 		return Optional.of(new ViewerGroupPreviewSnapshot(
 			previewValues(current.fullMatchItems().get(groupId), true),
 			previewValues(current.fullMatchFluids().get(groupId), false),
-			previewValues(current.fullMatchGeneric().get(groupId), false)));
+			previewValues(current.fullMatchGeneric().get(groupId), false), previewValues(headers, true)));
 	}
 
 	private static List<ViewerPreviewValue> previewValues(

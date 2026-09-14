@@ -12,6 +12,26 @@ import java.util.concurrent.CompletableFuture;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GroupManagerCardAssemblerTest {
+    @Test void appearanceEditUsesCurrentHeaderWhileKeepingIndexedContents() {
+        var original = group("bees", "minecraft:stone");
+        var edited = original.withIconIds(List.of(new GroupIconDefinition("test:bee", "test:fbi")));
+        var rendered = new ArrayList<String>();
+        var child = ViewerPreviewValue.rendered((graphics, x, y) -> rendered.add("child"));
+        var header = ViewerPreviewValue.rendered((graphics, x, y) -> rendered.add("header"));
+        var candidates = display(List.of(original)).candidates();
+        var display = new ViewerGroupDisplaySnapshot(candidates, requested -> {
+            assertSame(edited, requested);
+            return Optional.of(new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of(child), List.of(header)));
+        }, CompletableFuture.completedFuture(null), false, false);
+
+        var card = GroupManagerCardAssembler.build(repository(List.of(edited)), display).cards().getFirst();
+        card.headerSource().getFirst().render(null, 0, 0);
+        card.previewEntries().getFirst().render(null, 0, 0);
+        assertEquals(List.of("header", "child"), rendered);
+        assertEquals(GroupEvaluation.Status.COMPLETE, card.evaluation().status());
+        assertEquals(1, card.headerSource().size());
+    }
+
     @Test void coldDisplayNeverRequestsPreviewResolution() {
         var group = group("cold", "minecraft:stone");
         var display = new ViewerGroupDisplaySnapshot(null, id -> {
@@ -66,7 +86,7 @@ class GroupManagerCardAssemblerTest {
         var evaluations = groups.stream().collect(java.util.stream.Collectors.toMap(GroupDefinition::id,
             g -> new GroupEvaluation(1, GroupEvaluation.Status.COMPLETE, 0, 0, 0, List.of())));
         return new ViewerGroupDisplaySnapshot(new GroupCandidateIndex(Map.of(), definitions, 0, 0, 0, evaluations, 1),
-            id -> Optional.of(new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of())),
+            group -> Optional.of(new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of(), List.of())),
             new CompletableFuture<>(), true, false);
     }
 

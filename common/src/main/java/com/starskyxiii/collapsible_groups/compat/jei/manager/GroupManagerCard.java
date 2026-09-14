@@ -62,8 +62,8 @@ public record GroupManagerCard(
 	}
 
 	public static GroupManagerCard create(GroupDefinition group, GroupSource source,
-		GroupEvaluation evaluation, List<GroupPreviewEntry> previews) {
-		return new GroupManagerCard(group, previews, previews.stream().limit(2).toList(),
+		GroupEvaluation evaluation, List<GroupPreviewEntry> previews, List<GroupPreviewEntry> headers) {
+		return new GroupManagerCard(group, previews, headers,
 			evaluation.itemCount(), evaluation.fluidCount(), evaluation.genericCount(),
 			buildViewModel(group, source, evaluation.itemCount(), evaluation.fluidCount(), evaluation.genericCount()), evaluation);
 	}
