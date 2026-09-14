@@ -1,0 +1,155 @@
+name: Build and publish to CurseForge
+
+run-name: CurseForge · ${{ inputs.mode }} · ${{ inputs.release_type }} · ${{ github.ref_name }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Build only, or build and publish both loaders
+        type: choice
+        required: true
+        default: publish
+        options:
+          - publish
+          - build-only
+      release_type:
+        description: CurseForge release type
+        type: choice
+        required: true
+        default: beta
+        options:
+          - release
+          - beta
+          - alpha
+
+permissions:
+  contents: read
+
+concurrency:
+  group: curseforge-publish
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      RELEASE_TYPE: ${{ inputs.release_type }}
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+      minecraft: ${{ steps.release.outputs.minecraft }}
+      java: ${{ steps.release.outputs.java }}
+      mod-id: ${{ steps.release.outputs.mod-id }}
+      mod-name: ${{ steps.release.outputs.mod-name }}
+      release-type: ${{ steps.release.outputs.release-type }}
+    steps:
+      - name: Check out the selected commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+
+      - name: Check publishing configuration
+        if: inputs.mode == 'publish'
+        env:
+          PROJECT_ID: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          HAS_TOKEN: ${{ secrets.CURSEFORGE_TOKEN != '' }}
+        run: |
+          if [[ ! "$PROJECT_ID" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Set the CURSEFORGE_PROJECT_ID repository variable to your numeric project ID."
+            exit 1
+          fi
+          if [[ "$HAS_TOKEN" != 'true' ]]; then
+            echo "::error::Set the CURSEFORGE_TOKEN repository secret to your CurseForge author API token."
+            exit 1
+          fi
+
+      - name: Check release preparation
+        run: python3 -B -m unittest discover -s .github/scripts -p 'test_*.py'
+
+      - name: Read version and changelog
+        id: release
+        run: python3 -B .github/scripts/curseforge_release.py metadata --release-type "$RELEASE_TYPE"
+
+      - name: Set up Java
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
+        with:
+          distribution: temurin
+          java-version: ${{ steps.release.outputs.java }}
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+
+      - name: Build and check all loaders
+        run: >-
+          bash ./gradlew --no-daemon --console=plain
+          :buildSrc:test :common:check
+          :fabric:build :forge:build
+
+      - name: Verify and collect release files
+        run: python3 -B .github/scripts/curseforge_release.py stage --release-type "$RELEASE_TYPE"
+
+      - name: Save release bundle
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: curseforge-release
+          path: build/curseforge-release/
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    needs: build
+    if: inputs.mode == 'publish'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - loader: fabric
+            label: Fabric
+            dependencies: |
+              fabric-api(required){curseforge:306612}
+              jei(optional){curseforge:238222}
+              emi(optional){curseforge:580555}
+          - loader: forge
+            label: Forge
+            dependencies: |
+              jei(optional){curseforge:238222}
+              emi(optional){curseforge:580555}
+    name: Publish ${{ matrix.label }}
+    steps:
+      - name: Download the verified release bundle
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: curseforge-release
+          path: release
+
+      - name: Publish to CurseForge
+        id: upload
+        uses: Kira-NT/mc-publish@52307b03863581dec6b652b83e597aec02ebb075
+        with:
+          curseforge-id: ${{ vars.CURSEFORGE_PROJECT_ID }}
+          curseforge-token: ${{ secrets.CURSEFORGE_TOKEN }}
+          files: release/${{ needs.build.outputs.mod-id }}-${{ matrix.loader }}-${{ needs.build.outputs.minecraft }}-${{ needs.build.outputs.version }}.jar
+          name: ${{ needs.build.outputs.mod-name }} ${{ needs.build.outputs.version }} [${{ matrix.label }} ${{ needs.build.outputs.minecraft }}]
+          version: ${{ needs.build.outputs.version }}
+          version-type: ${{ needs.build.outputs.release-type }}
+          changelog-file: release/changelog.md
+          loaders: ${{ matrix.loader }}
+          environment: client
+          game-versions: ${{ needs.build.outputs.minecraft }}
+          java: ${{ needs.build.outputs.java }}
+          dependencies: ${{ matrix.dependencies }}
+          retry-attempts: 1
+          fail-mode: fail
+
+      - name: Record uploaded file
+        env:
+          LOADER: ${{ matrix.label }}
+          FILE_ID: ${{ steps.upload.outputs.curseforge-version }}
+          FILE_URL: ${{ steps.upload.outputs.curseforge-url }}
+        run: |
+          printf '%s: [%s](%s)\n' "$LOADER" "$FILE_ID" "$FILE_URL" >> "$GITHUB_STEP_SUMMARY"
