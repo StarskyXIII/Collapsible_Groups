@@ -44,44 +44,55 @@ class ReleaseTest(unittest.TestCase):
             names.append(name)
         return names
 
-    def test_release_type_comes_from_version(self):
-        for version, expected in (("2.0.0", "release"), ("2.0.0-alpha1", "alpha"),
-                                  ("2.0.0-beta1", "beta"), ("2.0.0-rc.1", "beta")):
-            with self.subTest(version=version):
-                self.write_release(version)
-                self.assertEqual(expected, release_metadata(self.root)["release-type"])
+    def test_selected_release_type_is_independent_of_version(self):
+        for version in ("2.0.0", "2.0.0-alpha1", "2.0.0-beta1", "2.0.0-rc.1"):
+            self.write_release(version)
+            for release_type in ("release", "beta", "alpha"):
+                with self.subTest(version=version, release_type=release_type):
+                    metadata = release_metadata(self.root, release_type)
+                    self.assertEqual(release_type, metadata["release-type"])
+                    self.assertEqual(version, metadata["version"])
+                    self.assertEqual(f"changelogs/1.21.1/{version}.md", metadata["changelog"])
+
+    def test_invalid_release_type_is_rejected(self):
+        for release_type in ("", "auto", "stable", None):
+            with self.subTest(release_type=release_type), self.assertRaises(ValueError):
+                release_metadata(self.root, release_type)
 
     def test_snapshot_cannot_be_published_as_a_release(self):
         self.write_release("2.0.0-SNAPSHOT")
         with self.assertRaises(ValueError):
-            release_metadata(self.root)
+            release_metadata(self.root, "release")
 
     def test_missing_or_empty_changelog_stops_preparation(self):
         self.write_release(notes="# Release\n\n")
         with self.assertRaises(ValueError):
-            release_metadata(self.root)
+            release_metadata(self.root, "beta")
         (self.root / "changelogs/1.21.1/2.0.0-beta1.md").unlink()
         with self.assertRaises(FileNotFoundError):
-            release_metadata(self.root)
+            release_metadata(self.root, "beta")
 
     def test_bundle_preserves_notes_and_contains_only_loader_jars(self):
         names = self.write_jars()
-        metadata = release_metadata(self.root)
-        with redirect_stdout(io.StringIO()):
-            stage_release(self.root, metadata)
-        destination = self.root / "build/curseforge-release"
-        self.assertEqual(set(names), {file.name for file in destination.glob("*.jar")})
-        self.assertEqual((self.root / metadata["changelog"]).read_bytes(),
-                         (destination / "changelog.md").read_bytes())
-        manifest = json.loads((destination / "release.json").read_text(encoding="utf-8"))
-        self.assertEqual(set(names) | {"changelog.md"}, set(manifest["files"]))
+        for release_type in ("release", "beta", "alpha"):
+            with self.subTest(release_type=release_type):
+                metadata = release_metadata(self.root, release_type)
+                with redirect_stdout(io.StringIO()):
+                    stage_release(self.root, metadata)
+                destination = self.root / "build/curseforge-release"
+                self.assertEqual(set(names), {file.name for file in destination.glob("*.jar")})
+                self.assertEqual((self.root / metadata["changelog"]).read_bytes(),
+                                 (destination / "changelog.md").read_bytes())
+                manifest = json.loads((destination / "release.json").read_text(encoding="utf-8"))
+                self.assertEqual(set(names) | {"changelog.md"}, set(manifest["files"]))
+                self.assertEqual(release_type, manifest["release-type"])
 
     def test_mislabeled_jar_stops_the_entire_bundle(self):
         for loader in LOADERS:
             with self.subTest(loader=loader):
                 self.write_jars(wrong_loader=loader)
                 with self.assertRaises(ValueError):
-                    stage_release(self.root, release_metadata(self.root))
+                    stage_release(self.root, release_metadata(self.root, "beta"))
                 self.assertFalse((self.root / "build/curseforge-release").exists())
 
 

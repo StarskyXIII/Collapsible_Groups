@@ -15,8 +15,9 @@ or tags.
    variable `CURSEFORGE_PROJECT_ID` with the project's numeric ID. Generate the
    token from the author account's API tokens page; this is the Upload API token,
    not a CurseForge for Studios API key.
-3. Run the workflow once with `mode: build-only` and inspect the downloadable
-   `curseforge-release` artifact. This mode needs no CurseForge credentials.
+3. Run the workflow once with `mode: build-only`, choose a `release_type`, and
+   inspect the downloadable `curseforge-release` artifact. This mode needs no
+   CurseForge credentials.
 
 ## Each release
 
@@ -24,16 +25,19 @@ or tags.
 2. Write and review `changelogs/<minecraft_version>/<version>.md`. Commit and push
    the version, notes, and release code to the branch you will select.
 3. In **Actions → Build and publish to CurseForge → Run workflow**, choose that
-   branch and `mode: publish`.
+   branch, `mode: publish`, and a `release_type`: `release`, `beta`, or `alpha`.
+   The selection defaults to `beta` and applies to all three loader uploads.
 
-`X.Y.Z` becomes a CurseForge release; `-alphaN` becomes alpha; `-betaN` and `-rcN`
-become beta. A dot or hyphen before the prerelease number is also accepted.
-Snapshot versions are rejected. The workflow uses the version committed in
-`gradle.properties` and its matching changelog.
+The selected type controls the CurseForge release label independently of the
+version name. It does not rename the version or its changelog. The workflow uses
+the version committed in `gradle.properties` and its matching changelog.
+Accepted versions are `X.Y.Z`, `X.Y.Z-alphaN`, `X.Y.Z-betaN`, and `X.Y.Z-rcN`;
+a dot or hyphen before the prerelease number is also accepted. Snapshot versions
+are rejected.
 
 The workflow builds the commit selected when the run starts, checks the packaged
 mod IDs and versions, and saves exactly three release JARs with the shared notes
-and a manifest containing the source commit and SHA-256 hashes. Artifacts remain
+and a manifest containing the selected release type, source commit, and SHA-256 hashes. Artifacts remain
 available for 14 days. Only the upload action receives the CurseForge token.
 
 Uploads are separate files with their own loader and Minecraft labels. Fabric

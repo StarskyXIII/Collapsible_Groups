@@ -15,9 +15,12 @@ LOADERS = {
     "forge": "META-INF/mods.toml",
     "neoforge": "META-INF/neoforge.mods.toml",
 }
+RELEASE_TYPES = ("release", "beta", "alpha")
 
 
-def release_metadata(root):
+def release_metadata(root, release_type):
+    if release_type not in RELEASE_TYPES:
+        raise ValueError("Release type must be release, beta, or alpha.")
     properties = {}
     for line in (root / "gradle.properties").read_text(encoding="utf-8").splitlines():
         if line.strip() and not line.lstrip().startswith(("#", "!")) and "=" in line:
@@ -25,8 +28,7 @@ def release_metadata(root):
             properties[key.strip()] = value.strip()
 
     version = properties["version"]
-    match = re.fullmatch(r"\d+\.\d+\.\d+(?:-(alpha|beta|rc)[.-]?\d+)?", version)
-    if not match:
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)[.-]?\d+)?", version):
         raise ValueError("Version must be X.Y.Z, X.Y.Z-alphaN, X.Y.Z-betaN, or X.Y.Z-rcN.")
     for key, pattern in {
         "minecraft_version": r"\d+\.\d+(?:\.\d+)?",
@@ -47,7 +49,7 @@ def release_metadata(root):
         "java": properties["java_version"],
         "mod-id": properties["mod_id"],
         "mod-name": properties["mod_name"],
-        "release-type": "alpha" if match[1] == "alpha" else "beta" if match[1] else "release",
+        "release-type": release_type,
         "changelog": changelog.as_posix(),
     }
 
@@ -94,10 +96,11 @@ def stage_release(root, metadata):
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("command", choices=("metadata", "stage"))
+    parser.add_argument("--release-type", choices=RELEASE_TYPES, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
     try:
-        metadata = release_metadata(root)
+        metadata = release_metadata(root, args.release_type)
         if args.command == "stage":
             stage_release(root, metadata)
         else:
