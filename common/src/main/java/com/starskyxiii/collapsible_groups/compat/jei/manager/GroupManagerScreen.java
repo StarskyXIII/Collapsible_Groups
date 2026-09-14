@@ -1,6 +1,11 @@
 package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
 import com.starskyxiii.collapsible_groups.client.manager.GroupManagerParent;
+import com.starskyxiii.collapsible_groups.client.manager.CategoryChoices;
+import com.starskyxiii.collapsible_groups.client.manager.CategoryPopup;
+import com.starskyxiii.collapsible_groups.client.manager.CategoryManagerScreen;
+import com.starskyxiii.collapsible_groups.client.manager.ManagerHeaderLayout;
+import com.starskyxiii.collapsible_groups.persistence.GroupCategoryStore;
 import com.starskyxiii.collapsible_groups.client.manager.GroupManagerSearchMatcher;
 import com.starskyxiii.collapsible_groups.client.manager.GroupManagerVisibility;
 import com.starskyxiii.collapsible_groups.group.GroupEvaluation;
@@ -28,7 +33,6 @@ import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
-import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.EditBox;
@@ -81,19 +85,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int BATCH_TOGGLE_BTN_W = 92;
 	private static final int NEW_BTN_W = 110;
 	private static final int NEW_BTN_H = 20;
-	private static final int BATCH_ACTION_BTN_W = 72;
 	private static final int BATCH_ACTION_BTN_H = 20;
-	private static final int BATCH_ACTION_GAP = 6;
-	private static final int SEGMENT_X = 6;
-	private static final int SEGMENT_Y = 31;
 	private static final int SEGMENT_HEIGHT = 18;
 	private static final int SEGMENT_MIN_WIDTH = 40;
 	private static final int SEGMENT_TEXT_PADDING = 16;
-	private static final int SEGMENT_OVERLAP = 1;
-	private static final int SEARCH_FIELD_MIN_WIDTH = 96;
-	private static final int SEARCH_FIELD_MAX_WIDTH = 180;
-	private static final int SEARCH_FIELD_GAP = 8;
-	private static final int SEARCH_FIELD_Y = 53;
 	private static final int SEARCH_FIELD_HEIGHT = 18;
 	private static final int SEARCH_FIELD_TEXT_PAD = 5;
 	private static final int SORT_BUTTON_SIZE = 20;
@@ -102,7 +97,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int SORT_MENU_OPTION_GAP = 4;
 	private static final int SORT_MENU_ROW_HEIGHT = 18;
 	private static final long SAVED_CARD_HIGHLIGHT_MS = 1200L;
-	private static final int BATCH_SELECTED_STATUS_W = 174;
 	private static final int MINI_SCROLLBAR_GAP = 4;
 	private static final int MINI_SCROLLBAR_WIDTH = 5;
 	private static final int BATCH_SELECTED_OVERLAY = 0x3340B96A;
@@ -119,6 +113,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private GroupSortMode sortMode = GroupUiState.managerSortMode();
 	private EditBox searchField;
 	private String searchQuery = "";
+    private String categoryFilter = GroupUiState.managerCategoryFilter();
+    private final GroupCategoryStore categories = GroupCategoryStore.current();
+    private CategoryPopup categoryPopup;
+    private boolean movingCategories;
+    private List<String> categoryMoveIds = List.of();
+    private String draftCategory;
+    private ManagerHeaderLayout headerLayout;
 	private boolean backButtonHeld = false;
 	private int heldSegmentIndex = -1;
 	private boolean batchMode = false;
@@ -159,9 +160,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	protected void init() {
-		sortButtonHeld = false;
-		heldSortMode = null;
-		heldShowEmpty = false;
+        clearTransientInputState();
+        categories.reload();
+        validateCategoryFilter();
 		activeManager = true;
 		if (subscriptions.isEmpty()) {
 			for (var kind : com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Kind.values()) {
@@ -183,6 +184,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void rebuildCards() {
+        categoryPopup = null;
+        validateCategoryFilter();
 		suppressedSwitchHoverGroupId = null;
 		long traceStart = PerformanceTrace.begin();
 		ViewerGroupIndex index = ViewerLifecycleCoordinator.global().activeAdapter()
@@ -211,6 +214,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public void removed() {
+        categoryPopup = null;
 		closeSortMenu();
 		activeManager = false;
 		subscriptions.forEach(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Subscription::close);
@@ -231,8 +235,71 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private boolean matchesCurrentFilters(GroupManagerCard card) {
-		return GroupManagerSearchMatcher.matches(sourceFilter, searchQuery, searchFields(card));
+		return (CategoryChoices.ALL.equals(categoryFilter) || categoryFilter.equals(categoryFilterId(card)))
+            && GroupManagerSearchMatcher.matches(sourceFilter, searchQuery, searchFields(card));
 	}
+
+    private String categoryOf(GroupManagerCard card) {
+        var resources = GroupRepository.resourceData();
+        var origin = card.source() == GroupSource.USER || card.source() == GroupSource.KUBEJS ? null : resources.origin(card.id());
+        return categories.snapshot().effectiveCategory(card.id(), origin, resources);
+    }
+
+    private String categoryFilterId(GroupManagerCard card) {
+        String id = categoryOf(card);
+        return id == null ? CategoryChoices.UNCATEGORIZED : id;
+    }
+
+    private void validateCategoryFilter() {
+        if (CategoryChoices.ALL.equals(categoryFilter) || CategoryChoices.UNCATEGORIZED.equals(categoryFilter)) return;
+        if (CategoryChoices.available(categories.snapshot(), GroupRepository.resourceData()).stream()
+            .noneMatch(entry -> entry.id().equals(categoryFilter))) {
+            categoryFilter = CategoryChoices.ALL;
+            GroupUiState.setManagerCategoryFilter(categoryFilter);
+        }
+    }
+
+    private void openCategoryPopup(boolean moving) {
+        clearTransientInputState();
+        blurSearchField();
+        movingCategories = moving;
+        categoryMoveIds = moving ? selectedVisibleCards().stream().map(GroupManagerCard::id).toList() : List.of();
+        List<CategoryChoices.Entry> entries = new ArrayList<>();
+        if (!moving) entries.add(new CategoryChoices.Entry(CategoryChoices.ALL, CategoryChoices.label("all")));
+        entries.add(new CategoryChoices.Entry(CategoryChoices.UNCATEGORIZED, CategoryChoices.label("uncategorized")));
+        if (moving) entries.add(new CategoryChoices.Entry(CategoryChoices.FOLLOW_SOURCE, CategoryChoices.label("follow_source")));
+        entries.addAll(CategoryChoices.available(categories.snapshot(), GroupRepository.resourceData()));
+        if (!moving) entries.add(new CategoryChoices.Entry(CategoryChoices.MANAGE, CategoryChoices.label("manage")));
+        var anchor = moving ? headerLayout.batchActions().get(BatchToolbarAction.MOVE.ordinal()) : headerLayout.category();
+        categoryPopup = new CategoryPopup(entries, moving ? null : categoryFilter, anchor.x(), anchor.y() + anchor.height(), this.width, this.height);
+    }
+
+    private void chooseCategory(CategoryChoices.Entry selected) {
+        if (CategoryChoices.MANAGE.equals(selected.id())) {
+            categoryPopup = null;
+            Minecraft.getInstance().setScreen(new CategoryManagerScreen(this));
+            return;
+        }
+        if (movingCategories) {
+            var ids = categoryMoveIds;
+            if (ids.isEmpty() || ids.stream().anyMatch(id -> GroupRepository.findById(id).isEmpty())) {
+                categoryPopup = null;
+                operationMessage = CategoryChoices.label("save_failed");
+                return;
+            }
+            String target = CategoryChoices.UNCATEGORIZED.equals(selected.id()) ? null : selected.id();
+            boolean saved = categories.update(preferences -> CategoryChoices.FOLLOW_SOURCE.equals(target)
+                ? preferences.followSource(ids) : preferences.assign(ids, target));
+            operationMessage = CategoryChoices.label(saved ? "moved" : "save_failed");
+            if (!saved) { categoryPopup = null; return; }
+            batchSelection = batchSelection.clear();
+        } else {
+            categoryFilter = selected.id();
+            GroupUiState.setManagerCategoryFilter(categoryFilter);
+        }
+        categoryPopup = null;
+        rebuildFilteredCards();
+    }
 
 	private GroupManagerSearchMatcher.SearchFields searchFields(GroupManagerCard card) {
 		return new GroupManagerSearchMatcher.SearchFields(
@@ -240,11 +307,17 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			card.displayName(),
 			card.id(),
 			card.source(),
-			sourceSearchLabel(card.source())
+			sourceSearchLabel(card.source()),
+            CategoryChoices.name(categoryOf(card), categories.snapshot(), GroupRepository.resourceData()).getString(),
+            categoryOf(card)
 		);
 	}
 
 	private void calcLayout() {
+        int sourceWidth = SEGMENT_MIN_WIDTH;
+        for (var filter : segmentFilters()) sourceWidth = Math.max(sourceWidth, font.width(segmentLabel(filter)) + SEGMENT_TEXT_PADDING);
+        headerLayout = ManagerHeaderLayout.create(this.width, segmentFilters().length, sourceWidth,
+            batchMode ? BatchToolbarAction.values().length : 0);
 		int usableWidth = this.width - CARD_PADDING * 2 - SCROLLBAR_WIDTH - CARD_PADDING;
 		cols = Math.max(1, usableWidth / (CARD_WIDTH + CARD_PADDING));
 		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
@@ -281,17 +354,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private int headerHeight() {
-		return HEADER_HEIGHT + (GroupRepository.resourceData().problems().isEmpty() ? 0 : 16);
+		return (headerLayout == null ? HEADER_HEIGHT : headerLayout.height()) + (GroupRepository.resourceData().problems().isEmpty() ? 0 : 16);
 	}
 
 	private SearchFieldLayout searchFieldLayout() {
-		int controlsRight = batchMode ? batchSelectedStatusX() - SEARCH_FIELD_GAP : this.width - CARD_PADDING;
-		int width = Math.min(SEARCH_FIELD_MAX_WIDTH,
-			controlsRight - SEGMENT_X - SORT_BUTTON_GAP - SORT_BUTTON_SIZE);
-		if (width >= SEARCH_FIELD_MIN_WIDTH) {
-			return new SearchFieldLayout(SEGMENT_X, SEARCH_FIELD_Y, width, SEARCH_FIELD_HEIGHT, true, false);
-		}
-		return SearchFieldLayout.hidden();
+        var rect = headerLayout.search();
+        return new SearchFieldLayout(rect.x(), rect.y(), rect.width(), rect.height(), rect.width() > 0, false);
 	}
 
 	private int sortButtonX() {
@@ -346,6 +414,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void openEditor(GroupDefinition group) {
+        draftCategory = CategoryChoices.ALL.equals(categoryFilter) || CategoryChoices.UNCATEGORIZED.equals(categoryFilter) ? null : categoryFilter;
 		Minecraft.getInstance().setScreen(new GroupEditorScreen(this, group));
 	}
 
@@ -358,7 +427,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
 		renderBackground(g, mouseX, mouseY, partialTicks);
 		pendingTooltip = null;
-		int surfaceMouseX = isOverSortMenu(mouseX, mouseY) ? Integer.MIN_VALUE : mouseX;
+		int surfaceMouseX = isOverSortMenu(mouseX, mouseY) || categoryPopup != null || hasPendingDialog() ? Integer.MIN_VALUE : mouseX;
 
 		int headerHeight = headerHeight();
 		int vpTop = headerHeight;
@@ -379,12 +448,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		renderScrollbar(g);
 		renderHeaderButtons(g, surfaceMouseX, mouseY);
 
-		g.drawString(font, this.title.copy().withStyle(ChatFormatting.BOLD), HEADER_TITLE_X, 7,
+		g.drawString(font, font.plainSubstrByWidth(this.title.getString(), headerLayout.titleWidth()), HEADER_TITLE_X, 7,
 			UiPalette.TEXT_PRIMARY, false);
 		Component countText = filteredCards.size() == allCards.size()
 			? Component.translatable(ModTranslationKeys.MANAGER_COUNT_ALL, allCards.size())
 			: Component.translatable(ModTranslationKeys.MANAGER_COUNT_FILTERED, filteredCards.size(), allCards.size());
-		g.drawString(font, countText, HEADER_TITLE_X, 18, UiPalette.TEXT_MUTED, false);
+		g.drawString(font, font.plainSubstrByWidth(countText.getString(), headerLayout.titleWidth()), HEADER_TITLE_X, 18, UiPalette.TEXT_MUTED, false);
 		Component footer = footerText();
 		g.drawString(font, font.plainSubstrByWidth(footer.getString(), Math.max(0, this.width - 12)),
 			6, vpBottom + UiSkinRenderer.centeredTextY(font, 0, FOOTER_HEIGHT), UiPalette.TEXT_HINT, false);
@@ -400,7 +469,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			renderSortMenu(g, mouseX, mouseY);
 		}
 
-		if (hasPendingDialog()) {
+		if (categoryPopup != null) {
+            pendingTooltip = null;
+            categoryPopup.render(g, font, mouseX, mouseY);
+        } else if (hasPendingDialog()) {
 			pendingTooltip = null;
 			renderPendingDialog(g, mouseX, mouseY);
 		} else if (pendingTooltip != null) {
@@ -416,6 +488,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		renderSegmentedFilter(g, mouseX, mouseY);
 		renderSearchFieldChrome(g, mouseX, mouseY);
 		renderSortButton(g, mouseX, mouseY);
+        var category = headerLayout.category();
+        String categoryName = CategoryChoices.name(categoryFilter, categories.snapshot(), GroupRepository.resourceData()).getString();
+        int labelWidth = category.width() - 8 - font.width(" ▼");
+        String shownCategory = font.width(categoryName) > labelWidth ? font.plainSubstrByWidth(categoryName,
+            Math.max(0, labelWidth - font.width("…"))) + "…" : categoryName;
+        renderButton(g, category.x(), category.y(), category.width(), category.height(),
+            shownCategory + " ▼",
+            true, category.contains(mouseX, mouseY), false);
+        if (!shownCategory.equals(categoryName) && category.contains(mouseX, mouseY)) pendingTooltip = Component.literal(categoryName);
 		if (batchMode) {
 			renderBatchToolbar(g, mouseX, mouseY);
 			renderBatchSelectedStatus(g);
@@ -423,16 +504,16 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 		int batchX = batchToggleButtonX();
 		int batchW = batchToggleButtonWidth();
-		boolean batchHover = isMouseOver(mouseX, mouseY, batchX, BACK_BTN_Y, batchW, NEW_BTN_H);
+		boolean batchHover = isMouseOver(mouseX, mouseY, batchX, headerLayout.actionsY(), batchW, NEW_BTN_H);
 		String batchLabel = Component.translatable(batchMode
 			? ModTranslationKeys.MANAGER_BATCH_DONE
 			: ModTranslationKeys.MANAGER_BATCH_SELECT).getString();
-		renderButton(g, batchX, BACK_BTN_Y, batchW, NEW_BTN_H, batchLabel,
+		renderButton(g, batchX, headerLayout.actionsY(), batchW, NEW_BTN_H, batchLabel,
 			true, batchHover, batchToggleButtonHeld && batchHover);
 
 		int newBtnX = newButtonX();
-		boolean newHover = isMouseOver(mouseX, mouseY, newBtnX, BACK_BTN_Y, NEW_BTN_W, NEW_BTN_H);
-		renderButton(g, newBtnX, BACK_BTN_Y, NEW_BTN_W, NEW_BTN_H,
+		boolean newHover = isMouseOver(mouseX, mouseY, newBtnX, headerLayout.actionsY(), NEW_BTN_W, NEW_BTN_H);
+		renderButton(g, newBtnX, headerLayout.actionsY(), NEW_BTN_W, NEW_BTN_H,
 			Component.translatable(ModTranslationKeys.MANAGER_BTN_NEW_GROUP).getString(), true, newHover, newGroupButtonHeld && newHover);
 	}
 
@@ -442,19 +523,20 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		renderBatchToolbarButton(g, BatchToolbarAction.ENABLE, eligibility, mouseX, mouseY);
 		renderBatchToolbarButton(g, BatchToolbarAction.DISABLE, eligibility, mouseX, mouseY);
 		renderBatchToolbarButton(g, BatchToolbarAction.DELETE, eligibility, mouseX, mouseY);
+        renderBatchToolbarButton(g, BatchToolbarAction.MOVE, eligibility, mouseX, mouseY);
 	}
 
 	private void renderSortButton(GuiGraphics g, int mouseX, int mouseY) {
 		SearchFieldLayout layout = searchFieldLayout();
 		if (!layout.visible()) return;
 		int x = sortButtonX();
-		boolean hovered = isMouseOver(mouseX, mouseY, x, SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE);
+		boolean hovered = isMouseOver(mouseX, mouseY, x, searchFieldLayout().y(), SORT_BUTTON_SIZE, SORT_BUTTON_SIZE);
 		UiSkinRenderer.ButtonState state = sortMenuOpen
 			? sortButtonHeld && hovered ? UiSkinRenderer.ButtonState.SELECTED_PRESSED
 			: hovered ? UiSkinRenderer.ButtonState.SELECTED_HOVERED : UiSkinRenderer.ButtonState.SELECTED
 			: sortButtonHeld && hovered ? UiSkinRenderer.ButtonState.PRESSED
 			: hovered ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL;
-		UiSkinRenderer.drawToolbarIconButton(g, x, SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE,
+		UiSkinRenderer.drawToolbarIconButton(g, x, searchFieldLayout().y(), SORT_BUTTON_SIZE, SORT_BUTTON_SIZE,
 			UiSkinRenderer.ICON_SORT, state);
 		if (hovered && !sortMenuOpen) {
 			pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_SORT_TOOLTIP,
@@ -536,7 +618,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private void renderSourceProblems(GuiGraphics g, int mouseX, int mouseY) {
 		var data = GroupRepository.resourceData();
 		if (data.problems().isEmpty()) return;
-		int y = HEADER_HEIGHT + 1;
+		int y = headerLayout.height() + 1;
 		String key = data.stale() ? ModTranslationKeys.MANAGER_SOURCES_STALE : ModTranslationKeys.MANAGER_SOURCE_PROBLEMS;
 		g.drawString(font, Component.translatable(key, data.problems().size()), 6, y, 0xFFFFB74D, false);
 		if (isMouseOver(mouseX, mouseY, 0, y - 2, this.width, 16)) {
@@ -563,15 +645,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		int h = (GroupSortMode.values().length + 1) * SORT_MENU_ROW_HEIGHT + SORT_MENU_OPTION_GAP + SORT_MENU_PADDING * 2;
 		int x = clamp(sortButtonX() + SORT_BUTTON_SIZE - w, 6, this.width - w - 6);
 		int marginY = Math.min(6, Math.max(0, (this.height - h) / 2));
-		int y = clamp(SEARCH_FIELD_Y + SORT_BUTTON_SIZE, marginY, Math.max(marginY, this.height - h - marginY));
+		int y = clamp(searchFieldLayout().y() + SORT_BUTTON_SIZE, marginY, Math.max(marginY, this.height - h - marginY));
 		return new SortMenuLayout(x, y, w, h);
 	}
 
 	private void renderBatchToolbarButton(GuiGraphics g, BatchToolbarAction action,
 	                                     BatchActionEligibility eligibility, int mouseX, int mouseY) {
 		int x = batchActionButtonX(action);
-		int y = batchActionButtonY();
-		int w = batchActionButtonWidth();
+		int y = batchActionButtonY(action);
+		int w = batchActionButtonWidth(action);
 		boolean active = batchActionActive(action, eligibility);
 		boolean hovered = isMouseOver(mouseX, mouseY, x, y, w, BATCH_ACTION_BTN_H);
 		renderButton(g, x, y, w, BATCH_ACTION_BTN_H, batchActionLabel(action),
@@ -579,14 +661,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void renderBatchSelectedStatus(GuiGraphics g) {
-		int y = SEARCH_FIELD_Y;
+        var rect = headerLayout.selectedCount();
+		int y = rect.y();
 		Component selected = Component.translatable(ModTranslationKeys.MANAGER_BATCH_SELECTED_COUNT, batchSelection.selectedCount());
 		int textY = UiSkinRenderer.textFieldTextY(font, y, SEARCH_FIELD_HEIGHT);
 		int barY = textY - 2;
-		// Right-aligned: the text hugs the right card edge and
-		// the accent bar sits immediately to its left, so short strings leave no dead gap.
-		String selectedText = font.plainSubstrByWidth(selected.getString(), BATCH_SELECTED_STATUS_W - 8);
-		int textX = this.width - CARD_PADDING - font.width(selectedText);
+		String selectedText = font.plainSubstrByWidth(selected.getString(), rect.width() - 8);
+		int textX = rect.x() + 8;
 		g.fill(textX - 6, barY, textX - 4, barY + font.lineHeight + 4, UiPalette.OUTLINE_SELECTED);
 		g.drawString(font, selectedText, textX, textY, UiPalette.TEXT_PRIMARY, false);
 	}
@@ -628,7 +709,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			return -1;
 		}
 		for (int i = 0; i < filters.length; i++) {
-			if (isMouseOver(mouseX, mouseY, segmentX(filters, i), SEGMENT_Y, segmentWidth(filters), SEGMENT_HEIGHT)) {
+			if (isMouseOver(mouseX, mouseY, segmentX(filters, i), headerLayout.sources().get(i).y(), segmentWidth(filters), SEGMENT_HEIGHT)) {
 				return i;
 			}
 		}
@@ -645,7 +726,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			: hovered ? UiSkinRenderer.ButtonState.SELECTED_HOVERED : UiSkinRenderer.ButtonState.SELECTED
 			: pressed ? UiSkinRenderer.ButtonState.PRESSED
 			: hovered ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL;
-		UiSkinRenderer.drawSegment(g, font, x, SEGMENT_Y, w, SEGMENT_HEIGHT, segmentLabel(filters[index]), state);
+		UiSkinRenderer.drawSegment(g, font, x, headerLayout.sources().get(index).y(), w, SEGMENT_HEIGHT, segmentLabel(filters[index]), state);
 	}
 
 	private GroupUiState.ManagerSourceFilter[] segmentFilters() {
@@ -683,21 +764,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private int segmentWidth(GroupUiState.ManagerSourceFilter[] filters) {
-		int width = SEGMENT_MIN_WIDTH;
-		for (GroupUiState.ManagerSourceFilter filter : filters) {
-			width = Math.max(width, font.width(segmentLabel(filter)) + SEGMENT_TEXT_PADDING);
-		}
-		return width;
+        return headerLayout.sources().getFirst().width();
 	}
 
 	private int segmentX(GroupUiState.ManagerSourceFilter[] filters, int index) {
-		return SEGMENT_X + index * (segmentWidth(filters) - SEGMENT_OVERLAP);
-	}
-
-	private int segmentRight(GroupUiState.ManagerSourceFilter[] filters) {
-		if (filters.length == 0) return SEGMENT_X;
-		int lastIndex = filters.length - 1;
-		return segmentX(filters, lastIndex) + segmentWidth(filters);
+        return headerLayout.sources().get(index).x();
 	}
 
 	private void renderCard(GuiGraphics g, int index, int mouseX, int mouseY) {
@@ -857,18 +928,23 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void renderSourceTab(GuiGraphics g, GroupManagerCard card, int cardX, int cardY, int mouseX, int mouseY) {
-		String label = switch (card.source()) {
+		String sourceLabel = switch (card.source()) {
 			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_BUILTIN).getString();
 			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_KUBEJS).getString();
 			case RESOURCE_PACK -> Component.translatable(ModTranslationKeys.MANAGER_SOURCE_RESOURCE_PACK).getString();
-			case USER -> null;
+			case USER -> sourceSearchLabel(GroupSource.USER);
 		};
-		if (label == null) return;
-		int tabWidth = font.width(label) + 10;
+        String category = categoryOf(card);
+        String label = category == null ? sourceLabel : Component.translatable(
+            "collapsible_groups.category.badge." + card.source().name().toLowerCase(java.util.Locale.ROOT),
+            CategoryChoices.name(category, categories.snapshot(), GroupRepository.resourceData())).getString();
+        String shown = font.width(label) > 126 ? font.plainSubstrByWidth(label, 126 - font.width("…")) + "…" : label;
+		int tabWidth = font.width(shown) + 10;
 		int tabHeight = 14;
 		int left = cardX + 1;
 		int bottom = cardY + CARD_HEIGHT - 1;
 		int top = bottom - tabHeight;
+        if (!shown.equals(label) && isMouseOver(mouseX, mouseY, left, top, tabWidth, tabHeight)) pendingTooltip = Component.literal(label);
 		if (card.source() == GroupSource.BUILTIN && !builtinsEnabled
 			&& isMouseOver(mouseX, mouseY, left, top, tabWidth, tabHeight)) {
 			pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_BUILTINS_DISABLED);
@@ -876,7 +952,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		g.fill(left, top, left + tabWidth, bottom, UiPalette.SURFACE_DARK);
 		g.fill(left, top, left + tabWidth, top + 1, UiPalette.OUTLINE_DARK);
 		g.fill(left + tabWidth - 1, top, left + tabWidth, bottom, UiPalette.OUTLINE_DARK);
-		g.drawString(font, label, left + 5,
+		g.drawString(font, shown, left + 5,
 			UiSkinRenderer.centeredTextY(font, top, tabHeight), UiPalette.TEXT_MUTED, false);
 	}
 
@@ -950,6 +1026,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			case ENABLE -> eligibility.canEnable();
 			case DISABLE -> eligibility.canDisable();
 			case DELETE -> eligibility.canDelete();
+            case MOVE -> batchSelection.selectedCount() > 0 && categories.writable();
 		};
 	}
 
@@ -961,6 +1038,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			case ENABLE -> ModTranslationKeys.MANAGER_BATCH_ENABLE;
 			case DISABLE -> ModTranslationKeys.MANAGER_BATCH_DISABLE;
 			case DELETE -> ModTranslationKeys.MANAGER_BATCH_DELETE;
+            case MOVE -> "collapsible_groups.category.move";
 		};
 		return Component.translatable(key).getString();
 	}
@@ -977,25 +1055,16 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return BATCH_TOGGLE_BTN_W;
 	}
 
-	private int batchActionButtonY() {
-		return SEGMENT_Y;
+	private int batchActionButtonY(BatchToolbarAction action) {
+        return headerLayout.batchActions().get(action.ordinal()).y();
 	}
 
 	private int batchActionButtonX(BatchToolbarAction action) {
-		int buttonWidth = batchActionButtonWidth();
-		int deleteX = this.width - CARD_PADDING - buttonWidth;
-		return switch (action) {
-			case DELETE -> deleteX;
-			case DISABLE -> deleteX - buttonWidth - BATCH_ACTION_GAP;
-			case ENABLE -> deleteX - (buttonWidth + BATCH_ACTION_GAP) * 2;
-			case SELECT_ALL_RESULTS -> deleteX - (buttonWidth + BATCH_ACTION_GAP) * 3;
-		};
+        return headerLayout.batchActions().get(action.ordinal()).x();
 	}
 
-	private int batchActionButtonWidth() {
-		int right = this.width - CARD_PADDING;
-		int available = right - segmentRight(segmentFilters()) - SEARCH_FIELD_GAP - BATCH_ACTION_GAP * 3;
-		return Math.max(1, Math.min(BATCH_ACTION_BTN_W, available / 4));
+	private int batchActionButtonWidth(BatchToolbarAction action) {
+        return headerLayout.batchActions().get(action.ordinal()).width();
 	}
 
 	private List<String> selectableResultIds() {
@@ -1017,14 +1086,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			: batchSelection.selectAll(ids);
 	}
 
-	private int batchSelectedStatusX() {
-		return this.width - CARD_PADDING - BATCH_SELECTED_STATUS_W;
-	}
-
 	private BatchToolbarAction hoveredBatchAction(double mouseX, double mouseY) {
 		for (BatchToolbarAction action : BatchToolbarAction.values()) {
-			if (isMouseOver(mouseX, mouseY, batchActionButtonX(action), batchActionButtonY(),
-				batchActionButtonWidth(), BATCH_ACTION_BTN_H)) {
+			if (isMouseOver(mouseX, mouseY, batchActionButtonX(action), batchActionButtonY(action),
+				batchActionButtonWidth(action), BATCH_ACTION_BTN_H)) {
 				return action;
 			}
 		}
@@ -1094,9 +1159,21 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (categoryPopup != null) {
+            if (button == 0) {
+                var selected = categoryPopup.clicked(mouseX, mouseY);
+                if (selected != null) chooseCategory(selected);
+                else if (!categoryPopup.contains(mouseX, mouseY)) categoryPopup = null;
+            }
+            return true;
+        }
 		if (hasPendingDialog()) {
 			return handlePendingDialogClick(mouseX, mouseY, button);
 		}
+        if (button == 0 && headerLayout.category().contains(mouseX, mouseY)) {
+            openCategoryPopup(false);
+            return true;
+        }
 
 		if (sortMenuOpen) {
 			if (isOverSortMenu(mouseX, mouseY)) {
@@ -1106,7 +1183,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				}
 				return true;
 			}
-			if (button == 0 && !isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
+			if (button == 0 && !isMouseOver(mouseX, mouseY, sortButtonX(), searchFieldLayout().y(), SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
 				closeSortMenu();
 				return true;
 			}
@@ -1122,7 +1199,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			return true;
 		}
 		if (button == 0 && searchFieldLayout().visible()
-			&& isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
+			&& isMouseOver(mouseX, mouseY, sortButtonX(), searchFieldLayout().y(), SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
 			sortButtonHeld = true;
 			blurSearchField();
 			return true;
@@ -1150,12 +1227,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			}
 		}
 		int batchX = batchToggleButtonX();
-		if (button == 0 && isMouseOver(mouseX, mouseY, batchX, BACK_BTN_Y, batchToggleButtonWidth(), NEW_BTN_H)) {
+		if (button == 0 && isMouseOver(mouseX, mouseY, batchX, headerLayout.actionsY(), batchToggleButtonWidth(), NEW_BTN_H)) {
 			batchToggleButtonHeld = true;
 			return true;
 		}
 		int newBtnX = newButtonX();
-		if (button == 0 && isMouseOver(mouseX, mouseY, newBtnX, BACK_BTN_Y, NEW_BTN_W, NEW_BTN_H)) {
+		if (button == 0 && isMouseOver(mouseX, mouseY, newBtnX, headerLayout.actionsY(), NEW_BTN_W, NEW_BTN_H)) {
 			newGroupButtonHeld = true;
 			return true;
 		}
@@ -1303,7 +1380,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			cancelDeleteDialog();
 			return false;
 		}
-		operationMessage = null;
+		operationMessage = GroupRepository.findById(id).isEmpty() && categories.problem() != null ? CategoryChoices.label("cleanup_failed") : null;
 		GroupRepository.notifyViewer();
 		rebuildCards();
 		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
@@ -1317,6 +1394,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		batchSelection = BatchSelectionState.empty();
 		suppressedSwitchHoverGroupId = null;
 		clearTransientInputState();
+        calcLayout();
+        clearWidgets();
+        createSearchField();
 	}
 
 	private void executeBatchSetEnabled(boolean enabled) {
@@ -1363,6 +1443,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			if (GroupRepository.deleteQuietlyChecked(id)) deleted++;
 		}
 		operationMessage = deleted == deletableIds.size() ? null : Component.translatable("collapsible_groups.manager.operation_failed");
+        if (operationMessage == null && categories.problem() != null) operationMessage = CategoryChoices.label("cleanup_failed");
 		batchSelection = batchSelection.clear();
 		if (deleted > 0) GroupRepository.notifyViewer();
 		rebuildCards();
@@ -1385,6 +1466,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			return false;
 		}
 		clearTransientInputState();
+		draftCategory = categoryOf(card);
 		Minecraft.getInstance().setScreen(new GroupEditorScreen(this, copied.get(), true, id));
 		return true;
 	}
@@ -1416,6 +1498,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void clearTransientInputState() {
+        categoryPopup = null;
 		backButtonHeld = false;
 		heldSegmentIndex = -1;
 		batchToggleButtonHeld = false;
@@ -1449,6 +1532,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (categoryPopup != null) { categoryPopup.drag(mouseY); return true; }
 		if (hasPendingDialog()) {
 			clearTransientInputState();
 			return true;
@@ -1474,6 +1558,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (categoryPopup != null) { categoryPopup.release(); return true; }
 		if (hasPendingDialog()) {
 			clearTransientInputState();
 			return true;
@@ -1499,7 +1584,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		}
 		if (button == 0 && sortButtonHeld) {
 			sortButtonHeld = false;
-			if (isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
+			if (isMouseOver(mouseX, mouseY, sortButtonX(), searchFieldLayout().y(), SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
 				boolean open = !sortMenuOpen;
 				clearTransientInputState();
 				sortMenuOpen = open;
@@ -1519,7 +1604,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			heldSegmentIndex = -1;
 			GroupUiState.ManagerSourceFilter[] filters = segmentFilters();
 			if (index < filters.length
-				&& isMouseOver(mouseX, mouseY, segmentX(filters, index), SEGMENT_Y, segmentWidth(filters), SEGMENT_HEIGHT)
+				&& isMouseOver(mouseX, mouseY, segmentX(filters, index), headerLayout.sources().get(index).y(), segmentWidth(filters), SEGMENT_HEIGHT)
 				&& sourceFilter != filters[index]) {
 				sourceFilter = filters[index];
 				GroupUiState.setManagerSourceFilter(sourceFilter);
@@ -1530,7 +1615,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		}
 		if (button == 0 && batchToggleButtonHeld) {
 			batchToggleButtonHeld = false;
-			if (isMouseOver(mouseX, mouseY, batchToggleButtonX(), BACK_BTN_Y, batchToggleButtonWidth(), NEW_BTN_H)) {
+			if (isMouseOver(mouseX, mouseY, batchToggleButtonX(), headerLayout.actionsY(), batchToggleButtonWidth(), NEW_BTN_H)) {
 				setBatchMode(!batchMode);
 			}
 			return true;
@@ -1538,7 +1623,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		int newBtnX = newButtonX();
 		if (button == 0 && newGroupButtonHeld) {
 			newGroupButtonHeld = false;
-			if (isMouseOver(mouseX, mouseY, newBtnX, BACK_BTN_Y, NEW_BTN_W, NEW_BTN_H)) {
+			if (isMouseOver(mouseX, mouseY, newBtnX, headerLayout.actionsY(), NEW_BTN_W, NEW_BTN_H)) {
 				setBatchMode(false);
 				openEditor(null);
 			}
@@ -1548,14 +1633,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			BatchToolbarAction action = heldBatchToolbarAction;
 			heldBatchToolbarAction = null;
 			if (batchMode
-				&& isMouseOver(mouseX, mouseY, batchActionButtonX(action), batchActionButtonY(),
-					batchActionButtonWidth(), BATCH_ACTION_BTN_H)
+				&& isMouseOver(mouseX, mouseY, batchActionButtonX(action), batchActionButtonY(action),
+					batchActionButtonWidth(action), BATCH_ACTION_BTN_H)
 				&& batchActionActive(action, currentBatchEligibility())) {
 				switch (action) {
 					case SELECT_ALL_RESULTS -> toggleSelectAllResults();
 					case ENABLE -> executeBatchSetEnabled(true);
 					case DISABLE -> executeBatchSetEnabled(false);
 					case DELETE -> openBatchDeleteDialog();
+                    case MOVE -> openCategoryPopup(true);
 				}
 			}
 			return true;
@@ -1566,6 +1652,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        if (categoryPopup != null) { categoryPopup.scroll(deltaY); return true; }
 		if (hasPendingDialog()) return true;
 		if (sortMenuOpen) return true;
 		suppressedSwitchHoverGroupId = null;
@@ -1579,6 +1666,14 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (categoryPopup != null) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) categoryPopup = null;
+            else {
+                var selected = categoryPopup.keyPressed(keyCode);
+                if (selected != null) chooseCategory(selected);
+            }
+            return true;
+        }
 
 		if (hasPendingDialog() && keyCode == GLFW.GLFW_KEY_ESCAPE) {
 			cancelPendingDialog();
@@ -1617,6 +1712,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean charTyped(char codePoint, int modifiers) {
+        if (categoryPopup != null) return true;
 		if (hasPendingDialog()) return true;
 		if (searchField != null && searchField.isFocused()
 			&& searchField.charTyped(codePoint, modifiers)) {
@@ -1672,6 +1768,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		pendingSavedContext = context;
 		lastSavedGroupId = context.groupId();
 		operationMessage = context.warningKey() == null ? null : Component.translatable(context.warningKey());
+        if (context.shouldReveal() && !categories.update(preferences -> preferences.assign(List.of(context.groupId()), draftCategory))) {
+            Component warning = CategoryChoices.label("group_saved_category_failed");
+            operationMessage = operationMessage == null ? warning : operationMessage.copy().append(" · ").append(warning);
+        }
 	}
 
 	private void applySavedContext() {
@@ -1684,6 +1784,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		}
 		GroupManagerCard savedCard = findCurrentCard(context.groupId());
 		if (savedCard == null) return;
+        if (!CategoryChoices.ALL.equals(categoryFilter) && !categoryFilter.equals(categoryFilterId(savedCard))) {
+            categoryFilter = categoryFilterId(savedCard);
+            GroupUiState.setManagerCategoryFilter(categoryFilter);
+        }
 		if (!GroupManagerSearchMatcher.matchesSource(sourceFilter, GroupSource.USER)) {
 			sourceFilter = GroupUiState.ManagerSourceFilter.USER;
 			GroupUiState.setManagerSourceFilter(sourceFilter);
@@ -1824,7 +1928,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		SELECT_ALL_RESULTS,
 		ENABLE,
 		DISABLE,
-		DELETE
+		DELETE,
+        MOVE
 	}
 
 	private record PendingDelete(String groupId, String displayName) {}

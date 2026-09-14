@@ -120,7 +120,9 @@ public final class GroupConfig {
 				managerSortMode = obj.get("manager_sort_mode").getAsString();
 			}
 			boolean showEmpty = obj.has("manager_show_empty") && obj.get("manager_show_empty").getAsBoolean();
-			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, showEmpty);
+			String categoryFilter = obj.has("manager_category_filter") && obj.get("manager_category_filter").isJsonPrimitive()
+                && obj.get("manager_category_filter").getAsJsonPrimitive().isString() ? obj.get("manager_category_filter").getAsString() : "all";
+			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, showEmpty, categoryFilter);
 		} catch (Exception e) {
 			Constants.LOG.warn("Failed to load {}, using defaults: {}", label, e.getMessage());
 			return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT, UiState.SORT_MODE_DEFAULT);
@@ -134,6 +136,11 @@ public final class GroupConfig {
 
 	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
 		String managerSourceFilter, String managerSortMode, boolean managerShowEmpty) {
+        saveUiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, managerShowEmpty, "all");
+    }
+
+    public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+        String managerSourceFilter, String managerSortMode, boolean managerShowEmpty, String managerCategoryFilter) {
 		Path file = getUiStateFile();
 		try {
 			Files.createDirectories(file.getParent());
@@ -144,6 +151,7 @@ public final class GroupConfig {
 			obj.addProperty("manager_source_filter", managerSourceFilter);
 			obj.addProperty("manager_sort_mode", managerSortMode);
 			obj.addProperty("manager_show_empty", managerShowEmpty);
+            obj.addProperty("manager_category_filter", managerCategoryFilter);
 			writeAtomically(file, GSON.toJson(obj));
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save UI state", e);
@@ -794,7 +802,7 @@ public final class GroupConfig {
 		}
 	}
 
-	private static void writeAtomically(Path targetFile, String json) throws IOException {
+	static void writeAtomically(Path targetFile, String json) throws IOException {
 		Path parent = targetFile.getParent();
 		Path tempFile = parent.resolve(targetFile.getFileName().toString() + ".tmp");
 		try {
@@ -837,10 +845,13 @@ public final class GroupConfig {
 	) {}
 
 	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
-	                      String managerSourceFilter, String managerSortMode, boolean managerShowEmpty) {
+	                      String managerSourceFilter, String managerSortMode, boolean managerShowEmpty, String managerCategoryFilter) {
 		public UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String source, String sort) {
-			this(showBuiltin, showKubeJs, hideUsed, source, sort, false);
+			this(showBuiltin, showKubeJs, hideUsed, source, sort, false, "all");
 		}
+        public UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String source, String sort, boolean showEmpty) {
+            this(showBuiltin, showKubeJs, hideUsed, source, sort, showEmpty, "all");
+        }
 		public static final String SOURCE_FILTER_DEFAULT = "all";
 		public static final String SORT_MODE_DEFAULT = "priority";
 	}
