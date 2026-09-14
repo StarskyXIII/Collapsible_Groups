@@ -11,43 +11,48 @@ import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 
 class BuiltinGroupDataContractTest {
     private static final Path ROOT = Path.of(System.getProperty("collapsibleGroupsRoot"));
 
-    @Test void generatedCatalogsCoverEachLoadersSourceRootsInResourceOrder() throws Exception {
-        var roots = Map.of("fabric", List.of("common", "fabric-neoforge"), "forge", List.of("common"),
-            "neoforge", List.of("common", "fabric-neoforge", "neoforge"));
-        for (var loader : roots.entrySet()) {
+    @Test void generatedCatalogsCoverCategoryLoaderMembershipInResourceOrder() throws Exception {
+        Path root = ROOT.resolve("builtin-groups");
+        for (String loader : List.of("fabric", "forge", "neoforge")) {
             List<JsonObject> expected = new ArrayList<>();
             var ids = new HashSet<String>();
             var paths = new HashSet<String>();
-            for (String name : loader.getValue()) {
-                Path root = ROOT.resolve("builtin-groups").resolve(name);
-                try (var files = Files.walk(root)) {
-                    for (Path file : files.filter(Files::isRegularFile).filter(f -> f.toString().endsWith(".json")).toList()) {
-                        String path = root.relativize(file).toString().replace('\\', '/');
-                        assertTrue(path.matches("assets/collapsible_groups/groups/[a-z0-9_./-]+\\.json"), path);
-                        String filename = file.getFileName().toString();
-                        assertTrue(filename.matches("[0-9]+_.*\\.json"), filename);
-                        var source = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
-                        var group = GroupConfig.fromJsonChecked(source.toString());
-                        assertEquals(GroupDocumentFormat.V1, group.documentFormat());
-                        assertTrue(ids.add(group.id()), group.id());
-                        assertTrue(paths.add(path), path);
-                        assertEquals(source, resource(path));
-                        var entry = new JsonObject();
-                        entry.addProperty("path", path);
-                        entry.addProperty("id", group.id());
-                        expected.add(entry);
+            try (var categories = Files.list(root)) {
+                for (Path category : categories.filter(Files::isDirectory).toList()) {
+                    var metadata = JsonParser.parseString(Files.readString(category.resolve("metadata.json"))).getAsJsonObject();
+                    boolean included = metadata.getAsJsonArray("loaders").asList().stream()
+                        .anyMatch(value -> loader.equals(value.getAsString()));
+                    if (!included) continue;
+                    try (var files = Files.list(category)) {
+                        for (Path file : files.filter(Files::isRegularFile)
+                            .filter(f -> f.toString().endsWith(".json") && !f.getFileName().toString().equals("metadata.json")).toList()) {
+                            String path = "assets/collapsible_groups/groups/" + category.getFileName() + "/" + file.getFileName();
+                            var source = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+                            var group = GroupConfig.fromJsonChecked(source.toString());
+                            assertEquals(GroupDocumentFormat.V1, group.documentFormat());
+                            assertTrue(ids.add(group.id()), group.id());
+                            assertTrue(paths.add(path), path);
+                            assertEquals(source, resource(path));
+                            Path output = ROOT.resolve(loader).resolve("build/generated/builtin-groups");
+                            assertEquals(source, JsonParser.parseString(Files.readString(output.resolve(path))));
+                            assertFalse(Files.exists(output.resolve("assets/collapsible_groups/groups/"
+                                + category.getFileName() + "/metadata.json")));
+                            var entry = new JsonObject();
+                            entry.addProperty("path", path);
+                            entry.addProperty("id", group.id());
+                            expected.add(entry);
+                        }
                     }
                 }
             }
             expected.sort(java.util.Comparator.comparing(entry -> entry.get("path").getAsString()));
             assertFalse(expected.isEmpty());
-            var actual = JsonParser.parseString(Files.readString(ROOT.resolve(loader.getKey())
+            var actual = JsonParser.parseString(Files.readString(ROOT.resolve(loader)
                 .resolve("build/generated/builtin-groups/assets/collapsible_groups/builtin_catalog.json")))
                 .getAsJsonObject().getAsJsonArray("groups");
             assertEquals(expected, actual.asList());

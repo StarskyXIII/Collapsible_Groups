@@ -4,11 +4,11 @@ This guide covers Minecraft 1.21.1. Built-in definitions use the same JSON forma
 
 ## Built-in definitions and the global switch
 
-The repository contains 895 definitions. Loader coverage is preserved: Fabric packages 528, Forge 229, and NeoForge 895. Each loader retains the relative order of the definitions it previously provided. Definitions are loaded independently of whether the corresponding mod is installed; matching against the current viewer determines their content.
+The repository contains 895 definitions. Loader coverage is preserved: Fabric packages 528, Forge 229, and NeoForge 895. Definitions use a fixed alphabetical resource-path order. Equal-priority groups retain that order when resolving ingredient ownership. Definitions are loaded independently of whether the corresponding mod is installed; matching against the current viewer determines their content.
 
 `defaultGroups.enabled` is the single built-in switch. Turning it off disables the grouping effect of every ID in the bundled catalog, including resource-pack or custom replacements for those IDs. Definitions, individual enabled preferences, and expansion state remain available. Turning the switch back on preserves the individual choices. A custom copy with a new ID is independent of this switch.
 
-The previous Generic, Vanilla, integration master, and per-mod loading settings are retired and have no effect. There is no conversion of their old values into individual group preferences. Folder-based configuration inheritance or environment metadata is deferred; directory names do not act as mod-loading conditions.
+The previous Generic, Vanilla, integration master, and per-mod loading settings are retired and have no effect. There is no conversion of their old values into individual group preferences. Category metadata controls build-time loader membership only. Directory names do not act as mod-loading conditions, and no configuration inheritance is applied.
 
 ## Resource-pack definitions
 
@@ -113,15 +113,31 @@ The existing `group_key` dump and `clean` commands retain their previous behavio
 
 ## Maintaining bundled definitions
 
-Bundled source JSON lives in three packaging roots:
+Bundled source JSON lives directly under category directories:
 
-| Directory | Packaged by | Definitions |
-| --- | --- | ---: |
-| `builtin-groups/common` | Fabric, Forge, NeoForge | 229 |
-| `builtin-groups/fabric-neoforge` | Fabric, NeoForge | 299 |
-| `builtin-groups/neoforge` | NeoForge | 367 |
+```text
+builtin-groups/
+  chipped/
+    metadata.json
+    chipped_acacia_door.json
+  generic/
+    metadata.json
+    potions.json
+```
 
-Keep each resource path unique across these roots. Filename prefixes preserve the original provider ordering; they do not alter a group's numeric priority. Built-in names must have a `collapsible_groups.group.*` translation key and a nonempty English fallback. No Java provider registration or per-group config option is required.
+Each category has one `metadata.json`, for example:
+
+```json
+{"loaders":["fabric","neoforge"]}
+```
+
+`loaders` is required and must contain one or more unique values from `fabric`, `forge`, and `neoforge`. Shared categories explicitly list all three. Metadata has no other fields, defaults, aliases, inheritance or per-group exceptions. Group definitions remain separate JSON files beside the metadata. Missing/invalid metadata, empty categories and nested group JSON are errors.
+
+The generator maps a source file to `assets/collapsible_groups/groups/<category>/<filename>.json` and sorts full resource paths alphabetically, independently of locale or filesystem order. Category metadata determines which loader packages it; metadata itself is absent from catalogs and jars. Common resources and generated group English use the union of every category.
+
+Keep group IDs and generated resource paths unique across all categories. Built-in names must have a `collapsible_groups.group.*` translation key and a nonempty English fallback. No Java provider registration or per-group config option is required.
+
+Numeric folder and filename prefixes have been removed. They preserved former provider order and were separate from the JSON `priority` field. Priority remains supported; the first active match wins between equal-priority groups in resource order. Removing prefixes can therefore change ownership where equal-priority groups overlap. Pack filters and other references to the former numbered resource paths must be updated; group IDs and their enabled/expanded preferences remain unchanged.
 
 Normal resource processing and source-jar builds automatically generate the platform catalog and the separate group English file from JSON fallbacks. Generation reads JSON directly, without launching Minecraft, a datagen client, or installed integration mods. Commit the edited source definitions; generated output lives below `build/generated/` and is included in each loader's resources and source jar.
 

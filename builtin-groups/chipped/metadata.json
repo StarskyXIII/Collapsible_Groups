@@ -1,0 +1,6 @@
+{
+  "loaders": [
+    "fabric",
+    "neoforge"
+  ]
+}

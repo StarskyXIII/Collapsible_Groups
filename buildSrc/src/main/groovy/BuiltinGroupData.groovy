@@ -9,16 +9,35 @@ import java.nio.file.Path
 import java.nio.file.StandardCopyOption
 
 final class BuiltinGroupData {
-    static List<Map> read(List<File> roots) {
+    private static final Set<String> LOADERS = Set.of('fabric', 'forge', 'neoforge')
+
+    static List<Map> read(File root) {
+        if (!root.isDirectory()) throw new GradleException("Missing built-in group directory: ${root}")
         List<Map> entries = []
         Set<String> ids = new HashSet<>()
         Set<String> paths = new HashSet<>()
-        roots.each { root ->
-            if (!root.isDirectory()) throw new GradleException("Missing built-in group directory: ${root.name}")
-            root.eachFileRecurse { file ->
-                if (!file.isFile() || !file.name.endsWith('.json')) return
-                String path = root.toPath().relativize(file.toPath()).toString().replace('\\', '/')
-                if (!(path ==~ /assets\/collapsible_groups\/groups\/[a-z0-9_.\/-]+\.json/)) {
+        root.listFiles().sort { it.name }.each { category ->
+            if (!category.isDirectory()) {
+                if (category.name.endsWith('.json')) throw new GradleException("Group JSON requires a category directory: ${category}")
+                return
+            }
+            File metadataFile = new File(category, 'metadata.json')
+            Map metadata = object(metadataFile)
+            if (metadata.keySet() != Set.of('loaders') || !(metadata.loaders instanceof List)
+                || metadata.loaders.isEmpty() || metadata.loaders.any { !(it instanceof String) || !LOADERS.contains(it) }
+                || metadata.loaders.toSet().size() != metadata.loaders.size()) {
+                throw new GradleException("Expected unique loaders from ${LOADERS} in ${metadataFile}")
+            }
+            category.eachFileRecurse { file ->
+                if (file.isFile() && file.name.endsWith('.json') && file.parentFile != category) {
+                    throw new GradleException("Nested built-in group JSON is unsupported: ${file}")
+                }
+            }
+            List<File> files = category.listFiles().findAll { it.isFile() && it.name.endsWith('.json') && it.name != 'metadata.json' }
+            if (files.isEmpty()) throw new GradleException("Empty built-in group category: ${category}")
+            files.sort { it.name }.each { file ->
+                String path = "assets/collapsible_groups/groups/${category.name}/${file.name}"
+                if (!(path ==~ /assets\/collapsible_groups\/groups\/[a-z0-9_.\/-]+\.json/) || path.contains('..')) {
                     throw new GradleException("Invalid built-in resource path: ${path}")
                 }
                 Map group = object(file)
@@ -38,14 +57,17 @@ final class BuiltinGroupData {
                 }
                 if (!ids.add(group.id)) throw new GradleException("Duplicate built-in group ID: ${group.id} (${path})")
                 if (!paths.add(path)) throw new GradleException("Duplicate built-in resource path: ${path}")
-                entries.add([path: path, file: file, definition: group])
+                entries.add([path: path, file: file, definition: group, loaders: metadata.loaders])
             }
         }
+        if (entries.isEmpty()) throw new GradleException("No built-in groups in ${root}")
         entries.sort { a, b -> a.path <=> b.path }
     }
 
-    static void resources(List<File> roots, File destination) {
-        List<Map> entries = read(roots)
+    static void resources(File root, File destination, String loader = null) {
+        if (loader != null && !LOADERS.contains(loader)) throw new GradleException("Unknown target loader: ${loader}")
+        List<Map> entries = read(root).findAll { loader == null || it.loaders.contains(loader) }
+        if (entries.isEmpty()) throw new GradleException("No built-in groups for ${loader} in ${root}")
         Map<String, String> output = new TreeMap<>()
         entries.each { entry -> output[entry.path] = entry.file.getText('UTF-8') }
         output['assets/collapsible_groups/builtin_catalog.json'] = json([
@@ -62,10 +84,10 @@ final class BuiltinGroupData {
         output.each { path, text -> writeIfChanged(new File(destination, path).toPath(), text) }
     }
 
-    static void language(List<File> roots, File uiFile, File destination) {
+    static void language(File root, File uiFile, File destination) {
         Map ui = strings(object(uiFile), uiFile.name)
         Map<String, String> generated = new TreeMap<>()
-        read(roots).each { entry ->
+        read(root).each { entry ->
             String key = entry.definition.name.translate
             String value = entry.definition.name.fallback
             if (generated.containsKey(key) && generated[key] != value) {
@@ -78,13 +100,13 @@ final class BuiltinGroupData {
     }
 
     private static Map object(File file) {
-        if (!file.isFile()) throw new GradleException("Required JSON file is missing: ${file.name}")
+        if (!file.isFile()) throw new GradleException("Required JSON file is missing: ${file}")
         try {
             Object value = new JsonSlurper().parseText(file.getText('UTF-8'))
-            if (!(value instanceof Map)) throw new GradleException("Expected a JSON object: ${file.name}")
+            if (!(value instanceof Map)) throw new GradleException("Expected a JSON object: ${file}")
             return value as Map
         } catch (Exception invalid) {
-            throw new GradleException("Could not read ${file.name}: ${invalid.message}", invalid)
+            throw new GradleException("Could not read ${file}: ${invalid.message}", invalid)
         }
     }
 
