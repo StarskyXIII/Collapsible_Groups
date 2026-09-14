@@ -2,5 +2,16 @@
   "loaders": [
     "fabric",
     "neoforge"
-  ]
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.refinedstorage2",
+    "fallback": "Refined Storage"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "refinedstorage"
+      }
+    ]
+  }
 }

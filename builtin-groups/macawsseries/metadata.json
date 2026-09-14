@@ -3,5 +3,43 @@
     "fabric",
     "forge",
     "neoforge"
-  ]
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.macawsseries",
+    "fallback": "Macaw's Mods"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "mcwbridges"
+      },
+      {
+        "mod": "mcwdoors"
+      },
+      {
+        "mod": "mcwfences"
+      },
+      {
+        "mod": "mcwfurnitures"
+      },
+      {
+        "mod": "mcwlights"
+      },
+      {
+        "mod": "mcwpaths"
+      },
+      {
+        "mod": "mcwroofs"
+      },
+      {
+        "mod": "mcwstairs"
+      },
+      {
+        "mod": "mcwtrpdoors"
+      },
+      {
+        "mod": "mcwwindows"
+      }
+    ]
+  }
 }

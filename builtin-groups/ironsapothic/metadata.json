@@ -1,5 +1,16 @@
 {
   "loaders": [
     "neoforge"
-  ]
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.ironsapothic",
+    "fallback": "Iron's Apothic"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "irons_apothic"
+      }
+    ]
+  }
 }

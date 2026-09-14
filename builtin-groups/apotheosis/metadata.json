@@ -1,5 +1,16 @@
 {
   "loaders": [
     "neoforge"
-  ]
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.apotheosis",
+    "fallback": "Apotheosis"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "apotheosis"
+      }
+    ]
+  }
 }

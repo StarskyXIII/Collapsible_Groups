@@ -23,10 +23,26 @@ final class BuiltinGroupData {
             }
             File metadataFile = new File(category, 'metadata.json')
             Map metadata = object(metadataFile)
-            if (metadata.keySet() != Set.of('loaders') || !(metadata.loaders instanceof List)
+            if (!Set.of('loaders', 'category', 'requirement').containsAll(metadata.keySet()) || !(metadata.loaders instanceof List)
                 || metadata.loaders.isEmpty() || metadata.loaders.any { !(it instanceof String) || !LOADERS.contains(it) }
                 || metadata.loaders.toSet().size() != metadata.loaders.size()) {
                 throw new GradleException("Expected unique loaders from ${LOADERS} in ${metadataFile}")
+            }
+            if (!(metadata.category instanceof Map) || metadata.category.keySet() != Set.of('translate', 'fallback')
+                || !(metadata.category.translate instanceof String) || !metadata.category.translate.startsWith('collapsible_groups.category.')
+                || !(metadata.category.fallback instanceof String) || metadata.category.fallback.isBlank()) {
+                throw new GradleException("Category requires a translation key and English fallback: ${metadataFile}")
+            }
+            if (metadata.containsKey('requirement')) {
+                def requirement = metadata.requirement
+                if (!(requirement instanceof Map) || requirement.size() != 1
+                    || !(requirement.keySet().first() in ['any', 'all'])) {
+                    throw new GradleException("Category requirement must contain either any or all: ${metadataFile}")
+                }
+                def conditions = requirement.values().first()
+                if (!(conditions instanceof List) || conditions.isEmpty() || conditions.any {
+                    !(it instanceof Map) || it.keySet() != Set.of('mod') || !(it.mod instanceof String) || !(it.mod ==~ /[a-z][a-z0-9_-]*/)
+                }) throw new GradleException("Category requirement requires a non-empty mod list: ${metadataFile}")
             }
             category.eachFileRecurse { file ->
                 if (file.isFile() && file.name.endsWith('.json') && file.parentFile != category) {
@@ -57,7 +73,8 @@ final class BuiltinGroupData {
                 }
                 if (!ids.add(group.id)) throw new GradleException("Duplicate built-in group ID: ${group.id} (${path})")
                 if (!paths.add(path)) throw new GradleException("Duplicate built-in resource path: ${path}")
-                entries.add([path: path, file: file, definition: group, loaders: metadata.loaders])
+                entries.add([path: path, file: file, definition: group, loaders: metadata.loaders,
+                    metadata: metadata, metadataFile: metadataFile, metadataPath: "assets/collapsible_groups/groups/${category.name}/metadata.json"])
             }
         }
         if (entries.isEmpty()) throw new GradleException("No built-in groups in ${root}")
@@ -69,7 +86,10 @@ final class BuiltinGroupData {
         List<Map> entries = read(root).findAll { loader == null || it.loaders.contains(loader) }
         if (entries.isEmpty()) throw new GradleException("No built-in groups for ${loader} in ${root}")
         Map<String, String> output = new TreeMap<>()
-        entries.each { entry -> output[entry.path] = entry.file.getText('UTF-8') }
+        entries.each { entry ->
+            output[entry.path] = entry.file.getText('UTF-8')
+            output[entry.metadataPath] = entry.metadataFile.getText('UTF-8')
+        }
         output['assets/collapsible_groups/builtin_catalog.json'] = json([
             version: 1,
             groups: entries.collect { [path: it.path, id: it.definition.id] }
@@ -88,13 +108,15 @@ final class BuiltinGroupData {
         Map ui = strings(object(uiFile), uiFile.name)
         Map<String, String> generated = new TreeMap<>()
         read(root).each { entry ->
-            String key = entry.definition.name.translate
-            String value = entry.definition.name.fallback
-            if (generated.containsKey(key) && generated[key] != value) {
-                throw new GradleException("Conflicting English fallback for ${key}: ${entry.path}")
+            [entry.definition.name, entry.metadata.category].each { name ->
+                String key = name.translate
+                String value = name.fallback
+                if (generated.containsKey(key) && generated[key] != value) {
+                    throw new GradleException("Conflicting English fallback for ${key}: ${entry.path}")
+                }
+                if (ui.containsKey(key)) throw new GradleException("Generated group key collides with UI language entry: ${key}")
+                generated[key] = value
             }
-            if (ui.containsKey(key)) throw new GradleException("Generated group key collides with UI language entry: ${key}")
-            generated[key] = value
         }
         writeIfChanged(destination.toPath(), json(generated))
     }

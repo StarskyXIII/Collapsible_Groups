@@ -1,5 +1,16 @@
 {
   "loaders": [
     "neoforge"
-  ]
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.chisel",
+    "fallback": "Chisel"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "chisel"
+      }
+    ]
+  }
 }

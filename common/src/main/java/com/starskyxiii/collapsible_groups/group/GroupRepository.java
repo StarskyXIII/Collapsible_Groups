@@ -274,7 +274,7 @@ public final class GroupRepository {
 		SERVICE.validateGroup(group);
 		GroupOrigin origin = SERVICE.resources().origin(group.id());
 		if (origin == null) {
-			if (SERVICE.findById(group.id()).isPresent()) return false;
+			if (SERVICE.findById(group.id()).isPresent() || SERVICE.resources().builtinIds().contains(group.id())) return false;
 			origin = GroupFileStore.create(group, Services.PLATFORM.getConfigDir()).orElse(null);
 			if (origin == null) return false;
 		} else if (!GroupFileStore.save(group, origin, Services.PLATFORM.getConfigDir())) {
@@ -287,7 +287,7 @@ public final class GroupRepository {
 	public static Optional<GroupDefinition> createCustomCopyDraft(String sourceId, String copiedDisplayName) {
 		if (sourceId == null || sourceId.isBlank() || sourceOf(sourceId) == GroupSource.USER) return Optional.empty();
 		return findById(sourceId).flatMap(source -> GroupCatalog.createCustomCopy(source, copiedDisplayName,
-			getAllIncludingScripted().stream().map(GroupDefinition::id).toList()));
+			occupiedIds(getAllIncludingScripted())));
 	}
 
 	public static boolean setEnabledQuietly(String id, boolean enabled) {
@@ -340,13 +340,19 @@ public final class GroupRepository {
 
 	public static String generateUniqueId(String base) {
 		return GroupCatalog.generateUniqueId(base,
-			SERVICE.managedRegistrationOrder().stream().map(GroupDefinition::id).toList());
+			occupiedIds(SERVICE.managedRegistrationOrder()));
 	}
 
 	public static String generateUniqueIdIncludingScripted(String base) {
 		return GroupCatalog.generateUniqueId(base,
-			getAllIncludingScripted().stream().map(GroupDefinition::id).toList());
+			occupiedIds(getAllIncludingScripted()));
 	}
+
+    private static List<String> occupiedIds(List<GroupDefinition> groups) {
+        var ids = new java.util.LinkedHashSet<>(SERVICE.resources().builtinIds());
+        groups.stream().map(GroupDefinition::id).forEach(ids::add);
+        return List.copyOf(ids);
+    }
 
 	public static String sanitizeGeneratedIdBase(String base) {
 		return GroupCatalog.sanitizeGeneratedIdBase(base);
@@ -370,7 +376,7 @@ public final class GroupRepository {
 				"test", group.id(), path)));
 			definitions.put(group.id(), List.of(group));
 		}
-		SERVICE.replaceManaged(new GroupResourceData(groups, ids, origins, definitions, List.of(), false, false), Map.of(), true);
+		SERVICE.replaceManaged(new GroupResourceData(groups, ids, origins, definitions, Map.of(), List.of(), false, false), Map.of(), true);
 		currentResources = null;
 		initialized = false;
 		SCRIPTED_PUBLICATIONS.clear();

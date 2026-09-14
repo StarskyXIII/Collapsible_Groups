@@ -40,8 +40,8 @@ class BuiltinGroupDataContractTest {
                             assertEquals(source, resource(path));
                             Path output = ROOT.resolve(loader).resolve("build/generated/builtin-groups");
                             assertEquals(source, JsonParser.parseString(Files.readString(output.resolve(path))));
-                            assertFalse(Files.exists(output.resolve("assets/collapsible_groups/groups/"
-                                + category.getFileName() + "/metadata.json")));
+                            assertEquals(metadata, JsonParser.parseString(Files.readString(output.resolve("assets/collapsible_groups/groups/"
+                                + category.getFileName() + "/metadata.json"))));
                             var entry = new JsonObject();
                             entry.addProperty("path", path);
                             entry.addProperty("id", group.id());
@@ -60,8 +60,7 @@ class BuiltinGroupDataContractTest {
     }
 
     @Test void bundledDefinitionsHaveSeparateEnglishFallbacksAndBuiltinOrigins() throws Exception {
-        var bundled = GroupResourceLoader.readBundled(getClass().getClassLoader());
-        var data = GroupResourceLoader.assemble(List.of(new GroupResourceLoader.Layer(bundled, false)));
+        var data = GroupResourceLoader.load(getClass().getClassLoader(), List.of(), ROOT.resolve("build/empty-config"), mod -> true);
         assertTrue(data.complete(), data.problems().toString());
         assertFalse(data.groups().isEmpty());
         var english = resource("assets/collapsible_groups/group_lang/en_us.json");
@@ -73,6 +72,12 @@ class BuiltinGroupDataContractTest {
             assertEquals(group.displayName().fallback(), english.get(key).getAsString(), group.id());
             assertFalse(ui.has(key), key);
             assertEquals(GroupSource.BUILTIN, data.origin(group.id()).source());
+        }
+        for (GroupCategory category : data.categories().values()) {
+            String key = category.displayName().key();
+            keys.add(key);
+            assertEquals(category.displayName().fallback(), english.get(key).getAsString());
+            assertFalse(ui.has(key), key);
         }
         assertEquals(keys, english.keySet());
     }

@@ -108,7 +108,7 @@ class GroupTranslationWorklistTest {
             origins.put(group.id(), List.of(new GroupOrigin(source, source.name(), group.id() + ".json", null)));
             definitions.put(group.id(), List.of(group));
         }
-        return new GroupResourceData(groups, Set.of("builtin"), origins, definitions, List.of(), false, false);
+        return new GroupResourceData(groups, Set.of("builtin"), origins, definitions, Map.of(), List.of(), false, false);
     }
 
     private static GroupEvaluation complete(long generation, int items, int fluids, int generic) {

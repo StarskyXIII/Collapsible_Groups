@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.group;
 
+import net.minecraft.resources.ResourceLocation;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,6 +12,7 @@ public record GroupResourceData(
     Set<String> builtinIds,
     Map<String, List<GroupOrigin>> origins,
     Map<String, List<GroupDefinition>> definitions,
+    Map<ResourceLocation, GroupCategory> categories,
     List<GroupLoadProblem> problems,
     boolean rejected,
     boolean stale
@@ -24,11 +26,12 @@ public record GroupResourceData(
         Map<String, List<GroupDefinition>> frozenDefinitions = new LinkedHashMap<>();
         definitions.forEach((id, values) -> frozenDefinitions.put(id, List.copyOf(values)));
         definitions = Collections.unmodifiableMap(frozenDefinitions);
+        categories = Collections.unmodifiableMap(new LinkedHashMap<>(categories));
         problems = List.copyOf(problems);
     }
 
     public static GroupResourceData empty() {
-        return new GroupResourceData(List.of(), Set.of(), Map.of(), Map.of(), List.of(), false, false);
+        return new GroupResourceData(List.of(), Set.of(), Map.of(), Map.of(), Map.of(), List.of(), false, false);
     }
 
     public GroupOrigin origin(String id) {
@@ -41,7 +44,7 @@ public record GroupResourceData(
     }
 
     public GroupResourceData retaining(GroupResourceData previous) {
-        return new GroupResourceData(previous.groups(), previous.builtinIds(), previous.origins(), previous.definitions(),
+        return new GroupResourceData(previous.groups(), previous.builtinIds(), previous.origins(), previous.definitions(), previous.categories(),
             problems, true, true);
     }
 
@@ -61,7 +64,7 @@ public record GroupResourceData(
         Map<String, GroupDefinition> current = new LinkedHashMap<>();
         groups.forEach(value -> current.put(value.id(), value));
         current.put(group.id(), group);
-        return new GroupResourceData(List.copyOf(current.values()), builtinIds, nextOrigins, nextDefinitions,
+        return new GroupResourceData(List.copyOf(current.values()), builtinIds, nextOrigins, nextDefinitions, categories,
             problems, rejected, stale);
     }
 
@@ -78,7 +81,7 @@ public record GroupResourceData(
         nextDefinitions.put(id, versions);
         List<GroupDefinition> nextGroups = groups.stream().filter(group -> !group.id().equals(id) || !versions.isEmpty())
             .map(group -> group.id().equals(id) ? versions.getFirst() : group).toList();
-        return new GroupResourceData(nextGroups, builtinIds, nextOrigins, nextDefinitions,
+        return new GroupResourceData(nextGroups, builtinIds, nextOrigins, nextDefinitions, categories,
             problems.stream().filter(problem -> !origin.equals(problem.origin())).toList(), rejected, stale);
     }
 }
