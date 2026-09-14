@@ -10,12 +10,12 @@
     "all": [
       {
         "type": "item",
-        "tag": "refinedstorage:autocrafter_managers"
+        "tag": "refinedstorage2:autocrafter_managers"
       },
       {
         "not": {
           "type": "item",
-          "id": "refinedstorage:autocrafter_manager"
+          "id": "refinedstorage2:autocrafter_manager"
         }
       }
     ]

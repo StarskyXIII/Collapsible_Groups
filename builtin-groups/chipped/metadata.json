@@ -1,5 +1,16 @@
 {
   "loaders": [
     "fabric"
-  ]
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.chipped",
+    "fallback": "Chipped"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "chipped"
+      }
+    ]
+  }
 }

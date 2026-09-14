@@ -10,12 +10,12 @@
     "all": [
       {
         "type": "item",
-        "tag": "refinedstorage:detectors"
+        "tag": "refinedstorage2:detectors"
       },
       {
         "not": {
           "type": "item",
-          "id": "refinedstorage:detector"
+          "id": "refinedstorage2:detector"
         }
       }
     ]

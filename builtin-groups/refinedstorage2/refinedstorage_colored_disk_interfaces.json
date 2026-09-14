@@ -10,12 +10,12 @@
     "all": [
       {
         "type": "item",
-        "tag": "refinedstorage:disk_interfaces"
+        "tag": "refinedstorage2:disk_interfaces"
       },
       {
         "not": {
           "type": "item",
-          "id": "refinedstorage:disk_interface"
+          "id": "refinedstorage2:disk_interface"
         }
       }
     ]

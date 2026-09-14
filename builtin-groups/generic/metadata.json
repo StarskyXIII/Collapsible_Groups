@@ -2,5 +2,9 @@
   "loaders": [
     "fabric",
     "forge"
-  ]
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.generic",
+    "fallback": "Generic"
+  }
 }

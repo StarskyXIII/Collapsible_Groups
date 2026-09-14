@@ -10,12 +10,12 @@
     "all": [
       {
         "type": "item",
-        "tag": "refinedstorage:exporters"
+        "tag": "refinedstorage2:exporters"
       },
       {
         "not": {
           "type": "item",
-          "id": "refinedstorage:exporter"
+          "id": "refinedstorage2:exporter"
         }
       }
     ]

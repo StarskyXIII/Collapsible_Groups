@@ -10,12 +10,12 @@
     "all": [
       {
         "type": "item",
-        "tag": "refinedstorage:controllers"
+        "tag": "refinedstorage2:controllers"
       },
       {
         "not": {
           "type": "item",
-          "id": "refinedstorage:controller"
+          "id": "refinedstorage2:controller"
         }
       }
     ]

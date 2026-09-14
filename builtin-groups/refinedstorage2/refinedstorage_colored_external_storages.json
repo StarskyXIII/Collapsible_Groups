@@ -10,12 +10,12 @@
     "all": [
       {
         "type": "item",
-        "tag": "refinedstorage:external_storages"
+        "tag": "refinedstorage2:external_storages"
       },
       {
         "not": {
           "type": "item",
-          "id": "refinedstorage:external_storage"
+          "id": "refinedstorage2:external_storage"
         }
       }
     ]

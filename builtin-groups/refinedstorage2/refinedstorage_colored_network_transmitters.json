@@ -10,12 +10,12 @@
     "all": [
       {
         "type": "item",
-        "tag": "refinedstorage:network_transmitters"
+        "tag": "refinedstorage2:network_transmitters"
       },
       {
         "not": {
           "type": "item",
-          "id": "refinedstorage:network_transmitter"
+          "id": "refinedstorage2:network_transmitter"
         }
       }
     ]

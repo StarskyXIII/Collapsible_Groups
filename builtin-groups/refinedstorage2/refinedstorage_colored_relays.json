@@ -10,12 +10,12 @@
     "all": [
       {
         "type": "item",
-        "tag": "refinedstorage:relays"
+        "tag": "refinedstorage2:relays"
       },
       {
         "not": {
           "type": "item",
-          "id": "refinedstorage:relay"
+          "id": "refinedstorage2:relay"
         }
       }
     ]
