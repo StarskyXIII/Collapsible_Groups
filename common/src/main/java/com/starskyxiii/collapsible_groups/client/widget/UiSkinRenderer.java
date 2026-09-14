@@ -87,7 +87,7 @@ public final class UiSkinRenderer {
 
 	public static void drawCheckbox(GuiGraphics g, int x, int y, boolean checked, boolean hovered) {
 		g.fill(x, y, x + 14, y + 14, UiPalette.OUTLINE_DARK);
-		g.fill(x + 2, y + 2, x + 12, y + 12, checked ? UiPalette.OUTLINE_SELECTED : UiPalette.SURFACE_DARK);
+		g.fill(x + 1, y + 1, x + 13, y + 13, checked ? UiPalette.OUTLINE_SELECTED : UiPalette.SURFACE_DARK);
 		if (hovered) drawOutline(g, x, y, 14, 14, UiPalette.OUTLINE_HOVER);
 		if (checked) drawCheckboxMark(g, x, y, UiPalette.TEXT_SELECTED);
 	}
