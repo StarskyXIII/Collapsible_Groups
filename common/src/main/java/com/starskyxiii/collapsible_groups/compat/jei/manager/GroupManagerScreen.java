@@ -502,6 +502,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			renderBatchSelectedStatus(g);
 		}
 
+        int settingsX = width - 26;
+        boolean settingsHover = isMouseOver(mouseX, mouseY, settingsX, headerLayout.actionsY(), 20, 20);
+        renderButton(g, settingsX, headerLayout.actionsY(), 20, 20, "⚙", true, settingsHover, false);
+        if (settingsHover) pendingTooltip = Component.translatable("collapsible_groups.config.open");
 		int batchX = batchToggleButtonX();
 		int batchW = batchToggleButtonWidth();
 		boolean batchHover = isMouseOver(mouseX, mouseY, batchX, headerLayout.actionsY(), batchW, NEW_BTN_H);
@@ -1044,7 +1048,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private int newButtonX() {
-		return this.width - NEW_BTN_W - 6;
+		return this.width - NEW_BTN_W - 30;
 	}
 
 	private int batchToggleButtonX() {
@@ -1227,6 +1231,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			}
 		}
 		int batchX = batchToggleButtonX();
+        if (button == 0 && isMouseOver(mouseX, mouseY, width - 26, headerLayout.actionsY(), 20, 20)) {
+            Minecraft.getInstance().setScreen(new com.starskyxiii.collapsible_groups.client.config.GroupConfigScreen(this));
+            return true;
+        }
 		if (button == 0 && isMouseOver(mouseX, mouseY, batchX, headerLayout.actionsY(), batchToggleButtonWidth(), NEW_BTN_H)) {
 			batchToggleButtonHeld = true;
 			return true;

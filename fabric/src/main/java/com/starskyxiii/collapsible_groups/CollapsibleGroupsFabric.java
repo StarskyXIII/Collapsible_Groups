@@ -21,7 +21,7 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
             .requireCompatibleSelectedViewer();
         Constants.LOG.info("Initializing {} on Fabric", Constants.MOD_NAME);
         CommonClass.init();
-        FabricConfig.load();
+        com.starskyxiii.collapsible_groups.platform.Services.CONFIG.settings().initialize();
         reloadGroupsFromCurrentConfig();
         net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> {
             if (client) net.minecraft.client.Minecraft.getInstance().execute(GroupRepository::notifySourceReload);

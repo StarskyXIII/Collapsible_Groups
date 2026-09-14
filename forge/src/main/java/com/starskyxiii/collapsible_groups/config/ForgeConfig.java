@@ -1,45 +1,14 @@
 package com.starskyxiii.collapsible_groups.config;
 
-import com.starskyxiii.collapsible_groups.platform.services.IConfigProvider;
+import com.starskyxiii.collapsible_groups.platform.Services;
+import net.minecraftforge.fml.config.ModConfig;
 import net.minecraftforge.common.ForgeConfigSpec;
 
 /**
  * Forge config provider that reads and writes
  * {@code config/collapsiblegroups/collapsiblegroups.toml} via {@link ForgeConfigSpec}.
  */
-public final class ForgeConfig implements IConfigProvider {
-	private static final int COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT = 0x24FFFFFF;
-	private static final int EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT  = 0x24FFFFFF;
-	private static final int GROUP_NAME_COLOR_DEFAULT                 = 0x00FFAA00;
-	private static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
-
-
-	// IConfigProvider
-
-	@Override public boolean loadDefaultGroups()                   { return LOAD_DEFAULT_GROUPS.get(); }
-	@Override public boolean showManagerButton()                   { return SHOW_MANAGER_BUTTON.get(); }
-	@Override public boolean showGroupBackgrounds()                { return SHOW_GROUP_BACKGROUNDS.get(); }
-	@Override public boolean searchUngroupSmallGroups()            { return SEARCH_UNGROUP_SMALL_GROUPS.get(); }
-	@Override public int searchUngroupThreshold()                  { return SEARCH_UNGROUP_THRESHOLD.get(); }
-	@Override public int collapsedGroupBackgroundColor() {
-		return ColorConfigParser.parseArgb(COLLAPSED_GROUP_BACKGROUND_COLOR.get(), COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
-	}
-	@Override public int expandedGroupBackgroundColor() {
-		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BACKGROUND_COLOR.get(), EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT);
-	}
-	@Override public int groupNameColor() {
-		return ColorConfigParser.parseRgb(GROUP_NAME_COLOR.get(), GROUP_NAME_COLOR_DEFAULT);
-	}
-	@Override public int expandedGroupBorderColor() {
-		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BORDER_COLOR.get(), EXPANDED_GROUP_BORDER_COLOR_DEFAULT);
-	}
-	@Override public boolean debugTimingEnabled()                  { return DEBUG_TIMING_LOGS.get(); }
-	@Override public boolean debugStartupIndexVerificationEnabled() { return DEBUG_STARTUP_INDEX_VERIFY.get(); }
-	@Override public boolean debugEditorIndexVerificationEnabled() { return DEBUG_EDITOR_INDEX_VERIFY.get(); }
-
-	// defaultGroups
-
-	/** Master switch: set to false for a completely clean slate with no built-in groups. */
+public final class ForgeConfig extends AcceptedConfigProvider {
 	public static final ForgeConfigSpec.BooleanValue LOAD_DEFAULT_GROUPS;
 
 	// ui
@@ -167,6 +136,24 @@ public final class ForgeConfig implements IConfigProvider {
 
 		SPEC = builder.build();
 	}
+
+    private static volatile ModConfig nativeConfig;
+
+    public static void bind(ModConfig config) { nativeConfig = config; }
+
+    private final TomlSettingsStorage storage = new TomlSettingsStorage(
+        Services.PLATFORM.getConfigDir().resolve("collapsiblegroups/collapsiblegroups.toml"));
+
+    @Override public SettingsSnapshot read() throws Exception { return storage.read(); }
+    @Override public void write(SettingsSnapshot settings) throws Exception { storage.write(settings); }
+
+    @Override public void synchronize() {
+        ModConfig config = nativeConfig;
+        if (config == null) throw new IllegalStateException("Native config is not loaded");
+        if (config.getConfigData() instanceof com.electronwill.nightconfig.core.file.FileConfig file) file.load();
+        else throw new IllegalStateException("Native config has no file");
+        SPEC.afterReload();
+    }
 
 	public ForgeConfig() {}
 

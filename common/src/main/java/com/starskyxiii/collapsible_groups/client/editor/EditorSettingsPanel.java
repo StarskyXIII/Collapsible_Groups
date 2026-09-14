@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
 import com.starskyxiii.collapsible_groups.client.widget.ConfirmDialog;
+import com.starskyxiii.collapsible_groups.client.widget.ColorPicker;
 
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
@@ -46,22 +47,8 @@ public final class EditorSettingsPanel {
 
 	private static final int SETTINGS_ROW_GAP = 3;
 	private static final int SETTINGS_SCROLLBAR_WIDTH = 6;
-	private static final int COLOR_MODAL_WIDTH = 266;
-	private static final int COLOR_MODAL_HEIGHT = 196;
-	private static final int COLOR_DYE_SIZE = 14;
-	private static final int COLOR_DYE_GAP = 3;
-	// Track length only; the slider visual language (track/knob geometry and
-	// anatomy) lives in UiSkinRenderer.drawSlider.
-	private static final int COLOR_SLIDER_WIDTH = 132;
 	private static final int PANEL_INSET = 8;
 	private static final int ERROR_TEXT_COLOR = 0xFFFF6B5F;
-	// General-purpose swatch set: greyscale ramp plus common UI accents.
-	private static final int[] DYE_COLORS = {
-		0xFFFFFFFF, 0xFFCED2D6, 0xFF9DA3A9, 0xFF6B7178,
-		0xFF3A3E44, 0xFF1E1F21, 0xFFE84C4C, 0xFFF08A3C,
-		0xFFF2C744, 0xFF5ABF4A, 0xFF3FA9C4, 0xFF3C7DDB,
-		0xFF6F5AE0, 0xFFB05AD6, 0xFFE066A6, 0xFF7A5A44
-	};
 
 	private static final int ICON_PICKER_SLOT = 18;
 	private static final int ICON_PICKER_COLS = 8;
@@ -91,18 +78,7 @@ public final class EditorSettingsPanel {
 	private int scrollbarDragStartOffset;
 	private boolean switchHoverSuppressed;
 
-	// ── Color picker state ────────────────────────────────────────────────
-	private @Nullable SettingsColorTarget activeColorTarget;
-	private @Nullable AppearanceDraft colorPickerSnapshot;
-	private boolean colorPickerDirtySnapshot;
-	private int colorPickerArgb = 0xFFFFFFFF;
-	private String colorPickerHex = "FFFFFFFF";
-	// native EditBox for the modal hex field. Independent of
-	// iconPickerSearch (the two modals never open together, so no focus race). The
-	// String above stays the source of truth for validity/apply; the box mirrors it.
-	private @Nullable EditBox colorPickerHexBox;
-	private boolean syncingColorPickerHexBox;
-	private int draggingColorChannel = -1;
+	private @Nullable ColorPicker colorPicker;
 
 	// ── Icon picker state ─────────────────────────────────────────────────
 	private boolean iconPickerOpen;
@@ -176,7 +152,7 @@ public final class EditorSettingsPanel {
 
 	public void onDeactivate() {
 		if (isColorPickerOpen()) {
-			cancelColorPicker();
+			colorPicker.cancel();
 		}
 		if (iconPickerOpen) {
 			closeIconPicker();
@@ -190,9 +166,7 @@ public final class EditorSettingsPanel {
 		if (iconPickerSearch != null) {
 			iconPickerSearch.setFocused(false);
 		}
-		if (colorPickerHexBox != null) {
-			colorPickerHexBox.setFocused(false);
-		}
+		if (colorPicker != null) colorPicker.clearFocus();
 	}
 
 	public boolean isModalOpen() {
@@ -311,7 +285,7 @@ public final class EditorSettingsPanel {
 		g.pose().pushPose();
 		g.pose().translate(0, 0, 200);
 		if (isColorPickerOpen()) {
-			renderColorPickerModal(g, mouseX, mouseY);
+			colorPicker.render(g, mouseX, mouseY);
 		} else if (iconPickerOpen) {
 			renderIconPickerModal(g, mouseX, mouseY);
 		}
@@ -580,417 +554,37 @@ public final class EditorSettingsPanel {
 			&& left.canonicalIngredientType().equals(right.canonicalIngredientType());
 	}
 
-	// ─────────────────────────────────────────────────────────────────────
-	// Color picker modal
-	// ─────────────────────────────────────────────────────────────────────
+    public boolean isColorPickerOpen() {
+        return colorPicker != null && colorPicker.isOpen();
+    }
 
-	private EditorChrome.Rect colorModalRect() {
-		int inset = PANEL_INSET;
-		int w = Math.min(COLOR_MODAL_WIDTH, Math.max(120, panelW - inset * 2));
-		int h = Math.min(COLOR_MODAL_HEIGHT, Math.max(120, panelH - inset * 2));
-		return centeredModalRect(w, h, inset);
-	}
+    private EditorChrome.Rect centeredModalRect(int w, int h, int inset) {
+        int x = clamp(panelX + (panelW - w) / 2, panelX + inset, panelX + panelW - inset - w);
+        int y = clamp(panelY + (panelH - h) / 2, panelY + inset, panelY + panelH - inset - h);
+        return new EditorChrome.Rect(x, y, w, h);
+    }
 
-	/** Centers a modal of the given size within the settings panel. */
-	private EditorChrome.Rect centeredModalRect(int w, int h, int inset) {
-		int x = clamp(panelX + (panelW - w) / 2, panelX + inset, panelX + panelW - inset - w);
-		int y = clamp(panelY + (panelH - h) / 2, panelY + inset, panelY + panelH - inset - h);
-		return new EditorChrome.Rect(x, y, w, h);
-	}
+    private void openColorPicker(SettingsColorTarget target) {
+        commitPriorityEdit();
+        clearSwitchHoverSuppression();
+        AppearanceDraft previous = state.appearanceDraft();
+        boolean wasDirty = dirtyGet.get();
+        colorPicker = new ColorPicker(font,
+            Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_COLOR_PICKER, Component.translatable(target.labelKey)),
+            resolvedSettingsColor(target), target.rgbOnly, value -> {
+                state.setAppearanceDraft(withColor(target, com.starskyxiii.collapsible_groups.config.SettingsSnapshot.hex(value, target.rgbOnly)));
+                onChanged.run();
+            }, () -> {
+                state.setAppearanceDraft(previous);
+                dirtySet.accept(wasDirty);
+            }, colorPickerArea());
+    }
 
-	public boolean isColorPickerOpen() {
-		return activeColorTarget != null;
-	}
-
-	/**
-	 * Top-left corner (and size) of the modal's hex row, mirroring the vertical
-	 * cursor walk in {@link #renderColorPickerModal}. Render and the EditBox share
-	 * this one geometry so they never drift.
-	 */
-	private EditorChrome.Rect colorHexRowRect() {
-		EditorChrome.Rect modal = colorModalRect();
-		int y = modal.y() + 8
-			+ (font.lineHeight + 6)
-			+ (COLOR_DYE_SIZE * 2 + COLOR_DYE_GAP + 8)
-			+ 20 * 3 + 22;
-		return new EditorChrome.Rect(modal.x() + 8, y, modal.width() - 16, 18);
-	}
-
-	/** The editable inner field of the hex row (offset past the "#RRGGBB" label). */
-	private EditorChrome.Rect colorHexFieldRect() {
-		EditorChrome.Rect row = colorHexRowRect();
-		int fieldX = row.x() + 58;
-		int fieldW = Math.max(60, row.width() - 58);
-		return new EditorChrome.Rect(fieldX, row.y(), fieldW, 18);
-	}
-
-	private int colorChannel(int channel) {
-		return switch (channel) {
-			case 0 -> (colorPickerArgb >>> 16) & 0xFF;
-			case 1 -> (colorPickerArgb >>> 8) & 0xFF;
-			case 2 -> colorPickerArgb & 0xFF;
-			default -> (colorPickerArgb >>> 24) & 0xFF;
-		};
-	}
-
-	private boolean isHexInputValid(SettingsColorTarget target) {
-		String prefixed = "#" + colorPickerHex;
-		if (target.rgbOnly) {
-			return colorPickerHex.length() == 6 && ColorConfigParser.isValidArgb(prefixed);
-		}
-		return (colorPickerHex.length() == 6 || colorPickerHex.length() == 8)
-			&& ColorConfigParser.isValidArgb(prefixed);
-	}
-
-	private void openColorPicker(SettingsColorTarget target) {
-		commitPriorityEdit();
-		clearSwitchHoverSuppression();
-		activeColorTarget = target;
-		colorPickerSnapshot = state.appearanceDraft();
-		colorPickerDirtySnapshot = dirtyGet.get();
-		colorPickerArgb = resolvedSettingsColor(target);
-		if (target.rgbOnly) {
-			colorPickerArgb = 0xFF000000 | (colorPickerArgb & 0x00FFFFFF);
-		}
-		colorPickerHex = target.rgbOnly
-			? String.format(Locale.ROOT, "%06X", colorPickerArgb & 0x00FFFFFF)
-			: String.format(Locale.ROOT, "%08X", colorPickerArgb);
-		draggingColorChannel = -1;
-		createColorPickerHexBox(target);
-	}
-
-	private void createColorPickerHexBox(SettingsColorTarget target) {
-		int max = target.rgbOnly ? 6 : 8;
-		EditBox box = new EditBox(font, 0, 0, 1, font.lineHeight + 2, Component.empty());
-		box.setBordered(false);
-		box.setMaxLength(max);
-		box.setTextColor(UiPalette.TEXT_PRIMARY);
-		// Uppercase hex digits only, capped at the channel width.
-		box.setFilter(s -> s.chars().allMatch(c -> isHexChar((char) c)) && s.length() <= max);
-		box.setValue(colorPickerHex);
-		box.setResponder(this::onColorPickerHexTyped);
-		colorPickerHexBox = box;
-		positionColorPickerHexBox();
-		box.setFocused(true);
-		box.moveCursorToEnd(false);
-	}
-
-	/**
-	 * EditBox responder: normalise to uppercase, mirror into {@link #colorPickerHex},
-	 * and apply live when valid (non-valid keeps the red frame, no draft change —
-	 * the pre-existing live-preview semantics).
-	 */
-	private void onColorPickerHexTyped(String value) {
-		if (syncingColorPickerHexBox) {
-			colorPickerHex = value.toUpperCase(Locale.ROOT);
-			return;
-		}
-		String upper = value.toUpperCase(Locale.ROOT);
-		if (!upper.equals(value) && colorPickerHexBox != null) {
-			int cursor = colorPickerHexBox.getCursorPosition();
-			colorPickerHexBox.setValue(upper);
-			colorPickerHexBox.setCursorPosition(cursor);
-			colorPickerHexBox.setHighlightPos(cursor);
-			return; // setValue re-enters this responder with the uppercased text.
-		}
-		colorPickerHex = upper;
-		applyColorPickerHexIfValid();
-	}
-
-	private void positionColorPickerHexBox() {
-		if (colorPickerHexBox == null) return;
-		EditorChrome.Rect field = colorHexFieldRect();
-		colorPickerHexBox.setPosition(field.x() + 4,
-			UiSkinRenderer.textFieldTextY(font, field.y(), field.height()) + 1);
-		colorPickerHexBox.setWidth(Math.max(1, field.width() - 8));
-	}
-
-	private void confirmColorPicker() {
-		activeColorTarget = null;
-		colorPickerSnapshot = null;
-		colorPickerHexBox = null;
-		draggingColorChannel = -1;
-	}
-
-	private void cancelColorPicker() {
-		if (colorPickerSnapshot != null) {
-			state.setAppearanceDraft(colorPickerSnapshot);
-			dirtySet.accept(colorPickerDirtySnapshot);
-		}
-		activeColorTarget = null;
-		colorPickerSnapshot = null;
-		colorPickerHexBox = null;
-		draggingColorChannel = -1;
-	}
-
-	private void applyColorPickerArgb(int argb) {
-		SettingsColorTarget target = activeColorTarget;
-		if (target == null) return;
-		if (target.rgbOnly) {
-			argb = 0xFF000000 | (argb & 0x00FFFFFF);
-		}
-		colorPickerArgb = argb;
-		colorPickerHex = target.rgbOnly
-			? String.format(Locale.ROOT, "%06X", colorPickerArgb & 0x00FFFFFF)
-			: String.format(Locale.ROOT, "%08X", colorPickerArgb);
-		syncColorPickerHexBox();
-		applyColorPickerValue(target);
-	}
-
-	/** Push {@link #colorPickerHex} into the EditBox without re-firing apply. */
-	private void syncColorPickerHexBox() {
-		if (colorPickerHexBox == null || colorPickerHexBox.getValue().equals(colorPickerHex)) return;
-		syncingColorPickerHexBox = true;
-		try {
-			colorPickerHexBox.setValue(colorPickerHex);
-		} finally {
-			syncingColorPickerHexBox = false;
-		}
-	}
-
-	private void applyColorPickerValue(SettingsColorTarget target) {
-		String value = target.rgbOnly
-			? String.format(Locale.ROOT, "#%06X", colorPickerArgb & 0x00FFFFFF)
-			: String.format(Locale.ROOT, "#%08X", colorPickerArgb);
-		state.setAppearanceDraft(withColor(target, value));
-		onChanged.run();
-	}
-
-	private void setColorPickerChannel(int channel, int value) {
-		value = clamp(value, 0, 255);
-		int a = colorChannel(3);
-		int r = colorChannel(0);
-		int gg = colorChannel(1);
-		int b = colorChannel(2);
-		switch (channel) {
-			case 0 -> r = value;
-			case 1 -> gg = value;
-			case 2 -> b = value;
-			case 3 -> a = value;
-			default -> {
-			}
-		}
-		applyColorPickerArgb((a << 24) | (r << 16) | (gg << 8) | b);
-	}
-
-	private void renderColorPickerModal(GuiGraphics g, int mouseX, int mouseY) {
-		SettingsColorTarget target = activeColorTarget;
-		if (target == null) return;
-		EditorChrome.Rect modal = colorModalRect();
-		UiSkinRenderer.drawPanel(g, modal.x(), modal.y(), modal.width(), modal.height());
-		UiSkinRenderer.drawOutline(g, modal.x(), modal.y(), modal.width(), modal.height(), UiPalette.OUTLINE_SELECTED);
-
-		int x = modal.x() + 8;
-		int y = modal.y() + 8;
-		String title = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_COLOR_PICKER,
-			Component.translatable(target.labelKey).getString()).getString();
-		g.drawString(font, font.plainSubstrByWidth(title, Math.max(0, modal.width() - 16)),
-			x, y, UiPalette.TEXT_PRIMARY, false);
-		y += font.lineHeight + 6;
-
-		int swatchX = modal.right() - 28;
-		g.fill(swatchX, y - 1, swatchX + 18, y + 17, colorPickerArgb);
-		UiSkinRenderer.drawOutline(g, swatchX, y - 1, 18, 18, UiPalette.OUTLINE_DARK);
-		renderDyePalette(g, x, y, mouseX, mouseY);
-		y += COLOR_DYE_SIZE * 2 + COLOR_DYE_GAP + 8;
-
-		renderColorSlider(g, 0, x, y, target.rgbOnly, mouseX, mouseY);
-		y += 20;
-		renderColorSlider(g, 1, x, y, target.rgbOnly, mouseX, mouseY);
-		y += 20;
-		renderColorSlider(g, 2, x, y, target.rgbOnly, mouseX, mouseY);
-		y += 20;
-		renderColorSlider(g, 3, x, y, target.rgbOnly, mouseX, mouseY);
-		y += 22;
-
-		renderHexField(g, mouseX, mouseY, target);
-
-		int buttonY = modal.bottom() - 28;
-		int buttonW = 58;
-		int cancelX = modal.right() - 8 - buttonW;
-		int okX = cancelX - SETTINGS_ROW_GAP - buttonW;
-		UiSkinRenderer.drawButton(g, font, okX, buttonY, buttonW, 20,
-			Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM).getString(),
-			buttonState(true, contains(okX, buttonY, buttonW, 20, mouseX, mouseY)));
-		UiSkinRenderer.drawButton(g, font, cancelX, buttonY, buttonW, 20,
-			Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString(),
-			buttonState(true, contains(cancelX, buttonY, buttonW, 20, mouseX, mouseY)));
-	}
-
-	private void renderDyePalette(GuiGraphics g, int x, int y, int mouseX, int mouseY) {
-		for (int i = 0; i < DYE_COLORS.length; i++) {
-			int col = i % 8;
-			int row = i / 8;
-			int swatchX = x + col * (COLOR_DYE_SIZE + COLOR_DYE_GAP);
-			int swatchY = y + row * (COLOR_DYE_SIZE + COLOR_DYE_GAP);
-			g.fill(swatchX, swatchY, swatchX + COLOR_DYE_SIZE, swatchY + COLOR_DYE_SIZE, DYE_COLORS[i]);
-			UiSkinRenderer.drawOutline(g, swatchX, swatchY, COLOR_DYE_SIZE, COLOR_DYE_SIZE,
-				contains(swatchX, swatchY, COLOR_DYE_SIZE, COLOR_DYE_SIZE, mouseX, mouseY)
-					? UiPalette.OUTLINE_HOVER
-					: UiPalette.OUTLINE_DARK);
-		}
-	}
-
-	private void renderColorSlider(GuiGraphics g, int channel, int x, int y, boolean rgbOnly, int mouseX, int mouseY) {
-		String label = switch (channel) {
-			case 0 -> "R";
-			case 1 -> "G";
-			case 2 -> "B";
-			default -> "A";
-		};
-		boolean active = channel != 3 || !rgbOnly;
-		int value = colorChannel(channel);
-		int textColor = active ? UiPalette.TEXT_PRIMARY : UiPalette.TEXT_DISABLED;
-		g.drawString(font, label, x, UiSkinRenderer.centeredTextY(font, y, 16), textColor, false);
-		int sliderX = x + 16;
-		int bandY = y + 2;
-		boolean sliderHot = draggingColorChannel == channel
-			|| (active && UiSkinRenderer.sliderHitBand(sliderX, bandY, COLOR_SLIDER_WIDTH)
-				.contains(mouseX, mouseY));
-		UiSkinRenderer.drawSlider(g, sliderX, bandY, COLOR_SLIDER_WIDTH, value, 255, active, sliderHot);
-		String valueText = String.valueOf(value);
-		g.drawString(font, valueText, sliderX + COLOR_SLIDER_WIDTH + 8,
-			UiSkinRenderer.centeredTextY(font, y, 16), textColor, false);
-	}
-
-	private void renderHexField(GuiGraphics g, int mouseX, int mouseY, SettingsColorTarget target) {
-		EditorChrome.Rect row = colorHexRowRect();
-		String label = target.rgbOnly ? "#RRGGBB" : "#AARRGGBB";
-		g.drawString(font, label, row.x(), UiSkinRenderer.centeredTextY(font, row.y(), 18),
-			UiPalette.TEXT_MUTED, false);
-		EditorChrome.Rect field = colorHexFieldRect();
-		boolean valid = isHexInputValid(target);
-		boolean focused = colorPickerHexBox != null && colorPickerHexBox.isFocused();
-		boolean hovered = field.contains(mouseX, mouseY);
-		g.fill(field.x(), field.y(), field.right(), field.bottom(), UiPalette.SURFACE_DARK);
-		g.fill(field.x() + 1, field.y() + 1, field.right() - 1, field.bottom() - 1, UiPalette.SURFACE);
-		int outline = !valid ? ERROR_TEXT_COLOR
-			: focused ? UiPalette.OUTLINE_SELECTED
-			: hovered ? UiPalette.OUTLINE_HOVER : UiPalette.OUTLINE_DARK;
-		UiSkinRenderer.drawOutline(g, field.x(), field.y(), field.width(), field.height(), outline);
-		if (colorPickerHexBox != null) {
-			colorPickerHexBox.setTextColor(valid ? UiPalette.TEXT_PRIMARY : ERROR_TEXT_COLOR);
-			colorPickerHexBox.render(g, mouseX, mouseY, 0);
-		}
-	}
-
-	private boolean handleColorPickerClick(double mouseX, double mouseY) {
-		SettingsColorTarget target = activeColorTarget;
-		if (target == null) return false;
-		EditorChrome.Rect modal = colorModalRect();
-		int buttonY = modal.bottom() - 28;
-		int buttonW = 58;
-		int cancelX = modal.right() - 8 - buttonW;
-		int okX = cancelX - SETTINGS_ROW_GAP - buttonW;
-		if (contains(okX, buttonY, buttonW, 20, mouseX, mouseY)) {
-			confirmColorPicker();
-			return true;
-		}
-		if (contains(cancelX, buttonY, buttonW, 20, mouseX, mouseY)) {
-			cancelColorPicker();
-			return true;
-		}
-
-		// Clicking the hex field focuses the EditBox and forwards the click.
-		if (colorHexFieldRect().contains(mouseX, mouseY) && colorPickerHexBox != null) {
-			colorPickerHexBox.setFocused(true);
-			colorPickerHexBox.mouseClicked(mouseX, mouseY, 0);
-			return true;
-		}
-		if (colorPickerHexBox != null) {
-			colorPickerHexBox.setFocused(false);
-		}
-
-		int paletteX = modal.x() + 8;
-		int paletteY = modal.y() + 8 + font.lineHeight + 6;
-		for (int i = 0; i < DYE_COLORS.length; i++) {
-			int col = i % 8;
-			int row = i / 8;
-			int x = paletteX + col * (COLOR_DYE_SIZE + COLOR_DYE_GAP);
-			int y = paletteY + row * (COLOR_DYE_SIZE + COLOR_DYE_GAP);
-			if (contains(x, y, COLOR_DYE_SIZE, COLOR_DYE_SIZE, mouseX, mouseY)) {
-				int alpha = target.rgbOnly ? 0xFF000000 : colorPickerArgb & 0xFF000000;
-				applyColorPickerArgb(alpha | (DYE_COLORS[i] & 0x00FFFFFF));
-				return true;
-			}
-		}
-
-		int slidersY = paletteY + COLOR_DYE_SIZE * 2 + COLOR_DYE_GAP + 8;
-		for (int channel = 0; channel < 4; channel++) {
-			if (target.rgbOnly && channel == 3) continue;
-			int y = slidersY + channel * 20;
-			int sliderX = modal.x() + 8 + 16;
-			// Same hit band as the hover check in renderColorSlider (single source).
-			if (UiSkinRenderer.sliderHitBand(sliderX, y + 2, COLOR_SLIDER_WIDTH).contains(mouseX, mouseY)) {
-				draggingColorChannel = channel;
-				updateColorSliderFromMouse(mouseX);
-				return true;
-			}
-		}
-		// click outside the modal confirms (== OK); the live
-		// draft already carries the value, so commit just clears the snapshot.
-		if (!modal.contains(mouseX, mouseY)) {
-			confirmColorPicker();
-		}
-		return true;
-	}
-
-	private boolean handleColorPickerDrag(double mouseX) {
-		if (activeColorTarget == null || draggingColorChannel < 0) return false;
-		updateColorSliderFromMouse(mouseX);
-		return true;
-	}
-
-	private void updateColorSliderFromMouse(double mouseX) {
-		EditorChrome.Rect modal = colorModalRect();
-		int sliderX = modal.x() + 8 + 16;
-		int value = (int) Math.round((mouseX - sliderX) * 255.0 / Math.max(1, COLOR_SLIDER_WIDTH));
-		setColorPickerChannel(draggingColorChannel, value);
-	}
-
-	private boolean handleColorPickerKey(int keyCode, int scanCode, int modifiers) {
-		// Intercept ESC=cancel / ENTER=confirm at the panel level before the
-		// EditBox can swallow ENTER (mirrors handleIconPickerKey's ESC-first check).
-		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-			cancelColorPicker();
-			return true;
-		}
-		if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
-			confirmColorPicker();
-			return true;
-		}
-		if (colorPickerHexBox != null && colorPickerHexBox.isFocused()) {
-			colorPickerHexBox.keyPressed(keyCode, scanCode, modifiers);
-		}
-		return true;
-	}
-
-	private boolean handleColorPickerChar(char codePoint, int modifiers) {
-		if (colorPickerHexBox != null && colorPickerHexBox.isFocused()) {
-			colorPickerHexBox.charTyped(codePoint, modifiers);
-		}
-		return true;
-	}
-
-	private void applyColorPickerHexIfValid() {
-		SettingsColorTarget target = activeColorTarget;
-		if (target == null || !isHexInputValid(target)) return;
-		String hex = colorPickerHex;
-		int parsed = (int) Long.parseUnsignedLong(hex, 16);
-		if (target.rgbOnly) {
-			applyColorPickerArgb(0xFF000000 | (parsed & 0x00FFFFFF));
-		} else if (hex.length() == 6) {
-			applyColorPickerArgb((colorPickerArgb & 0xFF000000) | (parsed & 0x00FFFFFF));
-		} else {
-			applyColorPickerArgb(parsed);
-		}
-	}
-
-	private boolean isHexChar(char c) {
-		return (c >= '0' && c <= '9')
-			|| (c >= 'a' && c <= 'f')
-			|| (c >= 'A' && c <= 'F');
-	}
+    private EditorChrome.Rect colorPickerArea() {
+        if (panelW >= 282 && panelH >= 212) return panelRect();
+        var window = Minecraft.getInstance().getWindow();
+        return new EditorChrome.Rect(0, 0, window.getGuiScaledWidth(), window.getGuiScaledHeight());
+    }
 
 	// ─────────────────────────────────────────────────────────────────────
 	// Icon picker modal (typed ingredient grid, data source = group contents)
@@ -1428,7 +1022,7 @@ public final class EditorSettingsPanel {
 	/** @return true if the click was consumed. Priority commit-on-outside-click is caller-driven. */
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
 		if (isColorPickerOpen()) {
-			if (button == 0) handleColorPickerClick(mouseX, mouseY);
+			colorPicker.mouseClicked(mouseX, mouseY, button);
 			return true;
 		}
 		if (iconPickerOpen) {
@@ -1533,7 +1127,7 @@ public final class EditorSettingsPanel {
 
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		if (isColorPickerOpen()) {
-			if (button == 0) draggingColorChannel = -1;
+			if (button == 0) colorPicker.mouseReleased();
 			return true;
 		}
 		if (iconPickerOpen) {
@@ -1549,7 +1143,7 @@ public final class EditorSettingsPanel {
 	public boolean mouseDragged(double mouseX, double mouseY, int button) {
 		if (button != 0) return false;
 		if (isColorPickerOpen()) {
-			handleColorPickerDrag(mouseX);
+			colorPicker.mouseDragged(mouseX);
 			return true;
 		}
 		if (iconPickerOpen) {
@@ -1578,7 +1172,7 @@ public final class EditorSettingsPanel {
 
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
 		if (isColorPickerOpen()) {
-			return handleColorPickerKey(keyCode, scanCode, modifiers);
+			return colorPicker.keyPressed(keyCode, scanCode, modifiers);
 		}
 		if (iconPickerOpen) {
 			return handleIconPickerKey(keyCode, scanCode, modifiers);
@@ -1591,7 +1185,7 @@ public final class EditorSettingsPanel {
 
 	public boolean charTyped(char codePoint, int modifiers) {
 		if (isColorPickerOpen()) {
-			return handleColorPickerChar(codePoint, modifiers);
+			return colorPicker.charTyped(codePoint, modifiers);
 		}
 		if (iconPickerOpen) {
 			return handleIconPickerChar(codePoint, modifiers);
@@ -1609,9 +1203,7 @@ public final class EditorSettingsPanel {
 		if (iconPickerOpen) {
 			positionIconPickerSearch();
 		}
-		if (colorPickerHexBox != null) {
-			positionColorPickerHexBox();
-		}
+		if (colorPicker != null) colorPicker.setBounds(colorPickerArea());
 	}
 
 	private static boolean contains(int x, int y, int w, int h, double mouseX, double mouseY) {

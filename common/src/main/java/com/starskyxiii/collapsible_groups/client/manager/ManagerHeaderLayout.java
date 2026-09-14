@@ -13,7 +13,7 @@ public record ManagerHeaderLayout(List<Rect> sources, List<Rect> batchActions, R
 
     public static ManagerHeaderLayout create(int width, int sourceCount, int sourceWidth, int batchCount) {
         int usable = Math.max(1, width - 12);
-        int actionsY = width >= 280 ? 5 : 29;
+        int actionsY = width >= 304 ? 5 : 29;
         var flow = new Row(width, actionsY + 26);
         int segmentWidth = Math.min(sourceWidth, Math.max(40, (usable + sourceCount - 1) / Math.max(1, sourceCount)));
         List<Rect> sources = new ArrayList<>();
@@ -30,7 +30,7 @@ public record ManagerHeaderLayout(List<Rect> sources, List<Rect> batchActions, R
         Rect category = controls.add(Math.min(140, usable), 20, 8);
         Rect selected = batchCount == 0 ? new Rect(0, 0, 0, 0)
             : controls.add(Math.min(174, Math.max(90, usable - 148)), 20, 8);
-        int titleWidth = actionsY == 5 ? Math.max(0, width - 282) : Math.max(0, width - 68);
+        int titleWidth = actionsY == 5 ? Math.max(0, width - 306) : Math.max(0, width - 68);
         return new ManagerHeaderLayout(List.copyOf(sources), List.copyOf(actions), search, sort, category, selected,
             actionsY, controls.bottom() + 5, titleWidth);
     }

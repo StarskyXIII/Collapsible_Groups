@@ -19,7 +19,7 @@ import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
 import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.RegisterClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
+
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 
@@ -35,10 +35,11 @@ public class CollapsibleGroups {
 		modContainer.registerConfig(ModConfig.Type.CLIENT, NeoForgeConfig.SPEC,
 			"collapsiblegroups/collapsiblegroups.toml");
 		// Register NeoForge's built-in configuration screen (Mods -> Config button)
-		modContainer.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+		modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) -> new com.starskyxiii.collapsible_groups.client.config.GroupConfigScreen(parent));
 
 		eventBus.addListener(this::onClientSetup);
 		eventBus.addListener(this::onConfigReload);
+		eventBus.addListener(this::onConfigLoading);
 		eventBus.addListener(this::registerTooltipComponentFactories);
 		eventBus.addListener(this::onRegisterReloadListeners);
 		NeoForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
@@ -101,10 +102,16 @@ public class CollapsibleGroups {
 	}
 
 	private void onConfigReload(ModConfigEvent.Reloading event) {
-		if (event.getConfig().getSpec() == NeoForgeConfig.SPEC) {
-			reloadGroupsFromCurrentConfig();
-		}
+        if (event.getConfig().getSpec() == NeoForgeConfig.SPEC) {
+            NeoForgeConfig.bind(event.getConfig());
+            net.minecraft.client.Minecraft.getInstance().execute(() ->
+                com.starskyxiii.collapsible_groups.platform.Services.CONFIG.settings().reload());
+        }
 	}
+
+    private void onConfigLoading(ModConfigEvent.Loading event) {
+        if (event.getConfig().getSpec() == NeoForgeConfig.SPEC) NeoForgeConfig.bind(event.getConfig());
+    }
 
 	private void onClientSetup(FMLClientSetupEvent event) {
 		if (ModList.get().isLoaded("kubejs")) {
@@ -112,7 +119,10 @@ public class CollapsibleGroups {
 				com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge::applyGroupsNeutral
 			);
 		}
-		reloadGroupsFromCurrentConfig();
+        event.enqueueWork(() -> {
+            com.starskyxiii.collapsible_groups.platform.Services.CONFIG.settings().initialize();
+            reloadGroupsFromCurrentConfig();
+        });
 	}
 
 	public static void reloadGroupsFromCurrentConfig() {
