@@ -98,7 +98,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int SEARCH_FIELD_TEXT_PAD = 5;
 	private static final int SORT_BUTTON_SIZE = 20;
 	private static final int SORT_BUTTON_GAP = 4;
-	private static final int SORT_MENU_WIDTH = 142;
+	private static final int SORT_MENU_PADDING = 4;
+	private static final int SORT_MENU_OPTION_GAP = 4;
 	private static final int SORT_MENU_ROW_HEIGHT = 18;
 	private static final long SAVED_CARD_HIGHLIGHT_MS = 1200L;
 	private static final int BATCH_SELECTED_STATUS_W = 174;
@@ -132,12 +133,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private int hiddenEmptyCount;
 	private Component operationMessage;
 	private String lastSavedGroupId;
-	private String sourceMenuGroupId;
-	private int sourceMenuLeft;
-	private int sourceMenuTop;
 	private GroupSortMode heldSortMode = null;
 	private boolean isDraggingScrollbar = false;
 	private String heldSwitchGroupId = null;
+	private boolean activeManager;
+	private boolean builtinsEnabled = true;
+	private SavedGroupContext pendingSavedContext;
+	private final List<com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Subscription> subscriptions = new ArrayList<>();
 	private String suppressedSwitchHoverGroupId = null;
 	private double sbDragStartMouseY;
 	private int sbDragStartPixelOffset;
@@ -157,6 +159,16 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	protected void init() {
+		sortButtonHeld = false;
+		heldSortMode = null;
+		heldShowEmpty = false;
+		activeManager = true;
+		if (subscriptions.isEmpty()) {
+			for (var kind : com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Kind.values()) {
+				subscriptions.add(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.subscribe(kind,
+					() -> Minecraft.getInstance().tell(this::refreshIfActive)));
+			}
+		}
 		if (!kubeJsLoaded && sourceFilter == GroupUiState.ManagerSourceFilter.KUBEJS) {
 			sourceFilter = GroupUiState.ManagerSourceFilter.ALL;
 		}
@@ -165,11 +177,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		rebuildCards();
 		calcLayout();
 		createSearchField();
-		if (!searchFieldLayout().visible()) {
-			sortMenuOpen = false;
-			sortButtonHeld = false;
-			heldSortMode = null;
-		}
+		applySavedContext();
+		if (!searchFieldLayout().visible()) closeSortMenu();
 		if (highlightedSavedGroupId != null) ensureCardVisible(highlightedSavedGroupId);
 	}
 
@@ -178,15 +187,14 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		long traceStart = PerformanceTrace.begin();
 		ViewerGroupIndex index = ViewerLifecycleCoordinator.global().activeAdapter()
 			.map(adapter -> adapter.groupIndex()).orElse(UnavailableViewerGroupIndex.INSTANCE);
-		GroupManagerCardAssembler.Result result = GroupManagerCardAssembler.build(
-			GroupRepository.getAllIncludingScripted(), index);
-		CompletableFuture<Void> readiness = index.whenReady();
-		boolean generationPending = result.generationPending();
-		this.generationPending = generationPending;
-		publicationRefresh.schedule(!readiness.isDone(), readiness,
-			command -> Minecraft.getInstance().execute(command), this::rebuildCards);
-
-		allCards = GroupManagerCardAssembler.mutableWorkingCopy(result.cards());
+		var repository = GroupRepository.readSnapshot();
+		var display = index.displaySnapshot();
+		builtinsEnabled = repository.builtinsEnabled();
+		GroupManagerCardAssembler.Result result = GroupManagerCardAssembler.build(repository, display);
+		this.generationPending = result.generationPending();
+		publicationRefresh.schedule(display.pending(), display.readiness(),
+			command -> Minecraft.getInstance().tell(command), this::refreshIfActive);
+		allCards = new ArrayList<>(result.cards());
 		previewScrollOffsets.keySet().retainAll(
 			allCards.stream().map(GroupManagerCard::id).collect(Collectors.toSet()));
 		rebuildFilteredCards();
@@ -195,6 +203,20 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				+ " totalItems=" + result.totalItems()
 				+ " totalFluids=" + result.totalFluids()
 				+ " totalGeneric=" + result.totalGeneric());
+	}
+
+	private void refreshIfActive() {
+		if (activeManager && Minecraft.getInstance().screen == this) rebuildCards();
+	}
+
+	@Override
+	public void removed() {
+		closeSortMenu();
+		activeManager = false;
+		subscriptions.forEach(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Subscription::close);
+		subscriptions.clear();
+		publicationRefresh.clear();
+		super.removed();
 	}
 
 	private void rebuildFilteredCards() {
@@ -336,6 +358,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
 		renderBackground(g);
 		pendingTooltip = null;
+		int surfaceMouseX = isOverSortMenu(mouseX, mouseY) ? Integer.MIN_VALUE : mouseX;
 
 		int headerHeight = headerHeight();
 		int vpTop = headerHeight;
@@ -346,7 +369,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		if (generationPending && filteredCards.isEmpty()) {
 			renderCenteredState(g, vpTop, vpBottom, Component.translatable(ModTranslationKeys.EDITOR_LOADING));
 		} else for (int i = 0; i < filteredCards.size(); i++) {
-			renderCard(g, i, mouseX, mouseY);
+			renderCard(g, i, surfaceMouseX, mouseY);
 		}
 		if (!generationPending && filteredCards.isEmpty()) {
 			renderEmptyState(g, vpTop, vpBottom);
@@ -354,7 +377,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		g.disableScissor();
 
 		renderScrollbar(g);
-		renderHeaderButtons(g, mouseX, mouseY);
+		renderHeaderButtons(g, surfaceMouseX, mouseY);
 
 		g.drawString(font, this.title.copy().withStyle(ChatFormatting.BOLD), HEADER_TITLE_X, 7,
 			UiPalette.TEXT_PRIMARY, false);
@@ -365,21 +388,18 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		Component footer = footerText();
 		g.drawString(font, font.plainSubstrByWidth(footer.getString(), Math.max(0, this.width - 12)),
 			6, vpBottom + UiSkinRenderer.centeredTextY(font, 0, FOOTER_HEIGHT), UiPalette.TEXT_HINT, false);
-		renderSourceProblems(g, mouseX, mouseY);
+		renderSourceProblems(g, surfaceMouseX, mouseY);
 
 		for (var child : this.children()) {
 			if (child instanceof Renderable renderable) {
-				renderable.render(g, mouseX, mouseY, partialTicks);
+				renderable.render(g, surfaceMouseX, mouseY, partialTicks);
 			}
 		}
 		if (sortMenuOpen && searchFieldLayout().visible() && !hasPendingDialog()) {
 			pendingTooltip = null;
 			renderSortMenu(g, mouseX, mouseY);
 		}
-		if (sourceMenuGroupId != null && !hasPendingDialog()) {
-			pendingTooltip = null;
-			renderSourceMenu(g, mouseX, mouseY);
-		}
+
 		if (hasPendingDialog()) {
 			pendingTooltip = null;
 			renderPendingDialog(g, mouseX, mouseY);
@@ -443,16 +463,17 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void renderSortMenu(GuiGraphics g, int mouseX, int mouseY) {
-		int x = sortMenuX();
-		int y = sortMenuY();
+		SortMenuLayout layout = sortMenuLayout();
+		int x = layout.contentX();
+		int w = layout.contentWidth();
 		g.pose().pushPose();
 		g.pose().translate(0, 0, 350);
-		g.fill(x - 1, y - 1, x + SORT_MENU_WIDTH + 1,
-			y + (GroupSortMode.values().length + 1) * SORT_MENU_ROW_HEIGHT + 5, UiPalette.SURFACE_DARK);
+		g.fill(layout.x(), layout.y(), layout.x() + layout.width(), layout.y() + layout.height(), UiPalette.SURFACE);
+		UiSkinRenderer.drawOutline(g, layout.x(), layout.y(), layout.width(), layout.height(), UiPalette.OUTLINE);
 		for (int i = 0; i < GroupSortMode.values().length; i++) {
 			GroupSortMode mode = GroupSortMode.values()[i];
-			int rowY = y + i * SORT_MENU_ROW_HEIGHT;
-			boolean hovered = isMouseOver(mouseX, mouseY, x, rowY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT);
+			int rowY = layout.rowY(i);
+			boolean hovered = isMouseOver(mouseX, mouseY, x, rowY, w, SORT_MENU_ROW_HEIGHT);
 			boolean selected = sortMode == mode;
 			boolean pressed = heldSortMode == mode && hovered;
 			UiSkinRenderer.ButtonState state = selected
@@ -460,26 +481,34 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				: hovered ? UiSkinRenderer.ButtonState.SELECTED_HOVERED : UiSkinRenderer.ButtonState.SELECTED
 				: pressed ? UiSkinRenderer.ButtonState.PRESSED
 				: hovered ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL;
-			UiSkinRenderer.drawSegment(g, font, x, rowY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT,
+			UiSkinRenderer.drawSegment(g, font, x, rowY, w, SORT_MENU_ROW_HEIGHT,
 				Component.translatable(sortLabelKey(mode)).getString(), state);
 		}
-		int optionY = showEmptyOptionY();
-		boolean optionHover = isMouseOver(mouseX, mouseY, x, optionY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT);
-		if (optionHover) g.fill(x, optionY, x + SORT_MENU_WIDTH, optionY + SORT_MENU_ROW_HEIGHT, UiPalette.SURFACE);
-		UiSkinRenderer.drawOutline(g, x + 5, optionY + 3, 11, 11, UiPalette.TEXT_MUTED);
-		if (showEmptyGroups) {
-			g.fill(x + 7, optionY + 8, x + 9, optionY + 10, UiPalette.TEXT_PRIMARY);
-			g.fill(x + 9, optionY + 6, x + 11, optionY + 9, UiPalette.TEXT_PRIMARY);
-			g.fill(x + 11, optionY + 4, x + 13, optionY + 7, UiPalette.TEXT_PRIMARY);
-		}
-		g.drawString(font, Component.translatable(ModTranslationKeys.MANAGER_SHOW_EMPTY), x + 21, optionY + 5, UiPalette.TEXT_PRIMARY, false);
+		int optionY = layout.optionY();
+		boolean optionHover = isMouseOver(mouseX, mouseY, x, optionY, w, SORT_MENU_ROW_HEIGHT);
+		if (optionHover) g.fill(x, optionY, x + w, optionY + SORT_MENU_ROW_HEIGHT, UiPalette.SURFACE_HOVER_OVERLAY);
+		UiSkinRenderer.drawCheckbox(g, x + 5, optionY + 2, showEmptyGroups, optionHover);
+		String label = Component.translatable(ModTranslationKeys.MANAGER_SHOW_EMPTY).getString();
+		g.drawString(font, font.plainSubstrByWidth(label, Math.max(0, w - 29)), x + 24,
+			UiSkinRenderer.centeredTextY(font, optionY, SORT_MENU_ROW_HEIGHT), UiPalette.TEXT_PRIMARY, false);
 		g.pose().popPose();
 	}
 
-	private int showEmptyOptionY() { return sortMenuY() + GroupSortMode.values().length * SORT_MENU_ROW_HEIGHT + 4; }
-
 	private boolean hoveredShowEmpty(double x, double y) {
-		return sortMenuOpen && isMouseOver(x, y, sortMenuX(), showEmptyOptionY(), SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT);
+		if (!sortMenuOpen) return false;
+		SortMenuLayout layout = sortMenuLayout();
+		return isMouseOver(x, y, layout.contentX(), layout.optionY(), layout.contentWidth(), SORT_MENU_ROW_HEIGHT);
+	}
+
+	private boolean isOverSortMenu(double x, double y) {
+		return sortMenuOpen && searchFieldLayout().visible() && !hasPendingDialog() && sortMenuLayout().contains(x, y);
+	}
+
+	private void closeSortMenu() {
+		sortMenuOpen = false;
+		sortButtonHeld = false;
+		heldSortMode = null;
+		heldShowEmpty = false;
 	}
 
 	private void setShowEmptyGroups(boolean value) {
@@ -525,12 +554,17 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		};
 	}
 
-	private int sortMenuX() {
-		return sortButtonX() + SORT_BUTTON_SIZE - SORT_MENU_WIDTH;
-	}
-
-	private int sortMenuY() {
-		return SEARCH_FIELD_Y + SORT_BUTTON_SIZE;
+	private SortMenuLayout sortMenuLayout() {
+		int contentWidth = font.width(Component.translatable(ModTranslationKeys.MANAGER_SHOW_EMPTY)) + 29;
+		for (GroupSortMode mode : GroupSortMode.values()) {
+			contentWidth = Math.max(contentWidth, font.width(Component.translatable(sortLabelKey(mode))) + 16);
+		}
+		int w = Math.min(contentWidth + SORT_MENU_PADDING * 2, Math.max(1, this.width - 12));
+		int h = (GroupSortMode.values().length + 1) * SORT_MENU_ROW_HEIGHT + SORT_MENU_OPTION_GAP + SORT_MENU_PADDING * 2;
+		int x = clamp(sortButtonX() + SORT_BUTTON_SIZE - w, 6, this.width - w - 6);
+		int marginY = Math.min(6, Math.max(0, (this.height - h) / 2));
+		int y = clamp(SEARCH_FIELD_Y + SORT_BUTTON_SIZE, marginY, Math.max(marginY, this.height - h - marginY));
+		return new SortMenuLayout(x, y, w, h);
 	}
 
 	private void renderBatchToolbarButton(GuiGraphics g, BatchToolbarAction action,
@@ -641,7 +675,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private String sourceSearchLabel(GroupSource source) {
 		return switch (source) {
-			case OVERRIDE -> Component.translatable(ModTranslationKeys.MANAGER_SOURCE_OVERRIDE).getString();
 			case USER -> Component.translatable(ModTranslationKeys.MANAGER_FILTER_USER).getString();
 			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_BUILTIN).getString();
 			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_BTN_FILTER_KUBEJS).getString();
@@ -674,7 +707,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		int y = pos[1];
 		if (y + CARD_HEIGHT < headerHeight() || y > this.height - FOOTER_HEIGHT) return;
 
-		boolean cardHover = isMouseOver(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
+		boolean cardHover = isInsideCardViewport(mouseX, mouseY) && isMouseOver(mouseX, mouseY, x, y, CARD_WIDTH, CARD_HEIGHT);
 		boolean batchSelected = batchMode && batchSelection.isSelected(card.id());
 		boolean savedHighlight = card.id().equals(highlightedSavedGroupId)
 			&& System.currentTimeMillis() < highlightedSavedUntil;
@@ -685,8 +718,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 		renderHeaderPreview(g, card, x + 6, y + CARD_TITLE_Y, switchControlX(x) - 4, cardHover);
 		renderCardPreview(g, card, x + 6, y + CARD_PREVIEW_Y, previewScrollOffsets.getOrDefault(card.id(), 0));
-		renderSourceTab(g, card, x, y);
-		if (cardHover) pendingTooltip = cardDetails(card);
+		renderSourceTab(g, card, x, y, cardHover ? mouseX : Integer.MIN_VALUE, mouseY);
+		if (cardHover) recordEvaluationTooltip(card, x, y, mouseX, mouseY);
 		if (!card.group().enabled()) {
 			renderDisabledOverlay(g, x, y);
 		}
@@ -773,11 +806,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		boolean canEdit = card.actionEligibility().canRequest(GroupAction.EDIT);
 		boolean canCopy = card.actionEligibility().canRequest(GroupAction.COPY_AS_CUSTOM);
 		boolean canDelete = card.actionEligibility().canRequest(GroupAction.DELETE);
-		boolean canRestore = card.actionEligibility().canRequest(GroupAction.RESTORE_SOURCE);
 		boolean canShiftDelete = card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE);
 		boolean canUseMiddleAction = canEdit || canCopy;
 
-		boolean controlsInteractive = !batchMode;
+		boolean controlsInteractive = !batchMode && isInsideCardViewport(mouseX, mouseY);
 		boolean rawSwitchHover = controlsInteractive && isMouseOver(mouseX, mouseY, switchX, switchY, SWITCH_WIDTH, SWITCH_HEIGHT);
 		boolean switchHover = effectiveSwitchHover(card.id(), rawSwitchHover);
 		boolean editHover = controlsInteractive && isMouseOver(mouseX, mouseY, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
@@ -791,8 +823,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			card.group().enabled(), canSwitch, switchHover, switchPressed);
 		renderIconButton(g, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
 			UiSkinRenderer.ICON_EDIT, canUseMiddleAction, editHover, false);
-		if (canRestore) renderButton(g, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT, "...", true, deleteHover, false);
-		else renderIconButton(g, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
+		renderIconButton(g, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
 			UiSkinRenderer.ICON_DELETE, canDelete || shiftDeleteArmed, deleteHover, shiftDeleteArmed);
 		g.pose().popPose();
 
@@ -801,14 +832,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			if (editHover) pendingTooltip = canEdit
 				? Component.translatable(ModTranslationKeys.MANAGER_BTN_EDIT)
 				: canCopy
-					? Component.translatable(ModTranslationKeys.MANAGER_SOURCE_ACTIONS)
+					? Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_COPY_AS_CUSTOM)
 					: Component.translatable(ModTranslationKeys.EDITOR_FILTER_UNAVAILABLE);
 			if (deleteHover) pendingTooltip = deleteTooltip(card);
 		}
 	}
 
 	private Component deleteTooltip(GroupManagerCard card) {
-		if (card.actionEligibility().canRequest(GroupAction.RESTORE_SOURCE)) return Component.translatable(ModTranslationKeys.MANAGER_SOURCE_ACTIONS);
 		if (card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE) && Screen.hasShiftDown()) {
 			return Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_SHIFT_DELETE);
 		}
@@ -826,12 +856,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		g.pose().popPose();
 	}
 
-	private void renderSourceTab(GuiGraphics g, GroupManagerCard card, int cardX, int cardY) {
+	private void renderSourceTab(GuiGraphics g, GroupManagerCard card, int cardX, int cardY, int mouseX, int mouseY) {
 		String label = switch (card.source()) {
 			case BUILTIN -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_BUILTIN).getString();
 			case KUBEJS -> Component.translatable(ModTranslationKeys.MANAGER_BADGE_KUBEJS).getString();
 			case RESOURCE_PACK -> Component.translatable(ModTranslationKeys.MANAGER_SOURCE_RESOURCE_PACK).getString();
-			case OVERRIDE -> Component.translatable(ModTranslationKeys.MANAGER_SOURCE_OVERRIDE).getString();
 			case USER -> null;
 		};
 		if (label == null) return;
@@ -840,6 +869,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		int left = cardX + 1;
 		int bottom = cardY + CARD_HEIGHT - 1;
 		int top = bottom - tabHeight;
+		if (card.source() == GroupSource.BUILTIN && !builtinsEnabled
+			&& isMouseOver(mouseX, mouseY, left, top, tabWidth, tabHeight)) {
+			pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_BUILTINS_DISABLED);
+		}
 		g.fill(left, top, left + tabWidth, bottom, UiPalette.SURFACE_DARK);
 		g.fill(left, top, left + tabWidth, top + 1, UiPalette.OUTLINE_DARK);
 		g.fill(left + tabWidth - 1, top, left + tabWidth, bottom, UiPalette.OUTLINE_DARK);
@@ -1047,6 +1080,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			g.drawString(font, truncated, x, y, color, true);
 			return;
 		}
+		g.flush();
 		g.enableScissor(x, y - 1, x + safeWidth, y + font.lineHeight + 1);
 		int gap = 20;
 		int totalCycle = textWidth + gap;
@@ -1063,21 +1097,21 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		if (hasPendingDialog()) {
 			return handlePendingDialogClick(mouseX, mouseY, button);
 		}
-		if (sourceMenuGroupId != null) {
-			if (button == 0) {
-				List<GroupAction> actions = sourceMenuActions();
-				for (int i = 0; i < actions.size(); i++) {
-					if (isMouseOver(mouseX, mouseY, sourceMenuLeft, sourceMenuTop + i * 20, sourceMenuWidth(), 20)) {
-						String id = sourceMenuGroupId;
-						clearTransientInputState();
-						executeSourceAction(id, actions.get(i));
-						return true;
-					}
+
+		if (sortMenuOpen) {
+			if (isOverSortMenu(mouseX, mouseY)) {
+				if (button == 0) {
+					heldShowEmpty = hoveredShowEmpty(mouseX, mouseY);
+					heldSortMode = hoveredSortMode(mouseX, mouseY);
 				}
-				sourceMenuGroupId = null;
+				return true;
 			}
-			return true;
+			if (button == 0 && !isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
+				closeSortMenu();
+				return true;
+			}
 		}
+
 		if (button == 0 && (hiddenEmptyCount > 0 || savedGroupIsHiddenEmpty()) && mouseY >= this.height - FOOTER_HEIGHT) {
 			if (savedGroupIsHiddenEmpty()) {
 				searchField.setValue("");
@@ -1086,19 +1120,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			}
 			setShowEmptyGroups(true);
 			return true;
-		}
-		if (button == 0 && sortMenuOpen) {
-			if (hoveredShowEmpty(mouseX, mouseY)) { heldShowEmpty = true; return true; }
-			GroupSortMode hovered = hoveredSortMode(mouseX, mouseY);
-			if (hovered != null) {
-				heldSortMode = hovered;
-				return true;
-			}
-			if (!isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
-				sortMenuOpen = false;
-				heldSortMode = null;
-				return true;
-			}
 		}
 		if (button == 0 && searchFieldLayout().visible()
 			&& isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
@@ -1170,12 +1191,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				if (card.actionEligibility().canRequest(GroupAction.EDIT)) {
 					openEditor(card.group());
 				} else if (card.actionEligibility().canRequest(GroupAction.COPY_AS_CUSTOM)) {
-					openSourceMenu(card, x, y);
+					if (!executeCopyAsCustom(card.id())) operationMessage = Component.translatable("collapsible_groups.manager.operation_failed");
 				}
 				return true;
 			}
 			if (deleteClick) {
-				if (card.actionEligibility().canRequest(GroupAction.RESTORE_SOURCE)) { openSourceMenu(card, x, y); return true; }
 				if (Screen.hasShiftDown()) {
 					if (!card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE)) return true;
 					executeSingleDelete(card.id(), GroupAction.SHIFT_DELETE);
@@ -1378,77 +1398,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		};
 	}
 
-	private Component cardDetails(GroupManagerCard card) {
-		var detail = localizedDisplayName(card).copy();
-		var origin = GroupRepository.resourceData().origin(card.id());
-		if (origin != null) detail.append("\n" + origin.sourceId() + "\n" + origin.location());
-		for (var lower : GroupRepository.resourceData().origins().getOrDefault(card.id(), List.of()).stream().skip(1).toList()) {
-			detail.append("\n").append(Component.translatable(ModTranslationKeys.MANAGER_SHADOWED_SOURCE, lower.sourceId(), lower.location()));
-		}
-		if (GroupRepository.isBuiltin(card.id()) && !GroupRepository.readSnapshot().builtinsEnabled()) {
-			detail.append("\n").append(Component.translatable(ModTranslationKeys.MANAGER_BUILTINS_DISABLED));
-		}
-		if (!card.evaluation().complete()) {
-			detail.append("\n").append(Component.translatable(evaluationLabel(card.evaluation().status())));
-			card.evaluation().issues().forEach(issue -> detail.append("\n" + issue.reason()));
-		}
-		return detail;
-	}
-
-	private List<GroupAction> sourceMenuActions() {
-		GroupManagerCard card = findCurrentCard(sourceMenuGroupId);
-		if (card == null) return List.of();
-		return List.of(GroupAction.CREATE_LOCAL_OVERRIDE, GroupAction.COPY_AS_CUSTOM, GroupAction.RESTORE_SOURCE).stream()
-			.filter(card.actionEligibility()::canRequest).toList();
-	}
-
-	private int sourceMenuWidth() { return Math.min(190, this.width - 12); }
-
-	private void openSourceMenu(GroupManagerCard card, int x, int y) {
-		clearTransientInputState();
-		sourceMenuGroupId = card.id();
-		sourceMenuLeft = clamp(editButtonX(x), 6, Math.max(6, this.width - sourceMenuWidth() - 6));
-		sourceMenuTop = clamp(y + CARD_FOOTER_Y, 6, Math.max(6, this.height - sourceMenuActions().size() * 20 - 6));
-	}
-
-	private static String sourceActionLabel(GroupAction action) {
-		return switch (action) {
-			case CREATE_LOCAL_OVERRIDE -> ModTranslationKeys.MANAGER_CREATE_OVERRIDE;
-			case COPY_AS_CUSTOM -> ModTranslationKeys.MANAGER_TOOLTIP_COPY_AS_CUSTOM;
-			case RESTORE_SOURCE -> ModTranslationKeys.MANAGER_RESTORE_SOURCE;
-			default -> throw new IllegalArgumentException("Not a source action");
-		};
-	}
-
-	private void renderSourceMenu(GuiGraphics g, int mouseX, int mouseY) {
-		g.pose().pushPose();
-		g.pose().translate(0, 0, 400);
-		List<GroupAction> actions = sourceMenuActions();
-		for (int i = 0; i < actions.size(); i++) {
-			int y = sourceMenuTop + i * 20;
-			boolean hovered = isMouseOver(mouseX, mouseY, sourceMenuLeft, y, sourceMenuWidth(), 20);
-			renderButton(g, sourceMenuLeft, y, sourceMenuWidth(), 20,
-				Component.translatable(sourceActionLabel(actions.get(i))).getString(), true, hovered, false);
-		}
-		g.pose().popPose();
-	}
-
-	private void executeSourceAction(String id, GroupAction action) {
-		operationMessage = null;
-		boolean succeeded = switch (action) {
-			case COPY_AS_CUSTOM -> executeCopyAsCustom(id);
-			case CREATE_LOCAL_OVERRIDE -> GroupRepository.createLocalOverrideQuietly(id);
-			case RESTORE_SOURCE -> GroupRepository.restoreSourceQuietly(id);
-			default -> false;
-		};
-		if (!succeeded) {
-			operationMessage = Component.translatable("collapsible_groups.manager.operation_failed");
-			return;
-		}
-		if (action == GroupAction.COPY_AS_CUSTOM) return;
-		GroupRepository.notifyViewer();
-		if (action == GroupAction.CREATE_LOCAL_OVERRIDE) GroupRepository.findById(id).ifPresent(this::openEditor);
-		else rebuildCards();
+	private void recordEvaluationTooltip(GroupManagerCard card, int x, int y, int mouseX, int mouseY) {
+		int textX = x + 6 + HEADER_PREVIEW_SIZE + 6;
+		if (card.evaluation().complete() || !isMouseOver(mouseX, mouseY, textX, y + CARD_TITLE_Y + 12,
+			switchControlX(x) - 4 - textX, font.lineHeight)) return;
+		var detail = Component.translatable(evaluationLabel(card.evaluation().status()));
+		card.evaluation().issues().forEach(issue -> detail.append("\n" + issue.reason()));
+		pendingTooltip = detail;
 	}
 
 	private GroupManagerCard findCurrentCard(String id) {
@@ -1460,16 +1416,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void clearTransientInputState() {
-		sourceMenuGroupId = null;
-		heldShowEmpty = false;
 		backButtonHeld = false;
 		heldSegmentIndex = -1;
 		batchToggleButtonHeld = false;
 		heldBatchToolbarAction = null;
 		newGroupButtonHeld = false;
-		sortButtonHeld = false;
-		heldSortMode = null;
-		sortMenuOpen = false;
+		closeSortMenu();
 		isDraggingScrollbar = false;
 		heldSwitchGroupId = null;
 		suppressedSwitchHoverGroupId = null;
@@ -1501,6 +1453,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			clearTransientInputState();
 			return true;
 		}
+		if (sortMenuOpen) return true;
 		if (button == 0 && heldSwitchGroupId != null && !isHeldSwitchHovered(mouseX, mouseY)) {
 			heldSwitchGroupId = null;
 		}
@@ -1539,7 +1492,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			if (hoveredSortMode(mouseX, mouseY) == chosen) {
 				sortMode = chosen;
 				GroupUiState.setManagerSortMode(sortMode);
-				sortMenuOpen = false;
+				closeSortMenu();
 				rebuildFilteredCards();
 			}
 			return true;
@@ -1547,10 +1500,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		if (button == 0 && sortButtonHeld) {
 			sortButtonHeld = false;
 			if (isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
-				sortMenuOpen = !sortMenuOpen;
+				boolean open = !sortMenuOpen;
+				clearTransientInputState();
+				sortMenuOpen = open;
 			}
 			return true;
 		}
+		if (isOverSortMenu(mouseX, mouseY)) return true;
 		if (button == 0 && backButtonHeld) {
 			backButtonHeld = false;
 			if (isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) {
@@ -1610,7 +1566,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double deltaY) {
-		if (sourceMenuGroupId != null) return true;
 		if (hasPendingDialog()) return true;
 		if (sortMenuOpen) return true;
 		suppressedSwitchHoverGroupId = null;
@@ -1624,19 +1579,14 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
-		if (sourceMenuGroupId != null) {
-			if (keyCode == GLFW.GLFW_KEY_ESCAPE) sourceMenuGroupId = null;
-			return true;
-		}
+
 		if (hasPendingDialog() && keyCode == GLFW.GLFW_KEY_ESCAPE) {
 			cancelPendingDialog();
 			return true;
 		}
 		if (hasPendingDialog()) return true;
 		if (sortMenuOpen && keyCode == GLFW.GLFW_KEY_ESCAPE) {
-			sortMenuOpen = false;
-			heldSortMode = null;
-			sortButtonHeld = false;
+			closeSortMenu();
 			return true;
 		}
 		if (searchField != null && searchField.isFocused()) {
@@ -1655,9 +1605,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private GroupSortMode hoveredSortMode(double mouseX, double mouseY) {
 		if (!sortMenuOpen) return null;
+		SortMenuLayout layout = sortMenuLayout();
 		for (int i = 0; i < GroupSortMode.values().length; i++) {
-			if (isMouseOver(mouseX, mouseY, sortMenuX(), sortMenuY() + i * SORT_MENU_ROW_HEIGHT,
-				SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT)) {
+			if (isMouseOver(mouseX, mouseY, layout.contentX(), layout.rowY(i),
+				layout.contentWidth(), SORT_MENU_ROW_HEIGHT)) {
 				return GroupSortMode.values()[i];
 			}
 		}
@@ -1675,6 +1626,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private boolean scrollHoveredPreview(double mouseX, double mouseY, double deltaY) {
+		if (!isInsideCardViewport(mouseX, mouseY)) return false;
 		for (int i = 0; i < filteredCards.size(); i++) {
 			GroupManagerCard card = filteredCards.get(i);
 			int[] pos = cardPos(i);
@@ -1717,8 +1669,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public void onGroupSaved(SavedGroupContext context) {
+		pendingSavedContext = context;
 		lastSavedGroupId = context.groupId();
-		rebuildCards();
+		operationMessage = context.warningKey() == null ? null : Component.translatable(context.warningKey());
+	}
+
+	private void applySavedContext() {
+		SavedGroupContext context = pendingSavedContext;
+		pendingSavedContext = null;
+		if (context == null) return;
 		if (!context.shouldReveal()) {
 			scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
 			return;
@@ -1821,7 +1780,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private boolean isHeldSwitchHovered(double mouseX, double mouseY) {
-		if (heldSwitchGroupId == null) return false;
+		if (heldSwitchGroupId == null || !isInsideCardViewport(mouseX, mouseY)) return false;
 		for (int i = 0; i < filteredCards.size(); i++) {
 			GroupManagerCard card = filteredCards.get(i);
 			if (!card.id().equals(heldSwitchGroupId)) continue;
@@ -1845,6 +1804,14 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private static int clamp(int value, int min, int max) {
 		return Math.max(min, Math.min(max, value));
+	}
+
+	private record SortMenuLayout(int x, int y, int width, int height) {
+		int contentX() { return x + SORT_MENU_PADDING; }
+		int contentWidth() { return Math.max(0, width - SORT_MENU_PADDING * 2); }
+		int rowY(int index) { return y + SORT_MENU_PADDING + index * SORT_MENU_ROW_HEIGHT; }
+		int optionY() { return rowY(GroupSortMode.values().length) + SORT_MENU_OPTION_GAP; }
+		boolean contains(double mouseX, double mouseY) { return isMouseOver(mouseX, mouseY, x, y, width, height); }
 	}
 
 	private record SearchFieldLayout(int x, int y, int width, int height, boolean visible, boolean stacked) {

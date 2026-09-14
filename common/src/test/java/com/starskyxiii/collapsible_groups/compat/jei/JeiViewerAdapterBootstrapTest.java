@@ -207,6 +207,53 @@ class JeiViewerAdapterBootstrapTest {
 
 	@Test
 	@SuppressWarnings("unchecked")
+	void managerHeaderUsesCurrentIconsFromCapturedGenerationWithoutRebuildingMatches() {
+		IIngredientType<String> type = new IIngredientType<>() {
+			@Override public Class<? extends String> getIngredientClass() { return String.class; }
+			@Override public String getUid() { return "test:manager_icon"; }
+		};
+		var oxygen = typed(type, "oxygen");
+		var hydrogen = typed(type, "hydrogen");
+		List<ITypedIngredient<?>> all = List.of(oxygen, hydrogen);
+		var helper = helper(type);
+		IIngredientManager manager = (IIngredientManager) Proxy.newProxyInstance(
+			getClass().getClassLoader(), new Class<?>[]{IIngredientManager.class}, (proxy, method, args) -> {
+				if (method.getName().equals("getRegisteredIngredientTypes")) return List.of(type);
+				if (method.getName().equals("getIngredientHelper")) return helper;
+				if (method.getName().equals("getAllTypedIngredients")) return all;
+				throw new UnsupportedOperationException(method.toString());
+			});
+		var group = new GroupDefinition("icons", "Icons", true, Filters.genericNamespace(type.getUid(), "test"));
+		var adapter = JeiViewerAdapter.instance();
+		var index = JeiViewerGroupIndex.instance();
+		index.reset();
+		try {
+			var candidates = adapter.buildOwnershipIndex(all, manager, List.of(group));
+			var context = adapter.updateBootstrap(all, manager);
+			var genericType = (IIngredientType<Object>) (IIngredientType<?>) type;
+			var refs = List.of(
+				new com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef(type.getUid(), genericType, "oxygen"),
+				new com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef(type.getUid(), genericType, "hydrogen"));
+			var generation = new JeiViewerGroupIndex.Generation(candidates, Map.of(), Map.of(),
+				Map.of(group.id(), List.of()), Map.of(group.id(), List.of()), Map.of(group.id(), refs), Map.of(), Map.of(), context);
+			index.publishGeneration(generation);
+			var display = index.displaySnapshot();
+			adapter.updateBootstrap(List.of(), manager);
+			var edited = group.withIconIds(List.of(new GroupIconDefinition(type.getUid(), "test:hydrogen")));
+			assertEquals(1, display.preview(edited).orElseThrow().headers().size());
+			assertEquals(2, display.preview(edited).orElseThrow().generic().size());
+			assertSame(candidates, index.candidates().orElseThrow());
+			assertEquals(2, display.preview(group).orElseThrow().headers().size());
+			assertEquals(2, display.preview(group.withIconIds(List.of(
+				new GroupIconDefinition(type.getUid(), "test:missing")))).orElseThrow().headers().size());
+		} finally {
+			JeiViewerAdapter.unregisterRuntime();
+			index.reset();
+		}
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
 	void preparedOwnershipKeepsProjectionOnItsOwnBootstrapGeneration() {
 		IIngredientType<String> type = new IIngredientType<>() {
 			@Override public Class<? extends String> getIngredientClass() { return String.class; }

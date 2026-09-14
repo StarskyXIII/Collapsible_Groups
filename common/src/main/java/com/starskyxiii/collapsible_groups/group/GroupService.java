@@ -29,21 +29,22 @@ final class GroupService {
 		GroupCatalog.Snapshot managed,
 		GroupCatalog.Snapshot all,
 		GroupResourceData resources,
-		boolean builtinsEnabled
+		boolean builtinsEnabled,
+		Map<String, GroupSource> winningSources
 	) {
 		private static Snapshot empty() {
 			GroupCatalog.Snapshot empty = GroupCatalog.Snapshot.from(List.of());
-			return new Snapshot(Map.of(), Set.of(), empty, empty, GroupResourceData.empty(), true);
+			return new Snapshot(Map.of(), Set.of(), empty, empty, GroupResourceData.empty(), true, Map.of());
 		}
 	}
 
 	private volatile Snapshot snapshot = Snapshot.empty();
 
-	record ReadSnapshot(List<GroupDefinition> groups, GroupResourceData resources, boolean builtinsEnabled) {}
+	record ReadSnapshot(List<GroupDefinition> groups, GroupResourceData resources, boolean builtinsEnabled, Map<String, GroupSource> winningSources) {}
 
 	ReadSnapshot readSnapshot() {
 		Snapshot current = snapshot;
-		return new ReadSnapshot(current.all().priorityOrder(), current.resources(), current.builtinsEnabled());
+		return new ReadSnapshot(current.all().priorityOrder(), current.resources(), current.builtinsEnabled(), current.winningSources());
 	}
 
 	GroupResourceData resources() { return snapshot.resources(); }
@@ -52,7 +53,7 @@ final class GroupService {
 	synchronized boolean replaceManaged(GroupResourceData incoming, Map<String, Boolean> enabledOverrides, boolean enabled) {
 		if (incoming.rejected()) {
 			snapshot = new Snapshot(snapshot.sources(), snapshot.appliedSources(), snapshot.managed(), snapshot.all(),
-				incoming.retaining(snapshot.resources()), enabled);
+				incoming.retaining(snapshot.resources()), enabled, snapshot.winningSources());
 			return false;
 		}
 		List<GroupDefinition> effective = incoming.groups().stream().map(group -> {
@@ -70,7 +71,7 @@ final class GroupService {
 
 	synchronized void setBuiltinsEnabled(boolean enabled) {
 		snapshot = new Snapshot(snapshot.sources(), snapshot.appliedSources(), snapshot.managed(), snapshot.all(),
-			snapshot.resources(), enabled);
+			snapshot.resources(), enabled, snapshot.winningSources());
 	}
 
 	List<GroupDefinition> managedRegistrationOrder() {
@@ -222,7 +223,7 @@ final class GroupService {
 		Set<SourceKey> applied = new LinkedHashSet<>(snapshot.appliedSources());
 		applied.add(key);
 		snapshot = new Snapshot(snapshot.sources(), immutableSet(applied), snapshot.managed(), snapshot.all(),
-			snapshot.resources(), snapshot.builtinsEnabled());
+			snapshot.resources(), snapshot.builtinsEnabled(), snapshot.winningSources());
 	}
 
 	boolean isApplied(SourceKey key) {
@@ -235,8 +236,12 @@ final class GroupService {
 	}
 
 	private SourceKey visibleSource(String id) {
+		return visibleSource(snapshot, id);
+	}
+
+	private static SourceKey visibleSource(Snapshot current, String id) {
 		SourceKey winner = null;
-		for (Map.Entry<SourceKey, List<GroupDefinition>> source : snapshot.sources().entrySet()) {
+		for (Map.Entry<SourceKey, List<GroupDefinition>> source : current.sources().entrySet()) {
 			boolean contains = source.getValue().stream().anyMatch(group -> id.equals(group.id()));
 			if (!contains) continue;
 			if (winner == null || authority(source.getKey().category()) > authority(winner.category())) {
@@ -256,8 +261,14 @@ final class GroupService {
 		Map<SourceKey, List<GroupDefinition>> frozenSources = immutableMap(sources);
 		List<GroupDefinition> managed = merge(frozenSources, EnumSet.complementOf(EnumSet.of(GroupSource.KUBEJS)));
 		List<GroupDefinition> all = merge(frozenSources, EnumSet.allOf(GroupSource.class));
+		Map<String, GroupSource> winners = new LinkedHashMap<>();
+		frozenSources.forEach((source, groups) -> groups.forEach(group -> winners.merge(group.id(), source.category(),
+			(left, right) -> authority(right) > authority(left) ? right : left)));
+		resources.origins().forEach((id, origins) -> {
+			if (winners.containsKey(id) && !origins.isEmpty()) winners.put(id, origins.get(0).source());
+		});
 		snapshot = new Snapshot(frozenSources, immutableSet(appliedSources),
-			GroupCatalog.Snapshot.from(managed), GroupCatalog.Snapshot.from(all), resources, builtinsEnabled);
+			GroupCatalog.Snapshot.from(managed), GroupCatalog.Snapshot.from(all), resources, builtinsEnabled, Map.copyOf(winners));
 	}
 
 	private static List<GroupDefinition> validate(List<GroupDefinition> incoming) {
@@ -277,7 +288,7 @@ final class GroupService {
 		Set<GroupSource> included) {
 		List<Entry> entries = new ArrayList<>();
 		Map<String, Integer> positions = new HashMap<>();
-		for (GroupSource category : List.of(GroupSource.BUILTIN, GroupSource.RESOURCE_PACK, GroupSource.USER, GroupSource.OVERRIDE, GroupSource.KUBEJS)) {
+		for (GroupSource category : List.of(GroupSource.BUILTIN, GroupSource.RESOURCE_PACK, GroupSource.USER, GroupSource.KUBEJS)) {
 			if (!included.contains(category)) continue;
 			for (Map.Entry<SourceKey, List<GroupDefinition>> source : sources.entrySet()) {
 				if (source.getKey().category() != category) continue;
@@ -298,7 +309,6 @@ final class GroupService {
 
 	private static int authority(GroupSource source) {
 		return switch (source) {
-			case OVERRIDE -> 5;
 			case USER -> 4;
 			case RESOURCE_PACK -> 3;
 			case BUILTIN -> 2;

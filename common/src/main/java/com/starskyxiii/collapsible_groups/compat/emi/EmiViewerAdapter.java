@@ -118,6 +118,11 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 
 	@Override
 	public synchronized void onGroupChange(GroupChangeEvent.Kind kind) {
+		if (kind == GroupChangeEvent.Kind.SOURCE_RELOAD) {
+			markDirty();
+			Minecraft.getInstance().tell(this::ensureUniverseReady);
+			return;
+		}
 		if (!runtimeCurrent()) return;
 		if (kind == GroupChangeEvent.Kind.KUBEJS_REPLACE && bootstrapGate.ready()) {
 			ViewerLifecycleCoordinator.global().activeUniverseReady(id(), bootstrapContext);
@@ -230,10 +235,12 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 			return false;
 		}
 		if (bootstrapGate.ready() && runtimeCurrent()) {
-			if (!groupIndex.ready() && groupIndex.whenReady().isDone()) startIndexBuild(bootstrapGate.epoch());
+			if (!groupIndex.ready() && groupIndex.whenReady().isDone()
+				&& !groupIndex.whenReady().isCompletedExceptionally()) startIndexBuild(bootstrapGate.epoch());
 			return true;
 		}
 		if (bootstrapContext.data.source() != null) markDirty();
+		if (groupIndex.whenReady().isCompletedExceptionally()) return false;
 		var transaction = EmiSnapshotTransaction.capture(this, EmiReloadManager.class,
 			() -> EmiReloadManager.isLoaded() ? new EmiSnapshotTransaction.Stamp(
 				bootstrapGate.epoch(), EmiStackList.stacks, registration) : null,
@@ -258,7 +265,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 			return false;
 		} catch (RuntimeException exception) {
 			synchronized (this) {
-				if (epoch == bootstrapGate.epoch()) markDirty();
+				if (epoch == bootstrapGate.epoch()) groupIndex.failRebuild(exception);
 			}
 			Constants.LOG.error("[CollapsibleGroups] Failed to bootstrap the EMI universe", exception);
 			return false;

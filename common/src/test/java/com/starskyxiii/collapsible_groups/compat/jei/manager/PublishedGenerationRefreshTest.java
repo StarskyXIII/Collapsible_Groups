@@ -27,6 +27,22 @@ class PublishedGenerationRefreshTest {
 		assertEquals(1, rebuilds.get());
 	}
 
+	@Test void completedFailureStillRefreshesAndRemovedScreenCancelsQueuedCallback() {
+		PublishedGenerationRefresh refresh = new PublishedGenerationRefresh();
+		ControlledExecutor renderThread = new ControlledExecutor();
+		AtomicInteger rebuilds = new AtomicInteger();
+		var failure = CompletableFuture.<Void>failedFuture(new IllegalStateException("failed"));
+		refresh.schedule(true, failure, renderThread, rebuilds::incrementAndGet);
+		renderThread.runNext();
+		assertEquals(1, rebuilds.get());
+		var next = new CompletableFuture<Void>();
+		refresh.schedule(true, next, renderThread, rebuilds::incrementAndGet);
+		next.complete(null);
+		refresh.clear();
+		renderThread.runNext();
+		assertEquals(1, rebuilds.get());
+	}
+
 	private static final class ControlledExecutor implements Executor {
 		private final Queue<Runnable> tasks = new ArrayDeque<>();
 		@Override public void execute(Runnable command) { tasks.add(command); }

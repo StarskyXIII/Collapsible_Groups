@@ -2,16 +2,14 @@ package com.starskyxiii.collapsible_groups.i18n;
 
 /** Centralised translation-key constants for all UI strings. */
 public final class ModTranslationKeys {
+	public static final String MANAGER_COPY_SOURCE_MISSING = "collapsible_groups.manager.copy_source_missing";
+	public static final String MANAGER_COPY_SOURCE_DISABLE_FAILED = "collapsible_groups.manager.copy_source_disable_failed";
 	private ModTranslationKeys() {}
-	public static final String MANAGER_RESTORE_SOURCE = "collapsible_groups.manager.restore_source";
-	public static final String MANAGER_CREATE_OVERRIDE = "collapsible_groups.manager.create_override";
 	public static final String MANAGER_BUILTINS_DISABLED = "collapsible_groups.manager.builtins_disabled";
-	public static final String MANAGER_SHADOWED_SOURCE = "collapsible_groups.manager.shadowed_source";
 	public static final String MANAGER_EVALUATION_COMPLETE = "collapsible_groups.manager.evaluation.complete";
 	public static final String MANAGER_EVALUATION_UNAVAILABLE = "collapsible_groups.manager.evaluation.unavailable";
 	public static final String MANAGER_EVALUATION_ERROR = "collapsible_groups.manager.evaluation.error";
 	public static final String MANAGER_EVALUATION_PENDING = "collapsible_groups.manager.evaluation.pending";
-	public static final String MANAGER_SOURCE_ACTIONS = "collapsible_groups.manager.source_actions";
 	public static final String MANAGER_SOURCE_PROBLEMS = "collapsible_groups.manager.source_problems";
 	public static final String MANAGER_SOURCES_STALE = "collapsible_groups.manager.sources_stale";
 	public static final String MANAGER_SAVED_EMPTY = "collapsible_groups.manager.saved_empty";
@@ -19,7 +17,6 @@ public final class ModTranslationKeys {
 	public static final String MANAGER_SHOW_EMPTY = "collapsible_groups.manager.show_empty";
 
 	public static final String MANAGER_SOURCE_RESOURCE_PACK = "collapsible_groups.manager.source.resource_pack";
-	public static final String MANAGER_SOURCE_OVERRIDE = "collapsible_groups.manager.source.override";
 
 	public static final String EDITOR_TAG_PENDING = "collapsible_groups.editor.tag.pending";
 	public static final String EDITOR_TAG_PARTIAL = "collapsible_groups.editor.tag.partial";

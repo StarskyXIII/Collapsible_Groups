@@ -11,13 +11,15 @@ final class PublishedGenerationRefresh {
 		Executor renderExecutor, Runnable rebuild) {
 		if (!publicationPending || readiness == observed) return;
 		observed = readiness;
-		readiness.whenComplete((ignored, failure) -> renderExecutor.execute(() -> complete(readiness, failure, rebuild)));
+		readiness.whenComplete((ignored, failure) -> renderExecutor.execute(() -> complete(readiness, rebuild)));
 	}
 
-	private void complete(CompletableFuture<Void> readiness, Throwable failure, Runnable rebuild) {
+	synchronized void clear() { observed = null; }
+
+	private void complete(CompletableFuture<Void> readiness, Runnable rebuild) {
 		synchronized (this) {
 			if (observed != readiness) return;
 		}
-		if (failure == null) rebuild.run();
+		rebuild.run();
 	}
 }

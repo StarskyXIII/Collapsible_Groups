@@ -17,14 +17,7 @@ class LanguageFileSymmetryTest {
 	void manualEnglishAndTraditionalChineseShareTheSameKeySet() {
 		Set<String> english = keys(language("en_us"));
 		Set<String> chinese = keys(language("zh_tw"));
-        try {
-            var manifest = JsonParser.parseString(java.nio.file.Files.readString(java.nio.file.Path.of(
-                System.getProperty("collapsibleGroupsRoot"), "builtin-groups/generated-language-keys.json"))).getAsJsonObject();
-            for (var key : manifest.getAsJsonArray("keys")) {
-                english.remove(key.getAsString());
-                chinese.remove(key.getAsString());
-            }
-        } catch (java.io.IOException failure) { throw new AssertionError(failure); }
+
 
 		Set<String> missingInChinese = new TreeSet<>(english);
 		missingInChinese.removeAll(chinese);

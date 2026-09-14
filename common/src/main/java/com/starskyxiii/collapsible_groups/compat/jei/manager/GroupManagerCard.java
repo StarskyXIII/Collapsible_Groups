@@ -61,6 +61,13 @@ public record GroupManagerCard(
 			itemCount, fluidCount, genericCount, null);
 	}
 
+	public static GroupManagerCard create(GroupDefinition group, GroupSource source,
+		GroupEvaluation evaluation, List<GroupPreviewEntry> previews, List<GroupPreviewEntry> headers) {
+		return new GroupManagerCard(group, previews, headers,
+			evaluation.itemCount(), evaluation.fluidCount(), evaluation.genericCount(),
+			buildViewModel(group, source, evaluation.itemCount(), evaluation.fluidCount(), evaluation.genericCount()), evaluation);
+	}
+
 	public String id() {
 		return group.id();
 	}
@@ -101,13 +108,13 @@ public record GroupManagerCard(
 			itemCount,
 			fluidCount,
 			genericCount,
-			buildViewModel(updatedGroup, itemCount(), fluidCount(), genericCount()), evaluation
+			buildViewModel(updatedGroup, source(), itemCount(), fluidCount(), genericCount()), evaluation
 		);
 	}
 
 	public GroupManagerCard withEvaluation(GroupEvaluation result) {
 		return new GroupManagerCard(group, previewEntries, headerEntries, result.itemCount(), result.fluidCount(),
-			result.genericCount(), buildViewModel(group, result.itemCount(), result.fluidCount(), result.genericCount()), result);
+			result.genericCount(), buildViewModel(group, source(), result.itemCount(), result.fluidCount(), result.genericCount()), result);
 	}
 
 	private static GroupCardViewModel buildViewModel(
@@ -116,7 +123,11 @@ public record GroupManagerCard(
 		int fluidCount,
 		int genericCount
 	) {
-		GroupSource source = GroupSource.fromGroupId(group.id());
+		return buildViewModel(group, GroupSource.fromGroupId(group.id()), itemCount, fluidCount, genericCount);
+	}
+
+	private static GroupCardViewModel buildViewModel(GroupDefinition group, GroupSource source,
+		int itemCount, int fluidCount, int genericCount) {
 		String displayName = resolvedDisplayName(group);
 		PreviewPaneModel preview = new PreviewPaneModel(
 			group.id(),
@@ -133,7 +144,7 @@ public record GroupManagerCard(
 			displayName,
 			source,
 			group.enabled(),
-			GroupActionEligibility.forGroup(group),
+			GroupActionEligibility.forGroup(group, source),
 			preview,
 			false
 		);

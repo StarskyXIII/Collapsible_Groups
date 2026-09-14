@@ -1,144 +1,96 @@
 package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
-import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
-import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.*;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
-import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
-import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
-import com.starskyxiii.collapsible_groups.viewer.ViewerGroupPreviewSnapshot;
-import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
-import com.starskyxiii.collapsible_groups.viewer.ViewerPreviewValue;
+import com.starskyxiii.collapsible_groups.viewer.*;
 import org.junit.jupiter.api.Test;
-
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class GroupManagerCardAssemblerTest {
-	@Test void unpublishedGenerationPerformsZeroSynchronousPreviewResolutions() {
-		AtomicInteger resolverCalls = new AtomicInteger();
-		ViewerGroupIndex pending = index(Optional.empty(), new CompletableFuture<>(), group -> {
-			resolverCalls.incrementAndGet();
-			return Optional.empty();
-		});
+    @Test void appearanceEditUsesCurrentHeaderWhileKeepingIndexedContents() {
+        var original = group("bees", "minecraft:stone");
+        var edited = original.withIconIds(List.of(new GroupIconDefinition("test:bee", "test:fbi")));
+        var rendered = new ArrayList<String>();
+        var child = ViewerPreviewValue.rendered((graphics, x, y) -> rendered.add("child"));
+        var header = ViewerPreviewValue.rendered((graphics, x, y) -> rendered.add("header"));
+        var candidates = display(List.of(original)).candidates();
+        var display = new ViewerGroupDisplaySnapshot(candidates, requested -> {
+            assertSame(edited, requested);
+            return Optional.of(new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of(child), List.of(header)));
+        }, CompletableFuture.completedFuture(null), false, false);
 
-		GroupManagerCardAssembler.Result result = GroupManagerCardAssembler.build(List.of(group("pending")), pending);
+        var card = GroupManagerCardAssembler.build(repository(List.of(edited)), display).cards().get(0);
+        card.headerSource().get(0).render(null, 0, 0);
+        card.previewEntries().get(0).render(null, 0, 0);
+        assertEquals(List.of("header", "child"), rendered);
+        assertEquals(GroupEvaluation.Status.COMPLETE, card.evaluation().status());
+        assertEquals(1, card.headerSource().size());
+    }
 
-		assertTrue(result.generationPending());
-		assertEquals(0, resolverCalls.get(), "pending manager build must perform zero synchronous resolutions");
-		assertEquals(0, result.cards().get(0).entryCount());
-	}
+    @Test void coldDisplayNeverRequestsPreviewResolution() {
+        var group = group("cold", "minecraft:stone");
+        var display = new ViewerGroupDisplaySnapshot(null, id -> {
+            throw new AssertionError("Unindexed definitions must not resolve previews");
+        }, new CompletableFuture<>(), true, false);
+        var result = GroupManagerCardAssembler.build(repository(List.of(group)), display);
+        assertTrue(result.generationPending());
+        assertEquals(GroupEvaluation.Status.PENDING, result.cards().get(0).evaluation().status());
+        assertEquals(0, result.cards().get(0).entryCount());
+    }
 
-	@Test void publishedGenerationUsesOneSnapshotIncludingExplicitEmptyGroups() {
-		AtomicInteger snapshotCalls = new AtomicInteger();
-		ViewerGroupIndex published = index(Optional.of(new GroupCandidateIndex(Map.of(), Map.of(), 0, 0, 0)),
-			CompletableFuture.completedFuture(null), group -> {
-				snapshotCalls.incrementAndGet();
-				if (group.id().equals("empty")) {
-					return Optional.of(new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of()));
-				}
-				return Optional.of(new ViewerGroupPreviewSnapshot(
-					List.of(ViewerPreviewValue.rendered((graphics, x, y) -> {})),
-					List.of(ViewerPreviewValue.rendered((graphics, x, y) -> {})),
-					List.of(ViewerPreviewValue.rendered((graphics, x, y) -> {}))));
-			});
+    @Test void localEditRetainsUnchangedEmptyEvaluationAndOnlyChangedDefinitionWaits() {
+        var unchanged = group("empty", "minecraft:stone");
+        var old = group("edited", "minecraft:stone");
+        var changed = group("edited", "minecraft:dirt");
+        var display = display(List.of(unchanged, old));
+        var result = GroupManagerCardAssembler.build(repository(List.of(unchanged.withEnabled(false), changed)), display);
+        assertTrue(result.cards().get(0).evaluation().empty());
+        assertFalse(result.cards().get(0).group().enabled());
+        assertEquals(GroupEvaluation.Status.PENDING, result.cards().get(1).evaluation().status());
+    }
 
-		GroupManagerCardAssembler.Result result = GroupManagerCardAssembler.build(
-			List.of(group("filled"), group("empty")), published);
+    @Test void capturedRepositorySourceSurvivesLaterLiveRepositoryState() {
+        var group = group("custom-looking-script-id", "minecraft:stone");
+        var repository = new GroupRepository.ReadSnapshot(List.of(group), GroupResourceData.empty(), true,
+            Map.of(group.id(), GroupSource.KUBEJS));
+        var result = GroupManagerCardAssembler.build(repository, display(List.of(group)));
+        assertEquals(com.starskyxiii.collapsible_groups.client.manager.model.GroupSource.KUBEJS,
+            result.cards().get(0).source());
+        assertFalse(result.cards().get(0).editable());
+    }
 
-		assertFalse(result.generationPending());
-		assertEquals(2, snapshotCalls.get());
-		assertEquals(3, result.cards().get(0).entryCount());
-		assertEquals(0, result.cards().get(1).entryCount());
-	}
+    @Test void screenChangesCannotMutatePublishedCards() {
+        var first = group("first", "minecraft:stone");
+        var second = group("second", "minecraft:stone");
+        var result = GroupManagerCardAssembler.build(repository(List.of(first, second)), display(List.of(first, second)));
+        var working = new ArrayList<>(result.cards());
+        working.set(0, working.get(0).withGroup(first.withEnabled(false)));
+        working.remove(1);
+        assertEquals(2, result.cards().size());
+        assertTrue(result.cards().get(0).group().enabled());
+        assertThrows(UnsupportedOperationException.class, () -> result.cards().clear());
+    }
 
-	@Test void screenWorkingCopyMutatesWithoutChangingPublishedSnapshot() {
-		ViewerGroupIndex published = index(Optional.of(new GroupCandidateIndex(Map.of(), Map.of(), 0, 0, 0)),
-			CompletableFuture.completedFuture(null), group -> Optional.of(
-				new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of())));
-		GroupManagerCardAssembler.Result result = GroupManagerCardAssembler.build(
-			List.of(group("first"), group("second")), published);
+    private static GroupRepository.ReadSnapshot repository(List<GroupDefinition> groups) {
+        return new GroupRepository.ReadSnapshot(groups, GroupResourceData.empty(), true,
+            groups.stream().collect(java.util.stream.Collectors.toMap(GroupDefinition::id, g -> GroupSource.USER)));
+    }
 
-		assertThrows(UnsupportedOperationException.class,
-			() -> result.cards().set(0, result.cards().get(0)));
-		List<GroupManagerCard> working = GroupManagerCardAssembler.mutableWorkingCopy(result.cards());
-		working.set(0, working.get(0).withGroup(group("replacement")));
-		working.removeIf(card -> card.id().equals("second"));
+    private static ViewerGroupDisplaySnapshot display(List<GroupDefinition> groups) {
+        var definitions = groups.stream().collect(java.util.stream.Collectors.toMap(GroupDefinition::id, g -> g));
+        var evaluations = groups.stream().collect(java.util.stream.Collectors.toMap(GroupDefinition::id,
+            g -> new GroupEvaluation(1, GroupEvaluation.Status.COMPLETE, 0, 0, 0, List.of())));
+        return new ViewerGroupDisplaySnapshot(new GroupCandidateIndex(Map.of(), definitions, 0, 0, 0, evaluations, 1),
+            group -> Optional.of(new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of(), List.of())),
+            new CompletableFuture<>(), true, false);
+    }
 
-		assertEquals(List.of("first", "second"), result.cards().stream().map(GroupManagerCard::id).toList());
-		assertEquals(List.of("replacement"), working.stream().map(GroupManagerCard::id).toList());
-	}
-
-	@Test void pendingSnapshotUsesTheSameMutableOwnershipBoundary() {
-		List<GroupManagerCard> pendingSnapshot = List.of();
-		List<GroupManagerCard> working = GroupManagerCardAssembler.mutableWorkingCopy(pendingSnapshot);
-
-		ViewerGroupIndex published = index(Optional.of(new GroupCandidateIndex(Map.of(), Map.of(), 0, 0, 0)),
-			CompletableFuture.completedFuture(null), group -> Optional.of(
-				new ViewerGroupPreviewSnapshot(List.of(), List.of(), List.of())));
-		GroupManagerCard card = GroupManagerCardAssembler.build(List.of(group("published")), published)
-			.cards().get(0);
-		working.add(card);
-
-		assertTrue(pendingSnapshot.isEmpty());
-		assertEquals(List.of("published"), working.stream().map(GroupManagerCard::id).toList());
-	}
-
-	@Test void generationReplacedDuringAssemblyDiscardsEveryPartialCard() {
-		var first = new GroupCandidateIndex(Map.of(), Map.of(), 0, 0, 0);
-		var second = new GroupCandidateIndex(Map.of(), Map.of(), 0, 0, 0);
-		var current = new AtomicReference<>(Optional.of(first));
-		ViewerGroupIndex published = index(current::get, CompletableFuture.completedFuture(null), group -> {
-			current.set(Optional.of(second));
-			return Optional.of(new ViewerGroupPreviewSnapshot(
-				List.of(ViewerPreviewValue.rendered((graphics, x, y) -> {})), List.of(), List.of()));
-		});
-		var result = GroupManagerCardAssembler.build(List.of(group("first"), group("second")), published);
-		assertTrue(result.generationPending());
-		assertEquals(0, result.totalItems());
-		assertEquals(0, result.totalFluids());
-		assertEquals(0, result.totalGeneric());
-		assertTrue(result.cards().stream().allMatch(card -> card.entryCount() == 0
-			&& card.evaluation().status() == com.starskyxiii.collapsible_groups.group.GroupEvaluation.Status.PENDING));
-	}
-
-	private static ViewerGroupIndex index(Optional<GroupCandidateIndex> candidates,
-		CompletableFuture<Void> readiness, SnapshotResolver resolver) {
-		return index(() -> candidates, readiness, resolver);
-	}
-
-	private static ViewerGroupIndex index(Supplier<Optional<GroupCandidateIndex>> candidates,
-		CompletableFuture<Void> readiness, SnapshotResolver resolver) {
-		return new ViewerGroupIndex() {
-			@Override public Optional<GroupCandidateIndex> candidates() { return candidates.get(); }
-			@Override public boolean ready() { return candidates.get().isPresent(); }
-			@Override public CompletableFuture<Void> whenReady() { return readiness; }
-			@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
-                throw new AssertionError("Manager must not invoke the synchronous full-match resolver");
-            }
-            @Override public Optional<ViewerGroupPreviewSnapshot> cachedFullMatchSnapshot(GroupDefinition group) {
-                return resolver.resolve(group);
-            }
-			@Override public Optional<String> resolveOwner(ViewerIngredientIdentity identity,
-				List<GroupDefinition> groups) { return Optional.empty(); }
-			@Override public Map<ViewerIngredientIdentity, String> resolveOwnership(
-				List<GroupDefinition> groups) { return Map.of(); }
-			@Override public void onGroupChange(GroupChangeEvent.Kind kind, List<GroupDefinition> groups) {}
-		};
-	}
-
-	private static GroupDefinition group(String id) {
-		return new GroupDefinition(id, id, true, new GroupFilter.Id("item", "minecraft:stone"));
-	}
-
-	@FunctionalInterface
-	private interface SnapshotResolver {
-		Optional<ViewerGroupPreviewSnapshot> resolve(GroupDefinition group);
-	}
+    private static GroupDefinition group(String id, String item) {
+        return new GroupDefinition(id, id, true, new GroupFilter.Id("item", item));
+    }
 }

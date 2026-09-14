@@ -29,6 +29,9 @@ public class CollapsibleGroupsFabric implements ClientModInitializer {
             );
         }
         reloadGroupsFromCurrentConfig();
+        net.fabricmc.fabric.api.event.lifecycle.v1.CommonLifecycleEvents.TAGS_LOADED.register((registries, client) -> {
+            if (client) net.minecraft.client.Minecraft.getInstance().execute(GroupRepository::notifySourceReload);
+        });
 
         // Reload overlay lang on F3+T resource reload
         ResourceManagerHelper.get(PackType.CLIENT_RESOURCES).registerReloadListener(

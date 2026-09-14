@@ -36,6 +36,13 @@ public class CollapsibleGroupsForge {
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::registerTooltipFactories);
         FMLJavaModLoadingContext.get().getModEventBus().addListener(this::onRegisterReloadListeners);
         MinecraftForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
+        MinecraftForge.EVENT_BUS.addListener(this::onTagsUpdated);
+    }
+
+    private void onTagsUpdated(net.minecraftforge.event.TagsUpdatedEvent event) {
+        if (event.getUpdateCause() == net.minecraftforge.event.TagsUpdatedEvent.UpdateCause.CLIENT_PACKET_RECEIVED) {
+            net.minecraft.client.Minecraft.getInstance().execute(GroupRepository::notifySourceReload);
+        }
     }
 
     private void onRegisterReloadListeners(RegisterClientReloadListenersEvent event) {

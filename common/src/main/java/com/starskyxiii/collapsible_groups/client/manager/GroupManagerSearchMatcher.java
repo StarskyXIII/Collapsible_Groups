@@ -41,7 +41,7 @@ public final class GroupManagerSearchMatcher {
 			: sourceFilter;
 		return switch (filter) {
 			case ALL -> true;
-			case USER -> source == GroupSource.USER || source == GroupSource.OVERRIDE;
+			case USER -> source == GroupSource.USER;
 			case BUILTIN -> source == GroupSource.BUILTIN;
 			case KUBEJS -> source == GroupSource.KUBEJS;
 			case RESOURCE_PACK -> source == GroupSource.RESOURCE_PACK;
@@ -90,7 +90,6 @@ public final class GroupManagerSearchMatcher {
 			case BUILTIN -> List.of("builtin", "built-in", "built in", "default");
 			case KUBEJS -> List.of("kubejs", "kube js");
 			case RESOURCE_PACK -> List.of("resource pack", "pack");
-			case OVERRIDE -> List.of("local override", "override", "custom");
 		};
 	}
 

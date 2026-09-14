@@ -37,8 +37,6 @@ public record GroupActionEligibility(
 				true,
 				true
 			);
-			case OVERRIDE -> new GroupActionEligibility(resolved, true, EnabledPersistenceKind.ENABLED_OVERRIDE_STORE,
-				true, false, false, true, true, true, true, false);
 			case BUILTIN, RESOURCE_PACK, KUBEJS -> new GroupActionEligibility(
 				resolved,
 				true,
@@ -56,7 +54,11 @@ public record GroupActionEligibility(
 	}
 
 	public static GroupActionEligibility forGroup(com.starskyxiii.collapsible_groups.group.GroupDefinition group) {
-		GroupActionEligibility ordinary = forSource(GroupSource.fromGroupId(group.id()));
+		return forGroup(group, GroupSource.fromGroupId(group.id()));
+	}
+
+	public static GroupActionEligibility forGroup(com.starskyxiii.collapsible_groups.group.GroupDefinition group, GroupSource source) {
+		GroupActionEligibility ordinary = forSource(source);
 		if (group.documentFormat() != com.starskyxiii.collapsible_groups.group.GroupDocumentFormat.UNSUPPORTED) return ordinary;
 		return new GroupActionEligibility(ordinary.source(), false, ordinary.enabledPersistenceKind(), false,
 			ordinary.canDelete(), ordinary.canShiftDelete(), false, ordinary.canBatchSelect(), false, false,
@@ -70,8 +72,6 @@ public record GroupActionEligibility(
 			case DELETE -> canDelete;
 			case SHIFT_DELETE -> canShiftDelete;
 			case COPY_AS_CUSTOM -> canCopyAsCustom;
-			case CREATE_LOCAL_OVERRIDE -> source == GroupSource.BUILTIN || source == GroupSource.RESOURCE_PACK || source == GroupSource.KUBEJS;
-			case RESTORE_SOURCE -> source == GroupSource.OVERRIDE;
 			case BATCH_SELECT -> canBatchSelect;
 			case BATCH_ENABLE -> canBatchRequestEnable;
 			case BATCH_DISABLE -> canBatchRequestDisable;

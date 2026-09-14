@@ -4,7 +4,6 @@ import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
-import com.starskyxiii.collapsible_groups.viewer.ViewerGroupPreviewSnapshot;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 
 import java.util.List;
@@ -22,9 +21,6 @@ final class UnavailableViewerGroupIndex implements ViewerGroupIndex {
 	@Override public Optional<GroupCandidateIndex> candidates() { return Optional.empty(); }
 	@Override public boolean ready() { return false; }
 	@Override public CompletableFuture<Void> whenReady() { return readiness; }
-	@Override public Optional<ViewerGroupPreviewSnapshot> fullMatchSnapshot(GroupDefinition group) {
-		return Optional.empty();
-	}
 	@Override public Optional<String> resolveOwner(ViewerIngredientIdentity identity,
 		List<GroupDefinition> groups) { return Optional.empty(); }
 	@Override public Map<ViewerIngredientIdentity, String> resolveOwnership(List<GroupDefinition> groups) {

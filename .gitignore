@@ -31,5 +31,6 @@ crash-reports
 .code-review-graph
 .code-review-graphignore
 note
+/docs/
 .reference
 .vscode

@@ -215,6 +215,11 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		IIngredientManager manager, List<GroupDefinition> groups, Map<ITypedIngredient<?>, List<String>> matches,
 		Map<String, String> failures) {
 		ProjectionContext context = updateBootstrap(ingredients, manager);
+		return buildOwnershipIndexFromMatches(context, groups, matches, failures);
+	}
+
+	public PreparedOwnershipBuild buildOwnershipIndexFromMatches(ProjectionContext context,
+		List<GroupDefinition> groups, Map<ITypedIngredient<?>, List<String>> matches, Map<String, String> failures) {
 		ViewerIngredientUniverse<ITypedIngredient<?>> universe = context.universe();
 		JeiViewerGroupIndex.instance().updateUniverse(universe);
 		Map<ViewerIngredientIdentity, List<String>> candidates = new LinkedHashMap<>();

@@ -5,22 +5,15 @@ import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 
-import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.group.GroupCatalog;
-import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.persistence.GroupExpandState;
 import com.starskyxiii.collapsible_groups.persistence.GroupStore;
-import mezz.jei.api.constants.VanillaTypes;
 import mezz.jei.api.ingredients.IIngredientHelper;
-import mezz.jei.api.ingredients.IIngredientType;
-import mezz.jei.api.runtime.IIngredientManager;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.world.item.ItemStack;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -50,24 +43,6 @@ import java.util.Set;
  * {@link #delete(String)} from the manager UI to persist changes.
  */
 public final class GroupRegistry {
-	public record FullMatchLookup<T>(List<T> values, boolean cacheHit, String fallbackReason) {}
-	public record FullMatchGroupLookup(
-		FullMatchLookup<ItemStack> items,
-		FullMatchLookup<Object> fluids,
-		FullMatchLookup<GenericIngredientRef> generic
-	) {}
-
-	/**
-	 * Copy-on-write group list in raw registration order. Always an unmodifiable snapshot.
-	 * Writers must replace the entire reference; never mutate in place.
-	 * Volatile guarantees visibility across threads.
-	 */
-	/**
-	 * Resolved items/fluids per group ID, pre-built by MixinIngredientFilter
-	 * during {@code cg$buildIngredientGroupIndex()}. Null until JEI initialises.
-	 * Partial entries are removed when a single group is saved/deleted;
-	 * the whole map is cleared when JEI ingredient caches are reset.
-	 */
 	private static final JeiViewerGroupIndex VIEWER_INDEX = JeiViewerGroupIndex.instance();
 
 	private GroupRegistry() {}
@@ -212,88 +187,6 @@ public final class GroupRegistry {
 		return VIEWER_INDEX.resolvedFluids(groupId);
 	}
 
-	/**
-	 * Returns the overlap-correct full-match item preview for manager cards.
-	 * Falls back to a live resolve only when this group's cache entry is unavailable.
-	 */
-	public static List<ItemStack> getFullMatchItems(GroupDefinition group) {
-		return getFullMatchItemsLookup(group).values();
-	}
-
-	public static FullMatchLookup<ItemStack> getFullMatchItemsLookup(GroupDefinition group) {
-		return getFullMatchGroupLookup(group).items();
-	}
-
-	/** Same as {@link #getFullMatchItems(GroupDefinition)} but for fluids. */
-	public static List<Object> getFullMatchFluids(GroupDefinition group) {
-		return getFullMatchFluidsLookup(group).values();
-	}
-
-	public static FullMatchLookup<Object> getFullMatchFluidsLookup(GroupDefinition group) {
-		return getFullMatchGroupLookup(group).fluids();
-	}
-
-	/** Same as {@link #getFullMatchItems(GroupDefinition)} but for generic ingredients. */
-	public static List<GenericIngredientRef> getFullMatchGenericIngredients(GroupDefinition group) {
-		return getFullMatchGenericIngredientsLookup(group).values();
-	}
-
-	public static List<ItemStack> getFullMatchItemsCached(String groupId) {
-		Map<String, List<ItemStack>> cache = VIEWER_INDEX.fullMatchItems();
-		return cache == null ? null : cache.get(groupId);
-	}
-
-	public static List<Object> getFullMatchFluidsCached(String groupId) {
-		Map<String, List<Object>> cache = VIEWER_INDEX.fullMatchFluids();
-		return cache == null ? null : cache.get(groupId);
-	}
-
-	public static List<GenericIngredientRef> getFullMatchGenericCached(String groupId) {
-		Map<String, List<GenericIngredientRef>> cache = VIEWER_INDEX.fullMatchGeneric();
-		return cache == null ? null : cache.get(groupId);
-	}
-
-	public static FullMatchLookup<GenericIngredientRef> getFullMatchGenericIngredientsLookup(GroupDefinition group) {
-		return getFullMatchGroupLookup(group).generic();
-	}
-
-	public static FullMatchGroupLookup getFullMatchGroupLookup(GroupDefinition group) {
-		return getFullMatchGroupLookup(group, VIEWER_INDEX.fullMatchSnapshot(), true);
-	}
-
-	/**
-	 * Reads all preview kinds from one generation. When live resolution is allowed, a cache miss
-	 * is filled with one atomic tri-cache publication.
-	 */
-	public static FullMatchGroupLookup getFullMatchGroupLookup(GroupDefinition group,
-		JeiViewerGroupIndex.FullMatchCacheSnapshot snapshot, boolean resolveMissing) {
-		JeiViewerGroupIndex.FullMatchEntry cached = snapshot.entry(group.id());
-		if (cached != null) {
-			return new FullMatchGroupLookup(
-				new FullMatchLookup<>(cached.items(), true, null),
-				new FullMatchLookup<>(cached.fluids(), true, null),
-				new FullMatchLookup<>(cached.generic(), true, null)
-			);
-		}
-
-		String fallbackReason = snapshot.complete() ? "entry_missing" : "cache_map_null";
-		if (!resolveMissing) {
-			String pendingReason = "generation_pending";
-			return new FullMatchGroupLookup(
-				new FullMatchLookup<>(List.of(), false, pendingReason),
-				new FullMatchLookup<>(List.of(), false, pendingReason),
-				new FullMatchLookup<>(List.of(), false, pendingReason)
-			);
-		}
-
-		JeiViewerGroupIndex.FullMatchEntry resolved = VIEWER_INDEX.fullMatchEntry(group);
-		return new FullMatchGroupLookup(
-			new FullMatchLookup<>(resolved.items(), false, fallbackReason),
-			new FullMatchLookup<>(resolved.fluids(), false, fallbackReason),
-			new FullMatchLookup<>(resolved.generic(), false, fallbackReason)
-		);
-	}
-
 	/** Resolves all generic JEI ingredients that match the given group definition. */
 	public static List<GenericIngredientRef> resolveGenericIngredients(GroupDefinition group) {
 		long traceStart = PerformanceTrace.begin();
@@ -397,11 +290,6 @@ public final class GroupRegistry {
 		VIEWER_INDEX.setResolvedFluidsByGroup(map);
 	}
 
-	public static void setFullMatchCachesByGroup(Map<String, List<ItemStack>> items,
-		Map<String, List<Object>> fluids, Map<String, List<GenericIngredientRef>> generic) {
-		VIEWER_INDEX.setFullMatchCachesByGroup(items, fluids, generic);
-	}
-
 	public static void setItemCaches(Map<String, List<ItemStack>> resolvedItems,
 		Map<String, List<ItemStack>> fullMatchItems, Map<String, Set<String>> itemReverseIndex) {
 		VIEWER_INDEX.setItemCaches(resolvedItems, fullMatchItems, itemReverseIndex);
@@ -493,14 +381,6 @@ public final class GroupRegistry {
 		GroupRepository.saveQuietly(group);
 	}
 
-	public static Optional<GroupDefinition> copyAsCustomQuietly(String sourceId, String copiedDisplayName) {
-		return GroupRepository.copyAsCustomQuietly(sourceId, copiedDisplayName);
-	}
-
-	public static Optional<GroupDefinition> createCustomCopyDraft(String sourceId, String copiedDisplayName) {
-		return GroupRepository.createCustomCopyDraft(sourceId, copiedDisplayName);
-	}
-
 	/**
 	 * Updates enabled state and publishes an enabled-only change event.
 	 *
@@ -558,14 +438,6 @@ public final class GroupRegistry {
 		return GroupRepository.generateUniqueIdIncludingScripted(base);
 	}
 
-	static Optional<GroupDefinition> createCustomCopy(
-		GroupDefinition source,
-		String copiedDisplayName,
-		List<String> existingGroupIds
-	) {
-		return GroupCatalog.createCustomCopy(source, copiedDisplayName, existingGroupIds);
-	}
-
 	/**
 	 * Normalizes a user-facing group name into a filesystem-safe ASCII ID base.
 	 * Repeated separators are collapsed and leading/trailing underscores are trimmed.
@@ -577,49 +449,6 @@ public final class GroupRegistry {
 	// -----------------------------------------------------------------------
 	// Private helpers
 	// -----------------------------------------------------------------------
-
-	@SuppressWarnings("unchecked")
-	private static <T> void appendMatchingGenericIngredients(
-		GroupDefinition group,
-		String typeId,
-		IIngredientType<?> rawType,
-		IIngredientManager ingredientManager,
-		List<GenericIngredientRef> out
-	) {
-		IIngredientType<T> type    = (IIngredientType<T>) rawType;
-		IIngredientHelper<T> helper = ingredientManager.getIngredientHelper(type);
-		for (T ingredient : ingredientManager.getAllIngredients(type)) {
-			if (GroupMatcher.matchesGeneric(group, typeId, ingredient, helper)) {
-				out.add(new GenericIngredientRef(typeId, (IIngredientType<Object>) type, ingredient));
-			}
-		}
-	}
-
-	@SuppressWarnings("unchecked")
-	private static <T> void appendAllGenericIngredients(
-		String typeId,
-		IIngredientType<?> rawType,
-		IIngredientManager ingredientManager,
-		List<GenericIngredientRef> out
-	) {
-		IIngredientType<T> type = (IIngredientType<T>) rawType;
-		for (T ingredient : ingredientManager.getAllIngredients(type)) {
-			out.add(new GenericIngredientRef(typeId, (IIngredientType<Object>) type, ingredient));
-		}
-	}
-
-	private static GroupDefinition managerPreviewDefinition(GroupDefinition group) {
-		return group.enabled() ? group : group.withEnabled(true);
-	}
-
-	/**
-	 * Writes the given group's full-match preview cache entries immediately after save.
-	 * This bridges the window before the async JEI rebuild republishes the authoritative maps.
-	 */
-	public static void populateFullMatchCacheFromSaved(GroupDefinition saved) {
-		JeiIngredientSourceState.FullMatch resolved = JeiIngredientSourceState.resolveFullMatch(saved);
-		VIEWER_INDEX.updateFullMatchEntry(saved.id(), resolved.items(), resolved.fluids(), resolved.generic());
-	}
 
 	static List<GroupDefinition> orderByPriority(List<GroupDefinition> source) {
 		return GroupCatalog.orderByPriority(source);

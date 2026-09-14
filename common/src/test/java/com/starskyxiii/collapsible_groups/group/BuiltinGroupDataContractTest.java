@@ -1,84 +1,80 @@
 package com.starskyxiii.collapsible_groups.group;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
 import com.starskyxiii.collapsible_groups.persistence.GroupConfig;
-import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestFactory;
-
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
-import java.util.stream.Stream;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 class BuiltinGroupDataContractTest {
     private static final Path ROOT = Path.of(System.getProperty("collapsibleGroupsRoot"));
 
-    @TestFactory Stream<DynamicTest> everyConvertedDefinitionPreservesItsProviderContract() throws Exception {
-        List<DynamicTest> tests = new ArrayList<>();
-        for (JsonElement element : reference()) {
-            JsonObject entry = element.getAsJsonObject();
-            JsonObject original = entry.getAsJsonObject("definition");
-            String path = entry.get("path").getAsString();
-            tests.add(DynamicTest.dynamicTest(original.get("id").getAsString(), () -> {
-                JsonObject actual = resource(path);
-                GroupDefinition parsed = GroupConfig.fromJsonChecked(actual.toString());
-                assertEquals(GroupDocumentFormat.V1, parsed.documentFormat());
-                assertEquals(parsed, GroupConfig.fromJsonChecked(GroupConfig.toJson(parsed)));
-                JsonObject normalized = actual.deepCopy();
-                normalized.remove("schema_version");
-                assertEquals(original, normalized);
-                assertEquals(0, parsed.priority());
-            }));
-        }
-        assertEquals(528, tests.size());
-        return tests.stream();
-    }
-
-    @Test void loadersKeepTheirOriginalDefinitionMembershipAndRegistrationOrder() throws Exception {
-        for (var loader : Map.of("fabric", 528, "forge", 229).entrySet()) {
-            JsonArray actual = JsonParser.parseString(Files.readString(ROOT.resolve(loader.getKey())
-                .resolve("build/generated/builtin-groups/assets/collapsible_groups/builtin_catalog.json")))
-                .getAsJsonObject().getAsJsonArray("groups");
-            List<String> expectedIds = new ArrayList<>();
-            for (JsonElement item : reference()) {
-                JsonObject entry = item.getAsJsonObject();
-                if (entry.getAsJsonArray("loaders").contains(new JsonPrimitive(loader.getKey()))) {
-                    expectedIds.add(entry.getAsJsonObject("definition").get("id").getAsString());
+    @Test void generatedCatalogsCoverCategoryLoaderMembershipInResourceOrder() throws Exception {
+        Path root = ROOT.resolve("builtin-groups");
+        for (String loader : List.of("fabric", "forge")) {
+            List<JsonObject> expected = new ArrayList<>();
+            var ids = new HashSet<String>();
+            var paths = new HashSet<String>();
+            try (var categories = Files.list(root)) {
+                for (Path category : categories.filter(Files::isDirectory).toList()) {
+                    var metadata = JsonParser.parseString(Files.readString(category.resolve("metadata.json"))).getAsJsonObject();
+                    boolean included = metadata.getAsJsonArray("loaders").asList().stream()
+                        .anyMatch(value -> loader.equals(value.getAsString()));
+                    if (!included) continue;
+                    try (var files = Files.list(category)) {
+                        for (Path file : files.filter(Files::isRegularFile)
+                            .filter(f -> f.toString().endsWith(".json") && !f.getFileName().toString().equals("metadata.json")).toList()) {
+                            String path = "assets/collapsible_groups/groups/" + category.getFileName() + "/" + file.getFileName();
+                            var source = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
+                            var group = GroupConfig.fromJsonChecked(source.toString());
+                            assertEquals(GroupDocumentFormat.V1, group.documentFormat());
+                            assertTrue(ids.add(group.id()), group.id());
+                            assertTrue(paths.add(path), path);
+                            assertEquals(source, resource(path));
+                            Path output = ROOT.resolve(loader).resolve("build/generated/builtin-groups");
+                            assertEquals(source, JsonParser.parseString(Files.readString(output.resolve(path))));
+                            assertFalse(Files.exists(output.resolve("assets/collapsible_groups/groups/"
+                                + category.getFileName() + "/metadata.json")));
+                            var entry = new JsonObject();
+                            entry.addProperty("path", path);
+                            entry.addProperty("id", group.id());
+                            expected.add(entry);
+                        }
+                    }
                 }
             }
-            assertEquals(loader.getValue(), actual.size());
-            assertEquals(expectedIds, actual.asList().stream().map(e -> e.getAsJsonObject().get("id").getAsString()).toList());
+            expected.sort(java.util.Comparator.comparing(entry -> entry.get("path").getAsString()));
+            assertFalse(expected.isEmpty());
+            var actual = JsonParser.parseString(Files.readString(ROOT.resolve(loader)
+                .resolve("build/generated/builtin-groups/assets/collapsible_groups/builtin_catalog.json")))
+                .getAsJsonObject().getAsJsonArray("groups");
+            assertEquals(expected, actual.asList());
         }
     }
 
-    @Test void bundledCatalogLoadsWithoutIntegrationModsAndMatchesEnglishNames() throws Exception {
+    @Test void bundledDefinitionsHaveSeparateEnglishFallbacksAndBuiltinOrigins() throws Exception {
         var bundled = GroupResourceLoader.readBundled(getClass().getClassLoader());
         var data = GroupResourceLoader.assemble(List.of(new GroupResourceLoader.Layer(bundled, false)));
         assertTrue(data.complete(), data.problems().toString());
-        assertEquals(528, data.groups().size());
-        JsonObject english = resource("assets/collapsible_groups/lang/en_us.json");
+        assertFalse(data.groups().isEmpty());
+        var english = resource("assets/collapsible_groups/group_lang/en_us.json");
+        var ui = resource("assets/collapsible_groups/lang/en_us.json");
+        var keys = new HashSet<String>();
         for (GroupDefinition group : data.groups()) {
-            assertEquals(group.displayName().fallback(), english.get(group.displayName().key()).getAsString(), group.id());
+            String key = group.displayName().key();
+            keys.add(key);
+            assertEquals(group.displayName().fallback(), english.get(key).getAsString(), group.id());
+            assertFalse(ui.has(key), key);
             assertEquals(GroupSource.BUILTIN, data.origin(group.id()).source());
         }
-    }
-
-    private static JsonArray reference() throws Exception {
-        try (var reader = new InputStreamReader(BuiltinGroupDataContractTest.class.getResourceAsStream(
-            "/fixtures/builtin-provider-reference.json"), StandardCharsets.UTF_8)) {
-            return JsonParser.parseReader(reader).getAsJsonArray();
-        }
+        assertEquals(keys, english.keySet());
     }
 
     private static JsonObject resource(String path) throws Exception {

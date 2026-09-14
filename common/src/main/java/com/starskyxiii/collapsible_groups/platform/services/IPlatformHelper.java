@@ -10,6 +10,11 @@ import net.minecraft.world.item.ItemStack;
 import java.nio.file.Path;
 
 public interface IPlatformHelper {
+    default java.util.List<net.minecraft.server.packs.PackResources> languageResourcePacks(
+        net.minecraft.server.packs.resources.ResourceManager manager) {
+        try (var packs = manager.listPacks()) { return packs.toList(); }
+    }
+
 	default java.util.List<net.minecraft.server.packs.PackResources> groupResourcePacks(
 		net.minecraft.server.packs.resources.ResourceManager manager) {
 		try (var packs = manager.listPacks()) { return packs.toList(); }

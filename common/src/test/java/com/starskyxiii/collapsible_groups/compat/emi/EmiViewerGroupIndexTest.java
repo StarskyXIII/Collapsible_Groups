@@ -19,6 +19,106 @@ import java.util.concurrent.Executor;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmiViewerGroupIndexTest {
+	@Test void headerEditUsesCapturedUniverseAndPreservesFullMatches() {
+		var rendered = new java.util.ArrayList<String>();
+		var first = ingredient("first", "minecraft:stone");
+		var second = ingredient("second", "minecraft:stone");
+		var iconTemplate = ingredient("icon", "test:icon");
+		EmiIngredient icon = (EmiIngredient) java.lang.reflect.Proxy.newProxyInstance(
+			EmiIngredient.class.getClassLoader(), new Class<?>[]{EmiIngredient.class}, (proxy, method, args) -> {
+				if (method.getName().equals("render")) rendered.add("icon");
+				return null;
+			});
+		var iconEntry = new ViewerIngredient<>(iconTemplate.identity(), iconTemplate.kind(), icon, iconTemplate.view());
+		var universe = new ViewerIngredientUniverse<>(List.of(first, second, iconEntry));
+		var group = group("bees", "minecraft:stone");
+		var index = new EmiViewerGroupIndex(Runnable::run);
+		index.requestRebuild(1, universe, List.of(group)).join();
+		var matches = index.fullMatchItems(group.id());
+		var display = index.displaySnapshot();
+		index.updateSource(2, new ViewerIngredientUniverse<>(List.of()));
+		var edited = group.withIconIds(List.of(com.starskyxiii.collapsible_groups.group.GroupIconDefinition.item("test:icon")));
+		var preview = display.preview(edited).orElseThrow();
+		preview.headers().get(0).renderer().render(null, 0, 0);
+		assertEquals(List.of("icon"), rendered);
+		assertEquals(2, preview.headers().size());
+		assertEquals(2, preview.items().size());
+		assertSame(matches, index.fullMatchItems(group.id()));
+		assertEquals(2, display.preview(group.withIconIds(List.of(
+			com.starskyxiii.collapsible_groups.group.GroupIconDefinition.item("test:missing"))))
+			.orElseThrow().headers().size());
+	}
+
+	@Test void replacementSourceCannotPublishAnInFlightResultWithTheSameEpoch() {
+		var executor = new ControlledExecutor();
+		var index = new EmiViewerGroupIndex(executor);
+		var stone = group("stone", "minecraft:stone");
+		var old = new ViewerIngredientUniverse<>(List.of(ingredient("old", "minecraft:stone")));
+		var replacement = new ViewerIngredientUniverse<>(List.of(ingredient("new", "minecraft:stone")));
+		index.requestRebuild(1, old, List.of(stone));
+		index.updateSource(1, replacement);
+		executor.runNext();
+		assertTrue(index.candidates().isEmpty());
+		assertFalse(index.ready());
+		index.requestRebuild(1, replacement, List.of(stone));
+		executor.runNext();
+		assertEquals("new", index.fullMatchItems("stone").get(0).identity().valueId());
+	}
+
+	@Test void editsReuseOnlySameSourceGroupsAndReloadReevaluatesThem() {
+		var calls = new java.util.HashMap<String, Integer>();
+		var entry = new ViewerIngredient<>(new ViewerIngredientIdentity("item", "one"), ViewerIngredient.Kind.ITEM,
+			emiIngredient(), new IngredientView() {
+				public String ingredientType() { return "item"; }
+				public ResourceLocation resourceLocation() { return new ResourceLocation("test:one"); }
+				public boolean hasTag(ResourceLocation tag) { calls.merge(tag.getPath(), 1, Integer::sum); return true; }
+				public boolean matchesExactStack(String encoded) { return false; }
+			});
+		var universe = new ViewerIngredientUniverse<>(List.of(entry));
+		var stable = new GroupDefinition("stable", "stable", true, new GroupFilter.Tag("item", "test:stable"));
+		var edited = new GroupDefinition("edited", "edited", true, new GroupFilter.Tag("item", "test:before"));
+		var index = new EmiViewerGroupIndex(Runnable::run);
+		index.requestRebuild(1, universe, List.of(stable, edited)).join();
+		var retained = index.fullMatchItems("stable");
+		calls.clear();
+		edited = edited.withFilter(new GroupFilter.Tag("item", "test:after"));
+		var groups = List.of(stable, edited);
+		index.requestRebuild(1, universe, groups).join();
+		assertEquals(java.util.Map.of("after", 1), calls);
+		assertSame(retained, index.fullMatchItems("stable"));
+		assertEquals(List.of(entry), index.fullMatchItems("edited"));
+		calls.clear();
+		index.requestRebuild(1, universe, List.of(stable)).join();
+		assertTrue(calls.isEmpty());
+		assertTrue(index.fullMatchItems("edited").isEmpty());
+		index.requestRebuild(2, universe, groups).join();
+		assertEquals(java.util.Map.of("stable", 1, "after", 1), calls);
+		calls.clear();
+		index.requestRebuild(2, new ViewerIngredientUniverse<>(List.of(entry)), groups).join();
+		assertEquals(java.util.Map.of("stable", 1, "after", 1), calls);
+		calls.clear();
+		index.onGroupChange(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Kind.KUBEJS_REPLACE, groups);
+		assertEquals(java.util.Map.of("stable", 1, "after", 1), calls);
+	}
+
+	@Test void bootstrapFailureSettlesWaitersAndReloadCanRecover() {
+		ControlledExecutor executor = new ControlledExecutor();
+		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor);
+		var waiting = index.whenReady();
+		index.failRebuild(new IllegalStateException("bootstrap failed"));
+		assertTrue(waiting.isCompletedExceptionally());
+		assertTrue(index.displaySnapshot().failed());
+		assertFalse(index.displaySnapshot().pending());
+		index.reset();
+		var group = group("stone", "minecraft:stone");
+		var universe = new ViewerIngredientUniverse<>(List.of(ingredient("stone", "minecraft:stone")));
+		index.requestRebuild(2, universe, List.of(group));
+		executor.runNext();
+		assertTrue(index.ready());
+		assertFalse(index.displaySnapshot().failed());
+		assertTrue(index.displaySnapshot().preview(group).isPresent());
+	}
+
 	@Test void reloadGateHidesPublishedResultsAndRejectsLateBuilds() {
 		ControlledExecutor executor = new ControlledExecutor();
 		var loaded = new java.util.concurrent.atomic.AtomicBoolean(true);
@@ -31,7 +131,7 @@ class EmiViewerGroupIndexTest {
 		loaded.set(false);
 		assertFalse(index.ready());
 		assertTrue(index.candidates().isEmpty());
-		assertTrue(index.fullMatchSnapshot(group).isEmpty());
+		assertTrue(index.displaySnapshot().preview(group).isEmpty());
 		assertTrue(index.resolveOwnership(List.of(group)).isEmpty());
 		index.reset();
 		index.requestRebuild(2, universe, List.of(group));
@@ -161,7 +261,7 @@ class EmiViewerGroupIndexTest {
 		assertTrue(index.fullMatchItems("empty").isEmpty());
 		assertTrue(index.fullMatchFluids("empty").isEmpty());
 		assertTrue(index.fullMatchGeneric("empty").isEmpty());
-		assertTrue(index.fullMatchSnapshot(empty).isPresent());
+		assertTrue(index.displaySnapshot().preview(empty).isPresent());
 	}
 
 	@Test void transientProjectionStatesAreNeverMemoized() {

@@ -56,15 +56,15 @@ public final class GroupRepository {
 		}
 		Constants.LOG.info("[CollapsibleGroups] {} {} group definitions", accepted ? "Loaded" : "Retained",
 			SERVICE.managedRegistrationOrder().size());
-		publish(GroupChangeEvent.Kind.FULL);
+		publish(GroupChangeEvent.Kind.SOURCE_RELOAD);
 		return accepted;
 	}
 
-	public record ReadSnapshot(List<GroupDefinition> groups, GroupResourceData resources, boolean builtinsEnabled) {}
+	public record ReadSnapshot(List<GroupDefinition> groups, GroupResourceData resources, boolean builtinsEnabled, Map<String, GroupSource> winningSources) {}
 
 	public static ReadSnapshot readSnapshot() {
 		GroupService.ReadSnapshot current = SERVICE.readSnapshot();
-		return new ReadSnapshot(current.groups(), current.resources(), current.builtinsEnabled());
+		return new ReadSnapshot(current.groups(), current.resources(), current.builtinsEnabled(), current.winningSources());
 	}
 
 	public static GroupResourceData resourceData() { return SERVICE.resources(); }
@@ -274,7 +274,7 @@ public final class GroupRepository {
 		GroupOrigin origin = SERVICE.resources().origin(group.id());
 		if (origin == null) {
 			if (SERVICE.findById(group.id()).isPresent()) return false;
-			origin = GroupFileStore.create(group, GroupSource.USER, Services.PLATFORM.getConfigDir()).orElse(null);
+			origin = GroupFileStore.create(group, Services.PLATFORM.getConfigDir()).orElse(null);
 			if (origin == null) return false;
 		} else if (!GroupFileStore.save(group, origin, Services.PLATFORM.getConfigDir())) {
 			return false;
@@ -283,29 +283,8 @@ public final class GroupRepository {
 			SERVICE.builtinsEnabled());
 	}
 
-	public static synchronized boolean createLocalOverrideQuietly(String id) {
-		GroupDefinition group = findById(id).orElse(null);
-		if (group == null || group.documentFormat() == GroupDocumentFormat.UNSUPPORTED || SERVICE.resources().stale()) return false;
-		GroupSource source = sourceOf(id);
-		if (source == GroupSource.USER || source == GroupSource.OVERRIDE) return false;
-		GroupOrigin origin = GroupFileStore.create(group, GroupSource.OVERRIDE, Services.PLATFORM.getConfigDir()).orElse(null);
-		return origin != null && SERVICE.replaceManaged(SERVICE.resources().withDefinition(group, origin),
-			STORE.loadEnabledOverrides(), SERVICE.builtinsEnabled());
-	}
-
-	public static synchronized boolean restoreSourceQuietly(String id) {
-		if (sourceOf(id) != GroupSource.OVERRIDE) return false;
-		return deleteQuietlyInternal(id);
-	}
-
-	public static Optional<GroupDefinition> copyAsCustomQuietly(String sourceId, String copiedDisplayName) {
-		Optional<GroupDefinition> copied = createCustomCopyDraft(sourceId, copiedDisplayName);
-		if (copied.isEmpty()) return Optional.empty();
-		return saveQuietlyInternal(copied.get()) ? copied : Optional.empty();
-	}
-
 	public static Optional<GroupDefinition> createCustomCopyDraft(String sourceId, String copiedDisplayName) {
-		if (sourceId == null || sourceId.isBlank()) return Optional.empty();
+		if (sourceId == null || sourceId.isBlank() || sourceOf(sourceId) == GroupSource.USER) return Optional.empty();
 		return findById(sourceId).flatMap(source -> GroupCatalog.createCustomCopy(source, copiedDisplayName,
 			getAllIncludingScripted().stream().map(GroupDefinition::id).toList()));
 	}
@@ -352,6 +331,8 @@ public final class GroupRepository {
 		if (changed && findById(id).isEmpty()) GroupExpandState.remove(id);
 		return changed;
 	}
+
+	public static void notifySourceReload() { publish(GroupChangeEvent.Kind.SOURCE_RELOAD); }
 
 	public static void notifyViewer() { publish(GroupChangeEvent.Kind.FULL); }
 	public static void notifyStructureChanged() { publish(GroupChangeEvent.Kind.STRUCTURE); }

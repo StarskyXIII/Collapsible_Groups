@@ -15,7 +15,7 @@ class IronsApothicProviderContractTest {
 	@Test
 	void componentBasedProvidersAreNotPublishedByThe1201Slice() throws IOException {
 		JsonObject language = JsonParser.parseString(Files.readString(root().resolve(
-			"common/src/main/resources/assets/collapsible_groups/lang/en_us.json"))).getAsJsonObject();
+			"build/generated/group-language/assets/collapsible_groups/group_lang/en_us.json"))).getAsJsonObject();
 
 		assertFalse(language.keySet().stream().anyMatch(
 			key -> key.startsWith("collapsible_groups.group.__default_irons_apothic_gem_")));
@@ -39,7 +39,7 @@ class IronsApothicProviderContractTest {
 	@Test
 	void generatedLanguageStillContainsCommonProviders() throws IOException {
 		JsonObject language = JsonParser.parseString(Files.readString(root().resolve(
-			"common/src/main/resources/assets/collapsible_groups/lang/en_us.json"))).getAsJsonObject();
+			"build/generated/group-language/assets/collapsible_groups/group_lang/en_us.json"))).getAsJsonObject();
 		assertTrue(language.keySet().stream().anyMatch(key -> key.contains("__default_chipped_")));
 	}
 

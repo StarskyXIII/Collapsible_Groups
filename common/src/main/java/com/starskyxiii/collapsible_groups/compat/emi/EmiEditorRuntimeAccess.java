@@ -336,23 +336,31 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	}
 
 	@Override public CompletableFuture<Void> prepareEditorEntry(GroupDefinition definition) {
-		return adapter.prepareEditorIndex().thenRun(() -> index.prepareFullMatch(definition));
+		return adapter.prepareEditorIndex();
+	}
+
+	private java.util.Optional<EmiViewerGroupIndex.Generation> cachedGeneration(GroupDefinition definition) {
+		return index.readyGenerationSnapshot().filter(generation -> {
+			GroupDefinition indexed = generation.candidates().groupSnapshot().get(definition.id());
+			return indexed != null && indexed.filter().equals(definition.filter())
+				&& indexed.documentFormat() == definition.documentFormat();
+		});
 	}
 
 	@Override public List<ItemStack> cachedFullMatchItems(GroupDefinition definition) {
-		return index.fullMatchItems(definition.id()).stream().map(ViewerIngredient::entry)
-			.map(EmiIngredient::getEmiStacks).map(values -> values.get(0).getItemStack())
-			.filter(stack -> !stack.isEmpty()).toList();
+		return cachedGeneration(definition).map(g -> g.fullMatchItems().get(definition.id()).stream()
+			.map(ViewerIngredient::entry).map(EmiIngredient::getEmiStacks)
+			.map(values -> values.get(0).getItemStack()).filter(stack -> !stack.isEmpty()).toList()).orElse(null);
 	}
 
-	@Override public List<EditorFluidIngredientView> cachedFullMatchFluids(GroupDefinition definition,
-		String traceName) { return fluidViews(index.fullMatchFluids(definition.id())); }
+	@Override public List<EditorFluidIngredientView> cachedFullMatchFluids(GroupDefinition definition, String traceName) {
+		return cachedGeneration(definition).map(g -> fluidViews(g.fullMatchFluids().get(definition.id()))).orElse(null);
+	}
 
-	@Override public List<EditorGenericIngredientView> cachedFullMatchGeneric(GroupDefinition definition,
-		String traceName) { return genericViews(index.fullMatchGeneric(definition.id())); }
+	@Override public List<EditorGenericIngredientView> cachedFullMatchGeneric(GroupDefinition definition, String traceName) {
+		return cachedGeneration(definition).map(g -> genericViews(g.fullMatchGeneric().get(definition.id()))).orElse(null);
+	}
 
-	@Override public void invalidateFullMatchCache(String id) { index.invalidateFullMatch(id); }
-	@Override public void populateFullMatchCacheFromSaved(GroupDefinition definition) { index.prepareFullMatch(definition); }
 	@Override public boolean verifyItemIndex() { return false; }
 	@Override public long beginTrace() { return System.nanoTime(); }
 	@Override public void logIfSlow(String name, long startedAt, long thresholdMillis, String details) {
@@ -371,8 +379,8 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 		return GroupRepository.generateUniqueIdIncludingScripted(name);
 	}
 	@Override public void notifyViewer() { GroupRepository.notifyViewer(); }
-	@Override public void setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
-		GroupRepository.setEnabledQuietlyWithoutEvent(id, enabled);
+	@Override public boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
+		return GroupRepository.setEnabledQuietlyWithoutEvent(id, enabled);
 	}
 
 	@Override public List<PreviewEntry> resolveHeaderIcons(List<GroupIconDefinition> iconIds,

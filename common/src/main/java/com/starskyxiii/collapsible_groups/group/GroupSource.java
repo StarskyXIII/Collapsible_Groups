@@ -6,7 +6,6 @@ public enum GroupSource {
 	USER,
 	BUILTIN,
 	RESOURCE_PACK,
-	OVERRIDE,
 	KUBEJS;
 
 	public static GroupSource fromGroupId(String groupId) {

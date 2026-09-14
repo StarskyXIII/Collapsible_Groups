@@ -26,6 +26,21 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class FabricPlatformHelper implements IPlatformHelper {
+    @Override
+    public List<PackResources> languageResourcePacks(ResourceManager manager) {
+        List<PackResources> result = new ArrayList<>();
+        try (var packs = manager.listPacks()) {
+            packs.forEach(pack -> {
+                if (pack instanceof GroupResourcePack) {
+                    result.addAll(((MixinGroupResourcePackAccessor) pack).cg$getPacks());
+                } else {
+                    result.add(pack);
+                }
+            });
+        }
+        return List.copyOf(result);
+    }
+
 
     @Override
     public List<PackResources> groupResourcePacks(ResourceManager manager) {

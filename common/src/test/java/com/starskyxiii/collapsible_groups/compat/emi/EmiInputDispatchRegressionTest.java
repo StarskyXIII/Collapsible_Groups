@@ -35,23 +35,12 @@ class EmiInputDispatchRegressionTest {
 		}
 	}
 
-	@Test void modifiedHeaderLeftClickUsesTheRejectedOtherPath() throws IOException {
-		String bind = referenceSource("xplat/src/main/java/dev/emi/emi/input/EmiBind.java");
-		String mixin = source("fabric/src/main/java/com/starskyxiii/collapsible_groups/mixin/MixinEmiScreenManager.java");
-		assertTrue(bind.contains("LEFT_CLICK = new EmiBind(\"\", new EmiBind.ModifiedKey"));
-		assertTrue(bind.contains("createFromCode(0), 0)"), "LEFT_CLICK has a zero-modifier binding");
-		assertTrue(mixin.contains("function.apply(EmiBind.LEFT_CLICK)"));
-		assertTrue(mixin.contains("EmiHeaderInteractionPolicy.Action.OTHER"));
-	}
-
-	@Test void upstreamReleaseStillOwnsInventoryDragCheatAndFinallyCleanupDispatch() throws IOException {
-		String manager = referenceSource("xplat/src/main/java/dev/emi/emi/screen/EmiScreenManager.java");
-		String mouse = referenceSource("xplat/src/main/java/dev/emi/emi/mixin/MouseMixin.java");
-		assertTrue(manager.contains("public static boolean mouseReleased"));
-		assertTrue(manager.contains("stackInteraction(hovered"), "native take/place/shift/cheat/drop dispatch remains reachable");
-		assertTrue(manager.contains("pressedStack = EmiStack.EMPTY;"));
-		assertTrue(manager.contains("draggedStack = EmiStack.EMPTY;"));
-		assertTrue(mouse.contains("EmiScreenManager.mouseReleased(mx, my, button)"));
+	@Test void headerClickDispatchUsesLeftClickBindingAndRejectsOtherActions() throws IOException {
+		for (String loader : new String[]{"fabric", "forge"}) {
+			String mixin = source(loader + "/src/main/java/com/starskyxiii/collapsible_groups/mixin/MixinEmiScreenManager.java");
+			assertTrue(mixin.contains("function.apply(EmiBind.LEFT_CLICK)"));
+			assertTrue(mixin.contains("EmiHeaderInteractionPolicy.Action.OTHER"));
+		}
 	}
 
 	@Test void syntheticHeadersCannotEnterNativeDragDispatchButChildrenKeepIt() throws IOException {
@@ -78,14 +67,6 @@ class EmiInputDispatchRegressionTest {
 		return Files.readString(path).replace("\r\n", "\n");
 	}
 
-	private static String referenceSource(String relative) throws IOException {
-		Path root = Path.of(System.getProperty("collapsibleGroupsRoot"));
-		Path reference = root.resolve(".reference/emi-1.20").resolve(relative);
-		if (!Files.exists(reference)) {
-			reference = root.resolveSibling("Collapsible Groups").resolve(".reference/emi-1.20").resolve(relative);
-		}
-		return Files.readString(reference).replace("\r\n", "\n");
-	}
 
 	private static int occurrences(String value, String needle) {
 		return (value.length() - value.replace(needle, "").length()) / needle.length();

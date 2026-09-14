@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.command;
 
-import com.google.gson.JsonParser;
+import com.starskyxiii.collapsible_groups.i18n.GroupLanguageResources;
+import com.starskyxiii.collapsible_groups.i18n.LanguageJson;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 
@@ -47,10 +48,10 @@ public final class TargetLocaleEntries {
         List<String> sources = new ArrayList<>();
         for (String namespace : manager.getNamespaces()) {
             ResourceLocation location = new ResourceLocation(namespace, "lang/" + locale + ".json");
-            for (var resource : manager.getResourceStack(location)) {
-                String source = resource.sourcePackId() + ":" + location;
-                try (Reader reader = resource.openAsReader()) {
-                    entries.putAll(parse(reader, source));
+            for (var entry : GroupLanguageResources.ordered(manager, location)) {
+                String source = entry.source();
+                try (Reader reader = entry.resource().openAsReader()) {
+                    entries.putAll(LanguageJson.parse(reader, source));
                     sources.add(source);
                 }
             }
@@ -58,26 +59,10 @@ public final class TargetLocaleEntries {
         Path overlay = overlayDirectory.toAbsolutePath().normalize().resolve(locale + ".json");
         byte[] bytes = readOptional(overlay);
         if (bytes != null) {
-            entries.putAll(parse(new StringReader(new String(bytes, StandardCharsets.UTF_8)), overlay.toString()));
+            entries.putAll(LanguageJson.parse(new StringReader(new String(bytes, StandardCharsets.UTF_8)), overlay.toString()));
             sources.add(overlay.toString());
         }
         return new Snapshot(entries, sources, overlay, bytes);
-    }
-
-    public static Map<String, String> parse(Reader reader, String source) throws IOException {
-        try {
-            var object = JsonParser.parseReader(reader).getAsJsonObject();
-            Map<String, String> values = new LinkedHashMap<>();
-            for (var entry : object.entrySet()) {
-                if (!entry.getValue().isJsonPrimitive() || !entry.getValue().getAsJsonPrimitive().isString()) {
-                    throw new IOException("Language entry is not a string: " + source + " / " + entry.getKey());
-                }
-                values.put(entry.getKey(), entry.getValue().getAsString());
-            }
-            return values;
-        } catch (RuntimeException failure) {
-            throw new IOException("Cannot parse target language: " + source, failure);
-        }
     }
 
     private static byte[] readOptional(Path file) throws IOException {

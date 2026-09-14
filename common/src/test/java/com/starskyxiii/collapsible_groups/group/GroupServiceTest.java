@@ -183,7 +183,8 @@ class GroupServiceTest {
 		Files.writeString(unusableConfigRoot, "not a directory");
 		System.setProperty(TestPlatformHelper.CONFIG_DIR_PROPERTY, unusableConfigRoot.toString());
 
-		assertTrue(GroupRepository.copyAsCustomQuietly(builtin.id(), "Copy").isEmpty());
+		GroupDefinition draft = GroupRepository.createCustomCopyDraft(builtin.id(), "Copy").orElseThrow();
+		assertFalse(GroupRepository.saveQuietlyChecked(draft));
 
 		assertEquals(List.of(builtin), GroupRepository.getAll());
 	}

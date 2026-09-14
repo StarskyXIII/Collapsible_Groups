@@ -22,6 +22,25 @@ import net.minecraftforge.fluids.FluidStack;
 import java.nio.file.Path;
 
 public class ForgePlatformHelper implements IPlatformHelper {
+    @Override
+    public java.util.List<net.minecraft.server.packs.PackResources> languageResourcePacks(
+        net.minecraft.server.packs.resources.ResourceManager manager) {
+        java.util.List<net.minecraft.server.packs.PackResources> result = new java.util.ArrayList<>();
+        try (var packs = manager.listPacks()) {
+            packs.forEach(pack -> {
+                var children = pack.getChildren();
+                if (children == null) {
+                    result.add(pack);
+                } else {
+                    var ordered = new java.util.ArrayList<>(children);
+                    java.util.Collections.reverse(ordered);
+                    result.addAll(ordered);
+                }
+            });
+        }
+        return java.util.List.copyOf(result);
+    }
+
 
     @Override
     public java.util.List<net.minecraft.server.packs.PackResources> groupResourcePacks(

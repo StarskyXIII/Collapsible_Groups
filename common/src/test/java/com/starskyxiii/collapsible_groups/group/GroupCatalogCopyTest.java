@@ -1,29 +1,22 @@
-package com.starskyxiii.collapsible_groups.compat.jei.runtime;
+package com.starskyxiii.collapsible_groups.group;
 
 import com.google.gson.JsonObject;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
-import com.starskyxiii.collapsible_groups.group.GroupDefinition;
-import com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess;
-import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
-import java.lang.reflect.Field;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-class GroupRegistryCopyAsCustomTest {
+class GroupCatalogCopyTest {
 	@AfterEach
-	void resetRegistryState() throws Exception {
-		replaceRegistrySnapshot(List.of());
-		KubeJsGroupStore.clearAll();
+	void resetRegistryState() {
+		GroupRepositoryTestAccess.replace(List.of());
 	}
 
 	@Test
@@ -42,11 +35,7 @@ class GroupRegistryCopyAsCustomTest {
 			extra
 		);
 
-		if (source.id().startsWith("__kjs_")) {
-            GroupRepositoryTestAccess.replace(List.of());
-            com.starskyxiii.collapsible_groups.group.GroupRepository.setScriptedGroups(List.of(source));
-        } else GroupRepositoryTestAccess.replace(List.of(source));
-        GroupDefinition copied = GroupRegistry.createCustomCopy(
+        GroupDefinition copied = GroupCatalog.createCustomCopy(
 			source,
 			"Stone Family Copy",
 			List.of(source.id())
@@ -74,11 +63,7 @@ class GroupRegistryCopyAsCustomTest {
 			Filters.itemId("minecraft:diamond")
 		);
 
-		if (source.id().startsWith("__kjs_")) {
-            GroupRepositoryTestAccess.replace(List.of());
-            com.starskyxiii.collapsible_groups.group.GroupRepository.setScriptedGroups(List.of(source));
-        } else GroupRepositoryTestAccess.replace(List.of(source));
-        GroupDefinition copied = GroupRegistry.createCustomCopy(
+        GroupDefinition copied = GroupCatalog.createCustomCopy(
 			source,
 			"Scripted Group Copy",
 			List.of(source.id())
@@ -99,8 +84,9 @@ class GroupRegistryCopyAsCustomTest {
 			Filters.itemId("minecraft:stone")
 		);
 
-		assertEquals(Optional.empty(), GroupRegistry.createCustomCopy(user, "Copy", List.of(user.id())));
-		assertEquals(Optional.empty(), GroupRegistry.createCustomCopy(null, "Copy", List.of()));
+		GroupRepositoryTestAccess.replace(List.of(user));
+		assertEquals(Optional.empty(), GroupRepository.createCustomCopyDraft(user.id(), "Copy"));
+		assertEquals(Optional.empty(), GroupCatalog.createCustomCopy(null, "Copy", List.of()));
 	}
 
 	@Test
@@ -112,11 +98,7 @@ class GroupRegistryCopyAsCustomTest {
 			Filters.itemId("minecraft:stone")
 		);
 
-		if (source.id().startsWith("__kjs_")) {
-            GroupRepositoryTestAccess.replace(List.of());
-            com.starskyxiii.collapsible_groups.group.GroupRepository.setScriptedGroups(List.of(source));
-        } else GroupRepositoryTestAccess.replace(List.of(source));
-        GroupDefinition copied = GroupRegistry.createCustomCopy(
+        GroupDefinition copied = GroupCatalog.createCustomCopy(
 			source,
 			"Stone Family Copy",
 			List.of(source.id(), "stone_family_copy", "stone_family_copy_2")
@@ -126,25 +108,25 @@ class GroupRegistryCopyAsCustomTest {
 	}
 
 	@Test
-	void createsCopyDraftWithoutSavingItToRegistry() throws Exception {
+	void createsCopyDraftWithoutSavingItToRegistry() {
 		GroupDefinition source = new GroupDefinition(
 			"__default_stone_family",
 			"Stone Family",
 			true,
 			Filters.itemId("minecraft:stone")
 		);
-		replaceRegistrySnapshot(List.of(source));
+		GroupRepositoryTestAccess.replace(List.of(source));
 
-		GroupDefinition draft = GroupRegistry.createCustomCopyDraft(source.id(), "Stone Family Copy").orElseThrow();
+		GroupDefinition draft = GroupRepository.createCustomCopyDraft(source.id(), "Stone Family Copy").orElseThrow();
 
 		assertEquals("stone_family_copy", draft.id());
 		assertEquals("Stone Family Copy", draft.displayName().fallback());
-		assertTrue(GroupRegistry.findById(source.id()).isPresent());
-		assertTrue(GroupRegistry.findById(draft.id()).isEmpty());
+		assertTrue(GroupRepository.findById(source.id()).isPresent());
+		assertTrue(GroupRepository.findById(draft.id()).isEmpty());
 	}
 
 	@Test
-	void copyDraftUsesUniqueIdWithoutSavingCollisionCandidate() throws Exception {
+	void copyDraftUsesUniqueIdWithoutSavingCollisionCandidate() {
 		GroupDefinition source = new GroupDefinition(
 			"__default_stone_family",
 			"Stone Family",
@@ -157,15 +139,12 @@ class GroupRegistryCopyAsCustomTest {
 			true,
 			Filters.itemId("minecraft:cobblestone")
 		);
-		replaceRegistrySnapshot(List.of(source, existingCopy));
+		GroupRepositoryTestAccess.replace(List.of(source, existingCopy));
 
-		GroupDefinition draft = GroupRegistry.createCustomCopyDraft(source.id(), "Stone Family Copy").orElseThrow();
+		GroupDefinition draft = GroupRepository.createCustomCopyDraft(source.id(), "Stone Family Copy").orElseThrow();
 
 		assertEquals("stone_family_copy_2", draft.id());
-		assertTrue(GroupRegistry.findById(draft.id()).isEmpty());
+		assertTrue(GroupRepository.findById(draft.id()).isEmpty());
 	}
 
-	private static void replaceRegistrySnapshot(List<GroupDefinition> groups) throws Exception {
-		GroupRepositoryTestAccess.replace(groups);
-	}
 }

@@ -12,6 +12,6 @@ public record GroupOrigin(GroupSource source, String sourceId, String location, 
     }
 
     public boolean locallyOwned() {
-        return file != null && (source == GroupSource.USER || source == GroupSource.OVERRIDE);
+        return file != null && source == GroupSource.USER;
     }
 }

@@ -1,157 +1,138 @@
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.GradleException
-import org.junit.jupiter.api.BeforeEach
 import org.junit.jupiter.api.Test
 import org.junit.jupiter.api.io.TempDir
-
-import java.nio.file.Files
 import java.nio.file.Path
-import java.util.concurrent.Executors
-
 import static org.junit.jupiter.api.Assertions.*
 
 class BuiltinGroupDataTest {
     @TempDir Path temporary
-    File root
-    File english
-    File manifest
-    File lock
 
-    @BeforeEach void setUp() {
-        root = temporary.resolve('definitions').toFile()
-        root.mkdirs()
-        english = temporary.resolve('en_us.json').toFile()
-        manifest = temporary.resolve('ownership.json').toFile()
-        lock = temporary.resolve('generation.lock').toFile()
-        write(english, ['collapsible_groups.ui.manual': 'Manual'])
-        write(manifest, [version: 1, keys: [], sha256: BuiltinGroupData.digest([:])])
+    @Test void languageIsDeterministicAndNeverChangesUiInput() {
+        File root = temporary.resolve('definitions').toFile()
+        File ui = temporary.resolve('ui.json').toFile()
+        File output = temporary.resolve('generated/en_us.json').toFile()
+        write(ui, ['ui.title': 'Title'])
+        File first = definition(root, 'first', 'First')
+        definition(root, 'second', 'Second')
+        byte[] originalUi = ui.bytes
+        BuiltinGroupData.language(root, ui, output)
+        byte[] generated = output.bytes
+        BuiltinGroupData.language(root, ui, output)
+        assertArrayEquals(generated, output.bytes)
+        assertArrayEquals(originalUi, ui.bytes)
+        assertFalse(object(output).containsKey('ui.title'))
+        first.delete()
+        BuiltinGroupData.language(root, ui, output)
+        assertEquals(['collapsible_groups.group.second': 'Second'], object(output))
     }
 
-    @Test void deterministicGenerationPreservesManualEntriesAndOnlyRemovesOwnedKeys() {
-        File first = definition('first', 'First')
-        definition('second', 'Second')
-        Map report = generate()
-        assertEquals([definitions: 2, generatedKeys: 2, deduplicatedKeys: 0, conflicts: 0, missing: 0], report)
-        byte[] previousLanguage = english.bytes
-        byte[] previousManifest = manifest.bytes
-        long modified = english.lastModified()
-        generate()
-        assertArrayEquals(previousLanguage, english.bytes)
-        assertArrayEquals(previousManifest, manifest.bytes)
-        assertEquals(modified, english.lastModified())
-        assertFalse(english.text.contains(temporary.toString()))
-        assertFalse(manifest.text.contains(temporary.toString()))
-        Map manualEdit = object(english)
-        manualEdit['collapsible_groups.ui.manual'] = 'Revised manual text'
-        manualEdit['collapsible_groups.group.manual'] = 'Manually owned group'
-        write(english, manualEdit)
-        Files.delete(first.toPath())
-        generate()
-        assertEquals(['collapsible_groups.ui.manual': 'Revised manual text',
-            'collapsible_groups.group.manual': 'Manually owned group',
-            'collapsible_groups.group.second': 'Second'], object(english))
-        assertEquals(['collapsible_groups.group.second'], object(manifest).keys)
+    @Test void conflictingFallbackOrUiCollisionLeavesExistingOutputIntact() {
+        File root = temporary.resolve('definitions').toFile()
+        File ui = temporary.resolve('ui.json').toFile()
+        File output = temporary.resolve('generated.json').toFile()
+        write(ui, [:])
+        definition(root, 'first', 'Shared', 'collapsible_groups.group.shared')
+        File second = definition(root, 'second', 'Shared', 'collapsible_groups.group.shared')
+        BuiltinGroupData.language(root, ui, output)
+        assertEquals(1, object(output).size())
+        byte[] before = output.bytes
+        definition(root, 'second', 'Conflict', 'collapsible_groups.group.shared')
+        assertThrows(GradleException) { BuiltinGroupData.language(root, ui, output) }
+        assertArrayEquals(before, output.bytes)
+        second.delete()
+        write(ui, ['collapsible_groups.group.shared': 'UI collision'])
+        assertThrows(GradleException) { BuiltinGroupData.language(root, ui, output) }
+        assertArrayEquals(before, output.bytes)
     }
 
-    @Test void sameValueCollisionCannotClaimManuallyOwnedKey() {
-        write(english, ['collapsible_groups.group.first': 'First'])
-        definition('first', 'First')
-        byte[] before = english.bytes
-        assertThrows(GradleException) { generate() }
-        assertArrayEquals(before, english.bytes)
-        assertEquals([], object(manifest).keys)
-    }
-
-    @Test void missingOrCorruptOwnershipStateNeverDeletesLanguageEntries() {
-        definition('first', 'First')
-        generate()
-        byte[] language = english.bytes
-        byte[] ownership = manifest.bytes
-        Files.delete(manifest.toPath())
-        assertThrows(GradleException) { generate() }
-        assertArrayEquals(language, english.bytes)
-        manifest.bytes = ownership
-        Map corrupted = object(manifest)
-        corrupted.sha256 = 'not-the-owned-projection'
-        write(manifest, corrupted)
-        assertThrows(GradleException) { generate() }
-        assertArrayEquals(language, english.bytes)
-        manifest.bytes = ownership
-        Map changed = object(english)
-        changed['collapsible_groups.group.first'] = 'Unexpected generated edit'
-        write(english, changed)
-        assertThrows(GradleException) { generate() }
-        assertEquals(changed, object(english))
-    }
-
-    @Test void duplicateIdsMissingNamesExternalKeysAndConflictingFallbacksFail() {
-        File first = definition('first', 'First')
-        File second = definition('second', 'Second')
-        Map value = object(second)
-        value.id = 'first'
-        write(second, value)
-        assertThrows(GradleException) { generate() }
-        value.id = 'second'
-        value.name.translate = 'collapsible_groups.group.first'
-        write(second, value)
-        assertThrows(GradleException) { generate() }
-        value.name.translate = 'third_party.group'
-        write(second, value)
-        assertThrows(GradleException) { generate() }
-        value.name = [:]
-        write(second, value)
-        assertThrows(GradleException) { generate() }
-        assertTrue(object(manifest).keys.isEmpty())
-        assertTrue(first.isFile())
-    }
-
-    @Test void identicalSharedKeysDeduplicateAndConcurrentCallersKeepOneValidPair() {
-        definition('first', 'Shared', 'collapsible_groups.group.shared')
-        definition('second', 'Shared', 'collapsible_groups.group.shared')
-        def executor = Executors.newFixedThreadPool(2)
-        try {
-            def futures = (1..2).collect { executor.submit({ generate() } as java.util.concurrent.Callable<Map>) }
-            futures.each { assertEquals(1, it.get().deduplicatedKeys) }
-        } finally { executor.shutdownNow() }
-        assertEquals(['collapsible_groups.group.shared'], object(manifest).keys)
-        assertEquals(BuiltinGroupData.digest(['collapsible_groups.group.shared': 'Shared']), object(manifest).sha256)
-    }
-
-    @Test void resourceCatalogUsesStablePathsAndRemovesOnlyStaleGeneratedResources() {
-        File first = definition('first', 'First')
-        definition('second', 'Second')
+    @Test void catalogSortsPathsAndRemovesStaleGeneratedResources() {
+        File root = temporary.resolve('definitions').toFile()
+        File second = definition(root, 'second', 'Second')
+        definition(root, 'first', 'First')
         File destination = temporary.resolve('generated').toFile()
-        BuiltinGroupData.resources([root], destination)
+        BuiltinGroupData.resources(root, destination)
         File catalog = new File(destination, 'assets/collapsible_groups/builtin_catalog.json')
         assertEquals(['first', 'second'], object(catalog).groups.collect { it.id })
-        Files.delete(first.toPath())
-        BuiltinGroupData.resources([root], destination)
-        assertEquals(['second'], object(catalog).groups.collect { it.id })
-        assertFalse(new File(destination, 'assets/collapsible_groups/collapsible_groups/groups/first.json').exists())
+        second.delete()
+        BuiltinGroupData.resources(root, destination)
+        assertEquals(['first'], object(catalog).groups.collect { it.id })
+        assertFalse(new File(destination, 'assets/collapsible_groups/groups/sample/second.json').exists())
     }
 
-    @Test void verificationReportsDriftWithoutUpdatingCommittedFiles() {
-        File first = definition('first', 'First')
-        generate()
-        File workspace = temporary.resolve('verification').toFile()
-        BuiltinGroupData.verifyLanguage([root], english, manifest, workspace)
-        byte[] language = english.bytes
-        byte[] ownership = manifest.bytes
-        Map changed = object(first)
-        changed.name.fallback = 'Changed'
-        write(first, changed)
-        assertThrows(GradleException) { BuiltinGroupData.verifyLanguage([root], english, manifest, workspace) }
-        assertArrayEquals(language, english.bytes)
-        assertArrayEquals(ownership, manifest.bytes)
-        assertEquals(0, workspace.listFiles().length)
+    @Test void metadataSelectsLoadersAndRemovesResourcesWhenMembershipChanges() {
+        File root = temporary.resolve('definitions').toFile()
+        definition(root, 'shared', 'Shared')
+        definition(root, 'restricted', 'Restricted', null, 'restricted', ['fabric', 'neoforge'])
+        File destination = temporary.resolve('generated').toFile()
+        File catalog = new File(destination, 'assets/collapsible_groups/builtin_catalog.json')
+        BuiltinGroupData.resources(root, destination, 'fabric')
+        assertEquals(['restricted', 'shared'], object(catalog).groups.collect { it.id })
+        assertFalse(new File(destination, 'assets/collapsible_groups/groups/restricted/metadata.json').exists())
+        BuiltinGroupData.resources(root, destination, 'forge')
+        assertEquals(['shared'], object(catalog).groups.collect { it.id })
+        assertFalse(new File(destination, 'assets/collapsible_groups/groups/restricted/restricted.json').exists())
+        BuiltinGroupData.resources(root, destination, 'neoforge')
+        write(new File(root, 'restricted/metadata.json'), [loaders: ['fabric']])
+        BuiltinGroupData.resources(root, destination, 'neoforge')
+        assertEquals(['shared'], object(catalog).groups.collect { it.id })
+        assertFalse(new File(destination, 'assets/collapsible_groups/groups/restricted/restricted.json').exists())
+        BuiltinGroupData.resources(root, destination)
+        assertEquals(['restricted', 'shared'], object(catalog).groups.collect { it.id })
     }
 
-    private Map generate() { BuiltinGroupData.language([root], english, manifest, lock) }
+    @Test void invalidMetadataAndNestedDefinitionsLeavePublishedResourcesIntact() {
+        File root = temporary.resolve('definitions').toFile()
+        File source = definition(root, 'group', 'Group')
+        File metadata = new File(source.parentFile, 'metadata.json')
+        File destination = temporary.resolve('generated').toFile()
+        BuiltinGroupData.resources(root, destination, 'fabric')
+        File catalog = new File(destination, 'assets/collapsible_groups/builtin_catalog.json')
+        byte[] before = catalog.bytes
+        [[:], [loaders: []], [loaders: 'fabric'], [loaders: ['common']], [loaders: [1]],
+            [loaders: ['fabric', 'fabric']], [loaders: ['fabric'], unknown: true]].each { invalid ->
+            write(metadata, invalid)
+            assertThrows(GradleException) { BuiltinGroupData.resources(root, destination, 'fabric') }
+            assertArrayEquals(before, catalog.bytes)
+        }
+        metadata.delete()
+        assertThrows(GradleException) { BuiltinGroupData.resources(root, destination, 'fabric') }
+        assertArrayEquals(before, catalog.bytes)
+        write(metadata, [loaders: ['fabric']])
+        File nested = new File(source.parentFile, 'nested/group.json')
+        nested.parentFile.mkdirs()
+        nested.bytes = source.bytes
+        assertThrows(GradleException) { BuiltinGroupData.resources(root, destination, 'fabric') }
+        assertArrayEquals(before, catalog.bytes)
+    }
 
-    private File definition(String id, String fallback, String key = null) {
-        File file = new File(root, "assets/collapsible_groups/collapsible_groups/groups/${id}.json")
+    @Test void emptyLoaderSelectionDoesNotReplacePublishedResources() {
+        File root = temporary.resolve('definitions').toFile()
+        File source = definition(root, 'group', 'Group')
+        File destination = temporary.resolve('generated').toFile()
+        BuiltinGroupData.resources(root, destination, 'forge')
+        File catalog = new File(destination, 'assets/collapsible_groups/builtin_catalog.json')
+        File packaged = new File(destination, 'assets/collapsible_groups/groups/sample/group.json')
+        byte[] catalogBefore = catalog.bytes
+        byte[] groupBefore = packaged.bytes
+        write(new File(source.parentFile, 'metadata.json'), [loaders: ['fabric']])
+        assertThrows(GradleException) { BuiltinGroupData.resources(root, destination, 'forge') }
+        assertArrayEquals(catalogBefore, catalog.bytes)
+        assertArrayEquals(groupBefore, packaged.bytes)
+        File empty = temporary.resolve('empty').toFile()
+        empty.mkdirs()
+        assertThrows(GradleException) { BuiltinGroupData.resources(empty, destination, 'forge') }
+        assertArrayEquals(catalogBefore, catalog.bytes)
+        assertArrayEquals(groupBefore, packaged.bytes)
+    }
+
+    private static File definition(File root, String id, String fallback, String key = null,
+        String category = 'sample', List<String> loaders = ['fabric', 'forge', 'neoforge']) {
+        File file = new File(root, "${category}/${id}.json")
         file.parentFile.mkdirs()
+        File metadata = new File(file.parentFile, 'metadata.json')
+        if (!metadata.exists()) write(metadata, [loaders: loaders])
         write(file, [schema_version: 1, id: id, name: [translate: key ?: "collapsible_groups.group.${id}".toString(), fallback: fallback],
             filter: [type: 'item', id: 'minecraft:stone']])
         file

@@ -436,16 +436,7 @@ public class GroupEditorScreen extends Screen {
 		if (!showDisableSourceOption() || checkbox == null || label == null) return;
 
 		boolean hovered = disableSourceOptionContains(mouseX, mouseY);
-		g.fill(checkbox.x(), checkbox.y(), checkbox.right(), checkbox.bottom(), UiPalette.OUTLINE_DARK);
-		g.fill(checkbox.x() + 2, checkbox.y() + 2, checkbox.right() - 2, checkbox.bottom() - 2,
-			disableSourceAfterCopy ? UiPalette.OUTLINE_SELECTED : UiPalette.SURFACE_DARK);
-		if (hovered) {
-			UiSkinRenderer.drawOutline(g, checkbox.x(), checkbox.y(), checkbox.width(), checkbox.height(),
-				UiPalette.OUTLINE_HOVER);
-		}
-		if (disableSourceAfterCopy) {
-			renderCheckboxMark(g, checkbox);
-		}
+		UiSkinRenderer.drawCheckbox(g, checkbox.x(), checkbox.y(), disableSourceAfterCopy, hovered);
 
 		String text = disableSourceLabel().getString();
 		String clipped = font.plainSubstrByWidth(text, Math.max(0, label.width()));
@@ -462,15 +453,7 @@ public class GroupEditorScreen extends Screen {
 		return true;
 	}
 
-	private void renderCheckboxMark(GuiGraphics g, EditorShellLayout.Rect checkbox) {
-		int color = UiPalette.TEXT_SELECTED;
-		int x = checkbox.x();
-		int y = checkbox.y();
-		g.fill(x + 3, y + 7, x + 5, y + 9, color);
-		g.fill(x + 5, y + 9, x + 7, y + 11, color);
-		g.fill(x + 7, y + 6, x + 9, y + 9, color);
-		g.fill(x + 9, y + 4, x + 11, y + 7, color);
-	}
+
 
 	private void renderShellPanels(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
 		UiSkinRenderer.drawPanel(g, shell.editorPanel().x(), shell.editorPanel().y(),
@@ -486,13 +469,12 @@ public class GroupEditorScreen extends Screen {
 			renderSettingsPanel(g, mouseX, mouseY);
 		}
 		renderPreviewPanel(g, mouseX, mouseY);
-		if (editorDataLoading) {
-			Component loading = Component.translatable(ModTranslationKeys.EDITOR_LOADING);
-			g.drawCenteredString(font, loading,
-				(shell.editorPanel().x() + shell.previewPanel().right()) / 2,
-				shell.editorPanel().y() + shell.editorPanel().height() / 2,
-				UiPalette.TEXT_HINT);
-		}
+	}
+
+	private void renderLoading(GuiGraphics g, EditorShellLayout.Rect area) {
+		g.drawCenteredString(font, Component.translatable(ModTranslationKeys.EDITOR_LOADING),
+			area.x() + area.width() / 2, area.y() + (area.height() - font.lineHeight) / 2,
+			UiPalette.TEXT_HINT);
 	}
 
 	private void renderModeSegments(GuiGraphics g, int mouseX, int mouseY) {
@@ -512,7 +494,12 @@ public class GroupEditorScreen extends Screen {
 		renderHideUsedButton(g, mouseX, mouseY);
 
 		renderSourceCount(g);
-		leftPanel.render(g, mouseX, mouseY, layout);
+		if (editorDataLoading) {
+			renderLoading(g, new EditorShellLayout.Rect(layout.leftGridX(), layout.gridTop(),
+				layout.leftGridWidth(), layout.gridHeight()));
+		} else {
+			leftPanel.render(g, mouseX, mouseY, layout);
+		}
 		renderOreScrollbar(g, layout.leftScrollbarX(), layout.gridTop(), layout.gridHeight(),
 			layout.leftRows(), leftPanel.totalRows(layout), leftPanel.scrollRow);
 	}
@@ -599,7 +586,9 @@ public class GroupEditorScreen extends Screen {
 		boolean blockPreviewHover = activeMode == EditorShellMode.RULES && rulesPanel.isModalOpen();
 		int panelMouseX = blockPreviewHover ? Integer.MIN_VALUE : mouseX;
 		int panelMouseY = blockPreviewHover ? Integer.MIN_VALUE : mouseY;
-		if (previewEntryCount() == 0) {
+		if (editorDataLoading && activeMode == EditorShellMode.RULES) {
+			renderLoading(g, shell.previewBody());
+		} else if (previewEntryCount() == 0) {
 			renderPreviewEmptyState(g);
 		} else {
 			rightPanel.render(g, panelMouseX, panelMouseY, previewLayout);
@@ -622,6 +611,11 @@ public class GroupEditorScreen extends Screen {
 		}
 
 		EditorShellLayout.Rect area = settingsPreviewAreaRect();
+		if (editorDataLoading) {
+			settingsPreviewLayout = null;
+			renderLoading(g, area);
+			return;
+		}
 		List<EditorRuntimeAccess.PreviewEntry> entries = settingsPreviewEntries();
 		settingsPreviewLayout = EditorRuntimeServices.get().renderPreview(g, sampleRect(area), settingsPreviewExpanded,
 			settingsPreviewPage, state.appearanceDraft, settingsSampleHeaderIcons(entries), entries,
@@ -1063,6 +1057,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private boolean handleSettingsPreviewClick(double mouseX, double mouseY) {
+		if (editorDataLoading) return false;
 		EditorRuntimeAccess.PreviewLayout layout = settingsPreviewLayout != null
 			? settingsPreviewLayout
 			: EditorRuntimeServices.get().layoutPreview(sampleRect(settingsPreviewAreaRect()), settingsPreviewExpanded,
@@ -1415,18 +1410,19 @@ public class GroupEditorScreen extends Screen {
 		}
 		if (nameField != null) nameField.setTextColor(UiPalette.TEXT_PRIMARY);
 		var groups = EditorRuntimeServices.groups();
-		groups.invalidateFullMatchCache(saved.id());
-		groups.populateFullMatchCacheFromSaved(saved);
-		disableSourceAfterCopyIfRequested();
-		parent.onGroupSaved(new SavedGroupContext(saved.id(), saveKind));
+		String warningKey = disableSourceAfterCopyIfRequested();
+		parent.onGroupSaved(new SavedGroupContext(saved.id(), saveKind, warningKey));
 		groups.notifyViewer();
 		Minecraft.getInstance().setScreen(parent.asScreen());
 	}
 
-	private void disableSourceAfterCopyIfRequested() {
+	private String disableSourceAfterCopyIfRequested() {
 		String sourceGroupId = state.sourceGroupId();
-		if (!state.isCopyDraft() || !disableSourceAfterCopy || sourceGroupId == null) return;
-		EditorRuntimeServices.groups().setEnabledQuietlyWithoutEvent(sourceGroupId, false);
+		if (!state.isCopyDraft() || !disableSourceAfterCopy || sourceGroupId == null) return null;
+		var groups = EditorRuntimeServices.groups();
+		if (groups.findGroup(sourceGroupId).isEmpty()) return ModTranslationKeys.MANAGER_COPY_SOURCE_MISSING;
+		return groups.setEnabledQuietlyWithoutEvent(sourceGroupId, false)
+			? null : ModTranslationKeys.MANAGER_COPY_SOURCE_DISABLE_FAILED;
 	}
 
 	private void clearRightHover() {

@@ -8,6 +8,10 @@ import com.starskyxiii.collapsible_groups.mixin.MixinGroupResourcePackAccessor;
 import net.fabricmc.fabric.api.resource.ModResourcePack;
 import net.fabricmc.fabric.impl.resource.loader.FabricModResourcePack;
 import net.minecraft.SharedConstants;
+import com.starskyxiii.collapsible_groups.command.TargetLocaleEntries;
+import com.starskyxiii.collapsible_groups.i18n.GroupLanguageResources;
+import com.starskyxiii.collapsible_groups.i18n.LanguageJson;
+import java.util.LinkedHashMap;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.server.packs.PackResources;
@@ -32,7 +36,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class FabricGroupResourcePacksTest {
     @TempDir Path config;
-    private static final String RESOURCE = "collapsible_groups:collapsible_groups/groups/same.json";
+    private static final String RESOURCE = "collapsible_groups:groups/same.json";
 
     @BeforeAll static void bootstrapMinecraft() {
         SharedConstants.tryDetectVersion();
@@ -121,4 +125,34 @@ class FabricGroupResourcePacksTest {
                 default -> throw new AssertionError("Unexpected pack operation: " + method.getName());
             });
     }
+    private static final String LANGUAGE = "collapsible_groups:lang/zh_tw.json";
+    private static final String GROUP_LANGUAGE = "collapsible_groups:group_lang/zh_tw.json";
+
+    @Test void aggregateLanguageResourcesKeepOwnGroupsAndRespectChildAndPlayerPriority() throws Exception {
+        var own = pack("collapsible_groups", Map.of(GROUP_LANGUAGE, "{\"own\":\"kept\",\"player\":\"bundled\"}"));
+        var low = pack("same-name", Map.of(GROUP_LANGUAGE, "{\"across\":\"low-group\"}"));
+        var high = pack("same-name", Map.of(LANGUAGE, "{\"across\":\"high-ui\",\"within\":\"high-ui\"}", GROUP_LANGUAGE, "{\"within\":\"high-group\"}"));
+        var player = pack("file/player", Map.of(LANGUAGE, "{\"player\":\"custom\"}"));
+        var aggregate = new FabricModResourcePack(PackType.CLIENT_RESOURCES, List.of(own, low, high));
+        try (var manager = new MultiPackResourceManager(PackType.CLIENT_RESOURCES, List.of(aggregate, player))) {
+            assertLanguage(manager, Map.of("own", "kept", "player", "custom", "across", "high-ui", "within", "high-group"));
+        }
+    }
+
+    private void assertLanguage(MultiPackResourceManager manager, Map<String, String> expected) throws Exception {
+        Thread thread = Thread.currentThread();
+        ClassLoader previous = thread.getContextClassLoader();
+        try {
+            thread.setContextClassLoader(FabricPlatformHelper.class.getClassLoader());
+            assertEquals(expected, TargetLocaleEntries.read(manager, config, "zh_tw").entries());
+            var runtime = new LinkedHashMap<String, String>();
+            for (var resource : GroupLanguageResources.runtimeStack(manager, new ResourceLocation(LANGUAGE))) {
+                try (var reader = resource.openAsReader()) { runtime.putAll(LanguageJson.parse(reader, resource.sourcePackId())); }
+            }
+            assertEquals(expected, runtime);
+        } finally {
+            thread.setContextClassLoader(previous);
+        }
+    }
+
 }

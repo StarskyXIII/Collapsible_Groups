@@ -22,10 +22,9 @@ import java.util.Optional;
 public final class GroupFileStore {
     private GroupFileStore() {}
 
-    public static Optional<GroupOrigin> create(GroupDefinition group, GroupSource source, Path configDirectory) {
-        if (source != GroupSource.USER && source != GroupSource.OVERRIDE) return Optional.empty();
-        Path root = directory(source, configDirectory);
-        GroupOrigin origin = new GroupOrigin(source, source.name(), root.resolve(fileName(group.id())).toString(),
+    public static Optional<GroupOrigin> create(GroupDefinition group, Path configDirectory) {
+        Path root = directory(configDirectory);
+        GroupOrigin origin = new GroupOrigin(GroupSource.USER, GroupSource.USER.name(), root.resolve(fileName(group.id())).toString(),
             root.resolve(fileName(group.id())));
         if (Files.exists(origin.file())) return Optional.empty();
         return save(group, origin, configDirectory) ? Optional.of(origin) : Optional.empty();
@@ -81,7 +80,7 @@ public final class GroupFileStore {
     }
 
     private static Path checkedPath(GroupOrigin origin, Path configDirectory) throws IOException {
-        Path root = directory(origin.source(), configDirectory).toAbsolutePath().normalize();
+        Path root = directory(configDirectory).toAbsolutePath().normalize();
         Path target = origin.file().toAbsolutePath().normalize();
         if (!target.startsWith(root) || target.equals(root)) throw new IOException("Group path is outside its owned directory");
         Files.createDirectories(root);
@@ -91,8 +90,8 @@ public final class GroupFileStore {
         return target;
     }
 
-    private static Path directory(GroupSource source, Path configDirectory) {
-        return configDirectory.resolve(source == GroupSource.OVERRIDE ? "collapsiblegroups/overrides" : "collapsiblegroups/groups");
+    private static Path directory(Path configDirectory) {
+        return configDirectory.resolve("collapsiblegroups/groups");
     }
 
     private static String fileName(String id) {
