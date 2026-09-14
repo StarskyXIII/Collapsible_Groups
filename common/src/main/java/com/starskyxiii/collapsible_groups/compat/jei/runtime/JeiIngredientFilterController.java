@@ -15,6 +15,8 @@ import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
+import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
+import com.starskyxiii.collapsible_groups.viewer.GroupIndexUpdate;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -66,7 +68,14 @@ public final class JeiIngredientFilterController {
 	private @Nullable ViewerProjection<ITypedIngredient<?>> projection;
 	private volatile @Nullable List<ITypedIngredient<?>> cachedFullList;
 	private long sourceRevision;
+	private @Nullable IndexedSource indexedSource;
 	private String searchTextForCache = "";
+
+	private record IndexedSource(long revision, List<ITypedIngredient<?>> ingredients,
+		JeiViewerGroupIndex.Generation generation) {}
+
+	private record GroupMatches(GroupCandidateIndex candidates, Map<String, List<ItemStack>> items,
+		Map<String, List<Object>> fluids, Map<String, List<GenericIngredientRef>> generic) {}
 
 	public JeiIngredientFilterController(
 		Supplier<String> filterText,
@@ -87,6 +96,8 @@ public final class JeiIngredientFilterController {
 	}
 
 	public void initialize() {
+		sourceRevision++;
+		indexedSource = null;
 		if (fullChangeSubscription != null) fullChangeSubscription.close();
 		if (structureChangeSubscription != null) structureChangeSubscription.close();
 		if (enabledChangeSubscription != null) enabledChangeSubscription.close();
@@ -128,6 +139,7 @@ public final class JeiIngredientFilterController {
 
 	private synchronized void invalidateSource() {
 		sourceRevision++;
+		indexedSource = null;
 		cachedFullList = null;
 		GroupRegistry.clearJeiAllItems();
 		GroupRegistry.clearJeiAllFluids();
@@ -145,7 +157,7 @@ public final class JeiIngredientFilterController {
 		synchronized (this) {
 			if (sourceRevision == revision) cachedFullList = snapshot;
 		}
-		return buildIngredientGroupIndex(snapshot);
+		return buildIngredientGroupIndex(snapshot, revision);
 	}
 
 	private void rebuildCompleted() {
@@ -172,9 +184,39 @@ public final class JeiIngredientFilterController {
 		notifyListeners.run();
 	}
 
-	private JeiViewerGroupIndex.Generation buildIngredientGroupIndex(List<ITypedIngredient<?>> all) {
+	private JeiViewerGroupIndex.Generation buildIngredientGroupIndex(List<ITypedIngredient<?>> all, long revision) {
 		long traceStart = hooks.traceBuilds() ? PerformanceTrace.begin() : 0L;
 		List<GroupDefinition> allGroups = GroupRegistry.getAllIncludingKubeJs();
+		JeiViewerGroupIndex.Generation previous = null;
+		synchronized (this) {
+			if (indexedSource != null && indexedSource.revision() == revision && indexedSource.ingredients() == all) {
+				previous = indexedSource.generation();
+			}
+		}
+		JeiViewerAdapter.ProjectionContext context = previous == null
+			? JeiViewerAdapter.instance().updateBootstrap(all, ingredientManager) : previous.projectionContext();
+		GroupIndexUpdate update = GroupIndexUpdate.between(previous == null ? null : previous.candidates(), allGroups);
+		List<GroupDefinition> changedGroups = update.changedGroups();
+		GroupMatches changed = buildChangedGroups(all, changedGroups, context);
+		JeiViewerGroupIndex.Generation generation = JeiViewerGroupIndex.completeGeneration(
+			update.mergeCandidates(previous == null ? null : previous.candidates(), changed.candidates()),
+			update.mergeMatches(previous == null ? Map.of() : previous.fullMatchItems(), changed.items()),
+			update.mergeMatches(previous == null ? Map.of() : previous.fullMatchFluids(), changed.fluids()),
+			update.mergeMatches(previous == null ? Map.of() : previous.fullMatchGeneric(), changed.generic()),
+			context, update.groups());
+		synchronized (this) {
+			if (sourceRevision == revision) indexedSource = new IndexedSource(revision, all, generation);
+		}
+		if (hooks.traceBuilds()) {
+			PerformanceTrace.logIfSlow("MixinIngredientFilter.buildIngredientGroupIndex", traceStart, 0,
+				"ingredients=" + all.size() + " groups=" + allGroups.size()
+					+ " evaluated=" + changedGroups.size() + " reused=" + update.reusedIds().size());
+		}
+		return generation;
+	}
+
+	private GroupMatches buildChangedGroups(List<ITypedIngredient<?>> all, List<GroupDefinition> allGroups,
+		JeiViewerAdapter.ProjectionContext context) {
 		ItemOwnershipBuildResult itemResult =
 			IngredientFilterHelper.buildItemOwnershipResult(all, allGroups);
 		Map<ITypedIngredient<?>, GroupDefinition> index = itemResult.ingredientGroupIndex();
@@ -185,10 +227,8 @@ public final class JeiIngredientFilterController {
 				candidateGroups.computeIfAbsent(entry.typed(), ignored -> new ArrayList<>()).add(group.id());
 			}
 		}
-		Map<String, List<Object>> fluidsByGroup = new HashMap<>();
 		Map<String, List<Object>> fullMatchFluidsByGroup = new HashMap<>();
 		Map<String, List<GenericIngredientRef>> fullMatchGenericByGroup = new HashMap<>();
-		Map<String, Set<String>> fluidIds = new HashMap<>();
 		List<GroupDefinition> fluidGroups = allGroups.stream().filter(GroupDefinition::hasFluidFilters).toList();
 		List<GroupDefinition> genericGroups = allGroups.stream().filter(GroupDefinition::hasGenericFilters).toList();
 
@@ -197,18 +237,10 @@ public final class JeiIngredientFilterController {
 			JeiFluidIngredient fluid = (!fluidGroups.isEmpty() || hooks.probeFluidWithoutGroups())
 				&& hooks.hasFluidType() ? JeiIngredientTypes.fluidIngredient(typed) : null;
 			if (fluid != null) {
-				GroupDefinition firstMatch = null;
 				for (GroupDefinition group : fluidGroups) {
 					if (com.starskyxiii.collapsible_groups.viewer.GroupEvaluations.evaluate(group, fluid.fluid().view(), failures)
 						!= com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.Evaluation.MATCH) continue;
 					candidateGroups.computeIfAbsent(typed, ignored -> new ArrayList<>()).add(group.id());
-					if (firstMatch == null && com.starskyxiii.collapsible_groups.group.GroupRepository.isActive(group)) {
-						firstMatch = group;
-						index.put(typed, group);
-						fluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid.viewerValue());
-						fluidIds.computeIfAbsent(fluid.fluid().id().toString(), ignored -> new HashSet<>())
-							.add(group.id());
-					}
 					fullMatchFluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid.viewerValue());
 				}
 				continue;
@@ -220,33 +252,17 @@ public final class JeiIngredientFilterController {
 		}
 
 		for (GroupDefinition group : allGroups) {
-			fluidsByGroup.putIfAbsent(group.id(), List.of());
 			fullMatchFluidsByGroup.putIfAbsent(group.id(), List.of());
 			fullMatchGenericByGroup.putIfAbsent(group.id(), List.of());
 		}
 		JeiViewerAdapter.PreparedOwnershipBuild prepared =
 			JeiViewerAdapter.instance().buildOwnershipIndexFromMatches(
-			all, ingredientManager, allGroups, candidateGroups, failures);
-		JeiViewerGroupIndex.Generation generation = new JeiViewerGroupIndex.Generation(
-			prepared.candidates(),
-			IngredientFilterHelper.toStackMap(itemResult.resolvedEntriesByGroup()),
-			fluidsByGroup,
+			context, allGroups, candidateGroups, failures);
+		return new GroupMatches(prepared.candidates(),
 			IngredientFilterHelper.toStackMap(itemResult.fullMatchEntriesByGroup()),
 			fullMatchFluidsByGroup,
-			fullMatchGenericByGroup,
-			itemResult.itemIdToGroupIds(),
-			fluidIds,
-			prepared.projectionContext()
+			fullMatchGenericByGroup
 		);
-		if (hooks.traceBuilds()) {
-			PerformanceTrace.logIfSlow("MixinIngredientFilter.buildIngredientGroupIndex", traceStart, 20,
-				"ingredients=" + all.size() + " indexSize=" + index.size()
-					+ " fluidGroups=" + fluidGroups.size() + " genericGroups=" + genericGroups.size()
-					+ " resolvedFluids=" + fluidsByGroup.size() + " fullMatchFluids="
-					+ fullMatchFluidsByGroup.size() + " fullMatchGeneric=" + fullMatchGenericByGroup.size()
-					+ " fluidIds=" + fluidIds.size());
-		}
-		return generation;
 	}
 
 	private void buildStructureCache(List<ITypedIngredient<?>> ingredients) {

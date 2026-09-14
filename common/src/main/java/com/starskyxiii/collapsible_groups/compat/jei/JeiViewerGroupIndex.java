@@ -448,6 +448,20 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	private Resolved resolve(GroupCandidateIndex index, List<GroupDefinition> groups) {
+		return resolve(universe, index, groups);
+	}
+
+	public static Generation completeGeneration(GroupCandidateIndex candidates,
+		Map<String, List<ItemStack>> items, Map<String, List<Object>> fluids,
+		Map<String, List<GenericIngredientRef>> generic, JeiViewerAdapter.ProjectionContext context,
+		List<GroupDefinition> groups) {
+		Resolved resolved = resolve(context.universe(), candidates, groups);
+		return new Generation(candidates, resolved.items(), resolved.fluids(), items, fluids, generic,
+			resolved.itemIds(), resolved.fluidIds(), context);
+	}
+
+	private static Resolved resolve(ViewerIngredientUniverse<ITypedIngredient<?>> universe,
+		GroupCandidateIndex index, List<GroupDefinition> groups) {
 		Map<ViewerIngredientIdentity, String> ownership = GroupProjectionEngine.resolveOwnership(index, groups);
 		Map<String, List<ItemStack>> items = new LinkedHashMap<>();
 		Map<String, List<Object>> fluids = new LinkedHashMap<>();

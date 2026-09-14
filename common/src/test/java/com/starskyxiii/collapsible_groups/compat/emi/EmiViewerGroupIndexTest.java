@@ -19,6 +19,58 @@ import java.util.concurrent.Executor;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmiViewerGroupIndexTest {
+	@Test void replacementSourceCannotPublishAnInFlightResultWithTheSameEpoch() {
+		var executor = new ControlledExecutor();
+		var index = new EmiViewerGroupIndex(executor);
+		var stone = group("stone", "minecraft:stone");
+		var old = new ViewerIngredientUniverse<>(List.of(ingredient("old", "minecraft:stone")));
+		var replacement = new ViewerIngredientUniverse<>(List.of(ingredient("new", "minecraft:stone")));
+		index.requestRebuild(1, old, List.of(stone));
+		index.updateSource(1, replacement);
+		executor.runNext();
+		assertTrue(index.candidates().isEmpty());
+		assertFalse(index.ready());
+		index.requestRebuild(1, replacement, List.of(stone));
+		executor.runNext();
+		assertEquals("new", index.fullMatchItems("stone").getFirst().identity().valueId());
+	}
+
+	@Test void editsReuseOnlySameSourceGroupsAndReloadReevaluatesThem() {
+		var calls = new java.util.HashMap<String, Integer>();
+		var entry = new ViewerIngredient<>(new ViewerIngredientIdentity("item", "one"), ViewerIngredient.Kind.ITEM,
+			emiIngredient(), new IngredientView() {
+				public String ingredientType() { return "item"; }
+				public ResourceLocation resourceLocation() { return ResourceLocation.parse("test:one"); }
+				public boolean hasTag(ResourceLocation tag) { calls.merge(tag.getPath(), 1, Integer::sum); return true; }
+				public boolean matchesExactStack(String encoded) { return false; }
+			});
+		var universe = new ViewerIngredientUniverse<>(List.of(entry));
+		var stable = new GroupDefinition("stable", "stable", true, new GroupFilter.Tag("item", "test:stable"));
+		var edited = new GroupDefinition("edited", "edited", true, new GroupFilter.Tag("item", "test:before"));
+		var index = new EmiViewerGroupIndex(Runnable::run);
+		index.requestRebuild(1, universe, List.of(stable, edited)).join();
+		var retained = index.fullMatchItems("stable");
+		calls.clear();
+		edited = edited.withFilter(new GroupFilter.Tag("item", "test:after"));
+		var groups = List.of(stable, edited);
+		index.requestRebuild(1, universe, groups).join();
+		assertEquals(java.util.Map.of("after", 1), calls);
+		assertSame(retained, index.fullMatchItems("stable"));
+		assertEquals(List.of(entry), index.fullMatchItems("edited"));
+		calls.clear();
+		index.requestRebuild(1, universe, List.of(stable)).join();
+		assertTrue(calls.isEmpty());
+		assertTrue(index.fullMatchItems("edited").isEmpty());
+		index.requestRebuild(2, universe, groups).join();
+		assertEquals(java.util.Map.of("stable", 1, "after", 1), calls);
+		calls.clear();
+		index.requestRebuild(2, new ViewerIngredientUniverse<>(List.of(entry)), groups).join();
+		assertEquals(java.util.Map.of("stable", 1, "after", 1), calls);
+		calls.clear();
+		index.onGroupChange(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Kind.KUBEJS_REPLACE, groups);
+		assertEquals(java.util.Map.of("stable", 1, "after", 1), calls);
+	}
+
 	@Test void bootstrapFailureSettlesWaitersAndReloadCanRecover() {
 		ControlledExecutor executor = new ControlledExecutor();
 		EmiViewerGroupIndex index = new EmiViewerGroupIndex(executor);
