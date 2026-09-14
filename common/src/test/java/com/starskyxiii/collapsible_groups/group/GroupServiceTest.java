@@ -220,6 +220,29 @@ class GroupServiceTest {
 		assertTrue(Files.exists(malformed));
 	}
 
+    @Test void deletingTheLastDefinitionClearsItsCategoryAssignment() throws Exception {
+        System.setProperty(TestPlatformHelper.CONFIG_DIR_PROPERTY, tempDir.toString());
+        GroupDefinition target = group("categorized", 0);
+        GroupRepository.replaceForTesting(List.of(target));
+        var store = com.starskyxiii.collapsible_groups.persistence.GroupCategoryStore.current();
+        assertTrue(store.update(preferences -> preferences.assign(List.of(target.id()), null)));
+        assertTrue(GroupRepository.deleteQuietlyChecked(target.id()));
+        assertTrue(GroupRepository.findById(target.id()).isEmpty());
+        assertFalse(store.snapshot().groupCategories().containsKey(target.id()));
+    }
+
+    @Test void deletingLocalDefinitionKeepsAssignmentWhenAScriptedDefinitionRemains() {
+        System.setProperty(TestPlatformHelper.CONFIG_DIR_PROPERTY, tempDir.toString());
+        GroupDefinition target = group("shared", 0);
+        GroupRepository.replaceForTesting(List.of(target));
+        GroupRepository.replaceScriptedSource("fallback", List.of(target), false);
+        var store = com.starskyxiii.collapsible_groups.persistence.GroupCategoryStore.current();
+        assertTrue(store.update(preferences -> preferences.assign(List.of(target.id()), null)));
+        assertTrue(GroupRepository.deleteQuietlyChecked(target.id()));
+        assertTrue(GroupRepository.findById(target.id()).isPresent());
+        assertTrue(store.snapshot().groupCategories().containsKey(target.id()));
+    }
+
 	private static GroupDefinition group(String id, int priority) {
 		return new GroupDefinition(id, id, true, Filters.itemId("minecraft:stone")).withPriority(priority);
 	}

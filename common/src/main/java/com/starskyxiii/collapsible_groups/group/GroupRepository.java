@@ -328,7 +328,11 @@ public final class GroupRepository {
 		if (!GroupFileStore.delete(id, origin, Services.PLATFORM.getConfigDir())) return false;
 		boolean changed = SERVICE.replaceManaged(SERVICE.resources().withoutOwnedDefinition(id), STORE.loadEnabledOverrides(),
 			SERVICE.builtinsEnabled());
-		if (changed && findById(id).isEmpty()) GroupExpandState.remove(id);
+		if (changed && findById(id).isEmpty()) {
+            GroupExpandState.remove(id);
+            com.starskyxiii.collapsible_groups.persistence.GroupCategoryStore.current()
+                .update(preferences -> preferences.followSource(List.of(id)));
+        }
 		return changed;
 	}
 

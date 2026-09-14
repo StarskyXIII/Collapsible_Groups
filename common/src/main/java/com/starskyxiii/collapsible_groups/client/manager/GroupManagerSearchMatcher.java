@@ -18,14 +18,21 @@ public final class GroupManagerSearchMatcher {
 		String fallbackDisplayName,
 		String groupId,
 		GroupSource source,
-		String localizedSourceLabel
+		String localizedSourceLabel,
+        String categoryName,
+        String categoryId
 	) {
+        public SearchFields(String name, String fallback, String id, GroupSource source, String sourceLabel) {
+            this(name, fallback, id, source, sourceLabel, "", "");
+        }
 		public SearchFields {
 			resolvedDisplayName = clean(resolvedDisplayName);
 			fallbackDisplayName = clean(fallbackDisplayName);
 			groupId = clean(groupId);
 			source = Objects.requireNonNull(source, "source");
 			localizedSourceLabel = clean(localizedSourceLabel);
+            categoryName = clean(categoryName);
+            categoryId = clean(categoryId);
 		}
 	}
 
@@ -72,6 +79,8 @@ public final class GroupManagerSearchMatcher {
 		addNormalized(values, fields.fallbackDisplayName());
 		addNormalized(values, fields.groupId());
 		addNormalized(values, fields.localizedSourceLabel());
+        addNormalized(values, fields.categoryName());
+        addNormalized(values, fields.categoryId());
 		for (String alias : sourceAliases(fields.source())) {
 			addNormalized(values, alias);
 		}

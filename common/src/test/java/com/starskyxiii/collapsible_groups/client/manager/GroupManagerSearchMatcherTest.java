@@ -10,6 +10,12 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GroupManagerSearchMatcherTest {
+    @Test void categoryNameAndStableIdParticipateInSearch() {
+        var fields = new GroupManagerSearchMatcher.SearchFields("Stone", "Stone", "stone", GroupSource.USER, "Custom", "Building", "local:category-id");
+        assertTrue(GroupManagerSearchMatcher.matchesQuery("building stone", fields));
+        assertTrue(GroupManagerSearchMatcher.matchesQuery("local:category-id", fields));
+        assertFalse(GroupManagerSearchMatcher.matchesQuery("missing-category", fields));
+    }
 	@Test
 	void blankQueryMatchesAllFields() {
 		assertTrue(GroupManagerSearchMatcher.matchesQuery("", fields("Copper Ore", "copper", "ores", GroupSource.USER, "Custom")));
