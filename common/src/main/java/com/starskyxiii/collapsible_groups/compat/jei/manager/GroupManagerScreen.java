@@ -98,7 +98,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int SEARCH_FIELD_TEXT_PAD = 5;
 	private static final int SORT_BUTTON_SIZE = 20;
 	private static final int SORT_BUTTON_GAP = 4;
-	private static final int SORT_MENU_WIDTH = 142;
+	private static final int SORT_MENU_PADDING = 4;
+	private static final int SORT_MENU_OPTION_GAP = 4;
 	private static final int SORT_MENU_ROW_HEIGHT = 18;
 	private static final long SAVED_CARD_HIGHLIGHT_MS = 1200L;
 	private static final int BATCH_SELECTED_STATUS_W = 174;
@@ -158,6 +159,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	protected void init() {
+		sortButtonHeld = false;
+		heldSortMode = null;
+		heldShowEmpty = false;
 		activeManager = true;
 		if (subscriptions.isEmpty()) {
 			for (var kind : com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Kind.values()) {
@@ -174,11 +178,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		calcLayout();
 		createSearchField();
 		applySavedContext();
-		if (!searchFieldLayout().visible()) {
-			sortMenuOpen = false;
-			sortButtonHeld = false;
-			heldSortMode = null;
-		}
+		if (!searchFieldLayout().visible()) closeSortMenu();
 		if (highlightedSavedGroupId != null) ensureCardVisible(highlightedSavedGroupId);
 	}
 
@@ -211,6 +211,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public void removed() {
+		closeSortMenu();
 		activeManager = false;
 		subscriptions.forEach(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Subscription::close);
 		subscriptions.clear();
@@ -357,6 +358,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
 		renderBackground(g, mouseX, mouseY, partialTicks);
 		pendingTooltip = null;
+		int surfaceMouseX = isOverSortMenu(mouseX, mouseY) ? Integer.MIN_VALUE : mouseX;
 
 		int headerHeight = headerHeight();
 		int vpTop = headerHeight;
@@ -367,7 +369,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		if (generationPending && filteredCards.isEmpty()) {
 			renderCenteredState(g, vpTop, vpBottom, Component.translatable(ModTranslationKeys.EDITOR_LOADING));
 		} else for (int i = 0; i < filteredCards.size(); i++) {
-			renderCard(g, i, mouseX, mouseY);
+			renderCard(g, i, surfaceMouseX, mouseY);
 		}
 		if (!generationPending && filteredCards.isEmpty()) {
 			renderEmptyState(g, vpTop, vpBottom);
@@ -375,7 +377,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		g.disableScissor();
 
 		renderScrollbar(g);
-		renderHeaderButtons(g, mouseX, mouseY);
+		renderHeaderButtons(g, surfaceMouseX, mouseY);
 
 		g.drawString(font, this.title.copy().withStyle(ChatFormatting.BOLD), HEADER_TITLE_X, 7,
 			UiPalette.TEXT_PRIMARY, false);
@@ -386,11 +388,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		Component footer = footerText();
 		g.drawString(font, font.plainSubstrByWidth(footer.getString(), Math.max(0, this.width - 12)),
 			6, vpBottom + UiSkinRenderer.centeredTextY(font, 0, FOOTER_HEIGHT), UiPalette.TEXT_HINT, false);
-		renderSourceProblems(g, mouseX, mouseY);
+		renderSourceProblems(g, surfaceMouseX, mouseY);
 
 		for (var child : this.children()) {
 			if (child instanceof Renderable renderable) {
-				renderable.render(g, mouseX, mouseY, partialTicks);
+				renderable.render(g, surfaceMouseX, mouseY, partialTicks);
 			}
 		}
 		if (sortMenuOpen && searchFieldLayout().visible() && !hasPendingDialog()) {
@@ -461,16 +463,17 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void renderSortMenu(GuiGraphics g, int mouseX, int mouseY) {
-		int x = sortMenuX();
-		int y = sortMenuY();
+		SortMenuLayout layout = sortMenuLayout();
+		int x = layout.contentX();
+		int w = layout.contentWidth();
 		g.pose().pushPose();
 		g.pose().translate(0, 0, 350);
-		g.fill(x - 1, y - 1, x + SORT_MENU_WIDTH + 1,
-			y + (GroupSortMode.values().length + 1) * SORT_MENU_ROW_HEIGHT + 5, UiPalette.SURFACE_DARK);
+		g.fill(layout.x(), layout.y(), layout.x() + layout.width(), layout.y() + layout.height(), UiPalette.SURFACE);
+		UiSkinRenderer.drawOutline(g, layout.x(), layout.y(), layout.width(), layout.height(), UiPalette.OUTLINE);
 		for (int i = 0; i < GroupSortMode.values().length; i++) {
 			GroupSortMode mode = GroupSortMode.values()[i];
-			int rowY = y + i * SORT_MENU_ROW_HEIGHT;
-			boolean hovered = isMouseOver(mouseX, mouseY, x, rowY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT);
+			int rowY = layout.rowY(i);
+			boolean hovered = isMouseOver(mouseX, mouseY, x, rowY, w, SORT_MENU_ROW_HEIGHT);
 			boolean selected = sortMode == mode;
 			boolean pressed = heldSortMode == mode && hovered;
 			UiSkinRenderer.ButtonState state = selected
@@ -478,22 +481,34 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				: hovered ? UiSkinRenderer.ButtonState.SELECTED_HOVERED : UiSkinRenderer.ButtonState.SELECTED
 				: pressed ? UiSkinRenderer.ButtonState.PRESSED
 				: hovered ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL;
-			UiSkinRenderer.drawSegment(g, font, x, rowY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT,
+			UiSkinRenderer.drawSegment(g, font, x, rowY, w, SORT_MENU_ROW_HEIGHT,
 				Component.translatable(sortLabelKey(mode)).getString(), state);
 		}
-		int optionY = showEmptyOptionY();
-		boolean optionHover = isMouseOver(mouseX, mouseY, x, optionY, SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT);
-		if (optionHover) g.fill(x, optionY, x + SORT_MENU_WIDTH, optionY + SORT_MENU_ROW_HEIGHT, UiPalette.SURFACE);
-		UiSkinRenderer.drawOutline(g, x + 5, optionY + 2, 14, 14, UiPalette.TEXT_MUTED);
-		if (showEmptyGroups) UiSkinRenderer.drawCheckboxMark(g, x + 5, optionY + 2, UiPalette.TEXT_PRIMARY);
-		g.drawString(font, Component.translatable(ModTranslationKeys.MANAGER_SHOW_EMPTY), x + 24, optionY + 5, UiPalette.TEXT_PRIMARY, false);
+		int optionY = layout.optionY();
+		boolean optionHover = isMouseOver(mouseX, mouseY, x, optionY, w, SORT_MENU_ROW_HEIGHT);
+		if (optionHover) g.fill(x, optionY, x + w, optionY + SORT_MENU_ROW_HEIGHT, UiPalette.SURFACE_HOVER_OVERLAY);
+		UiSkinRenderer.drawCheckbox(g, x + 5, optionY + 2, showEmptyGroups, optionHover);
+		String label = Component.translatable(ModTranslationKeys.MANAGER_SHOW_EMPTY).getString();
+		g.drawString(font, font.plainSubstrByWidth(label, Math.max(0, w - 29)), x + 24,
+			UiSkinRenderer.centeredTextY(font, optionY, SORT_MENU_ROW_HEIGHT), UiPalette.TEXT_PRIMARY, false);
 		g.pose().popPose();
 	}
 
-	private int showEmptyOptionY() { return sortMenuY() + GroupSortMode.values().length * SORT_MENU_ROW_HEIGHT + 4; }
-
 	private boolean hoveredShowEmpty(double x, double y) {
-		return sortMenuOpen && isMouseOver(x, y, sortMenuX(), showEmptyOptionY(), SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT);
+		if (!sortMenuOpen) return false;
+		SortMenuLayout layout = sortMenuLayout();
+		return isMouseOver(x, y, layout.contentX(), layout.optionY(), layout.contentWidth(), SORT_MENU_ROW_HEIGHT);
+	}
+
+	private boolean isOverSortMenu(double x, double y) {
+		return sortMenuOpen && searchFieldLayout().visible() && !hasPendingDialog() && sortMenuLayout().contains(x, y);
+	}
+
+	private void closeSortMenu() {
+		sortMenuOpen = false;
+		sortButtonHeld = false;
+		heldSortMode = null;
+		heldShowEmpty = false;
 	}
 
 	private void setShowEmptyGroups(boolean value) {
@@ -539,12 +554,17 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		};
 	}
 
-	private int sortMenuX() {
-		return sortButtonX() + SORT_BUTTON_SIZE - SORT_MENU_WIDTH;
-	}
-
-	private int sortMenuY() {
-		return SEARCH_FIELD_Y + SORT_BUTTON_SIZE;
+	private SortMenuLayout sortMenuLayout() {
+		int contentWidth = font.width(Component.translatable(ModTranslationKeys.MANAGER_SHOW_EMPTY)) + 29;
+		for (GroupSortMode mode : GroupSortMode.values()) {
+			contentWidth = Math.max(contentWidth, font.width(Component.translatable(sortLabelKey(mode))) + 16);
+		}
+		int w = Math.min(contentWidth + SORT_MENU_PADDING * 2, Math.max(1, this.width - 12));
+		int h = (GroupSortMode.values().length + 1) * SORT_MENU_ROW_HEIGHT + SORT_MENU_OPTION_GAP + SORT_MENU_PADDING * 2;
+		int x = clamp(sortButtonX() + SORT_BUTTON_SIZE - w, 6, this.width - w - 6);
+		int marginY = Math.min(6, Math.max(0, (this.height - h) / 2));
+		int y = clamp(SEARCH_FIELD_Y + SORT_BUTTON_SIZE, marginY, Math.max(marginY, this.height - h - marginY));
+		return new SortMenuLayout(x, y, w, h);
 	}
 
 	private void renderBatchToolbarButton(GuiGraphics g, BatchToolbarAction action,
@@ -1077,6 +1097,20 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			return handlePendingDialogClick(mouseX, mouseY, button);
 		}
 
+		if (sortMenuOpen) {
+			if (isOverSortMenu(mouseX, mouseY)) {
+				if (button == 0) {
+					heldShowEmpty = hoveredShowEmpty(mouseX, mouseY);
+					heldSortMode = hoveredSortMode(mouseX, mouseY);
+				}
+				return true;
+			}
+			if (button == 0 && !isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
+				closeSortMenu();
+				return true;
+			}
+		}
+
 		if (button == 0 && (hiddenEmptyCount > 0 || savedGroupIsHiddenEmpty()) && mouseY >= this.height - FOOTER_HEIGHT) {
 			if (savedGroupIsHiddenEmpty()) {
 				searchField.setValue("");
@@ -1085,19 +1119,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			}
 			setShowEmptyGroups(true);
 			return true;
-		}
-		if (button == 0 && sortMenuOpen) {
-			if (hoveredShowEmpty(mouseX, mouseY)) { heldShowEmpty = true; return true; }
-			GroupSortMode hovered = hoveredSortMode(mouseX, mouseY);
-			if (hovered != null) {
-				heldSortMode = hovered;
-				return true;
-			}
-			if (!isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
-				sortMenuOpen = false;
-				heldSortMode = null;
-				return true;
-			}
 		}
 		if (button == 0 && searchFieldLayout().visible()
 			&& isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
@@ -1394,15 +1415,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void clearTransientInputState() {
-		heldShowEmpty = false;
 		backButtonHeld = false;
 		heldSegmentIndex = -1;
 		batchToggleButtonHeld = false;
 		heldBatchToolbarAction = null;
 		newGroupButtonHeld = false;
-		sortButtonHeld = false;
-		heldSortMode = null;
-		sortMenuOpen = false;
+		closeSortMenu();
 		isDraggingScrollbar = false;
 		heldSwitchGroupId = null;
 		suppressedSwitchHoverGroupId = null;
@@ -1434,6 +1452,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			clearTransientInputState();
 			return true;
 		}
+		if (sortMenuOpen) return true;
 		if (button == 0 && heldSwitchGroupId != null && !isHeldSwitchHovered(mouseX, mouseY)) {
 			heldSwitchGroupId = null;
 		}
@@ -1472,7 +1491,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			if (hoveredSortMode(mouseX, mouseY) == chosen) {
 				sortMode = chosen;
 				GroupUiState.setManagerSortMode(sortMode);
-				sortMenuOpen = false;
+				closeSortMenu();
 				rebuildFilteredCards();
 			}
 			return true;
@@ -1480,10 +1499,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		if (button == 0 && sortButtonHeld) {
 			sortButtonHeld = false;
 			if (isMouseOver(mouseX, mouseY, sortButtonX(), SEARCH_FIELD_Y, SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
-				sortMenuOpen = !sortMenuOpen;
+				boolean open = !sortMenuOpen;
+				clearTransientInputState();
+				sortMenuOpen = open;
 			}
 			return true;
 		}
+		if (isOverSortMenu(mouseX, mouseY)) return true;
 		if (button == 0 && backButtonHeld) {
 			backButtonHeld = false;
 			if (isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) {
@@ -1563,9 +1585,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		}
 		if (hasPendingDialog()) return true;
 		if (sortMenuOpen && keyCode == GLFW.GLFW_KEY_ESCAPE) {
-			sortMenuOpen = false;
-			heldSortMode = null;
-			sortButtonHeld = false;
+			closeSortMenu();
 			return true;
 		}
 		if (searchField != null && searchField.isFocused()) {
@@ -1584,9 +1604,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private GroupSortMode hoveredSortMode(double mouseX, double mouseY) {
 		if (!sortMenuOpen) return null;
+		SortMenuLayout layout = sortMenuLayout();
 		for (int i = 0; i < GroupSortMode.values().length; i++) {
-			if (isMouseOver(mouseX, mouseY, sortMenuX(), sortMenuY() + i * SORT_MENU_ROW_HEIGHT,
-				SORT_MENU_WIDTH, SORT_MENU_ROW_HEIGHT)) {
+			if (isMouseOver(mouseX, mouseY, layout.contentX(), layout.rowY(i),
+				layout.contentWidth(), SORT_MENU_ROW_HEIGHT)) {
 				return GroupSortMode.values()[i];
 			}
 		}
@@ -1782,6 +1803,14 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private static int clamp(int value, int min, int max) {
 		return Math.max(min, Math.min(max, value));
+	}
+
+	private record SortMenuLayout(int x, int y, int width, int height) {
+		int contentX() { return x + SORT_MENU_PADDING; }
+		int contentWidth() { return Math.max(0, width - SORT_MENU_PADDING * 2); }
+		int rowY(int index) { return y + SORT_MENU_PADDING + index * SORT_MENU_ROW_HEIGHT; }
+		int optionY() { return rowY(GroupSortMode.values().length) + SORT_MENU_OPTION_GAP; }
+		boolean contains(double mouseX, double mouseY) { return isMouseOver(mouseX, mouseY, x, y, width, height); }
 	}
 
 	private record SearchFieldLayout(int x, int y, int width, int height, boolean visible, boolean stacked) {

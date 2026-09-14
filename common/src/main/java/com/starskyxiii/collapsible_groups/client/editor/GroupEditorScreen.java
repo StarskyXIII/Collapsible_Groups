@@ -436,16 +436,7 @@ public class GroupEditorScreen extends Screen {
 		if (!showDisableSourceOption() || checkbox == null || label == null) return;
 
 		boolean hovered = disableSourceOptionContains(mouseX, mouseY);
-		g.fill(checkbox.x(), checkbox.y(), checkbox.right(), checkbox.bottom(), UiPalette.OUTLINE_DARK);
-		g.fill(checkbox.x() + 2, checkbox.y() + 2, checkbox.right() - 2, checkbox.bottom() - 2,
-			disableSourceAfterCopy ? UiPalette.OUTLINE_SELECTED : UiPalette.SURFACE_DARK);
-		if (hovered) {
-			UiSkinRenderer.drawOutline(g, checkbox.x(), checkbox.y(), checkbox.width(), checkbox.height(),
-				UiPalette.OUTLINE_HOVER);
-		}
-		if (disableSourceAfterCopy) {
-			UiSkinRenderer.drawCheckboxMark(g, checkbox.x(), checkbox.y(), UiPalette.TEXT_SELECTED);
-		}
+		UiSkinRenderer.drawCheckbox(g, checkbox.x(), checkbox.y(), disableSourceAfterCopy, hovered);
 
 		String text = disableSourceLabel().getString();
 		String clipped = font.plainSubstrByWidth(text, Math.max(0, label.width()));
