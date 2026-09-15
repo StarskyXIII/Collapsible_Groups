@@ -3,53 +3,17 @@ package com.starskyxiii.collapsible_groups.compat.jei.element;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupBorderRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.platform.Services;
-import mezz.jei.api.gui.drawable.IDrawable;
-import mezz.jei.api.ingredients.IIngredientHelper;
-import mezz.jei.api.ingredients.IIngredientRenderer;
 import mezz.jei.api.ingredients.ITypedIngredient;
-import mezz.jei.api.recipe.RecipeIngredientRole;
-import mezz.jei.api.runtime.IRecipesGui;
-import mezz.jei.common.gui.JeiTooltip;
-import mezz.jei.common.input.IInternalKeyMappings;
-import mezz.jei.gui.bookmarks.IBookmark;
-import mezz.jei.gui.input.UserInput;
-import mezz.jei.gui.overlay.elements.IElement;
 import mezz.jei.gui.overlay.elements.IngredientElement;
-import mezz.jei.gui.overlay.IngredientGridTooltipHelper;
-import mezz.jei.gui.util.FocusUtil;
 import net.minecraft.client.gui.GuiGraphics;
-import org.jetbrains.annotations.Nullable;
 
-import java.util.List;
-import java.util.Optional;
+public abstract class AbstractFluidChildElement<T> extends IngredientElement<T> implements PreRenderIngredientGridElement {
 
-/** Shared JEI element behavior for loader-specific fluid ingredient types. */
-public abstract class AbstractFluidChildElement<T> implements IElement<T>, PreRenderIngredientGridElement {
-	private final IngredientElement<T> delegate;
 	private final String groupId;
 
 	protected AbstractFluidChildElement(ITypedIngredient<T> ingredient, String groupId) {
-		this.delegate = new IngredientElement<>(ingredient);
+		super(ingredient);
 		this.groupId = groupId;
-	}
-
-	@Override public ITypedIngredient<T> getTypedIngredient() { return delegate.getTypedIngredient(); }
-	@Override public Optional<IBookmark> getBookmark() { return delegate.getBookmark(); }
-	@Override
-	public @Nullable IDrawable createRenderOverlay() {
-		return null;
-	}
-
-	@Override public void show(IRecipesGui recipesGui, FocusUtil focusUtil, List<RecipeIngredientRole> roles) {
-		delegate.show(recipesGui, focusUtil, roles);
-	}
-	@Override public void getTooltip(JeiTooltip tooltip, IngredientGridTooltipHelper helper,
-		IIngredientRenderer<T> renderer, IIngredientHelper<T> ingredientHelper) {
-		delegate.getTooltip(tooltip, helper, renderer, ingredientHelper);
-	}
-	@Override public boolean isVisible() { return delegate.isVisible(); }
-	@Override public boolean handleClick(UserInput input, IInternalKeyMappings keyBindings) {
-		return delegate.handleClick(input, keyBindings);
 	}
 
 	@Override

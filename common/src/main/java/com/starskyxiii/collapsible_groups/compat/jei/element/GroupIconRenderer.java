@@ -55,7 +55,6 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 
 	@Override
 	public List<Component> getTooltip(GroupIcon ingredient, TooltipFlag tooltipFlag) {
-		// Tooltip is handled by GroupHeaderElement.getTooltip(), not here.
 		return List.of();
 	}
 
