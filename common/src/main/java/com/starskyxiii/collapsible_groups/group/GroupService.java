@@ -53,7 +53,7 @@ final class GroupService {
 	synchronized boolean replaceManaged(GroupResourceData incoming, Map<String, Boolean> enabledOverrides, boolean enabled) {
 		if (incoming.rejected()) {
 			snapshot = new Snapshot(snapshot.sources(), snapshot.appliedSources(), snapshot.managed(), snapshot.all(),
-				incoming.retaining(snapshot.resources()), enabled, snapshot.winningSources());
+				incoming.retaining(snapshot.resources()), snapshot.builtinsEnabled(), snapshot.winningSources());
 			return false;
 		}
 		List<GroupDefinition> effective = incoming.groups().stream().map(group -> {
@@ -240,6 +240,7 @@ final class GroupService {
 	}
 
 	private static SourceKey visibleSource(Snapshot current, String id) {
+		if (current.resources().builtinPolicy().suppresses(id)) return null;
 		SourceKey winner = null;
 		for (Map.Entry<SourceKey, List<GroupDefinition>> source : current.sources().entrySet()) {
 			boolean contains = source.getValue().stream().anyMatch(group -> id.equals(group.id()));
@@ -259,11 +260,14 @@ final class GroupService {
 	private void publish(LinkedHashMap<SourceKey, List<GroupDefinition>> sources, Set<SourceKey> appliedSources,
 		GroupResourceData resources, boolean builtinsEnabled) {
 		Map<SourceKey, List<GroupDefinition>> frozenSources = immutableMap(sources);
-		List<GroupDefinition> managed = merge(frozenSources, EnumSet.complementOf(EnumSet.of(GroupSource.KUBEJS)));
-		List<GroupDefinition> all = merge(frozenSources, EnumSet.allOf(GroupSource.class));
+		List<GroupDefinition> managed = merge(frozenSources, EnumSet.complementOf(EnumSet.of(GroupSource.KUBEJS)))
+			.stream().filter(group -> !resources.builtinPolicy().suppresses(group.id())).toList();
+		List<GroupDefinition> all = merge(frozenSources, EnumSet.allOf(GroupSource.class))
+			.stream().filter(group -> !resources.builtinPolicy().suppresses(group.id())).toList();
 		Map<String, GroupSource> winners = new LinkedHashMap<>();
 		frozenSources.forEach((source, groups) -> groups.forEach(group -> winners.merge(group.id(), source.category(),
 			(left, right) -> authority(right) > authority(left) ? right : left)));
+		winners.keySet().removeIf(resources.builtinPolicy()::suppresses);
 		resources.origins().forEach((id, origins) -> {
 			if (winners.containsKey(id) && !origins.isEmpty()) winners.put(id, origins.getFirst().source());
 		});

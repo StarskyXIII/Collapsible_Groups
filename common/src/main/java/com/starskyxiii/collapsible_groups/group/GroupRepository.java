@@ -31,6 +31,7 @@ public final class GroupRepository {
 	private static long materializationCapture;
 	private static ResourceManager currentResources;
 	private static boolean initialized;
+    private static boolean builtinNotificationPending;
 	private enum PublicationState { PENDING, ACCEPTED, REJECTED }
 	private record PublicationAttempt(long generation, PublicationState state) {}
 
@@ -39,14 +40,29 @@ public final class GroupRepository {
 	public static synchronized void load() {
 		if (!initialized) {
 			reload(currentResources);
-		} else if (SERVICE.builtinsEnabled() != Services.CONFIG.loadDefaultGroups()) {
+		} else if (SERVICE.builtinsEnabled() != Services.CONFIG.loadDefaultGroups()
+			|| !SERVICE.resources().builtinPolicy().disabledCategories().equals(Services.CONFIG.disabledBuiltinCategories())) {
 			applyBuiltinSetting();
 		}
 	}
 
     public static synchronized void applyBuiltinSetting() {
-        SERVICE.setBuiltinsEnabled(Services.CONFIG.loadDefaultGroups());
-        publish(GroupChangeEvent.Kind.ENABLED);
+        applyBuiltinSetting(Services.CONFIG.loadDefaultGroups(), Services.CONFIG.disabledBuiltinCategories(),
+            () -> GroupResourceLoader.load(currentResources, Services.PLATFORM.getConfigDir()));
+    }
+
+    static synchronized void applyBuiltinSetting(boolean enabled, java.util.Set<String> disabledCategories,
+        java.util.function.Supplier<GroupResourceData> load) {
+        if (!SERVICE.resources().builtinPolicy().disabledCategories().equals(disabledCategories)) {
+            GroupResourceData incoming = load.get();
+            if (incoming.rejected()) throw new IllegalStateException("Could not apply built-in category preferences: " + incoming.problems());
+            SERVICE.replaceManaged(incoming, STORE.loadEnabledOverrides(), enabled);
+            builtinNotificationPending = true;
+        } else {
+            SERVICE.setBuiltinsEnabled(enabled);
+        }
+        publish(builtinNotificationPending ? GroupChangeEvent.Kind.FULL : GroupChangeEvent.Kind.ENABLED);
+        builtinNotificationPending = false;
     }
 
 	public static synchronized boolean reload(ResourceManager manager) {
@@ -84,7 +100,8 @@ public final class GroupRepository {
 		if (group == null || !group.enabled()) return false;
 		GroupService.ReadSnapshot current = SERVICE.readSnapshot();
 		if (current.resources().rejected() && current.resources().groups().isEmpty()) return false;
-		return current.builtinsEnabled() || !current.resources().builtinIds().contains(group.id());
+		return !current.resources().builtinPolicy().suppresses(group.id())
+			&& (current.builtinsEnabled() || !current.resources().builtinIds().contains(group.id()));
 	}
 
 	public static boolean isBuiltin(String id) {
@@ -387,6 +404,7 @@ public final class GroupRepository {
 		SERVICE.replaceManaged(new GroupResourceData(groups, ids, origins, definitions, Map.of(), List.of(), false, false), Map.of(), true);
 		currentResources = null;
 		initialized = false;
+        builtinNotificationPending = false;
 		SCRIPTED_PUBLICATIONS.clear();
 		++scriptedGeneration;
 		lastRejectedPublicationActivity = ++publicationActivity;

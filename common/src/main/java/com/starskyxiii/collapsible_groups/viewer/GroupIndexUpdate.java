@@ -37,6 +37,12 @@ public record GroupIndexUpdate(List<GroupDefinition> groups, Set<String> reusedI
         return groups.stream().filter(group -> !reusedIds.contains(group.id())).toList();
     }
 
+    public GroupCandidateIndex projectableCandidates(GroupCandidateIndex previous) {
+        var retained = new GroupIndexUpdate(groups.stream().filter(group -> reusedIds.contains(group.id())).toList(), reusedIds);
+        return retained.mergeCandidates(previous, new GroupCandidateIndex(Map.of(), Map.of(), 0,
+            previous.indexedIngredients(), 0, Map.of(), previous.generation()));
+    }
+
     public GroupCandidateIndex mergeCandidates(GroupCandidateIndex previous, GroupCandidateIndex changed) {
         Map<String, GroupDefinition> snapshot = new LinkedHashMap<>();
         Map<String, Integer> ranks = new LinkedHashMap<>();

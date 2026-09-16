@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewIngredientRe
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
+import com.starskyxiii.collapsible_groups.viewer.GroupIndexUpdate;
 import com.starskyxiii.collapsible_groups.viewer.GroupProjectionEngine;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerGroupDisplaySnapshot;
@@ -117,6 +118,13 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		}
 	}
 
+    public record ProjectableSnapshot(long sourceSequence, List<GroupDefinition> groups,
+        GroupCandidateIndex candidates, JeiViewerAdapter.ProjectionContext projectionContext) {}
+
+    private volatile @Nullable ProjectableSnapshot projectable;
+    private long sourceSequence;
+    private long publishedSourceSequence = -1;
+    private final Executor rebuildExecutor;
 	private volatile @Nullable Generation published;
 	private volatile ViewerIngredientUniverse<ITypedIngredient<?>> universe =
 		new ViewerIngredientUniverse<>(List.of());
@@ -129,7 +137,9 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 	private long resetSequence;
 	private long desiredRevision;
 
-	private JeiViewerGroupIndex() {}
+	private JeiViewerGroupIndex() { this(null); }
+
+    JeiViewerGroupIndex(Executor executor) { rebuildExecutor = executor; }
 
 	public static JeiViewerGroupIndex instance() { return INSTANCE; }
 
@@ -150,6 +160,9 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 
 	public synchronized void reset() {
 		resetSequence++;
+        sourceSequence++;
+        publishedSourceSequence = -1;
+        projectable = null;
 		desiredRevision = 0L;
 		published = null;
 		universe = new ViewerIngredientUniverse<>(List.of());
@@ -164,12 +177,18 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 	/** Compatibility hook for viewer bootstrap resets. Prefer {@link #requestRebuild(List)}. */
 	public synchronized void invalidateCandidates() {
 		desiredRevision++;
+        sourceSequence++;
+        projectable = null;
 		published = null;
 	}
 
 	public synchronized void publishGeneration(Generation generation) {
 		desiredRevision++;
 		published = generation;
+        publishedSourceSequence = sourceSequence;
+        currentGroups = List.copyOf(generation.candidates().groupSnapshot().values());
+        if (generation.projectionContext() != null) universe = generation.projectionContext().universe();
+        refreshProjectable();
 	}
 
 
@@ -195,6 +214,24 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 		}
 		return Optional.of(current);
 	}
+
+    public synchronized Optional<ProjectableSnapshot> projectableSnapshot() {
+        return projectable != null && projectable.sourceSequence() == sourceSequence
+            && projectable.projectionContext().universe().sourceToken() == universe.sourceToken()
+            ? Optional.of(projectable) : Optional.empty();
+    }
+
+    private void refreshProjectable() {
+        Generation current = published;
+        if (current == null || current.projectionContext() == null || publishedSourceSequence != sourceSequence
+            || current.projectionContext().universe().sourceToken() != universe.sourceToken()) {
+            projectable = null;
+            return;
+        }
+        var candidates = GroupIndexUpdate.between(current.candidates(), currentGroups).projectableCandidates(current.candidates());
+        projectable = new ProjectableSnapshot(sourceSequence, List.copyOf(candidates.groupSnapshot().values()),
+            candidates, current.projectionContext());
+    }
 
 	@Override public CompletableFuture<Void> whenReady() { return readyFuture; }
 
@@ -344,7 +381,6 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 			}
 			case STRUCTURE -> { }
 			case FULL -> {
-				// Keep the last candidate generation available to the render path while replacing it.
 				Generation current = published;
 				if (current != null) {
 					published = new Generation(current.candidates(), null, null,
@@ -352,9 +388,12 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 						null, null, current.projectionContext());
 				}
 				desiredRevision++;
+                refreshProjectable();
 				startConfiguredRebuild();
 			}
 			case SOURCE_RELOAD, KUBEJS_REPLACE -> {
+				sourceSequence++;
+                projectable = null;
 				sourceInvalidation.run();
 				Generation current = published;
 				if (current != null) {
@@ -362,13 +401,16 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 						null, null, null, null, null, current.projectionContext());
 				}
 				desiredRevision++;
+                refreshProjectable();
 				startConfiguredRebuild();
 			}
 		}
+        refreshProjectable();
 	}
 
 	public synchronized CompletableFuture<Void> requestRebuild(List<GroupDefinition> groups) {
 		currentGroups = List.copyOf(groups);
+        refreshProjectable();
 		desiredRevision++;
 		startConfiguredRebuild();
 		return readyFuture;
@@ -400,7 +442,7 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 			capturedRevision = desiredRevision;
 		}
 
-		CompletableFuture.supplyAsync(source, REBUILD_EXECUTOR).whenComplete((generation, failure) -> {
+		CompletableFuture.supplyAsync(source, rebuildExecutor == null ? REBUILD_EXECUTOR : rebuildExecutor).whenComplete((generation, failure) -> {
 			boolean trailing;
 			synchronized (this) {
 				if (sequence != resetSequence) {
@@ -415,6 +457,8 @@ public final class JeiViewerGroupIndex implements ViewerGroupIndex {
 				}
 				if (!trailing) {
 					published = withCurrentEnabledState(generation);
+                    publishedSourceSequence = sourceSequence;
+                    refreshProjectable();
 					loop.complete(null);
 				}
 			}
