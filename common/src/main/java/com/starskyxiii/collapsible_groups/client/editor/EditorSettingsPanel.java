@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.client.editor;
 
 import com.starskyxiii.collapsible_groups.client.widget.ConfirmDialog;
 import com.starskyxiii.collapsible_groups.client.widget.ColorPicker;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
@@ -44,6 +45,10 @@ import java.util.function.Supplier;
  * exposes {@link #hoverTooltip()} so the Screen can render them at top Z.
  */
 public final class EditorSettingsPanel {
+    private record Command(String kind, Object value) {}
+    private final CommandPress<Command> press = new CommandPress<>();
+    private int priorityStep;
+
 
 	private static final int SETTINGS_ROW_GAP = 3;
 	private static final int SETTINGS_SCROLLBAR_WIDTH = 6;
@@ -134,6 +139,7 @@ public final class EditorSettingsPanel {
 	 * @param content     settings row content column rect
 	 */
 	public void init(EditorChrome.Rect panel, int titleBottom, EditorChrome.Rect content) {
+        press.clear();
 		this.panelX = panel.x();
 		this.panelY = panel.y();
 		this.panelW = panel.width();
@@ -151,6 +157,7 @@ public final class EditorSettingsPanel {
 	}
 
 	public void onDeactivate() {
+        press.clear();
 		if (isColorPickerOpen()) {
 			colorPicker.cancel();
 		}
@@ -377,10 +384,10 @@ public final class EditorSettingsPanel {
 			iconId == null ? UiPalette.TEXT_HINT : UiPalette.TEXT_MUTED, false);
 
 		boolean canChange = !backLocked;
-		drawRowButton(g, row.changeBtn(),
+		drawRowButton(g, row.changeBtn(), new Command("icon", back),
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_CHANGE).getString(),
 			buttonState(canChange, canChange && row.changeBtn().contains(mouseX, mouseY)));
-		drawRowButton(g, row.clearBtn(),
+		drawRowButton(g, row.clearBtn(), new Command("clear", back),
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_CLEAR).getString(),
 			buttonState(iconId != null, iconId != null && row.clearBtn().contains(mouseX, mouseY)));
 	}
@@ -389,7 +396,7 @@ public final class EditorSettingsPanel {
 		String label = Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_SWAP_ICONS).getString();
 		boolean enabled = state.appearanceDraft().frontIconId() != null && state.appearanceDraft().backIconId() != null;
 		SettingsRowLayout.Rect swap = row.swapBtn();
-		drawRowButton(g, swap, label, buttonState(enabled, enabled && swap.contains(mouseX, mouseY)));
+		drawRowButton(g, swap, new Command("swap", null), label, buttonState(enabled, enabled && swap.contains(mouseX, mouseY)));
 	}
 
 	private void renderColorRow(GuiGraphics g, SettingsRowLayout.Row row, int mouseX, int mouseY) {
@@ -417,9 +424,9 @@ public final class EditorSettingsPanel {
 			colorTooltip = value;
 		}
 
-		drawRowButton(g, row.pickerBtn(), "...",
+		drawRowButton(g, row.pickerBtn(), new Command("color", target), "...",
 			buttonState(true, row.pickerBtn().contains(mouseX, mouseY)));
-		drawRowButton(g, row.resetBtn(),
+		drawRowButton(g, row.resetBtn(), new Command("reset", target),
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_RESET).getString(),
 			buttonState(raw != null, raw != null && row.resetBtn().contains(mouseX, mouseY)));
 	}
@@ -432,7 +439,7 @@ public final class EditorSettingsPanel {
 		g.drawString(font, font.plainSubstrByWidth(desc, Math.max(0, row.stepMinus().x() - rect.x() - 12)),
 			rect.x() + 6, rect.y() + 4 + font.lineHeight + 1, UiPalette.TEXT_HINT, false);
 
-		drawRowButton(g, row.stepMinus(), "-",
+		drawRowButton(g, row.stepMinus(), new Command("priority", -1), "-",
 			buttonState(true, row.stepMinus().contains(mouseX, mouseY)));
 		SettingsRowLayout.Rect valueBox = row.valueBox();
 		g.fill(valueBox.x(), valueBox.y(), valueBox.right(), valueBox.bottom(), UiPalette.SURFACE_DARK);
@@ -450,7 +457,7 @@ public final class EditorSettingsPanel {
 			int cursorX = Math.min(valueBox.right() - 3, valueX + font.width(clipped) + 1);
 			g.fill(cursorX, valueY - 1, cursorX + 1, valueY + font.lineHeight, UiPalette.TEXT_PRIMARY);
 		}
-		drawRowButton(g, row.stepPlus(), "+",
+		drawRowButton(g, row.stepPlus(), new Command("priority", 1), "+",
 			buttonState(true, row.stepPlus().contains(mouseX, mouseY)));
 	}
 
@@ -468,7 +475,7 @@ public final class EditorSettingsPanel {
 		int idMax = Math.max(0, row.copyBtn().x() - idX - 6);
 		g.drawString(font, font.plainSubstrByWidth(value, idMax),
 			idX, rect.y() + 4, rawId.isBlank() ? UiPalette.TEXT_HINT : UiPalette.TEXT_MUTED, false);
-		drawRowButton(g, row.copyBtn(),
+		drawRowButton(g, row.copyBtn(), new Command("copy", rawId),
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_SETTINGS_COPY).getString(),
 			buttonState(!rawId.isBlank(), !rawId.isBlank() && row.copyBtn().contains(mouseX, mouseY)));
 	}
@@ -483,7 +490,9 @@ public final class EditorSettingsPanel {
 		UiSkinRenderer.drawSwitch(g, sw.x(), sw.y(), sw.width(), sw.height(), state.editEnabled(), true, hovered, false);
 	}
 
-	private void drawRowButton(GuiGraphics g, SettingsRowLayout.Rect rect, String label, UiSkinRenderer.ButtonState buttonState) {
+	private void drawRowButton(GuiGraphics g, SettingsRowLayout.Rect rect, Command command, String label, UiSkinRenderer.ButtonState buttonState) {
+        if (buttonState == UiSkinRenderer.ButtonState.HOVERED && press.isHeld(command))
+            buttonState = UiSkinRenderer.ButtonState.PRESSED;
 		UiSkinRenderer.drawButton(g, font, rect.x(), rect.y(), rect.width(), rect.height(), label, buttonState);
 	}
 
@@ -561,6 +570,7 @@ public final class EditorSettingsPanel {
     }
 
     private void openColorPicker(SettingsColorTarget target) {
+        press.clear();
         commitPriorityEdit();
         clearSwitchHoverSuppression();
         AppearanceDraft previous = state.appearanceDraft();
@@ -591,6 +601,7 @@ public final class EditorSettingsPanel {
 	}
 
 	private void openIconPicker(boolean back) {
+        press.clear();
 		if (back && !state.appearanceDraft().canEditBackIcon()) {
 			return;
 		}
@@ -619,6 +630,7 @@ public final class EditorSettingsPanel {
 	}
 
 	private void closeIconPicker() {
+        press.clear();
 		iconPickerOpen = false;
 		iconPickerScrollOffset = 0;
 		iconPickerSearch = null;
@@ -773,7 +785,7 @@ public final class EditorSettingsPanel {
 			x, y, UiPalette.TEXT_PRIMARY, false);
 		UiSkinRenderer.drawButton(g, font, close.x(), close.y(), close.width(), close.height(),
 			Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString(),
-			buttonState(true, close.contains(mouseX, mouseY)));
+			UiSkinRenderer.buttonState(true, false, close.contains(mouseX, mouseY), press.isHeld(new Command("close", null))));
 
 		EditorChrome.Rect search = iconPickerSearchRect();
 		boolean searchFocused = iconPickerSearch != null && iconPickerSearch.isFocused();
@@ -1015,8 +1027,65 @@ public final class EditorSettingsPanel {
 	// Input entry points (Screen delegates here; already gated by mode)
 	// ─────────────────────────────────────────────────────────────────────
 
-	/** @return true if the click was consumed. Priority commit-on-outside-click is caller-driven. */
+    private Command commandAt(double x, double y) {
+        if (isColorPickerOpen()) return null;
+        if (iconPickerOpen) return iconPickerCloseButtonRect().contains(x, y) ? new Command("close", null) : null;
+        if (!contentRect().contains(x, y)) return null;
+        for (var row : settingsLayout().rows()) {
+            if (!row.rect().contains(x, y)) continue;
+            switch (row.kind()) {
+                case ICON -> {
+                    boolean back = (Boolean) row.payload();
+                    if (row.changeBtn().contains(x, y) && (!back || state.appearanceDraft().canEditBackIcon())) return new Command("icon", back);
+                    if (row.clearBtn().contains(x, y) && (back ? state.appearanceDraft().backIconId() : state.appearanceDraft().frontIconId()) != null)
+                        return new Command("clear", back);
+                }
+                case SWAP -> {
+                    if (row.swapBtn().contains(x, y) && state.appearanceDraft().frontIconId() != null && state.appearanceDraft().backIconId() != null)
+                        return new Command("swap", null);
+                }
+                case COLOR -> {
+                    var target = (SettingsColorTarget) row.payload();
+                    if (row.pickerBtn().contains(x, y)) return new Command("color", target);
+                    if (row.resetBtn().contains(x, y) && colorValue(target) != null) return new Command("reset", target);
+                }
+                case PRIORITY -> {
+                    if (row.stepMinus().contains(x, y)) return new Command("priority", -1);
+                    if (row.stepPlus().contains(x, y)) return new Command("priority", 1);
+                }
+                case ID -> {
+                    if (row.copyBtn().contains(x, y) && !state.pendingRawId().isBlank()) return new Command("copy", state.pendingRawId());
+                }
+                default -> {}
+            }
+        }
+        return null;
+    }
+
+    private void execute(Command command) {
+        commitPriorityEdit();
+        switch (command.kind()) {
+            case "close" -> closeIconPicker();
+            case "icon" -> openIconPicker((Boolean) command.value());
+            case "clear" -> {
+                state.setAppearanceDraft((Boolean) command.value() ? state.appearanceDraft().clearBackIcon() : state.appearanceDraft().clearFrontIcon());
+                onChanged.run();
+            }
+            case "swap" -> { state.setAppearanceDraft(state.appearanceDraft().swapIcons()); onChanged.run(); }
+            case "color" -> openColorPicker((SettingsColorTarget) command.value());
+            case "reset" -> { state.setAppearanceDraft(withColor((SettingsColorTarget) command.value(), null)); onChanged.run(); }
+            case "priority" -> { commitPriorityEdit(); state.setEditPriority(state.editPriority() + (Integer) command.value() * priorityStep); onChanged.run(); }
+            case "copy" -> Minecraft.getInstance().keyboardHandler.setClipboard((String) command.value());
+        }
+    }
+
+    public void clearHeldCommand() { press.clear(); }
+
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (button == 0) {
+            press.begin(commandAt(mouseX, mouseY));
+            if (press.target() != null) { priorityStep = Screen.hasShiftDown() ? 10 : 1; return true; }
+        }
 		if (isColorPickerOpen()) {
 			colorPicker.mouseClicked(mouseX, mouseY, button);
 			return true;
@@ -1037,10 +1106,9 @@ public final class EditorSettingsPanel {
 			if (!row.rect().contains(mouseX, mouseY)) continue;
 			switch (row.kind()) {
 				case ICON -> handleIconRowClick(row, mouseX, mouseY);
-				case SWAP -> handleSwapRowClick(row, mouseX, mouseY);
+				case SWAP, ID -> {}
 				case COLOR -> handleColorRowClick(row, mouseX, mouseY);
 				case PRIORITY -> handlePriorityRowClick(row, mouseX, mouseY);
-				case ID -> handleIdRowClick(row, mouseX, mouseY);
 				case ENABLED -> handleEnabledRowClick(row, mouseX, mouseY);
 				case SUBHEADER -> {
 				}
@@ -1051,65 +1119,16 @@ public final class EditorSettingsPanel {
 	}
 
 	private void handleIconRowClick(SettingsRowLayout.Row row, double mouseX, double mouseY) {
-		boolean back = (Boolean) row.payload();
-		if (row.changeBtn().contains(mouseX, mouseY) || row.slot().contains(mouseX, mouseY)) {
-			// Clicking the slot opens the picker too; back-locked is guarded inside
-			// openIconPicker's early return.
-			openIconPicker(back);
-			return;
-		}
-		if (row.clearBtn().contains(mouseX, mouseY)) {
-			GroupIconDefinition iconId = back ? state.appearanceDraft().backIconId() : state.appearanceDraft().frontIconId();
-			if (iconId != null) {
-				state.setAppearanceDraft(back ? state.appearanceDraft().clearBackIcon() : state.appearanceDraft().clearFrontIcon());
-				onChanged.run();
-			}
-		}
-	}
-
-	private void handleSwapRowClick(SettingsRowLayout.Row row, double mouseX, double mouseY) {
-		boolean enabled = state.appearanceDraft().frontIconId() != null && state.appearanceDraft().backIconId() != null;
-		if (enabled && row.swapBtn().contains(mouseX, mouseY)) {
-			state.setAppearanceDraft(state.appearanceDraft().swapIcons());
-			onChanged.run();
-		}
+		if (row.slot().contains(mouseX, mouseY)) openIconPicker((Boolean) row.payload());
 	}
 
 	private void handleColorRowClick(SettingsRowLayout.Row row, double mouseX, double mouseY) {
-		SettingsColorTarget target = (SettingsColorTarget) row.payload();
-		if (row.resetBtn().contains(mouseX, mouseY)) {
-			if (colorValue(target) != null) {
-				state.setAppearanceDraft(withColor(target, null));
-				onChanged.run();
-			}
-			return;
-		}
-		if (row.pickerBtn().contains(mouseX, mouseY) || row.swatch().contains(mouseX, mouseY)
-			|| row.hexBox().contains(mouseX, mouseY)) {
-			openColorPicker(target);
-		}
+		if (row.swatch().contains(mouseX, mouseY) || row.hexBox().contains(mouseX, mouseY))
+			openColorPicker((SettingsColorTarget) row.payload());
 	}
 
 	private void handlePriorityRowClick(SettingsRowLayout.Row row, double mouseX, double mouseY) {
-		int step = Screen.hasShiftDown() ? 10 : 1;
-		if (row.valueBox().contains(mouseX, mouseY)) {
-			beginPriorityEdit();
-		} else if (row.stepMinus().contains(mouseX, mouseY)) {
-			commitPriorityEdit();
-			state.setEditPriority(state.editPriority() - step);
-			onChanged.run();
-		} else if (row.stepPlus().contains(mouseX, mouseY)) {
-			commitPriorityEdit();
-			state.setEditPriority(state.editPriority() + step);
-			onChanged.run();
-		}
-	}
-
-	private void handleIdRowClick(SettingsRowLayout.Row row, double mouseX, double mouseY) {
-		String rawId = state.pendingRawId();
-		if (!rawId.isBlank() && row.copyBtn().contains(mouseX, mouseY)) {
-			Minecraft.getInstance().keyboardHandler.setClipboard(rawId);
-		}
+		if (row.valueBox().contains(mouseX, mouseY)) beginPriorityEdit();
 	}
 
 	private void handleEnabledRowClick(SettingsRowLayout.Row row, double mouseX, double mouseY) {
@@ -1122,8 +1141,13 @@ public final class EditorSettingsPanel {
 	}
 
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (button == 0 && press.target() != null) {
+            Command command = press.release(commandAt(mouseX, mouseY));
+            if (command != null) execute(command);
+            return true;
+        }
 		if (isColorPickerOpen()) {
-			if (button == 0) colorPicker.mouseReleased();
+			if (button == 0) colorPicker.mouseReleased(mouseX, mouseY, button);
 			return true;
 		}
 		if (iconPickerOpen) {
@@ -1154,6 +1178,7 @@ public final class EditorSettingsPanel {
 
 	/** Wheel over the whole editor panel scrolls the settings list. */
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+        press.clear();
 		if (isColorPickerOpen()) return true;
 		if (iconPickerOpen) return handleIconPickerScroll(scrollY);
 		if (!panelRect().contains(mouseX, mouseY)) return false;
@@ -1167,6 +1192,7 @@ public final class EditorSettingsPanel {
 	}
 
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        press.clear();
 		if (isColorPickerOpen()) {
 			return colorPicker.keyPressed(keyCode, scanCode, modifiers);
 		}
@@ -1193,6 +1219,7 @@ public final class EditorSettingsPanel {
 	}
 
 	public void repositionElements() {
+        press.clear();
 		clampScroll();
 		scrollbarDragging = false;
 		clearSwitchHoverSuppression();

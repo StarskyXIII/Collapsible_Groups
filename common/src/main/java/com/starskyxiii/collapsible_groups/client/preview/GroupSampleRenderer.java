@@ -116,7 +116,7 @@ public final class GroupSampleRenderer {
 	 */
 	public static Layout render(GuiGraphics g, Rect area, boolean expanded, int page, GroupTheme theme,
 	                            List<GroupPreviewEntry> headerIcons, List<GroupPreviewEntry> items,
-	                            Font font, Fallbacks fallbacks) {
+	                            Font font, Fallbacks fallbacks, int mouseX, int mouseY, int heldPageDirection) {
 		Layout layout = layout(area, expanded, items.size(), page);
 
 		int expandedGroupBg = GroupThemeColors.expandedGroupBackground(theme, fallbacks.expandedGroupArgb());
@@ -149,9 +149,9 @@ public final class GroupSampleRenderer {
 			Rect prev = layout.previousPageButton();
 			Rect nxt = layout.nextPageButton();
 			UiSkinRenderer.drawButton(g, font, prev.x(), prev.y(), prev.width(), prev.height(), "<",
-				buttonState(layout.canPageBackward()));
+				UiSkinRenderer.buttonState(layout.canPageBackward(), false, prev.contains(mouseX, mouseY), heldPageDirection == -1));
 			UiSkinRenderer.drawButton(g, font, nxt.x(), nxt.y(), nxt.width(), nxt.height(), ">",
-				buttonState(layout.canPageForward()));
+				UiSkinRenderer.buttonState(layout.canPageForward(), false, nxt.contains(mouseX, mouseY), heldPageDirection == 1));
 			String counter = (layout.page() + 1) + "/" + layout.pageCount();
 			int counterX = (prev.right() + nxt.x()) / 2 - font.width(counter) / 2;
 			int counterY = prev.y() + Math.max(0, (prev.height() - font.lineHeight) / 2);

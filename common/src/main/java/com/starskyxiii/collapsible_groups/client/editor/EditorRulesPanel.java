@@ -8,6 +8,7 @@ import com.starskyxiii.collapsible_groups.client.editor.model.RuleTagResolution;
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.group.filter.ComponentPathNavigator;
 import com.starskyxiii.collapsible_groups.group.filter.ComponentReferenceExtractor;
@@ -354,6 +355,7 @@ final class EditorRulesPanel {
 	// ─────────────────────────────────────────────────────────────────────
 
 	void init(int bodyX, int bodyY, int bodyW, int bodyH) {
+		commandPress.clear();
 		this.bodyX = bodyX;
 		this.bodyY = bodyY;
 		this.bodyW = bodyW;
@@ -369,6 +371,7 @@ final class EditorRulesPanel {
 	}
 
 	void onDeactivate() {
+		commandPress.clear();
 		abortModal();
 	}
 
@@ -393,6 +396,7 @@ final class EditorRulesPanel {
 	}
 
 	void onGroupChanged() {
+		commandPress.clear();
 		state.ensureRuleSelection();
 		clampScroll();
 	}
@@ -405,6 +409,7 @@ final class EditorRulesPanel {
 	 * paths (see confirmPickerSelection / keyPressed / pickerMouseClicked).
 	 */
 	private void abortModal() {
+		commandPress.clear();
 		closeValuePicker();
 		if (modal == ModalKind.PICKER || modal == ModalKind.FORM || modal == ModalKind.REFERENCE_PICKER || modal == ModalKind.TYPE_PICKER || modal == ModalKind.VALUE_PICKER
 			|| state.hasRuleEditTransaction()) {
@@ -517,6 +522,8 @@ final class EditorRulesPanel {
 	private boolean tagWarningHovered;
 
 	void render(GuiGraphics g, int mouseX, int mouseY, float partial) {
+		pointerX = mouseX;
+		pointerY = mouseY;
 		tagWarningHovered = false;
 		boolean modalUp = isModalOpen();
 		int listMouseX = modalUp ? Integer.MIN_VALUE : mouseX;
@@ -539,6 +546,8 @@ final class EditorRulesPanel {
 	 * modal at the shell's top Z. {@link #render} paints only the rules body.
 	 */
 	void renderModals(GuiGraphics g, int screenW, int screenH, int mouseX, int mouseY) {
+		pointerX = mouseX;
+		pointerY = mouseY;
 		if (!isModalOpen()) {
 			return;
 		}
@@ -577,10 +586,10 @@ final class EditorRulesPanel {
 	private void renderToolbar(GuiGraphics g, int mouseX, int mouseY) {
 		EditorChrome.Rect addCond = addConditionRect();
 		EditorChrome.Rect addGroup = addGroupRect();
-		UiSkinRenderer.drawButton(g, font, addCond.x(), addCond.y(), addCond.width(), addCond.height(),
+		drawCommandButton(g, font, addCond.x(), addCond.y(), addCond.width(), addCond.height(),
 			Component.translatable(ModTranslationKeys.EDITOR_RULES_ADD_CONDITION).getString(),
 			buttonState(state.canInsertRuleRelative(), addCond.contains(mouseX, mouseY)));
-		UiSkinRenderer.drawButton(g, font, addGroup.x(), addGroup.y(), addGroup.width(), addGroup.height(),
+		drawCommandButton(g, font, addGroup.x(), addGroup.y(), addGroup.width(), addGroup.height(),
 			Component.translatable(ModTranslationKeys.EDITOR_RULES_ADD_GROUP).getString(),
 			buttonState(canOpenGroupMenu(), addGroup.contains(mouseX, mouseY)));
 		renderToolbarInfo(g, addCond);
@@ -730,14 +739,14 @@ final class EditorRulesPanel {
 		// Icons (right-aligned, Manager action-rail primitive)
 		int iconY = y + (ROW_H - ICON_BTN_H) / 2;
 		int deleteX = deleteButtonX(list);
-		UiSkinRenderer.drawToolbarIconButton(g, deleteX, iconY, ICON_BTN_W, ICON_BTN_H, UiSkinRenderer.ICON_DELETE,
+		drawCommandIcon(g, deleteX, iconY, ICON_BTN_W, ICON_BTN_H, UiSkinRenderer.ICON_DELETE,
 			buttonState(true, hoverIn(mouseX, mouseY, deleteX, iconY, ICON_BTN_W, ICON_BTN_H)));
 		int textRight;
 		if (node.kind().compound()) {
 			textRight = deleteX - 6;
 		} else {
 			int editX = editButtonX(list);
-			UiSkinRenderer.drawToolbarIconButton(g, editX, iconY, ICON_BTN_W, ICON_BTN_H, UiSkinRenderer.ICON_EDIT,
+			drawCommandIcon(g, editX, iconY, ICON_BTN_W, ICON_BTN_H, UiSkinRenderer.ICON_EDIT,
 				buttonState(true, hoverIn(mouseX, mouseY, editX, iconY, ICON_BTN_W, ICON_BTN_H)));
 			textRight = editX - 6;
 		}
@@ -907,7 +916,7 @@ final class EditorRulesPanel {
 			for (MenuEntry entry : entries) {
 				boolean hovered = mouseX >= list.x() && mouseX < list.right() && mouseY >= y && mouseY < y + BTN_H
 					&& mouseY >= list.y() && mouseY < list.bottom();
-				UiSkinRenderer.drawButton(g, font, list.x(), y, list.width(), BTN_H, menuEntryLabel(entry),
+				drawCommandButton(g, font, list.x(), y, list.width(), BTN_H, menuEntryLabel(entry),
 					buttonState(menuEntryEnabled(entry), hovered));
 				if (hovered) {
 					hoverDesc = Component.translatable(state.canAddRuleKind(entry.kind()) ? RuleNodePresentation.descriptionKey(entry.kind()) : "collapsible_groups.editor.format.requires_new_group").getString();
@@ -925,53 +934,38 @@ final class EditorRulesPanel {
 	}
 
 	private boolean menuMouseClicked(double mx, double my) {
-		EditorChrome.Rect m = menuModalRect();
-		if (!m.contains(mx, my)) {
-			modal = ModalKind.NONE;
-			return true;
-		}
-		EditorChrome.Rect list = menuListRect(m);
-		if (handleModalScrollbarClick(mx, my, list, menuContentHeight())) {
-			return true;
-		}
-		if (!list.contains(mx, my)) {
-			return true;
-		}
-		// Row pitch must stay (BTN_H + 2), the same spacing renderMenu lays entries out with.
-		int index = (int) ((my - list.y() + modalScrollOffset) / (BTN_H + 2));
-		List<MenuEntry> entries = menuEntries();
-		if (index < 0 || index >= entries.size()) {
-			return true;
-		}
-		MenuEntry entry = entries.get(index);
-		if (!menuEntryEnabled(entry)) {
-			return true;
-		}
+		var m = menuModalRect();
+		if (!m.contains(mx, my)) { modal = ModalKind.NONE; return true; }
+		handleModalScrollbarClick(mx, my, menuListRect(m), menuContentHeight());
+		return true;
+	}
+
+	private void executeMenuEntry(MenuEntry entry) {
 		modal = ModalKind.NONE;
 		modalScrollOffset = 0;
-		if (entry.otherIngredient()) { openTypePicker(entry.kind()); return true; }
+		if (entry.otherIngredient()) { openTypePicker(entry.kind()); return; }
 		if (entry.wrap()) {
 			if (state.wrapSelectedRule(entry.kind()) != null) {
 				onChanged.run();
 			}
-			return true;
+			return;
 		}
 		if (entry.kind().compound()) {
 			if (state.insertRuleRelative(entry.kind()) != null) {
 				onChanged.run();
 			}
-			return true;
+			return;
 		}
 		GroupFilterRuleDraft.Node node = state.beginInsertRule(entry.kind());
 		if (node == null) {
-			return true;
+			return;
 		}
 		if (entry.presetType() != null) {
 			node.setIngredientType(entry.presetType());
 		}
 		beginEditor(node, true);
 		onChanged.run();
-		return true;
+		return;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -979,6 +973,7 @@ final class EditorRulesPanel {
 	// ─────────────────────────────────────────────────────────────────────
 
 	private void openTypePicker(GroupFilterRuleDraft.NodeKind kind) {
+		commandPress.clear();
 		clearFocus();
 		formValueButtonFocused = false;
 		formTypeButtonFocused = false;
@@ -1011,6 +1006,7 @@ final class EditorRulesPanel {
 	}
 
 	private void openValuePicker(boolean returnsToForm) {
+		commandPress.clear();
 		clearFocus();
 		formTypeButtonFocused = formValueButtonFocused = false;
 		modal = ModalKind.VALUE_PICKER;
@@ -1150,6 +1146,7 @@ final class EditorRulesPanel {
 		pickerSearch.setValue(pickerLastSearch.getOrDefault(pickerKind, ""));
 		pickerSearch.setResponder(value -> {
 			pickerLastSearch.put(pickerKind, value);
+			commandPress.clear();
 			pickerFilterDirty = true;
 			pickerFilterDeadline = System.currentTimeMillis() + FILTER_DEBOUNCE_MS;
 		});
@@ -1177,6 +1174,7 @@ final class EditorRulesPanel {
 	}
 
 	private void refilterPicker() {
+		commandPress.clear();
 		pickerFilterDirty = false;
 		String query = pickerSearch == null ? "" : pickerSearch.getValue().trim();
 		String lower = query.toLowerCase(Locale.ROOT);
@@ -1321,10 +1319,10 @@ final class EditorRulesPanel {
 
 		EditorChrome.Rect confirm = pickerConfirmRect(m);
 		EditorChrome.Rect cancel = pickerCancelRect(m);
-		UiSkinRenderer.drawButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
+		drawCommandButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
 			Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM).getString(),
-			buttonState(pickerSelected >= 0, confirm.contains(mouseX, mouseY)));
-		UiSkinRenderer.drawButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
+			buttonState(canConfirmPicker(), confirm.contains(mouseX, mouseY)));
+		drawCommandButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
 			Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString(),
 			buttonState(true, cancel.contains(mouseX, mouseY)));
 	}
@@ -1376,16 +1374,6 @@ final class EditorRulesPanel {
 			}
 			return true;
 		}
-		if (pickerConfirmRect(m).contains(mx, my)) {
-			// Exit path: confirm button.
-			confirmPickerSelection();
-			return true;
-		}
-		if (pickerCancelRect(m).contains(mx, my)) {
-			// Exit path: cancel button.
-			cancelOrReturnPicker();
-			return true;
-		}
 		return true;
 	}
 
@@ -1395,6 +1383,7 @@ final class EditorRulesPanel {
 	 * {@link #setFormFieldValue} and reopens FORM instead of closing the whole editor.
 	 */
 	private void confirmPickerSelection() {
+		if (!canConfirmPicker()) return;
 		if (editingNode == null || pickerSelected < 0) {
 			return;
 		}
@@ -1578,7 +1567,8 @@ final class EditorRulesPanel {
 		referencePickerSearch.setResponder(query -> {
 			if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
 				referenceItemSearch = query;
-				referenceItemFilterDirty = true;
+				commandPress.clear();
+			referenceItemFilterDirty = true;
 				referenceItemFilterDeadline = System.currentTimeMillis() + FILTER_DEBOUNCE_MS;
 				return;
 			} else if (referencePickerMode == ReferencePickerMode.REFERENCE_COMPONENT) {
@@ -1597,6 +1587,7 @@ final class EditorRulesPanel {
 	}
 
 	private void refilterReferencePicker() {
+		commandPress.clear();
 		referenceItemFilterDirty = false;
 		String query = referencePickerSearch == null
 			? ""
@@ -1782,12 +1773,12 @@ final class EditorRulesPanel {
 
 		EditorChrome.Rect confirm = pickerConfirmRect(modalRect);
 		EditorChrome.Rect cancel = pickerCancelRect(modalRect);
-		UiSkinRenderer.drawButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
+		drawCommandButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
 			Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM).getString(),
-			buttonState(referencePickerSelected >= 0, confirm.contains(mouseX, mouseY)));
+			buttonState(canConfirmReference(), confirm.contains(mouseX, mouseY)));
 		String cancelKey = referencePickerMode == ReferencePickerMode.REFERENCE_PATH
 			? ModTranslationKeys.EDITOR_RULES_REFERENCE_BACK : ModTranslationKeys.BUTTON_CANCEL;
-		UiSkinRenderer.drawButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
+		drawCommandButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
 			Component.translatable(cancelKey).getString(), buttonState(true, cancel.contains(mouseX, mouseY)));
 		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
 			ItemStack hovered = referenceItemAt(list, mouseX, mouseY);
@@ -1919,21 +1910,11 @@ final class EditorRulesPanel {
 			}
 			return true;
 		}
-		if (pickerConfirmRect(modalRect).contains(mx, my)) {
-			confirmReferencePickerSelection();
-			return true;
-		}
-		if (pickerCancelRect(modalRect).contains(mx, my)) {
-			cancelOrBackReferencePicker();
-			return true;
-		}
 		return true;
 	}
 
 	private void confirmReferencePickerSelection() {
-		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM && referenceItemFilterDirty) {
-			refilterReferencePicker();
-		}
+		if (!canConfirmReference()) return;
 		if (editingNode == null || referencePickerSelected < 0) return;
 		if (referencePickerMode == ReferencePickerMode.REFERENCE_ITEM) {
 			if (referencePickerSelected >= referenceFilteredItems.size()) return;
@@ -2069,6 +2050,7 @@ final class EditorRulesPanel {
 	// ─────────────────────────────────────────────────────────────────────
 
 	private void openForm() {
+		commandPress.clear();
 		formValueButtonFocused = false;
 		formTypeButtonFocused = false;
 		resetReferencePickerState();
@@ -2271,7 +2253,7 @@ final class EditorRulesPanel {
 
 		if (referenceStack != null) {
 			EditorChrome.Rect clear = referenceClearButtonRect(modalRect);
-			UiSkinRenderer.drawButton(g, font, clear.x(), clear.y(), clear.width(), clear.height(),
+			drawCommandButton(g, font, clear.x(), clear.y(), clear.width(), clear.height(),
 				Component.translatable(ModTranslationKeys.EDITOR_RULES_REFERENCE_CLEAR).getString(),
 				buttonState(true, clear.contains(mouseX, mouseY)));
 		}
@@ -2427,10 +2409,11 @@ final class EditorRulesPanel {
 			if (entry.field() == formType && fieldRect.contains(mouseX, mouseY)) g.renderTooltip(font, font.split(Component.literal(editingNode.ingredientType()), 300), mouseX, mouseY);
 			if (hasPickerButton) {
 				EditorChrome.Rect pickerBtn = formFieldPickerButtonRect(m, fy);
-				UiSkinRenderer.drawButton(g, font, pickerBtn.x(), pickerBtn.y(), pickerBtn.width(), pickerBtn.height(),
+				drawCommandButton(g, font, pickerBtn.x(), pickerBtn.y(), pickerBtn.width(), pickerBtn.height(),
 					Component.translatable(ModTranslationKeys.EDITOR_RULES_FIELD_PICKER_BUTTON).getString(),
-					buttonState(true, pickerBtn.contains(mouseX, mouseY) || typeButton && formTypeButtonFocused
-						|| entry.field() == formPrimary && formValueButtonFocused));
+					buttonState(true, pickerBtn.contains(mouseX, mouseY)));
+				if (typeButton && formTypeButtonFocused || entry.field() == formPrimary && formValueButtonFocused)
+					UiSkinRenderer.drawOutline(g, pickerBtn.x(), pickerBtn.y(), pickerBtn.width(), pickerBtn.height(), UiPalette.OUTLINE_SELECTED);
 				if (typeButton && pickerBtn.contains(mouseX, mouseY)) g.renderTooltip(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_TYPE_CHANGE), mouseX, mouseY);
 			}
 			fy += FIELD_H + FIELD_GAP;
@@ -2451,10 +2434,10 @@ final class EditorRulesPanel {
 		}
 		EditorChrome.Rect confirm = formConfirmRect(m);
 		EditorChrome.Rect cancel = formCancelRect(m);
-		UiSkinRenderer.drawButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
+		drawCommandButton(g, font, confirm.x(), confirm.y(), confirm.width(), confirm.height(),
 			Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM).getString(),
 			buttonState(true, confirm.contains(mouseX, mouseY)));
-		UiSkinRenderer.drawButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
+		drawCommandButton(g, font, cancel.x(), cancel.y(), cancel.width(), cancel.height(),
 			Component.translatable(ModTranslationKeys.BUTTON_CANCEL).getString(),
 			buttonState(true, cancel.contains(mouseX, mouseY)));
 		if (invalidTooltip != null) {
@@ -2593,7 +2576,141 @@ final class EditorRulesPanel {
 	// Input
 	// ─────────────────────────────────────────────────────────────────────
 
+	private record Command(String kind, Object value) {}
+	private final CommandPress<Command> commandPress = new CommandPress<>();
+	private int pointerX, pointerY;
+
+	void clearHeldCommand() {
+		commandPress.clear();
+	}
+
+	private void drawCommandButton(GuiGraphics g, Font font, int x, int y, int width, int height,
+		String label, UiSkinRenderer.ButtonState visual) {
+		UiSkinRenderer.drawButton(g, font, x, y, width, height, label, commandVisual(visual, x, y));
+	}
+
+	private void drawCommandIcon(GuiGraphics g, int x, int y, int width, int height,
+		net.minecraft.resources.ResourceLocation icon, UiSkinRenderer.ButtonState visual) {
+		UiSkinRenderer.drawToolbarIconButton(g, x, y, width, height, icon, commandVisual(visual, x, y));
+	}
+
+	private UiSkinRenderer.ButtonState commandVisual(UiSkinRenderer.ButtonState visual, int x, int y) {
+		return visual == UiSkinRenderer.ButtonState.HOVERED && commandPress.target() != null
+			&& commandPress.isHeld(commandAt(pointerX, pointerY)) ? UiSkinRenderer.ButtonState.PRESSED : visual;
+	}
+
+	private boolean canConfirmPicker() {
+		return !pickerFilterDirty && pickerSelected >= 0 && pickerSelected < pickerFiltered.size() + (pickerHasFallback ? 1 : 0);
+	}
+
+	private boolean canConfirmReference() {
+		return !referenceItemFilterDirty && referencePickerSelected >= 0 && referencePickerSelected < referencePickerEntryCount();
+	}
+
+	private Command commandAt(double mx, double my) {
+		if (modal == ModalKind.MENU) {
+			var list = menuListRect(menuModalRect());
+			if (!list.contains(mx, my)) return null;
+			int index = (int) ((my - list.y() + modalScrollOffset) / (BTN_H + 2));
+			var entries = menuEntries();
+			if (index < 0 || index >= entries.size()
+				|| my >= list.y() - modalScrollOffset + index * (BTN_H + 2) + BTN_H) return null;
+			var entry = entries.get(index);
+			return menuEntryEnabled(entry) ? new Command("menu", entry) : null;
+		}
+		if (modal == ModalKind.PICKER) {
+			var m = pickerModalRect();
+			if (pickerCancelRect(m).contains(mx, my)) return new Command("pickerCancel", editingNode);
+			if (pickerConfirmRect(m).contains(mx, my) && canConfirmPicker()) {
+				if (pickerHasFallback && pickerSelected == 0) return new Command("pickerConfirm", pickerFallbackValue);
+				int index = pickerSelected - (pickerHasFallback ? 1 : 0);
+				if (index < pickerFiltered.size()) return new Command("pickerConfirm", pickerFiltered.get(index));
+			}
+			return null;
+		}
+		if (modal == ModalKind.REFERENCE_PICKER) {
+			var m = referencePickerModalRect();
+			if (pickerCancelRect(m).contains(mx, my)) return new Command("referenceCancel", referencePickerMode);
+			if (pickerConfirmRect(m).contains(mx, my) && canConfirmReference()) {
+				Object selected = switch (referencePickerMode) {
+					case REFERENCE_ITEM -> referenceFilteredItems.get(referencePickerSelected);
+					case REFERENCE_COMPONENT -> referenceFilteredComponents.get(referencePickerSelected);
+					case REFERENCE_PATH -> referenceFilteredPaths.get(referencePickerSelected);
+					case REFERENCE_NBT_PATH -> referenceFilteredNbtPaths.get(referencePickerSelected);
+					default -> null;
+				};
+				return selected == null ? null : new Command("referenceConfirm", selected);
+			}
+			return null;
+		}
+		if (modal == ModalKind.FORM) {
+			var m = formModalRect();
+			if (formCancelRect(m).contains(mx, my)) return new Command("formCancel", editingNode);
+			if (formConfirmRect(m).contains(mx, my)) return new Command("formConfirm", editingNode);
+			if (hasReferenceSlot() && referenceStack != null && referenceClearButtonRect(m).contains(mx, my))
+				return new Command("clearReference", referenceStack);
+			int fy = formFieldsY(m);
+			for (var entry : formFieldEntries()) {
+				boolean type = entry.field() == formType && canChangeType();
+				if ((type || entry.field() == formPrimary && formPrimaryHasPickerButton)
+					&& formFieldPickerButtonRect(m, fy).contains(mx, my))
+					return new Command(type ? "type" : "value", editingNode);
+				fy += FIELD_H + FIELD_GAP;
+			}
+			return null;
+		}
+		if (modal != ModalKind.NONE) return null;
+		if (addConditionRect().contains(mx, my) && state.canInsertRuleRelative()) return new Command("add", null);
+		if (addGroupRect().contains(mx, my) && canOpenGroupMenu()) return new Command("group", null);
+		var list = listRect();
+		if (!list.contains(mx, my)) return null;
+		var rows = buildRows();
+		int index = (int) ((my - list.y() - PAD + scrollOffset) / (ROW_H + ROW_GAP));
+		if (index < 0 || index >= rows.size()) return null;
+		int rowTop = list.y() + PAD - scrollOffset + index * (ROW_H + ROW_GAP);
+		if (my < rowTop || my >= rowTop + ROW_H) return null;
+		var node = rows.get(index).node();
+		int iconY = rowTop + (ROW_H - ICON_BTN_H) / 2;
+		if (hoverIn(mx, my, deleteButtonX(list), iconY, ICON_BTN_W, ICON_BTN_H)) return new Command("delete", node);
+		if (!node.kind().compound() && hoverIn(mx, my, editButtonX(list), iconY, ICON_BTN_W, ICON_BTN_H))
+			return new Command("edit", node);
+		return null;
+	}
+
+	private void executeCommand(Command command) {
+		if (command == null) return;
+		switch (command.kind()) {
+			case "add" -> openMenu(false);
+			case "group" -> openMenu(true);
+			case "menu" -> executeMenuEntry((MenuEntry) command.value());
+			case "pickerCancel" -> cancelOrReturnPicker();
+			case "pickerConfirm" -> confirmPickerSelection();
+			case "referenceCancel" -> cancelOrBackReferencePicker();
+			case "referenceConfirm" -> confirmReferencePickerSelection();
+			case "formCancel" -> cancelEditor();
+			case "formConfirm" -> confirmEditor();
+			case "clearReference" -> referenceStack = null;
+			case "type" -> openTypePicker(editingNode.kind());
+			case "value" -> openFieldPicker(RuleFieldRole.PRIMARY_VALUE);
+			case "delete" -> {
+				state.selectRuleNode((GroupFilterRuleDraft.Node) command.value());
+				state.deleteSelectedRule();
+				onChanged.run();
+			}
+			case "edit" -> {
+				var node = (GroupFilterRuleDraft.Node) command.value();
+				if (state.beginRuleEdit(node)) beginEditor(node, false);
+			}
+		}
+	}
+
 	boolean mouseClicked(double mx, double my, int button) {
+		if (button == 0) {
+			commandPress.begin(commandAt(mx, my));
+			if (commandPress.target() != null) return true;
+			if (modal == ModalKind.NONE && (addConditionRect().contains(mx, my) || addGroupRect().contains(mx, my))) return true;
+
+		}
 		if (button != 0) {
 			return false;
 		}
@@ -2615,21 +2732,6 @@ final class EditorRulesPanel {
 		clearFocus();
 		clearDrag();
 
-		EditorChrome.Rect addCond = addConditionRect();
-		if (addCond.contains(mx, my)) {
-			if (state.canInsertRuleRelative()) {
-				openMenu(false);
-			}
-			return true;
-		}
-		EditorChrome.Rect addGroup = addGroupRect();
-		if (addGroup.contains(mx, my)) {
-			if (canOpenGroupMenu()) {
-				openMenu(true);
-			}
-			return true;
-		}
-
 		EditorChrome.Rect list = listRect();
 		if (mx >= list.right() + ScrollbarHelper.GAP && mx < list.right() + ScrollbarHelper.GAP + ScrollbarHelper.WIDTH
 			&& my >= list.y() && my < list.bottom()) {
@@ -2648,6 +2750,7 @@ final class EditorRulesPanel {
 	}
 
 	private void openMenu(boolean groupMode) {
+		commandPress.clear();
 		menuGroupMode = groupMode;
 		modal = ModalKind.MENU;
 		modalScrollOffset = 0;
@@ -2666,21 +2769,6 @@ final class EditorRulesPanel {
 		}
 		GroupFilterRuleDraft.Node node = row.node();
 
-		int iconY = rowTop + (ROW_H - ICON_BTN_H) / 2;
-		int deleteX = deleteButtonX(list);
-		if (hoverIn(mx, my, deleteX, iconY, ICON_BTN_W, ICON_BTN_H)) {
-			state.selectRuleNode(node);
-			state.deleteSelectedRule();
-			onChanged.run();
-			return true;
-		}
-		if (!node.kind().compound()) {
-			int editX = editButtonX(list);
-			if (hoverIn(mx, my, editX, iconY, ICON_BTN_W, ICON_BTN_H)) {
-				if (state.beginRuleEdit(node)) beginEditor(node, false);
-				return true;
-			}
-		}
 		if (node.kind().compound()) {
 			int glyphX = rowIndent(row);
 			if (mx >= glyphX - 2 && mx < glyphX + 9) {
@@ -2826,8 +2914,12 @@ final class EditorRulesPanel {
 	}
 
 	boolean mouseReleased(double mx, double my, int button) {
-		if (modal == ModalKind.TYPE_PICKER) { typePicker.release(); return true; }
-		if (modal == ModalKind.VALUE_PICKER) { valuePicker.release(); return true; }
+		if (button == 0 && commandPress.target() != null) {
+			executeCommand(commandPress.release(commandAt(mx, my)));
+			return true;
+		}
+		if (modal == ModalKind.TYPE_PICKER) { typePicker.release(mx, my, button); return true; }
+		if (modal == ModalKind.VALUE_PICKER) { valuePicker.release(mx, my, button); return true; }
 		draggingScroll = false;
 		modalDragging = false;
 		if (dragNode != null) {
@@ -2858,6 +2950,7 @@ final class EditorRulesPanel {
 	}
 
 	boolean mouseScrolled(double mx, double my, double deltaY) {
+		commandPress.clear();
 		if (modal == ModalKind.TYPE_PICKER) { typePicker.scroll(deltaY); return true; }
 		if (modal == ModalKind.VALUE_PICKER) { valuePicker.scroll(deltaY); return true; }
 		if (dragNode != null) {
@@ -2932,6 +3025,7 @@ final class EditorRulesPanel {
 	}
 
 	boolean keyPressed(int key, int scan, int mods) {
+		commandPress.clear();
 		suppressTypeSpace = key == 32 && (modal == ModalKind.TYPE_PICKER && !typePicker.textFocused()
 			|| modal == ModalKind.VALUE_PICKER && !valuePicker.textFocused()
 			|| modal == ModalKind.FORM && (formTypeButtonFocused || formValueButtonFocused));

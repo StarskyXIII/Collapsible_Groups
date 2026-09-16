@@ -86,7 +86,7 @@ public interface EditorRuntimeAccess extends EditorGroupAccess, EditorIngredient
 
 	PreviewLayout renderPreview(GuiGraphics graphics, PreviewRect area, boolean expanded, int page,
 		AppearanceDraft appearance, List<PreviewEntry> headerIcons, List<PreviewEntry> entries, Font font,
-		PreviewFallbacks fallbacks);
+		PreviewFallbacks fallbacks, int mouseX, int mouseY, int heldPageDirection);
 	PreviewLayout layoutPreview(PreviewRect area, boolean expanded, int itemCount, int page);
 	PreviewTooltip previewTooltip(String displayName, int nameColorRgb, int itemCount, int fluidCount,
 		int genericCount, boolean expanded, List<PreviewEntry> entries);

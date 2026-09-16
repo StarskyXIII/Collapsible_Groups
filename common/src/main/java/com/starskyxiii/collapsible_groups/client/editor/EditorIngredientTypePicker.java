@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
@@ -14,6 +15,7 @@ import java.util.function.Consumer;
 
 final class EditorIngredientTypePicker {
 	private final Font font;
+    private final CommandPress<String> press = new CommandPress<>();
 	private final EditorChrome.Rect bounds;
 	private final EditBox search;
 	private final EditorTypeSelection selection = new EditorTypeSelection();
@@ -38,7 +40,7 @@ final class EditorIngredientTypePicker {
 		search.setBordered(false);
 		search.setMaxLength(512);
 		search.setHint(Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH));
-		search.setResponder(value -> { selection.search(value); offset = 0; lastClicked = null; });
+		search.setResponder(value -> { press.clear(); selection.search(value); offset = 0; lastClicked = null; });
 		search.setFocused(true);
 		refresh();
 	}
@@ -46,6 +48,7 @@ final class EditorIngredientTypePicker {
 	private boolean refresh() {
 		if (!selection.update(EditorRuntimeServices.findIngredients().map(EditorIngredientAccess::ingredientTypes)
 			.orElse(EditorIngredientTypes.UNAVAILABLE))) return false;
+		press.clear();
 		offset = 0;
 		lastClicked = null;
 		dragging = false;
@@ -97,7 +100,8 @@ final class EditorIngredientTypePicker {
 
 	private void button(GuiGraphics g, EditorChrome.Rect rect, String key, boolean enabled, boolean focused, int mx, int my) {
 		UiSkinRenderer.drawButton(g, font, rect.x(), rect.y(), rect.width(), rect.height(), Component.translatable(key).getString(),
-			!enabled ? UiSkinRenderer.ButtonState.DISABLED : focused || rect.contains(mx, my) ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL);
+			UiSkinRenderer.buttonState(enabled, false, rect.contains(mx, my), press.isHeld(key)));
+        if (focused) UiSkinRenderer.drawOutline(g, rect.x() - 1, rect.y() - 1, rect.width() + 2, rect.height() + 2, UiPalette.OUTLINE_HOVER);
 	}
 
 	private void accept() { if (!refresh() && canConfirm()) confirm.accept(selection.selected()); }
@@ -105,8 +109,9 @@ final class EditorIngredientTypePicker {
 
 	boolean click(double mx, double my) {
 		if (refresh()) return true;
-		if (!bounds.contains(mx, my) || back().contains(mx, my)) { cancel.run(); return true; }
-		if (ok().contains(mx, my)) { accept(); return true; }
+        press.begin(commandAt(mx, my));
+        if (press.target() != null) return true;
+        if (!bounds.contains(mx, my)) { cancel.run(); return true; }
 		if (searchRect().contains(mx, my)) {
 			focus(0);
 			search.mouseClicked(Math.max(search.getX(), Math.min(search.getX() + search.getWidth() - 1, mx)),
@@ -131,6 +136,7 @@ final class EditorIngredientTypePicker {
 	}
 
 	boolean key(int key, int scan, int mods) {
+        press.clear();
 		refresh();
 		if (key == 256) { cancel.run(); return true; }
 		if (key == 258) { focus(Math.floorMod(focus + ((mods & 1) == 0 ? 1 : -1), 4)); return true; }
@@ -149,10 +155,23 @@ final class EditorIngredientTypePicker {
 
 	boolean character(char c, int mods) { return search.isFocused() && search.charTyped(c, mods); }
 	boolean textFocused() { return search.isFocused(); }
-	void scroll(double delta) { refresh(); offset = Math.max(0, Math.min(maxOffset(), offset - (int) Math.signum(delta) * 18)); }
+	void scroll(double delta) { press.clear(); refresh(); offset = Math.max(0, Math.min(maxOffset(), offset - (int) Math.signum(delta) * 18)); }
 	void drag(double my) {
 		if (refresh() || !dragging) return;
 		offset = Math.max(0, Math.min(maxOffset(), dragOffset + (int) ((my - dragY) * selection.rows().size() * 18 / Math.max(1, list().height()))));
 	}
-	void release() { dragging = false; }
+    private String commandAt(double mx, double my) {
+        if (back().contains(mx, my)) return ModTranslationKeys.BUTTON_CANCEL;
+        if (canConfirm() && ok().contains(mx, my)) return ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM;
+        return null;
+    }
+
+    void release(double mx, double my, int button) {
+        if (button != 0) return;
+        refresh();
+        String action = press.release(commandAt(mx, my));
+        dragging = false;
+        if (ModTranslationKeys.BUTTON_CANCEL.equals(action)) cancel.run();
+        else if (action != null) accept();
+    }
 }
