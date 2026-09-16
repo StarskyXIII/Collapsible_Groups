@@ -10,15 +10,10 @@
     "all": [
       {
         "type": "item",
-        "tag": "c:shulker_boxes"
-      },
-      {
-        "type": "item",
-        "tag": "c:dyed"
-      },
-      {
-        "type": "item",
         "namespace": "minecraft"
+      },
+      {
+        "item_path_ends_with": "_shulker_box"
       }
     ]
   }

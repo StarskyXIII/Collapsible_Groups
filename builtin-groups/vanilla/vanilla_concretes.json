@@ -10,11 +10,10 @@
     "all": [
       {
         "type": "item",
-        "tag": "c:concretes"
+        "namespace": "minecraft"
       },
       {
-        "type": "item",
-        "namespace": "minecraft"
+        "item_path_ends_with": "_concrete"
       }
     ]
   }

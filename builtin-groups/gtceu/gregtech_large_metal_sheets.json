@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_large_metal_sheets",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_large_metal_sheets",
+    "fallback": "GregTech: Large Metal Sheets"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_ends_with": "_large_metal_sheet"
+      }
+    ]
+  }
+}

@@ -10,15 +10,10 @@
     "all": [
       {
         "type": "item",
-        "tag": "c:glass_blocks"
-      },
-      {
-        "type": "item",
-        "tag": "c:dyed"
-      },
-      {
-        "type": "item",
         "namespace": "minecraft"
+      },
+      {
+        "item_path_ends_with": "_stained_glass"
       }
     ]
   }

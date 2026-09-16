@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_crafting_monitors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_crafting_monitors",
+    "fallback": "RS: Colored Crafting Monitors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:crafting_monitor"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:crafting_monitor"
+        }
+      }
+    ]
+  }
+}

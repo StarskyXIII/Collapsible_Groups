@@ -1,0 +1,16 @@
+{
+  "loaders": [
+    "forge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.refinedstorage",
+    "fallback": "Refined Storage"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "refinedstorage"
+      }
+    ]
+  }
+}

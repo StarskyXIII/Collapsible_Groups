@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glass_stained_lime",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glass_stained_lime",
+    "fallback": "Chisel: Lime Stained Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glass_stained_lime"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

@@ -7,6 +7,16 @@
   },
   "enabled": true,
   "filter": {
-    "block_tag": "mcwbridges:log_bridges"
+    "all": [
+      {
+        "block_tag": "mcwbridges:log_bridges"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "mcwbridges:asian_red_bridge_stair"
+        }
+      }
+    ]
   }
 }

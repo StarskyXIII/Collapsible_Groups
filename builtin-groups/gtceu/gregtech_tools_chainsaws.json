@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_tools_chainsaws",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_tools_chainsaws",
+    "fallback": "GregTech: Chainsaws"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "forge:tools/chainsaws"
+      }
+    ]
+  }
+}

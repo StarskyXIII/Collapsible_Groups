@@ -1,0 +1,16 @@
+{
+  "loaders": [
+    "forge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.ironsspellbooks",
+    "fallback": "Iron's Spells 'n Spellbooks"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "irons_spellbooks"
+      }
+    ]
+  }
+}

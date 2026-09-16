@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_bolts",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_bolts",
+    "fallback": "GregTech: Bolts"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "forge:bolts"
+      }
+    ]
+  }
+}

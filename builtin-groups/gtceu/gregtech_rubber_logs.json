@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_rubber_logs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_rubber_logs",
+    "fallback": "GregTech: Rubber Logs"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "gtceu:rubber_logs"
+      }
+    ]
+  }
+}

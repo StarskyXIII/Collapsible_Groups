@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_fluid_cells",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_fluid_cells",
+    "fallback": "GregTech: Fluid Cells"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "item_path_ends_with": "_fluid_cell"
+          },
+          {
+            "type": "item",
+            "id": "gtceu:fluid_cell"
+          }
+        ]
+      }
+    ]
+  }
+}

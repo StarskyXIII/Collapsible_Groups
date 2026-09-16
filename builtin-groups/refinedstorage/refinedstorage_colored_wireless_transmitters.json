@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_wireless_transmitters",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_wireless_transmitters",
+    "fallback": "RS: Colored Wireless Transmitters"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:wireless_transmitter"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:wireless_transmitter"
+        }
+      }
+    ]
+  }
+}

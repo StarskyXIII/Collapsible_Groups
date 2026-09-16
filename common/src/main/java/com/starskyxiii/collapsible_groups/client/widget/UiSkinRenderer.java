@@ -187,6 +187,24 @@ public final class UiSkinRenderer {
 		SELECTED_PRESSED
 	}
 
+    public static ButtonState buttonState(boolean active, boolean selected, boolean hovered, boolean held) {
+        if (!active) return ButtonState.DISABLED;
+        if (selected) return held && hovered ? ButtonState.SELECTED_PRESSED
+            : hovered ? ButtonState.SELECTED_HOVERED : ButtonState.SELECTED;
+        return held && hovered ? ButtonState.PRESSED : hovered ? ButtonState.HOVERED : ButtonState.NORMAL;
+    }
+
+    public static void drawToolbarChevronButton(GuiGraphics g, int x, int y, boolean right, ButtonState state) {
+        int offset = toolbarButtonOffset(state);
+        blitSprite(g, toolbarButtonSprite(state), x, y + offset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
+        int color = state == ButtonState.DISABLED ? UiPalette.TEXT_DISABLED : 0xFFF2F2F2;
+        for (int row = 0; row < 9; row++) {
+            int step = 4 - Math.abs(4 - row);
+            int left = x + 6 + (right ? step : 4 - step);
+            g.fill(left, y + 5 + row + offset, left + 2, y + 6 + row + offset, color);
+        }
+    }
+
 	public static void drawCheckbox(GuiGraphics g, int x, int y, boolean checked, boolean hovered) {
 		g.fill(x, y, x + 14, y + 14, UiPalette.OUTLINE_DARK);
 		g.fill(x + 1, y + 1, x + 13, y + 13, checked ? UiPalette.OUTLINE_SELECTED : UiPalette.SURFACE_DARK);
@@ -226,6 +244,7 @@ public final class UiSkinRenderer {
 	public static void drawButton(GuiGraphics g, Font font, int x, int y, int width, int height,
 	                              String label, ButtonState state) {
 		warnNonDesignHeight("drawButton", width, height);
+		g.fill(x, y, x + width, y + height, CONTROL_EDGE_DARK);
 		int depth = buttonVisualDepth(state);
 		ResourceLocation sprite = buttonSprite(state);
 		if (sprite != null) {
@@ -233,7 +252,7 @@ public final class UiSkinRenderer {
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
 		}
-		drawControlFrame(g, x, y, width, height, depth);
+		drawControlFrame(g, x, y, width, height);
 		int text = buttonTextColor(state);
 		int yOffset = buttonTextOffset(state);
 		String clipped = font.plainSubstrByWidth(label, Math.max(0, width - 4));
@@ -243,25 +262,26 @@ public final class UiSkinRenderer {
 
 	public static void drawSegment(GuiGraphics g, Font font, int x, int y, int width, int height,
 	                               String label, ButtonState state) {
-		int depth = segmentVisualDepth(state);
+		g.fill(x, y, x + width, y + height, CONTROL_EDGE_DARK);
+		int depth = buttonVisualDepth(state);
 		ResourceLocation sprite = segmentSprite(state);
 		if (sprite != null) {
 			blitSprite(g, sprite, x + 1, y + 1, width - 2, height - 2);
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
 		}
-		drawControlFrame(g, x, y, width, height, depth);
+		drawControlFrame(g, x, y, width, height);
 		int text = buttonTextColor(state);
-		int yOffset = segmentTextOffset(state);
+		int yOffset = buttonTextOffset(state);
 		String clipped = font.plainSubstrByWidth(label, Math.max(0, width - 4));
 		g.drawString(font, clipped, x + Math.max(0, (width - font.width(clipped)) / 2),
 			centeredTextY(font, y, height) + yOffset, text, false);
 	}
 
-	private static void drawControlFrame(GuiGraphics g, int x, int y, int width, int height, int depth) {
+	private static void drawControlFrame(GuiGraphics g, int x, int y, int width, int height) {
 		int right = x + width;
 		int bottom = y + height;
-		int top = y + depth;
+		int top = y;
 		g.fill(x, top, right, top + 1, CONTROL_EDGE_DARK);
 		g.fill(x, top + 1, x + 1, bottom, CONTROL_EDGE_DARK);
 		g.fill(right - 1, top + 1, right, bottom, CONTROL_EDGE_DARK);
@@ -276,20 +296,14 @@ public final class UiSkinRenderer {
 		};
 	}
 
-	private static int segmentVisualDepth(ButtonState state) {
-		return switch (state) {
-			case HOVERED -> 1;
-			case PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 2;
-			case NORMAL, DISABLED -> 0;
-		};
-	}
+
 
 	private static ResourceLocation segmentSprite(ButtonState state) {
 		return switch (state) {
 			case NORMAL -> SEGMENT;
 			case HOVERED -> SEGMENT_HOVER;
 			case PRESSED -> SEGMENT_PRESSED;
-			case DISABLED -> SEGMENT;
+			case DISABLED -> null;
 			case SELECTED -> SEGMENT_SELECTED;
 			case SELECTED_HOVERED -> SEGMENT_SELECTED_HOVER;
 			case SELECTED_PRESSED -> SEGMENT_SELECTED_PRESSED;
@@ -299,6 +313,7 @@ public final class UiSkinRenderer {
 	public static void drawIconButton(GuiGraphics g, int x, int y, int buttonSize,
 	                                  ResourceLocation icon, int iconSize, ButtonState state) {
 		warnNonDesignHeight("drawIconButton", buttonSize, buttonSize);
+		g.fill(x, y, x + buttonSize, y + buttonSize, CONTROL_EDGE_DARK);
 		int depth = buttonVisualDepth(state);
 		ResourceLocation sprite = buttonSprite(state);
 		if (sprite != null) {
@@ -306,7 +321,7 @@ public final class UiSkinRenderer {
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, buttonSize - 2, buttonSize - depth - 2, state);
 		}
-		drawControlFrame(g, x, y, buttonSize, buttonSize, depth);
+		drawControlFrame(g, x, y, buttonSize, buttonSize);
 		int iconX = x + Math.max(0, (buttonSize - iconSize) / 2);
 		int iconY = y + Math.max(0, (buttonSize - iconSize) / 2) + buttonTextOffset(state);
 		blitSprite(g, icon, iconX, iconY, iconSize, iconSize);
@@ -364,7 +379,7 @@ public final class UiSkinRenderer {
 		};
 	}
 
-	private static int toolbarButtonOffset(ButtonState state) {
+	public static int toolbarButtonOffset(ButtonState state) {
 		return switch (state) {
 			case HOVERED, PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 1;
 			case NORMAL, DISABLED -> 0;
@@ -395,7 +410,7 @@ public final class UiSkinRenderer {
 		};
 	}
 
-	private static int buttonTextOffset(ButtonState state) {
+	public static int buttonTextOffset(ButtonState state) {
 		return switch (state) {
 			case NORMAL, DISABLED -> -1;
 			case HOVERED -> 0;
@@ -403,13 +418,7 @@ public final class UiSkinRenderer {
 		};
 	}
 
-	private static int segmentTextOffset(ButtonState state) {
-		return switch (state) {
-			case NORMAL, DISABLED -> -1;
-			case HOVERED -> 0;
-			case PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 1;
-		};
-	}
+
 
 	public static void drawSwitch(GuiGraphics g, int x, int y, int width, int height,
 	                              boolean on, boolean active, boolean hovered, boolean pressed) {

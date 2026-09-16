@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glass_stained_light_gray",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glass_stained_light_gray",
+    "fallback": "Chisel: Light Gray Stained Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glass_stained_light_gray"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

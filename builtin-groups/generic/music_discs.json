@@ -8,6 +8,6 @@
   "enabled": true,
   "filter": {
     "type": "item",
-    "tag": "c:music_discs"
+    "tag": "minecraft:music_discs"
   }
 }

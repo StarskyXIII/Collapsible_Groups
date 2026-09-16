@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_enderio_fused_quartz",
+  "name": {
+    "translate": "collapsible_groups.group.__default_enderio_fused_quartz",
+    "fallback": "Fused Quartz"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "enderio:fused_quartz"
+      },
+      {
+        "type": "item",
+        "namespace": "enderio"
+      }
+    ]
+  }
+}

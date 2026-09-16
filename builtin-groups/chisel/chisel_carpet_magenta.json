@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_carpet_magenta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_carpet_magenta",
+    "fallback": "Chisel: Magenta Carpet"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/carpet_magenta"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

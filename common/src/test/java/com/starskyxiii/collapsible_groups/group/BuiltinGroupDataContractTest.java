@@ -35,6 +35,7 @@ class BuiltinGroupDataContractTest {
                             var source = JsonParser.parseString(Files.readString(file)).getAsJsonObject();
                             var group = GroupConfig.fromJsonChecked(source.toString());
                             assertEquals(GroupDocumentFormat.V1, group.documentFormat());
+                            assertFalse(group.hasUnavailableFilter(), group.id());
                             assertTrue(ids.add(group.id()), group.id());
                             assertTrue(paths.add(path), path);
                             assertEquals(source, resource(path));

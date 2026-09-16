@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_rings",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_rings",
+    "fallback": "GregTech: Rings"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "forge:rings"
+      },
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      }
+    ]
+  }
+}

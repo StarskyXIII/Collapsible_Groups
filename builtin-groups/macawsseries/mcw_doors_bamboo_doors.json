@@ -3,7 +3,7 @@
   "id": "__default_mcw_doors_bamboo_doors",
   "name": {
     "translate": "collapsible_groups.group.__default_mcw_doors_bamboo_doors",
-    "fallback": "Macaw's Doors: Bamboo Doors"
+    "fallback": "Macaw's Doors: Mesh Doors"
   },
   "enabled": true,
   "filter": {

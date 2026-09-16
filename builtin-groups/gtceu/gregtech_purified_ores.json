@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_purified_ores",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_purified_ores",
+    "fallback": "GregTech: Purified Ores"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "forge:purified_ores"
+      },
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      }
+    ]
+  }
+}

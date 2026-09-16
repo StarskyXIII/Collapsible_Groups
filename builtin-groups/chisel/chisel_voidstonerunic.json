@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_voidstonerunic",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_voidstonerunic",
+    "fallback": "Chisel: Voidstone Runic"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/voidstonerunic"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_circuit_chips",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_circuit_chips",
+    "fallback": "GregTech: Circuit Chips"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "item_path_ends_with": "_chip"
+          },
+          {
+            "item_path_ends_with": "_soc"
+          },
+          {
+            "type": "item",
+            "id": "gtceu:soc"
+          },
+          {
+            "type": "item",
+            "id": "gtceu:crystal_cpu"
+          }
+        ]
+      },
+      {
+        "not": {
+          "type": "item",
+          "tag": "gtceu:circuits"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_crafting_grids",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_crafting_grids",
+    "fallback": "RS: Colored Crafting Grids"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:crafting_grid"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:crafting_grid"
+        }
+      }
+    ]
+  }
+}

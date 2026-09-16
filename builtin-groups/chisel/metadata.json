@@ -1,0 +1,16 @@
+{
+  "loaders": [
+    "forge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.chisel",
+    "fallback": "Chisel"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "chisel"
+      }
+    ]
+  }
+}

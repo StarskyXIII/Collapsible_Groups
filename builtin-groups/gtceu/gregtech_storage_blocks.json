@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_storage_blocks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_storage_blocks",
+    "fallback": "GregTech: Material Blocks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "forge:storage_blocks"
+      },
+      {
+        "not": {
+          "item_path_starts_with": "raw_"
+        }
+      },
+      {
+        "not": {
+          "any": [
+            {
+              "type": "item",
+              "id": "gtceu:marble"
+            },
+            {
+              "type": "item",
+              "id": "gtceu:red_granite"
+            },
+            {
+              "type": "item",
+              "id": "gtceu:light_concrete"
+            },
+            {
+              "type": "item",
+              "id": "gtceu:dark_concrete"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

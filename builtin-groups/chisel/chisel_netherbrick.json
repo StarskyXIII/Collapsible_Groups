@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_netherbrick",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_netherbrick",
+    "fallback": "Chisel: Nether Brick"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/netherbrick"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

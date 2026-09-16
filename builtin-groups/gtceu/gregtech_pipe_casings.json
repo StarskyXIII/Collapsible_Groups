@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_pipe_casings",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_pipe_casings",
+    "fallback": "GregTech: Pipe Casings"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_ends_with": "_pipe_casing"
+      }
+    ]
+  }
+}

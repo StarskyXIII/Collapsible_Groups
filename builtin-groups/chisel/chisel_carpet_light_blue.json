@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_carpet_light_blue",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_carpet_light_blue",
+    "fallback": "Chisel: Light Blue Carpet"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/carpet_light_blue"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_hexplating_green",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_hexplating_green",
+    "fallback": "Chisel: Green Hexplating"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/hexplating_green"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_wool_orange",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_wool_orange",
+    "fallback": "Chisel: Orange Wool"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/wool_orange"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

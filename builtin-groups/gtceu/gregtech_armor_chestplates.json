@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_armor_chestplates",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_armor_chestplates",
+    "fallback": "GregTech: Chestplates"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "forge:armors/chestplates"
+      },
+      {
+        "not": {
+          "item_path_ends_with": "_jetpack"
+        }
+      }
+    ]
+  }
+}

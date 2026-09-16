@@ -1,6 +1,7 @@
 {
   "loaders": [
-    "fabric"
+    "fabric",
+    "forge"
   ],
   "category": {
     "translate": "collapsible_groups.category.chipped",

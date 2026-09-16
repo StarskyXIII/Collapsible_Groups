@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_enderio_clear_glass",
+  "name": {
+    "translate": "collapsible_groups.group.__default_enderio_clear_glass",
+    "fallback": "Clear Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "enderio:clear_glass"
+      },
+      {
+        "type": "item",
+        "namespace": "enderio"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_creative_controllers",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_creative_controllers",
+    "fallback": "RS: Colored Creative Controllers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "refinedstorage"
+      },
+      {
+        "item_path_ends_with": "_creative_controller"
+      }
+    ]
+  }
+}

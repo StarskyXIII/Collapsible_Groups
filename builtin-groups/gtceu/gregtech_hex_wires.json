@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_hex_wires",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_hex_wires",
+    "fallback": "GregTech: 16x Wires"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "_hex_wire"
+      }
+    ]
+  }
+}

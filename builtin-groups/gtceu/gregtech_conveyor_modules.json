@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_conveyor_modules",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_conveyor_modules",
+    "fallback": "GregTech: Conveyor Modules"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "gtceu:conveyor_modules"
+      }
+    ]
+  }
+}

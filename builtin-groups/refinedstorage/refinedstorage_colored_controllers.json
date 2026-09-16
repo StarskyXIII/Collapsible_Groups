@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_controllers",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_controllers",
+    "fallback": "RS: Colored Controllers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:controller"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:controller"
+        }
+      }
+    ]
+  }
+}

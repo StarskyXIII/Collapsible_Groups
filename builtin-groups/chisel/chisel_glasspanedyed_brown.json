@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glasspanedyed_brown",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glasspanedyed_brown",
+    "fallback": "Chisel: Brown Dyed Glass Pane"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glasspanedyed_brown"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

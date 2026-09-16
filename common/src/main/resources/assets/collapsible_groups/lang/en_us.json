@@ -1,4 +1,13 @@
 {
+  "collapsible_groups.manager.batch_actions": "Batch actions",
+  "collapsible_groups.manager.selected_count": "%s groups selected",
+  "collapsible_groups.manager.categories": "Categories",
+  "collapsible_groups.manager.show_categories": "Show categories: %s",
+  "collapsible_groups.manager.hide_categories": "Hide categories",
+  "collapsible_groups.manager.settings": "Mod settings",
+  "collapsible_groups.manager.selection_pruned": "%s selections removed by the current filters.",
+  "collapsible_groups.manager.empty_category": "There are no groups in this category.",
+  "collapsible_groups.manager.empty_hidden": "Matching groups are empty and currently hidden.",
   "collapsible_groups.category.name_required": "Enter a category name.",
   "collapsible_groups.category.all": "All categories",
   "collapsible_groups.category.uncategorized": "Uncategorized",
@@ -476,5 +485,6 @@
   "collapsible_groups.config.read_failed": "Could not read settings. Check the file and reopen this screen.",
   "collapsible_groups.config.save_failed": "Could not save settings. Your changes are still here; try again.",
   "collapsible_groups.config.apply_pending": "Saved. Some changes are still waiting to apply; save again to retry.",
-  "collapsible_groups.config.invalid_threshold": "Enter a whole number from 0 to 2147483647."
+  "collapsible_groups.config.invalid_threshold": "Enter a whole number from 0 to 2147483647.",
+  "collapsible_groups.manager.category_count": "%s · %s"
 }

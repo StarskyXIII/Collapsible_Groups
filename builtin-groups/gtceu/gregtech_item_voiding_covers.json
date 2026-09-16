@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_item_voiding_covers",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_item_voiding_covers",
+    "fallback": "GregTech: Item Voiding Covers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "item_voiding_cover"
+      }
+    ]
+  }
+}

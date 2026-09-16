@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_activity_detector_covers",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_activity_detector_covers",
+    "fallback": "GregTech: Activity Detector Covers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "activity_detector_cover"
+      }
+    ]
+  }
+}

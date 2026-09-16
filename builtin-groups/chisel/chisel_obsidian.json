@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_obsidian",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_obsidian",
+    "fallback": "Chisel: Obsidian"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/obsidian"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

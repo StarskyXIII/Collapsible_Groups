@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_transistors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_transistors",
+    "fallback": "GregTech: Transistors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "type": "item",
+            "tag": "gtceu:transistors"
+          },
+          {
+            "item_path_contains": "_smd_transistor"
+          }
+        ]
+      }
+    ]
+  }
+}

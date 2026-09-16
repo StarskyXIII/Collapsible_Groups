@@ -1,0 +1,16 @@
+{
+  "loaders": [
+    "forge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.enderio",
+    "fallback": "Ender IO"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "enderio"
+      }
+    ]
+  }
+}

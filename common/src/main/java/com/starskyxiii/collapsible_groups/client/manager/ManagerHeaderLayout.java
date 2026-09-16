@@ -3,36 +3,50 @@ package com.starskyxiii.collapsible_groups.client.manager;
 import java.util.ArrayList;
 import java.util.List;
 
-public record ManagerHeaderLayout(List<Rect> sources, List<Rect> batchActions, Rect search, Rect sort,
-                                  Rect category, Rect selectedCount, int actionsY, int height, int titleWidth) {
+public record ManagerHeaderLayout(Rect back, Rect primary, Rect secondary, List<Rect> sources,
+                                  Rect search, Rect sort, int titleX, int titleWidth, int height) {
     public record Rect(int x, int y, int width, int height) {
+        public int right() { return x + width; }
+        public int bottom() { return y + height; }
         public boolean contains(double mouseX, double mouseY) {
-            return mouseX >= x && mouseX < x + width && mouseY >= y && mouseY < y + height;
+            return mouseX >= x && mouseX < right() && mouseY >= y && mouseY < bottom();
         }
     }
 
-    public static ManagerHeaderLayout create(int width, int sourceCount, int sourceWidth, int batchCount) {
+    public int actionsY() { return primary.y(); }
+
+    public int sourceAt(double x, double y) {
+        for (int i = sources.size() - 1; i >= 0; i--) {
+            if (sources.get(i).contains(x, y)) return i;
+        }
+        return -1;
+    }
+
+    public static ManagerHeaderLayout create(int width, List<Integer> sourceWidths, int backWidth,
+                                             int primaryWidth, int secondaryWidth) {
         int usable = Math.max(1, width - 12);
-        int actionsY = width - 306 >= 120 ? 5 : 29;
-        var flow = new Row(width, actionsY + 26);
-        int segmentWidth = Math.min(sourceWidth, Math.max(40, (usable + sourceCount - 1) / Math.max(1, sourceCount)));
+        Rect back = new Rect(6, 5, Math.min(backWidth, usable), 20);
+        int titleX = back.right() + 6;
+        primaryWidth = Math.min(primaryWidth, usable);
+        secondaryWidth = Math.min(secondaryWidth, usable);
+        int total = primaryWidth + secondaryWidth + 6;
+        int actionsY = width - 6 - total - titleX >= 80 ? 5 : 29;
+        Rect secondary = new Rect(width - 6 - secondaryWidth, actionsY + (total > usable ? 24 : 0), secondaryWidth, 20);
+        Rect primary = new Rect(total > usable ? width - 6 - primaryWidth : secondary.x() - 6 - primaryWidth,
+            actionsY, primaryWidth, 20);
+        int titleWidth = Math.max(0, (actionsY == 5 ? primary.x() - 6 : width - 6) - titleX);
+        Row row = new Row(width, secondary.bottom() + 6);
+        int sourceCount = sourceWidths.size();
+        int preferredWidth = sourceWidths.stream().mapToInt(Integer::intValue).max().orElse(40);
+        int sourceWidth = Math.max(1, Math.min(preferredWidth, (usable + Math.max(0, sourceCount - 1)) / Math.max(1, sourceCount)));
         List<Rect> sources = new ArrayList<>();
-        for (int i = 0; i < sourceCount; i++) sources.add(flow.add(segmentWidth, 18, -1));
-        flow.x += 8;
-        List<Rect> actions = new ArrayList<>();
-        int actionWidth = Math.min(72, Math.max(40, (usable - 6 * Math.max(0, batchCount - 1)) / Math.max(1, batchCount)));
-        for (int i = 0; i < batchCount; i++) actions.add(flow.add(actionWidth, 20, 6));
-        var controls = new Row(width, flow.bottom() + 4);
-        int searchWidth = Math.min(180, Math.max(96, usable - 24 - 140 - 8));
-        Rect searchAndSort = controls.add(Math.min(usable, searchWidth + 24), 20, 8);
-        Rect search = new Rect(searchAndSort.x(), searchAndSort.y(), searchAndSort.width() - 24, 18);
-        Rect sort = new Rect(search.x() + search.width() + 4, search.y(), 20, 20);
-        Rect category = controls.add(Math.min(140, usable), 20, 8);
-        Rect selected = batchCount == 0 ? new Rect(0, 0, 0, 0)
-            : controls.add(Math.min(174, Math.max(90, usable - 148)), 20, 8);
-        int titleWidth = actionsY == 5 ? Math.max(0, width - 306) : Math.max(0, width - 68);
-        return new ManagerHeaderLayout(List.copyOf(sources), List.copyOf(actions), search, sort, category, selected,
-            actionsY, controls.bottom() + 5, titleWidth);
+        for (int i = 0; i < sourceCount; i++) sources.add(row.add(sourceWidth, 18, i + 1 < sourceCount ? -1 : 8));
+        if (row.remaining() < 120) row.next();
+        int searchWidth = Math.max(1, Math.min(260, row.remaining() - 24));
+        Rect search = new Rect(width - 6 - searchWidth - 24, row.y, searchWidth, 20);
+        Rect sort = new Rect(search.right() + 4, row.y, 20, 20);
+        return new ManagerHeaderLayout(back, primary, secondary, List.copyOf(sources), search, sort,
+            titleX, titleWidth, Math.max(row.bottom(), sort.bottom()) + 5);
     }
 
     private static final class Row {
@@ -42,10 +56,12 @@ public record ManagerHeaderLayout(List<Rect> sources, List<Rect> batchActions, R
         private int rowHeight;
 
         private Row(int width, int y) { right = Math.max(7, width - 6); this.y = y; }
+        private int remaining() { return right - x; }
+        private void next() { x = 6; y += rowHeight + 4; rowHeight = 0; }
 
         private Rect add(int width, int height, int gap) {
             width = Math.min(width, right - 6);
-            if (x > 6 && x + width > right) { x = 6; y += rowHeight + 4; rowHeight = 0; }
+            if (x > 6 && x + width > right) next();
             Rect result = new Rect(x, y, width, height);
             x += width + gap;
             rowHeight = Math.max(rowHeight, height);

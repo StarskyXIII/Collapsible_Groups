@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_dense_plates",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_dense_plates",
+    "fallback": "GregTech: Dense Plates"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "forge:dense_plates"
+      }
+    ]
+  }
+}

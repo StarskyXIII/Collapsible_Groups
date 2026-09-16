@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_bookshelf_cherry",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_bookshelf_cherry",
+    "fallback": "Chisel: Cherry Bookshelf"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/bookshelf_cherry"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

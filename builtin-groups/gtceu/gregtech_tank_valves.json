@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_tank_valves",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_tank_valves",
+    "fallback": "GregTech: Tank Valves"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_ends_with": "_tank_valve"
+      }
+    ]
+  }
+}

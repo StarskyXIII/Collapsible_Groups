@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_enderio_filled_soul_vials",
+  "name": {
+    "translate": "collapsible_groups.group.__default_enderio_filled_soul_vials",
+    "fallback": "Filled Soul Vials"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "id": "enderio:filled_soul_vial"
+  }
+}

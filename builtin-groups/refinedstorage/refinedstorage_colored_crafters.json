@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_crafters",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_crafters",
+    "fallback": "RS: Colored Crafters"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:crafter"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:crafter"
+        }
+      }
+    ]
+  }
+}

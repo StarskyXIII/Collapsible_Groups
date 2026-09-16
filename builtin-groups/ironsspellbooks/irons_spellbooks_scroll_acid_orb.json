@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_irons_spellbooks_scroll_acid_orb",
+  "name": {
+    "translate": "collapsible_groups.group.__default_irons_spellbooks_scroll_acid_orb",
+    "fallback": "Acid Orb Scrolls"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "irons_spellbooks:scroll"
+      },
+      {
+        "type": "item",
+        "nbt_path": "[\"irons_spellbooks:spell_container\"].data[0].id",
+        "value": {
+          "data_format": "minecraft:nbt",
+          "data": "\"irons_spellbooks:acid_orb\""
+        }
+      }
+    ]
+  }
+}

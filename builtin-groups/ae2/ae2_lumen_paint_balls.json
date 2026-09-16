@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_ae2_lumen_paint_balls",
+  "name": {
+    "translate": "collapsible_groups.group.__default_ae2_lumen_paint_balls",
+    "fallback": "AE2: Lumen Paint Balls"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "ae2"
+      },
+      {
+        "item_path_ends_with": "_lumen_paint_ball"
+      }
+    ]
+  }
+}

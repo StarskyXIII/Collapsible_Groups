@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_steam_solar_boiler",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_steam_solar_boiler",
+    "fallback": "GregTech: Steam Solar Boilers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "item_path_starts_with": "lp_steam_"
+          },
+          {
+            "item_path_starts_with": "hp_steam_"
+          }
+        ]
+      },
+      {
+        "item_path_ends_with": "_solar_boiler"
+      }
+    ]
+  }
+}

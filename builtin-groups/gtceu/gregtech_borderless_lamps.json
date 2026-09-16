@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_borderless_lamps",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_borderless_lamps",
+    "fallback": "GregTech: Borderless Lamps"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_ends_with": "_borderless_lamp"
+      }
+    ]
+  }
+}

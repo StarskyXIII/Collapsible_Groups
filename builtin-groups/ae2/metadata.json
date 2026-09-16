@@ -1,0 +1,17 @@
+{
+  "loaders": [
+    "fabric",
+    "forge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.ae2",
+    "fallback": "Applied Energistics 2"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "ae2"
+      }
+    ]
+  }
+}

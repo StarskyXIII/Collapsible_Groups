@@ -13,17 +13,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class IronsApothicProviderContractTest {
 	@Test
-	void componentBasedProvidersAreNotPublishedByThe1201Slice() throws IOException {
-		JsonObject language = JsonParser.parseString(Files.readString(root().resolve(
-			"build/generated/group-language/assets/collapsible_groups/group_lang/en_us.json"))).getAsJsonObject();
-
-		assertFalse(language.keySet().stream().anyMatch(
-			key -> key.startsWith("collapsible_groups.group.__default_irons_apothic_gem_")));
-		assertFalse(language.keySet().stream().anyMatch(
-			key -> key.startsWith("collapsible_groups.group.__default_apotheosis_gem_")));
-	}
-
-	@Test
 	void settingsExcludeNeoForge() throws IOException {
 		String settings = Files.readString(root().resolve("settings.gradle"));
 		assertFalse(settings.contains("include('neoforge')"));

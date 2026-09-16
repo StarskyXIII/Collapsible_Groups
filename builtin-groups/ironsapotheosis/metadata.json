@@ -1,0 +1,19 @@
+{
+  "loaders": [
+    "forge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.ironsapotheosis",
+    "fallback": "Iron's Spells: Apotheosis Gems"
+  },
+  "requirement": {
+    "all": [
+      {
+        "mod": "irons_spellbooks"
+      },
+      {
+        "mod": "apotheosis"
+      }
+    ]
+  }
+}

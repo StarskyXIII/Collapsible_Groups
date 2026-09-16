@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glasspanedyed_orange",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glasspanedyed_orange",
+    "fallback": "Chisel: Orange Dyed Glass Pane"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glasspanedyed_orange"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

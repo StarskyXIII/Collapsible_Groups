@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_decorative_red_granite",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_decorative_red_granite",
+    "fallback": "GregTech: Red Granite Decorations"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "red_granite"
+      },
+      {
+        "not": {
+          "any": [
+            {
+              "type": "item",
+              "tag": "forge:ores"
+            },
+            {
+              "type": "item",
+              "tag": "forge:dusts"
+            },
+            {
+              "type": "item",
+              "tag": "forge:small_dusts"
+            },
+            {
+              "type": "item",
+              "tag": "forge:tiny_dusts"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}
