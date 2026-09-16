@@ -159,11 +159,40 @@ class GroupCategoryLoadingTest {
         }
     }
 
+    @Test void disabledOriginalCategorySkipsBodiesAndCrossFolderReplacementsButKeepsNewIds() throws Exception {
+        String catalog = "{\"version\":1,\"groups\":[{\"path\":\"assets/collapsible_groups/" + GROUP + "\",\"id\":\"reserved\"}]}";
+        Files.createDirectories(config.resolve("collapsiblegroups/groups"));
+        Files.writeString(config.resolve("collapsiblegroups/groups/copy.json"), group("copy"));
+        var replacement = pack("replacement", Map.of("groups/elsewhere/renamed.json", "{\"id\":\"reserved\",\"filter\":false}",
+            "groups/sample/addition.json", group("addition")), null);
+        var data = load(Map.of(META, metadata(""), GROUP, "{"), List.of(replacement), catalog, Set.of(CATEGORY.toString()));
+        assertTrue(data.complete(), data.problems().toString());
+        assertEquals(Set.of("addition", "copy"), data.groups().stream().map(GroupDefinition::id).collect(java.util.stream.Collectors.toSet()));
+        assertFalse(opened.containsKey(GROUP));
+        assertEquals(1, opened.get("groups/elsewhere/renamed.json"));
+        assertEquals(Set.of("reserved"), data.builtinIds());
+        assertEquals(CATEGORY.toString(), data.builtinPolicy().originalCategories().get("reserved"));
+    }
+
+    @Test void enabledCatalogEntryCannotPretendToBeADisabledId() {
+        String catalog = "{\"version\":1,\"groups\":[{\"path\":\"assets/collapsible_groups/" + GROUP + "\",\"id\":\"reserved\"},"
+            + "{\"path\":\"assets/collapsible_groups/groups/enabled/group.json\",\"id\":\"enabled\"}]}";
+        var data = load(Map.of(META, metadata(""), GROUP, "{", "groups/enabled/metadata.json", metadata(""),
+            "groups/enabled/group.json", group("reserved")), List.of(), catalog, Set.of(CATEGORY.toString()));
+        assertTrue(data.rejected());
+        assertTrue(data.problems().stream().anyMatch(problem -> problem.reason().contains("differs from its catalog")));
+        assertFalse(opened.containsKey(GROUP));
+    }
+
     private GroupResourceData load(Map<String, String> files, List<PackResources> packs) {
         return load(files, packs, "{\"version\":1,\"groups\":[{\"path\":\"assets/collapsible_groups/" + GROUP + "\",\"id\":\"reserved\"}]}");
     }
 
     private GroupResourceData load(Map<String, String> files, List<PackResources> packs, String catalog) {
+        return load(files, packs, catalog, Set.of());
+    }
+
+    private GroupResourceData load(Map<String, String> files, List<PackResources> packs, String catalog, Set<String> disabled) {
         var loader = new ClassLoader(null) {
             @Override public InputStream getResourceAsStream(String path) {
                 if (path.equals(GroupResourceLoader.CATALOG_RESOURCE)) return bytes(catalog);
@@ -172,7 +201,7 @@ class GroupCategoryLoadingTest {
                 return files.containsKey(relative) ? bytes(files.get(relative)) : null;
             }
         };
-        return GroupResourceLoader.load(loader, packs, config, "installed"::equals);
+        return GroupResourceLoader.load(loader, packs, config, "installed"::equals, disabled);
     }
 
     private PackResources pack(String id, Map<String, String> files, ResourceFilterSection filter) {

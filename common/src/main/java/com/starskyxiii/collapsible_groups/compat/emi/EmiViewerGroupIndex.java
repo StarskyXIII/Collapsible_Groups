@@ -53,6 +53,11 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 		}
 	}
 
+    public record ProjectableSnapshot(long epoch, ViewerIngredientUniverse<EmiIngredient> universe,
+        List<GroupDefinition> groups, GroupCandidateIndex candidates) {}
+
+    private volatile @Nullable ProjectableSnapshot projectable;
+
 	private final Executor executor;
 	private final java.util.function.BooleanSupplier runtimeCurrent;
 	private volatile @Nullable Generation published;
@@ -89,6 +94,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 		ViewerIngredientUniverse<EmiIngredient> universe, List<GroupDefinition> groups) {
 		updateSource(epoch, universe);
 		currentGroups = List.copyOf(groups);
+        refreshProjectable();
 		requestedBuildGeneration++;
 		readyFuture = new CompletableFuture<>();
 		readinessWaiters.add(readyFuture);
@@ -118,6 +124,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 				if (error == null && build == requestedBuildGeneration && epoch == sourceEpoch
 					&& universe.sourceToken() == sourceUniverse.sourceToken() && runtimeCurrent.getAsBoolean()) {
 					published = generation;
+                    refreshProjectable();
 					revision++;
 					settled = drainReadinessWaiters();
 				}
@@ -146,11 +153,13 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 		long started = PerformanceTrace.begin();
 		GroupIndexUpdate update = GroupIndexUpdate.between(previous == null ? null : previous.candidates(), groups);
 		List<GroupDefinition> changedGroups = update.changedGroups();
-		GroupCandidateIndex changed = GroupProjectionEngine.buildCandidateIndex(universe, changedGroups);
+		GroupCandidateIndex changed = changedGroups.isEmpty()
+            ? new GroupCandidateIndex(Map.of(), Map.of(), 0, universe.ordered().size(), 0)
+            : GroupProjectionEngine.buildCandidateIndex(universe, changedGroups);
 		Map<String, List<ViewerIngredient<EmiIngredient>>> items = buckets(changedGroups);
 		Map<String, List<ViewerIngredient<EmiIngredient>>> fluids = buckets(changedGroups);
 		Map<String, List<ViewerIngredient<EmiIngredient>>> generic = buckets(changedGroups);
-		for (ViewerIngredient<EmiIngredient> ingredient : universe.ordered()) {
+		for (ViewerIngredient<EmiIngredient> ingredient : changedGroups.isEmpty() ? List.<ViewerIngredient<EmiIngredient>>of() : universe.ordered()) {
 			for (String groupId : changed.candidates().getOrDefault(ingredient.identity(), List.of())) {
 				switch (ingredient.kind()) {
 					case ITEM -> items.get(groupId).add(ingredient);
@@ -182,6 +191,24 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 	}
 
 	@Override public CompletableFuture<Void> whenReady() { return readyFuture; }
+
+    public synchronized Optional<ProjectableSnapshot> projectableSnapshot() {
+        return runtimeCurrent.getAsBoolean() && projectable != null && projectable.epoch() == sourceEpoch
+            && projectable.universe().sourceToken() == sourceUniverse.sourceToken()
+            ? Optional.of(projectable) : Optional.empty();
+    }
+
+    private void refreshProjectable() {
+        Generation current = published;
+        if (current == null || current.epoch() != sourceEpoch
+            || current.universe().sourceToken() != sourceUniverse.sourceToken()) {
+            projectable = null;
+            return;
+        }
+        var candidates = GroupIndexUpdate.between(current.candidates(), currentGroups).projectableCandidates(current.candidates());
+        projectable = new ProjectableSnapshot(sourceEpoch, current.universe(),
+            List.copyOf(candidates.groupSnapshot().values()), candidates);
+    }
 
 	synchronized Optional<Generation> readyGenerationSnapshot() {
 		return ready() && published.universe().sourceToken() == sourceUniverse.sourceToken() && readyFuture.isDone()
@@ -249,10 +276,10 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 			case FULL -> requestRebuild(sourceEpoch, sourceUniverse, groups);
 			case SOURCE_RELOAD, KUBEJS_REPLACE -> {
 				published = null;
+                projectable = null;
 				requestRebuild(sourceEpoch, sourceUniverse, groups);
 			}
-			case ENABLED -> revision++;
-			case STRUCTURE -> { }
+			case ENABLED, STRUCTURE -> { refreshProjectable(); revision++; }
 		}
 	}
 
@@ -260,6 +287,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 		requestedBuildGeneration++;
 		rebuildRequested = false;
 		published = null;
+        projectable = null;
 		for (CompletableFuture<Void> waiter : drainReadinessWaiters()) waiter.completeExceptionally(failure);
 		if (!readyFuture.isDone()) readyFuture.completeExceptionally(failure);
 		revision++;
@@ -269,6 +297,7 @@ public final class EmiViewerGroupIndex implements ViewerGroupIndex {
 		sourceEpoch++;
 		requestedBuildGeneration++;
 		published = null;
+        projectable = null;
 		sourceUniverse = emptyUniverse();
 		currentGroups = List.of();
 		readyFuture = new CompletableFuture<>();

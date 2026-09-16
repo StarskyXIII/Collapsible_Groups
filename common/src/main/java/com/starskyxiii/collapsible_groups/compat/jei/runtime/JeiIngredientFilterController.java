@@ -218,6 +218,8 @@ public final class JeiIngredientFilterController {
 
 	private GroupMatches buildChangedGroups(List<ITypedIngredient<?>> all, List<GroupDefinition> allGroups,
 		JeiViewerAdapter.ProjectionContext context) {
+        if (allGroups.isEmpty()) return new GroupMatches(
+            new GroupCandidateIndex(Map.of(), Map.of(), 0, context.universe().ordered().size(), 0), Map.of(), Map.of(), Map.of());
 		ItemOwnershipBuildResult itemResult =
 			IngredientFilterHelper.buildItemOwnershipResult(all, allGroups);
 		Map<ITypedIngredient<?>, GroupDefinition> index = itemResult.ingredientGroupIndex();
@@ -295,7 +297,7 @@ public final class JeiIngredientFilterController {
 		}
 		List<GroupDefinition> groups = GroupRegistry.getAllIncludingKubeJs();
 		viewerIndex.ensureReadyAsync(groups);
-		JeiViewerGroupIndex.Generation readyGeneration = viewerIndex.readyGenerationSnapshot().orElse(null);
+		JeiViewerGroupIndex.ProjectableSnapshot readyGeneration = viewerIndex.projectableSnapshot().orElse(null);
 		if (readyGeneration == null) {
 			installRawStructure(ingredients);
 			if (hooks.traceBuilds()) {
@@ -310,7 +312,7 @@ public final class JeiIngredientFilterController {
 
 		ViewerProjection<ITypedIngredient<?>> projected = JeiViewerAdapter.instance().project(
 			ingredients, searchTextForCache, Services.CONFIG.searchUngroupSmallGroups(),
-			Services.CONFIG.searchUngroupThreshold(), groups, GroupRegistry::isExpandedById,
+			Services.CONFIG.searchUngroupThreshold(), readyGeneration.groups(), GroupRegistry::isExpandedById,
 			readyGeneration.projectionContext(), readyGeneration.candidates());
 		List<IElement<?>> newBaseList = new ArrayList<>();
 		List<String> newGroupIds = new ArrayList<>();

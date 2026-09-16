@@ -16,6 +16,26 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class GroupIndexUpdateTest {
+    @Test void projectableSubsetUsesCurrentDefinitionsAndPriorityWithoutMatchingChangedGroups() {
+        Map<String, Integer> calls = new HashMap<>();
+        var universe = new ViewerIngredientUniverse<>(List.of(ingredient("one", calls), ingredient("two", calls)));
+        var first = group("first", "both");
+        var second = group("second", "both");
+        var edited = group("edited", "one");
+        var previous = GroupProjectionEngine.buildCandidateIndex(universe, List.of(first, second, edited));
+        calls.clear();
+        var promoted = second.withPriority(10).withIconIds(List.of(com.starskyxiii.collapsible_groups.group.GroupIconDefinition.item("test:icon")));
+        var subset = GroupIndexUpdate.between(previous, List.of(first, promoted, group("edited", "two"), group("new", "one")))
+            .projectableCandidates(previous);
+        assertEquals(Set.of("first", "second"), subset.groupSnapshot().keySet());
+        assertEquals(List.of("second", "first"), subset.candidates().get(new ViewerIngredientIdentity("item", "one")));
+        assertSame(promoted, subset.groupSnapshot().get("second"));
+        assertTrue(calls.isEmpty());
+        var projection = GroupProjectionEngine.project(universe, new ViewerSearchSnapshot<>("", universe.ordered(), false, 0),
+            List.copyOf(subset.groupSnapshot().values()), id -> false, subset);
+        assertEquals("second", ((ViewerProjection.GroupHeader<String>) projection.entries().get(0)).group().id());
+    }
+
     @Test void addEditRemoveAndMetadataChangesMatchFullBuildWithoutEvaluatingRetainedRules() {
         Map<String, Integer> calls = new HashMap<>();
         var universe = new ViewerIngredientUniverse<>(List.of(ingredient("one", calls), ingredient("two", calls)));

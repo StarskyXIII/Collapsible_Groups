@@ -19,6 +19,41 @@ import java.util.concurrent.Executor;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmiViewerGroupIndexTest {
+    @Test void pendingProjectionRetainsOnlyCurrentReusableGroupsAndNeverPublishesSupersededWork() {
+        var executor = new ControlledExecutor();
+        var active = new java.util.concurrent.atomic.AtomicBoolean(true);
+        var index = new EmiViewerGroupIndex(executor, active::get);
+        var universe = new ViewerIngredientUniverse<>(List.of(ingredient("one", "test:one")));
+        var stable = group("stable", "test:one");
+        var changing = group("changing", "test:one");
+        index.requestRebuild(1, universe, List.of(stable, changing));
+        executor.runNext();
+        assertEquals(2, index.projectableSnapshot().orElseThrow().groups().size());
+        var edited = changing.withFilter(new GroupFilter.Id("item", "test:two"));
+        index.requestRebuild(1, universe, List.of(stable, edited));
+        assertFalse(index.ready());
+        assertTrue(index.readyGenerationSnapshot().isEmpty());
+        assertEquals(List.of(stable), index.projectableSnapshot().orElseThrow().groups());
+        index.requestRebuild(1, universe, List.of(stable));
+        executor.runNext();
+        assertFalse(index.ready());
+        assertEquals(List.of(stable), index.projectableSnapshot().orElseThrow().groups());
+        executor.runNext();
+        assertTrue(index.ready());
+        assertEquals(java.util.Set.of("stable"), index.candidates().orElseThrow().groupSnapshot().keySet());
+        active.set(false);
+        assertTrue(index.projectableSnapshot().isEmpty());
+        active.set(true);
+        index.onGroupChange(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Kind.SOURCE_RELOAD, List.of(stable));
+        assertTrue(index.projectableSnapshot().isEmpty());
+        executor.runNext();
+        assertTrue(index.projectableSnapshot().isPresent());
+        index.updateSource(1, new ViewerIngredientUniverse<>(List.of()));
+        assertTrue(index.projectableSnapshot().isEmpty());
+        index.reset();
+        assertTrue(index.projectableSnapshot().isEmpty());
+    }
+
 	@Test void headerEditUsesCapturedUniverseAndPreservesFullMatches() {
 		var rendered = new java.util.ArrayList<String>();
 		var first = ingredient("first", "minecraft:stone");

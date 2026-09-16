@@ -19,7 +19,8 @@ class JeiIngredientFilterControllerTest {
 			public Class<? extends String> getIngredientClass() { return String.class; }
 			public String getUid() { return "test:incremental"; }
 		};
-		var ingredient = typed(type, "test:one");
+		var itemProbes = new java.util.concurrent.atomic.AtomicInteger();
+        var ingredient = typed(type, "test:one", itemProbes);
 		var helper = (IIngredientHelper<?>) java.lang.reflect.Proxy.newProxyInstance(
 			IIngredientHelper.class.getClassLoader(), new Class<?>[]{IIngredientHelper.class}, (proxy, method, args) -> {
 				return switch (method.getName()) {
@@ -80,8 +81,10 @@ class JeiIngredientFilterControllerTest {
 			assertEquals(1, enumerations.get());
 			evaluated.clear();
 			com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess.replace(List.of(stable.withEnabled(false).withPriority(10)));
+			itemProbes.set(0);
 			var removed = (com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex.Generation) build.invoke(controller);
 			assertTrue(evaluated.isEmpty());
+            assertEquals(0, itemProbes.get());
 			assertEquals(java.util.Set.of("stable"), removed.fullMatchGeneric().keySet());
 			invalidate.invoke(controller);
 			var reloaded = (com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex.Generation) build.invoke(controller);
@@ -118,9 +121,14 @@ class JeiIngredientFilterControllerTest {
 	}
 
 	private static ITypedIngredient<String> typed(IIngredientType<String> type, String value) {
+		return typed(type, value, new java.util.concurrent.atomic.AtomicInteger());
+	}
+
+    private static ITypedIngredient<String> typed(IIngredientType<String> type, String value, java.util.concurrent.atomic.AtomicInteger probes) {
 		return new ITypedIngredient<String>() {
 			@Override public IIngredientType<String> getType() { return type; }
 			@Override public String getIngredient() { return value; }
+            @Override public java.util.Optional<net.minecraft.world.item.ItemStack> getItemStack() { probes.incrementAndGet(); return java.util.Optional.empty(); }
 			public ITypedIngredient<String> normalize(IIngredientHelper<String> helper) { return this; }
 		};
 	}

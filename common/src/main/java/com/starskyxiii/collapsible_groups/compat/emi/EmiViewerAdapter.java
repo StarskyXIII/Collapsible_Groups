@@ -135,8 +135,10 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 	/** Called only by the INDEX ScreenSpace return hook. */
 	public List<? extends EmiIngredient> projectIndex(List<? extends EmiIngredient> original, boolean searchPanel) {
 		if (!ViewerLifecycleCoordinator.isEmiSelected() || !ensureUniverseReady()) return original;
-		GroupCandidateIndex ownership = groupIndex.candidates().orElse(null);
-		if (!groupIndex.ready() || ownership == null || groupIndex.epoch() != bootstrapGate.epoch()) return original;
+		var projectable = groupIndex.projectableSnapshot().orElse(null);
+        if (projectable == null || projectable.epoch() != bootstrapGate.epoch()
+            || projectable.universe().sourceToken() != bootstrapContext.universe().sourceToken()) return original;
+        GroupCandidateIndex ownership = projectable.candidates();
 		List<ViewerIngredient<EmiIngredient>> filtered = new ArrayList<>(original.size());
 		for (EmiIngredient ingredient : original) {
 			ViewerIngredient<EmiIngredient> mapped = bootstrapContext.resolve(ingredient);
@@ -151,9 +153,9 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		ViewerSearchSnapshot<EmiIngredient> snapshot = new ViewerSearchSnapshot<>(searchText, filtered,
 			Services.CONFIG.searchUngroupSmallGroups(), Services.CONFIG.searchUngroupThreshold());
 		if (searchPanel) searchState.update(snapshot);
-		List<GroupDefinition> groups = GroupRepository.getAllIncludingScripted();
+		List<GroupDefinition> groups = projectable.groups();
 		ViewerProjection<EmiIngredient> projection = GroupProjectionEngine.project(
-			bootstrapContext.universe(), snapshot, groups, GroupExpandState::isExpandedById, ownership);
+			projectable.universe(), snapshot, groups, GroupExpandState::isExpandedById, ownership);
 		List<EmiIngredient> display = new ArrayList<>();
 		for (EmiProjectionTranslation.Entry<EmiIngredient> translated : EmiProjectionTranslation.classify(projection)) {
 			ViewerProjection.DisplayEntry<EmiIngredient> entry = translated.displayEntry();
@@ -284,7 +286,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 	}
 
 	public ProjectionCacheKey projectionCacheKey() {
-		return new ProjectionCacheKey(bootstrapGate.epoch(), runtimeCurrent() && bootstrapGate.ready(), groupIndex.ready(),
+		return new ProjectionCacheKey(bootstrapGate.epoch(), runtimeCurrent() && bootstrapGate.ready(), groupIndex.projectableSnapshot().isPresent(),
 			groupIndex.revision());
 	}
 

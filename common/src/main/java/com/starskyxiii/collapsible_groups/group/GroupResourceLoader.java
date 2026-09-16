@@ -53,23 +53,34 @@ public final class GroupResourceLoader {
     public static GroupResourceData load(ResourceManager manager, Path configDirectory) {
         try {
             return load(GroupResourceLoader.class.getClassLoader(), manager == null ? List.of()
-                : Services.PLATFORM.groupResourcePacks(manager), configDirectory, Services.PLATFORM::isModLoaded);
+                : Services.PLATFORM.groupResourcePacks(manager), configDirectory, Services.PLATFORM::isModLoaded, Services.CONFIG.disabledBuiltinCategories());
         } catch (RuntimeException failure) {
             return assemble(List.of(new Layer(List.of(failure(GroupSource.RESOURCE_PACK, "resources", "resources", failure)), false)));
         }
     }
 
     static GroupResourceData load(ClassLoader loader, List<PackResources> packs, Path configDirectory, Predicate<String> modLoaded) {
+        return load(loader, packs, configDirectory, modLoaded, Set.of());
+    }
+
+    static GroupResourceData load(ClassLoader loader, List<PackResources> packs, Path configDirectory,
+        Predicate<String> modLoaded, Set<String> disabledCategories) {
         List<List<Resource>> sources = new ArrayList<>();
         List<Document> failures = new ArrayList<>();
         Set<String> builtinIds = new LinkedHashSet<>();
+        Map<String, String> originalCategories = new LinkedHashMap<>();
         try {
             List<Resource> catalog = readBundled(loader);
             catalog.stream().map(Resource::expectedId).filter(java.util.Objects::nonNull).forEach(builtinIds::add);
+            for (Resource resource : catalog) {
+                ResourceLocation category = categoryId(resource.path());
+                if (resource.expectedId() != null && category != null) originalCategories.put(resource.expectedId(), category.toString());
+            }
             sources.add(catalog);
         } catch (IOException | RuntimeException failure) {
             failures.add(failure(GroupSource.BUILTIN, Constants.MOD_ID, CATALOG_RESOURCE, failure));
         }
+        BuiltinCategoryPolicy policy = new BuiltinCategoryPolicy(originalCategories, disabledCategories);
         for (PackResources pack : packs) {
             if (ownPack(pack.packId())) continue;
             try {
@@ -103,11 +114,12 @@ public final class GroupResourceLoader {
         });
         if (!failures.isEmpty()) {
             failures.forEach(document -> problems.add(new GroupLoadProblem(null, document.origin(), document.readError(), true)));
-            return new GroupResourceData(List.of(), builtinIds, Map.of(), Map.of(), categories, problems, true, false);
+            return new GroupResourceData(List.of(), builtinIds, Map.of(), Map.of(), categories, problems, true, false, policy);
         }
         List<Layer> layers = new ArrayList<>();
         for (List<Resource> source : sources) {
             List<Document> documents = source.stream().filter(resource -> !isMetadata(resource.path()))
+                .filter(resource -> resource.expectedId() == null || !policy.suppresses(resource.expectedId()))
                 .filter(resource -> {
                     GroupCategory category = categories.get(categoryId(resource.path()));
                     return category == null || category.available();
@@ -115,10 +127,10 @@ public final class GroupResourceLoader {
             layers.add(new Layer(documents, false));
         }
         layers.add(readDirectory(configDirectory.resolve("collapsiblegroups/groups")));
-        GroupResourceData data = assemble(layers);
+        GroupResourceData data = assemble(layers, policy);
         problems.addAll(data.problems());
         return new GroupResourceData(data.groups(), builtinIds, data.origins(), data.definitions(), categories,
-            problems, data.rejected(), data.stale());
+            problems, data.rejected(), data.stale(), policy);
     }
 
     public static Map<String, GroupDisplayName> builtinCategories() {
@@ -254,6 +266,10 @@ public final class GroupResourceLoader {
     }
 
     public static GroupResourceData assemble(List<Layer> layers) {
+        return assemble(layers, BuiltinCategoryPolicy.EMPTY);
+    }
+
+    private static GroupResourceData assemble(List<Layer> layers, BuiltinCategoryPolicy policy) {
         Map<String, GroupDefinition> effective = new LinkedHashMap<>();
         Map<String, List<GroupOrigin>> origins = new LinkedHashMap<>();
         Map<String, List<GroupDefinition>> versions = new LinkedHashMap<>();
@@ -273,6 +289,7 @@ public final class GroupResourceLoader {
                     if (raw.has("id") && raw.get("id").isJsonPrimitive() && raw.get("id").getAsJsonPrimitive().isString()) {
                         id = raw.get("id").getAsString();
                     }
+                    if (document.expectedId() == null && id != null && policy.suppresses(id)) continue;
                     if (layer.legacyConfig() && id != null && id.startsWith("__default_")) continue;
                     GroupDefinition group = GroupConfig.fromJsonChecked(document.json());
                     if (document.expectedId() != null && !document.expectedId().equals(group.id())) {

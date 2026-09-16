@@ -15,8 +15,15 @@ public record GroupResourceData(
     Map<ResourceLocation, GroupCategory> categories,
     List<GroupLoadProblem> problems,
     boolean rejected,
-    boolean stale
+    boolean stale,
+    BuiltinCategoryPolicy builtinPolicy
 ) {
+    public GroupResourceData(List<GroupDefinition> groups, Set<String> builtinIds,
+        Map<String, List<GroupOrigin>> origins, Map<String, List<GroupDefinition>> definitions,
+        Map<ResourceLocation, GroupCategory> categories, List<GroupLoadProblem> problems, boolean rejected, boolean stale) {
+        this(groups, builtinIds, origins, definitions, categories, problems, rejected, stale, BuiltinCategoryPolicy.EMPTY);
+    }
+
     public GroupResourceData {
         groups = List.copyOf(groups);
         builtinIds = Set.copyOf(builtinIds);
@@ -45,7 +52,7 @@ public record GroupResourceData(
 
     public GroupResourceData retaining(GroupResourceData previous) {
         return new GroupResourceData(previous.groups(), previous.builtinIds(), previous.origins(), previous.definitions(), previous.categories(),
-            problems, true, true);
+            problems, true, true, previous.builtinPolicy());
     }
 
     public GroupResourceData withDefinition(GroupDefinition group, GroupOrigin origin) {
@@ -65,7 +72,7 @@ public record GroupResourceData(
         groups.forEach(value -> current.put(value.id(), value));
         current.put(group.id(), group);
         return new GroupResourceData(List.copyOf(current.values()), builtinIds, nextOrigins, nextDefinitions, categories,
-            problems, rejected, stale);
+            problems, rejected, stale, builtinPolicy);
     }
 
     public GroupResourceData withoutOwnedDefinition(String id) {
@@ -82,6 +89,6 @@ public record GroupResourceData(
         List<GroupDefinition> nextGroups = groups.stream().filter(group -> !group.id().equals(id) || !versions.isEmpty())
             .map(group -> group.id().equals(id) ? versions.get(0) : group).toList();
         return new GroupResourceData(nextGroups, builtinIds, nextOrigins, nextDefinitions, categories,
-            problems.stream().filter(problem -> !origin.equals(problem.origin())).toList(), rejected, stale);
+            problems.stream().filter(problem -> !origin.equals(problem.origin())).toList(), rejected, stale, builtinPolicy);
     }
 }

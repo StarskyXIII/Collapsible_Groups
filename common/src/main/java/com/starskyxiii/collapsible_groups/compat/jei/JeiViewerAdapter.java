@@ -89,6 +89,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 
 	public static synchronized void unregisterRuntime() {
 		INSTANCE.editorRuntimeAccess.closeEditor();
+        JeiViewerGroupIndex.instance().reset();
 		if (runtimeRegistration != null) {
 			runtimeRegistration.close();
 			runtimeRegistration = null;
