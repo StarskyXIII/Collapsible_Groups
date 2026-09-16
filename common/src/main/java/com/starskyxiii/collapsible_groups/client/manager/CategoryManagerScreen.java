@@ -64,9 +64,15 @@ public final class CategoryManagerScreen extends Screen {
         return entries.stream().anyMatch(entry -> entry.id().equals(id));
     }
 
+    private com.starskyxiii.collapsible_groups.client.widget.EditorChrome.Rect nameFieldRect() {
+        var bounds = ConfirmDialog.bounds(width, height);
+        return new com.starskyxiii.collapsible_groups.client.widget.EditorChrome.Rect(bounds.x() + 14, bounds.y() + 36, bounds.width() - 28, 20);
+    }
+
     private void createNameField(String value) {
         var bounds = ConfirmDialog.bounds(width, height);
-        nameField = new EditBox(font, bounds.x() + 18, bounds.y() + 42, bounds.width() - 36, 12, CategoryChoices.label("name"));
+        var field = nameFieldRect();
+        nameField = new EditBox(font, field.x() + 4, field.y() + 4, field.width() - 8, 12, CategoryChoices.label("name"));
         nameField.setBordered(false);
         nameField.setTextColor(UiPalette.TEXT_PRIMARY);
         nameField.setMaxLength(128);
@@ -116,11 +122,13 @@ public final class CategoryManagerScreen extends Screen {
             var bounds = ConfirmDialog.bounds(width, height);
             graphics.pose().pushPose();
             graphics.pose().translate(0, 0, 501);
-            graphics.fill(bounds.x() + 12, bounds.y() + 36, bounds.x() + bounds.width() - 12, bounds.y() + 62, UiPalette.SURFACE_DARK);
-            UiSkinRenderer.drawOutline(graphics, bounds.x() + 12, bounds.y() + 36, bounds.width() - 24, 26, UiPalette.OUTLINE_SELECTED);
+            var field = nameFieldRect();
+            graphics.fill(field.x(), field.y(), field.right(), field.bottom(), UiPalette.SURFACE_DARK);
+            UiSkinRenderer.drawOutline(graphics, field.x(), field.y(), field.width(), field.height(),
+                nameField.isFocused() ? UiPalette.OUTLINE_SELECTED : UiPalette.OUTLINE_DARK);
             nameField.render(graphics, mouseX, mouseY, partialTick);
             if (message != null) graphics.drawString(font, font.plainSubstrByWidth(message.getString(), bounds.width() - 24),
-                bounds.x() + 12, bounds.y() + 66, 0xFFFF6060, false);
+                field.x(), field.bottom() + 5, 0xFFFF6060, false);
             graphics.pose().popPose();
         } else if (deletingId != null) {
             ConfirmDialog.render(graphics, font, width, height, CategoryChoices.label("delete"),
@@ -138,7 +146,7 @@ public final class CategoryManagerScreen extends Screen {
         refreshEntries();
         return store.writable() && (deletingId == null || categoryExists(deletingId))
             && (editingId == null || (editingId.isEmpty() || categoryExists(editingId))
-                && nameField != null && !nameField.getValue().trim().isEmpty());
+                && nameField != null && !nameField.getValue().isBlank());
     }
 
     private ConfirmDialog.Action dialogHeld() {
@@ -194,7 +202,10 @@ public final class CategoryManagerScreen extends Screen {
         press.begin(commandAt(x, y));
         if (press.target() != null) return true;
         if (editingId != null || deletingId != null) {
-            if (editingId != null) super.mouseClicked(x, y, button);
+            if (editingId != null) {
+                nameField.setFocused(nameFieldRect().contains(x, y));
+                if (nameField.isFocused()) nameField.mouseClicked(x, y, button);
+            }
             return true;
         }
         if (y < LIST_TOP || y >= listBottom()) return true;
@@ -219,7 +230,7 @@ public final class CategoryManagerScreen extends Screen {
     private void confirm() {
         if (!canConfirm()) return;
         if (editingId != null) {
-            String name = nameField.getValue().trim();
+            String name = nameField.getValue().strip();
             if (name.isEmpty()) { nameField.setTextColor(0xFFFF6060); message = CategoryChoices.label("name_required"); return; }
             String id = editingId;
             boolean saved = store.update(current -> id.isEmpty() ? current.create("local:" + UUID.randomUUID(), name) : current.rename(id, name));

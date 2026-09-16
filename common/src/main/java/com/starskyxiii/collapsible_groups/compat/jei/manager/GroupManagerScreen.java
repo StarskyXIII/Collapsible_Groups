@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
 import com.starskyxiii.collapsible_groups.client.manager.GroupManagerParent;
 import com.starskyxiii.collapsible_groups.client.manager.CategoryChoices;
-import com.starskyxiii.collapsible_groups.client.manager.CategoryPopup;
+import com.starskyxiii.collapsible_groups.client.manager.CategoryPickerScreen;
 import com.starskyxiii.collapsible_groups.client.manager.CategoryManagerScreen;
 import com.starskyxiii.collapsible_groups.client.manager.ManagerHeaderLayout;
 import com.starskyxiii.collapsible_groups.client.manager.ManagerHeaderLayout.Rect;
@@ -108,9 +108,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private String searchQuery = "";
     private String categoryFilter = GroupUiState.managerCategoryFilter();
     private final GroupCategoryStore categories = GroupCategoryStore.current();
-    private CategoryPopup categoryPopup;
-    private boolean movingCategories;
-    private List<String> categoryMoveIds = List.of();
     private String draftCategory;
     private ManagerHeaderLayout headerLayout;
     private ManagerContentLayout contentLayout;
@@ -122,6 +119,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     private boolean categoryToggleFocused;
     private PressedCardAction heldCardAction;
     private boolean settingsButtonHeld;
+    private boolean settingsButtonFocused;
     private boolean batchMenuOpen;
     private int batchMenuFocus = -1;
     private int prunedSelectionCount;
@@ -192,7 +190,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void rebuildCards() {
-        categoryPopup = null;
         validateCategoryFilter();
 		suppressedSwitchHoverGroupId = null;
 		long traceStart = PerformanceTrace.begin();
@@ -227,7 +224,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public void removed() {
-        categoryPopup = null;
 		clearTransientInputState();
 		activeManager = false;
 		subscriptions.forEach(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Subscription::close);
@@ -274,17 +270,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         }
     }
 
-    private void openCategoryPopup() {
-        Rect anchor = headerLayout.secondary();
+    private void openCategoryPicker() {
+        List<String> ids = selectedVisibleCards().stream().map(GroupManagerCard::id).toList();
+        if (ids.isEmpty()) return;
         clearTransientInputState();
         blurSearchField();
-        movingCategories = true;
-        categoryMoveIds = selectedVisibleCards().stream().map(GroupManagerCard::id).toList();
-        List<CategoryChoices.Entry> entries = new ArrayList<>();
-        entries.add(new CategoryChoices.Entry(CategoryChoices.UNCATEGORIZED, CategoryChoices.label("uncategorized")));
-        entries.add(new CategoryChoices.Entry(CategoryChoices.FOLLOW_SOURCE, CategoryChoices.label("follow_source")));
-        entries.addAll(CategoryChoices.available(categories.snapshot(), GroupRepository.resourceData()));
-        categoryPopup = new CategoryPopup(entries, null, anchor.x(), anchor.bottom(), this.width, this.height);
+        Minecraft.getInstance().setScreen(new CategoryPickerScreen(this, ids, categories, () -> {
+            batchSelection = batchSelection.clear();
+            operationMessage = CategoryChoices.label("moved");
+        }));
     }
 
     private void refreshCategorySidebar() {
@@ -315,7 +309,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     }
 
     private void browseCategory(CategoryChoices.Entry entry) {
-        movingCategories = false;
         if (drawerOpen) closeCategoryDrawer();
         categorySidebar.cancelPress();
         chooseCategory(entry);
@@ -353,28 +346,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
     private void chooseCategory(CategoryChoices.Entry selected) {
         if (CategoryChoices.MANAGE.equals(selected.id())) {
-            categoryPopup = null;
             Minecraft.getInstance().setScreen(new CategoryManagerScreen(this));
             return;
         }
-        if (movingCategories) {
-            var ids = categoryMoveIds;
-            if (ids.isEmpty() || ids.stream().anyMatch(id -> GroupRepository.findById(id).isEmpty())) {
-                categoryPopup = null;
-                operationMessage = CategoryChoices.label("save_failed");
-                return;
-            }
-            String target = CategoryChoices.UNCATEGORIZED.equals(selected.id()) ? null : selected.id();
-            boolean saved = categories.update(preferences -> CategoryChoices.FOLLOW_SOURCE.equals(target)
-                ? preferences.followSource(ids) : preferences.assign(ids, target));
-            operationMessage = CategoryChoices.label(saved ? "moved" : "save_failed");
-            if (!saved) { categoryPopup = null; return; }
-            batchSelection = batchSelection.clear();
-        } else {
-            categoryFilter = selected.id();
-            GroupUiState.setManagerCategoryFilter(categoryFilter);
-        }
-        categoryPopup = null;
+        categoryFilter = selected.id();
+        GroupUiState.setManagerCategoryFilter(categoryFilter);
         rebuildFilteredCards();
     }
 
@@ -399,8 +375,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             font.width(Component.translatable("collapsible_groups.manager.batch_actions").append(" ▼"))) + 16;
         int back = Math.max(50, font.width(Component.translatable(ModTranslationKeys.MANAGER_BTN_BACK)) + 12);
         headerLayout = ManagerHeaderLayout.create(width, widths, back, Math.max(60, primary), Math.max(80, secondary));
-        contentLayout = ManagerContentLayout.create(width, height, headerHeight(), sidebarOpen,
-            font.width(Component.translatable("collapsible_groups.manager.settings")));
+        contentLayout = ManagerContentLayout.create(width, height, headerHeight(), sidebarOpen);
         categorySidebar.layout(contentLayout.sidebar());
         cols = contentLayout.columns();
         scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
@@ -539,7 +514,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
         renderBackground(g, mouseX, mouseY, partialTicks);
         pendingTooltip = null;
-        boolean popup = hasPendingDialog() || categoryPopup != null || batchMenuOpen || sortMenuOpen;
+        boolean popup = hasPendingDialog() || batchMenuOpen || sortMenuOpen;
         int surfaceMouseX = popup || drawerOpen ? Integer.MIN_VALUE : mouseX;
         Rect content = contentLayout.content();
         UiSkinRenderer.drawScreenBars(g, width, height, headerHeight(), FOOTER_HEIGHT);
@@ -591,9 +566,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         if (hasPendingDialog()) {
             pendingTooltip = null;
             renderPendingDialog(g, mouseX, mouseY);
-        } else if (categoryPopup != null) {
-            pendingTooltip = null;
-            categoryPopup.render(g, font, mouseX, mouseY);
         } else if (batchMenuOpen) {
             pendingTooltip = null;
             renderBatchMenu(g, mouseX, mouseY);
@@ -645,12 +617,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         if (hint.contains(mouseX, mouseY) && !shown.equals(message.getString())) pendingTooltip = message;
         Rect settings = contentLayout.settings();
         boolean hovered = settings.contains(mouseX, mouseY);
-        String label = Component.translatable("collapsible_groups.manager.settings").getString();
-        UiSkinRenderer.ButtonState state = UiSkinRenderer.buttonState(true, false, hovered, settingsButtonHeld);
-        g.drawString(font, ellipsize(label, settings.width() - 24), settings.x(),
-            UiSkinRenderer.centeredTextY(font, settings.y(), settings.height()) + UiSkinRenderer.toolbarButtonOffset(state), hovered ? UiPalette.TEXT_PRIMARY : UiPalette.TEXT_MUTED, false);
+        if (hovered || settingsButtonFocused) pendingTooltip = Component.translatable("collapsible_groups.manager.settings");
+        if (settingsButtonFocused) UiSkinRenderer.drawOutline(g, settings.x(), settings.y(), settings.width(), settings.height(), UiPalette.OUTLINE_HOVER);
         renderIconButton(g, settings.right() - 18, settings.y(), 18, 20, UiSkinRenderer.ICON_EDIT,
             true, hovered, settingsButtonHeld && hovered);
+    }
+
+    private void focusSettingsButton() {
+        settingsButtonFocused = true;
+        Minecraft.getInstance().getNarrator().sayNow(Component.translatable("collapsible_groups.manager.settings"));
     }
 
     private String ellipsize(String value, int width) {
@@ -698,7 +673,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             case ENABLE -> executeBatchSetEnabled(true);
             case DISABLE -> executeBatchSetEnabled(false);
             case DELETE -> openBatchDeleteDialog();
-            case MOVE -> openCategoryPopup();
+            case MOVE -> openCategoryPicker();
         }
     }
 
@@ -1294,15 +1269,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        settingsButtonFocused = false;
         if (hasPendingDialog()) return handlePendingDialogClick(mouseX, mouseY, button);
-        if (categoryPopup != null) {
-            if (button == 0) {
-                var selected = categoryPopup.clicked(mouseX, mouseY);
-                if (selected != null) chooseCategory(selected);
-                else if (!categoryPopup.contains(mouseX, mouseY)) clearTransientInputState();
-            }
-            return true;
-        }
+
         if (batchMenuOpen) {
             batchMenuFocus = -1;
             if (button == 0) {
@@ -1610,7 +1579,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private void clearTransientInputState() {
         dialogPress.clear();
-        categoryPopup = null;
         batchMenuOpen = false;
         batchMenuFocus = -1;
         drawerOpen = false;
@@ -1620,6 +1588,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         categoryToggleFocused = false;
         heldCardAction = null;
         settingsButtonHeld = false;
+        settingsButtonFocused = false;
 		backButtonHeld = false;
 		heldSegmentIndex = -1;
 		batchToggleButtonHeld = false;
@@ -1655,7 +1624,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
         if (hasPendingDialog()) return true;
-        if (categoryPopup != null) { categoryPopup.drag(mouseY); return true; }
+
         if (batchMenuOpen || sortMenuOpen) return true;
         if (sidebarVisible() && categorySidebar.dragging()) { categorySidebar.drag(mouseY); return true; }
         if (drawerOpen) return true;
@@ -1683,7 +1652,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             if (button == 0) executeDialogAction(dialogPress.release(ConfirmDialog.hitTest(width, height, mouseX, mouseY)));
             return true;
         }
-        if (categoryPopup != null) { categoryPopup.release(); return true; }
+
         if (button != 0) return drawerOpen || batchMenuOpen || sortMenuOpen || super.mouseReleased(mouseX, mouseY, button);
         if (batchMenuOpen) {
             BatchToolbarAction action = heldBatchToolbarAction;
@@ -1732,6 +1701,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         if (releaseCardAction(mouseX, mouseY)) return true;
         if (settingsButtonHeld) {
             settingsButtonHeld = false;
+        settingsButtonFocused = false;
             if (contentLayout.settings().contains(mouseX, mouseY)) {
                 clearTransientInputState();
                 Minecraft.getInstance().setScreen(new com.starskyxiii.collapsible_groups.client.config.GroupConfigScreen(this));
@@ -1777,7 +1747,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
         if (hasPendingDialog()) return true;
-        if (categoryPopup != null) { categoryPopup.scroll(deltaY); return true; }
+
         if (batchMenuOpen || sortMenuOpen) return true;
         if (sidebarVisible() && categorySidebar.contains(mouseX, mouseY)) { categorySidebar.scroll(deltaY); return true; }
         if (drawerOpen) return true;
@@ -1793,19 +1763,22 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
     @Override
     public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        if (settingsButtonFocused) {
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER || keyCode == GLFW.GLFW_KEY_SPACE) {
+                Minecraft.getInstance().setScreen(new com.starskyxiii.collapsible_groups.client.config.GroupConfigScreen(this));
+            } else if (keyCode == GLFW.GLFW_KEY_TAB) {
+                settingsButtonFocused = false;
+                setFocused(searchField);
+                searchField.setFocused(true);
+            } else if (keyCode == GLFW.GLFW_KEY_ESCAPE) settingsButtonFocused = false;
+            return true;
+        }
         heldCardAction = null;
         if (hasPendingDialog()) {
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) cancelPendingDialog();
             return true;
         }
-        if (categoryPopup != null) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE) clearTransientInputState();
-            else {
-                var selected = categoryPopup.keyPressed(keyCode);
-                if (selected != null) chooseCategory(selected);
-            }
-            return true;
-        }
+
         if (batchMenuOpen) {
             heldBatchToolbarAction = null;
             if (keyCode == GLFW.GLFW_KEY_ESCAPE) clearTransientInputState();
@@ -1826,8 +1799,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
                 else { sidebarFocused = false; categoryToggleFocused = true; }
             } else if (keyCode == GLFW.GLFW_KEY_TAB && !drawerOpen) {
                 sidebarFocused = false;
-                setFocused(searchField);
-                searchField.setFocused(true);
+                focusSettingsButton();
             } else {
                 var selected = categorySidebar.keyPressed(keyCode == GLFW.GLFW_KEY_TAB ? GLFW.GLFW_KEY_DOWN : keyCode);
                 if (selected != null) browseCategory(selected);
@@ -1843,7 +1815,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             } else if (keyCode == GLFW.GLFW_KEY_TAB) {
                 categoryToggleFocused = false;
                 if (sidebarVisible()) { sidebarFocused = true; categorySidebar.focusSelection(); }
-                else { setFocused(searchField); searchField.setFocused(true); }
+                else focusSettingsButton();
             }
             return true;
         }
@@ -1878,7 +1850,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean charTyped(char codePoint, int modifiers) {
-        if (categoryPopup != null || batchMenuOpen || sortMenuOpen || drawerOpen || categoryToggleFocused || (sidebarVisible() && sidebarFocused) || hasPendingDialog()) return true;
+        if (settingsButtonFocused || batchMenuOpen || sortMenuOpen || drawerOpen || categoryToggleFocused || (sidebarVisible() && sidebarFocused) || hasPendingDialog()) return true;
 		if (searchField != null && searchField.isFocused()
 			&& searchField.charTyped(codePoint, modifiers)) {
 			return true;
@@ -2036,7 +2008,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
     private boolean isInsideCardViewport(double mouseX, double mouseY) {
         return contentLayout != null && contentLayout.content().contains(mouseX, mouseY)
-            && !drawerOpen && !batchMenuOpen && categoryPopup == null && !hasPendingDialog() && !sortMenuOpen;
+            && !drawerOpen && !batchMenuOpen && !hasPendingDialog() && !sortMenuOpen;
     }
 
 	private boolean isHeldSwitchHovered(double mouseX, double mouseY) {
