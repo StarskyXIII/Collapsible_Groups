@@ -5,6 +5,9 @@ import com.starskyxiii.collapsible_groups.client.manager.CategoryChoices;
 import com.starskyxiii.collapsible_groups.client.manager.CategoryPopup;
 import com.starskyxiii.collapsible_groups.client.manager.CategoryManagerScreen;
 import com.starskyxiii.collapsible_groups.client.manager.ManagerHeaderLayout;
+import com.starskyxiii.collapsible_groups.client.manager.ManagerHeaderLayout.Rect;
+import com.starskyxiii.collapsible_groups.client.manager.ManagerContentLayout;
+import com.starskyxiii.collapsible_groups.client.manager.CategorySidebar;
 import com.starskyxiii.collapsible_groups.persistence.GroupCategoryStore;
 import com.starskyxiii.collapsible_groups.client.manager.GroupManagerSearchMatcher;
 import com.starskyxiii.collapsible_groups.client.manager.GroupManagerVisibility;
@@ -16,6 +19,7 @@ import com.starskyxiii.collapsible_groups.client.editor.GroupEditorScreen;
 import com.starskyxiii.collapsible_groups.client.manager.model.BatchActionEligibility;
 import com.starskyxiii.collapsible_groups.client.manager.model.BatchSelectionState;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupAction;
+import com.starskyxiii.collapsible_groups.client.manager.model.PressedCardAction;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupCardViewModel;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupSource;
 import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
@@ -74,22 +78,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private static final int PREVIEW_GRID_HEIGHT = PREVIEW_ROWS * PREVIEW_CELL_PITCH + 1;
 	private static final int HEADER_HEIGHT = 78;
 	private static final int FOOTER_HEIGHT = 28;
-	private static final int TOP_BUTTON_GAP = 6;
 	private static final int SCROLLBAR_WIDTH = 6;
-
-	private static final int BACK_BTN_X = 6;
-	private static final int BACK_BTN_Y = 5;
-	private static final int BACK_BTN_W = 50;
-	private static final int BACK_BTN_H = 20;
-	private static final int HEADER_TITLE_X = 62;
-	private static final int BATCH_TOGGLE_BTN_W = 92;
-	private static final int NEW_BTN_W = 110;
-	private static final int NEW_BTN_H = 20;
-	private static final int BATCH_ACTION_BTN_H = 20;
 	private static final int SEGMENT_HEIGHT = 18;
-	private static final int SEGMENT_MIN_WIDTH = 40;
 	private static final int SEGMENT_TEXT_PADDING = 16;
-	private static final int SEARCH_FIELD_HEIGHT = 18;
 	private static final int SEARCH_FIELD_TEXT_PAD = 5;
 	private static final int SORT_BUTTON_SIZE = 20;
 	private static final int SORT_BUTTON_GAP = 4;
@@ -120,6 +111,19 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     private List<String> categoryMoveIds = List.of();
     private String draftCategory;
     private ManagerHeaderLayout headerLayout;
+    private ManagerContentLayout contentLayout;
+    private final CategorySidebar categorySidebar = new CategorySidebar();
+    private boolean sidebarOpen = GroupUiState.managerSidebarOpen();
+    private boolean drawerOpen;
+    private boolean sidebarFocused;
+    private boolean categoryButtonHeld;
+    private boolean categoryToggleFocused;
+    private PressedCardAction heldCardAction;
+    private boolean settingsButtonHeld;
+    private boolean batchMenuOpen;
+    private int batchMenuFocus = -1;
+    private int prunedSelectionCount;
+    private long selectionNoticeUntil;
 	private boolean backButtonHeld = false;
 	private int heldSegmentIndex = -1;
 	private boolean batchMode = false;
@@ -160,6 +164,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	protected void init() {
+        ScrollAnchor anchor = scrollAnchor();
         clearTransientInputState();
         categories.reload();
         validateCategoryFilter();
@@ -178,6 +183,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		rebuildCards();
 		calcLayout();
 		createSearchField();
+        restoreAnchor(anchor);
 		applySavedContext();
 		if (!searchFieldLayout().visible()) closeSortMenu();
 		if (highlightedSavedGroupId != null) ensureCardVisible(highlightedSavedGroupId);
@@ -209,13 +215,18 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void refreshIfActive() {
-		if (activeManager && Minecraft.getInstance().screen == this) rebuildCards();
+        if (activeManager && Minecraft.getInstance().screen == this) {
+            ScrollAnchor anchor = scrollAnchor();
+            clearTransientInputState();
+            rebuildCards();
+            relayout(anchor);
+        }
 	}
 
 	@Override
 	public void removed() {
         categoryPopup = null;
-		closeSortMenu();
+		clearTransientInputState();
 		activeManager = false;
 		subscriptions.forEach(com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Subscription::close);
 		subscriptions.clear();
@@ -224,6 +235,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void rebuildFilteredCards() {
+        heldCardAction = null;
 		List<GroupManagerCard> matched = allCards.stream().filter(this::matchesCurrentFilters).toList();
 		GroupManagerVisibility.Result<GroupManagerCard> visibility = GroupManagerVisibility.filter(matched, showEmptyGroups,
 			GroupManagerCard::evaluation);
@@ -231,8 +243,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		filteredCards = GroupManagerSort.apply(visibility.visible(), sortMode,
 			card -> localizedDisplayName(card).getString(), GroupManagerCard::id);
 		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
-		pruneBatchSelectionToFilteredCards();
-	}
+        pruneBatchSelectionToFilteredCards();
+        refreshCategorySidebar();
+    }
 
 	private boolean matchesCurrentFilters(GroupManagerCard card) {
 		return (CategoryChoices.ALL.equals(categoryFilter) || categoryFilter.equals(categoryFilterId(card)))
@@ -259,19 +272,81 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         }
     }
 
-    private void openCategoryPopup(boolean moving) {
+    private void openCategoryPopup() {
+        Rect anchor = headerLayout.secondary();
         clearTransientInputState();
         blurSearchField();
-        movingCategories = moving;
-        categoryMoveIds = moving ? selectedVisibleCards().stream().map(GroupManagerCard::id).toList() : List.of();
+        movingCategories = true;
+        categoryMoveIds = selectedVisibleCards().stream().map(GroupManagerCard::id).toList();
         List<CategoryChoices.Entry> entries = new ArrayList<>();
-        if (!moving) entries.add(new CategoryChoices.Entry(CategoryChoices.ALL, CategoryChoices.label("all")));
         entries.add(new CategoryChoices.Entry(CategoryChoices.UNCATEGORIZED, CategoryChoices.label("uncategorized")));
-        if (moving) entries.add(new CategoryChoices.Entry(CategoryChoices.FOLLOW_SOURCE, CategoryChoices.label("follow_source")));
+        entries.add(new CategoryChoices.Entry(CategoryChoices.FOLLOW_SOURCE, CategoryChoices.label("follow_source")));
         entries.addAll(CategoryChoices.available(categories.snapshot(), GroupRepository.resourceData()));
-        if (!moving) entries.add(new CategoryChoices.Entry(CategoryChoices.MANAGE, CategoryChoices.label("manage")));
-        var anchor = moving ? headerLayout.batchActions().get(BatchToolbarAction.MOVE.ordinal()) : headerLayout.category();
-        categoryPopup = new CategoryPopup(entries, moving ? null : categoryFilter, anchor.x(), anchor.y() + anchor.height(), this.width, this.height);
+        categoryPopup = new CategoryPopup(entries, null, anchor.x(), anchor.bottom(), this.width, this.height);
+    }
+
+    private void refreshCategorySidebar() {
+        List<CategoryChoices.Entry> entries = new ArrayList<>();
+        entries.add(new CategoryChoices.Entry(CategoryChoices.ALL, CategoryChoices.label("all")));
+        entries.add(new CategoryChoices.Entry(CategoryChoices.UNCATEGORIZED, CategoryChoices.label("uncategorized")));
+        entries.addAll(CategoryChoices.available(categories.snapshot(), GroupRepository.resourceData()));
+        categorySidebar.entries(entries, categoryFilter);
+    }
+
+    private boolean sidebarVisible() {
+        return contentLayout != null && (contentLayout.dockable() ? sidebarOpen : drawerOpen);
+    }
+
+    private void toggleCategorySidebar() {
+        ScrollAnchor anchor = scrollAnchor();
+        boolean open = drawerOpen;
+        clearTransientInputState();
+        blurSearchField();
+        if (contentLayout.dockable()) {
+            sidebarOpen = !sidebarOpen;
+            GroupUiState.setManagerSidebarOpen(sidebarOpen);
+        } else drawerOpen = !open;
+        relayout(anchor);
+        sidebarFocused = sidebarVisible();
+        categoryToggleFocused = !sidebarFocused;
+        if (sidebarFocused) categorySidebar.focusSelection();
+    }
+
+    private void browseCategory(CategoryChoices.Entry entry) {
+        movingCategories = false;
+        if (drawerOpen) closeCategoryDrawer();
+        categorySidebar.cancelPress();
+        chooseCategory(entry);
+    }
+
+    private boolean releaseCardAction(double mouseX, double mouseY) {
+        PressedCardAction held = heldCardAction;
+        heldCardAction = null;
+        if (held == null) return false;
+        if (batchMode || !isInsideCardViewport(mouseX, mouseY)) return true;
+        for (int i = 0; i < filteredCards.size(); i++) {
+            GroupManagerCard card = filteredCards.get(i);
+            if (!held.groupId().equals(card.id())) continue;
+            int[] pos = cardPos(i);
+            GroupAction target = null;
+            if (isMouseOver(mouseX, mouseY, editButtonX(pos[0]), pos[1] + CARD_FOOTER_Y, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT))
+                target = card.actionEligibility().canRequest(GroupAction.EDIT) ? GroupAction.EDIT : GroupAction.COPY_AS_CUSTOM;
+            else if (isMouseOver(mouseX, mouseY, deleteButtonX(pos[0]), pos[1] + CARD_FOOTER_Y, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT))
+                target = GroupAction.DELETE;
+            GroupAction action = held.release(card.id(), target, true, card.actionEligibility(), Screen.hasShiftDown());
+            if (action == GroupAction.EDIT) openEditor(card.group());
+            else if (action == GroupAction.COPY_AS_CUSTOM) {
+                if (!executeCopyAsCustom(card.id())) operationMessage = Component.translatable("collapsible_groups.manager.operation_failed");
+            } else if (action == GroupAction.DELETE) openDeleteDialog(card);
+            else if (action == GroupAction.SHIFT_DELETE) executeSingleDelete(card.id(), action);
+            return true;
+        }
+        return true;
+    }
+
+    private void closeCategoryDrawer() {
+        clearTransientInputState();
+        categoryToggleFocused = true;
     }
 
     private void chooseCategory(CategoryChoices.Entry selected) {
@@ -313,15 +388,45 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		);
 	}
 
-	private void calcLayout() {
-        int sourceWidth = SEGMENT_MIN_WIDTH;
-        for (var filter : segmentFilters()) sourceWidth = Math.max(sourceWidth, font.width(segmentLabel(filter)) + SEGMENT_TEXT_PADDING);
-        headerLayout = ManagerHeaderLayout.create(this.width, segmentFilters().length, sourceWidth,
-            batchMode ? BatchToolbarAction.values().length : 0);
-		int usableWidth = this.width - CARD_PADDING * 2 - SCROLLBAR_WIDTH - CARD_PADDING;
-		cols = Math.max(1, usableWidth / (CARD_WIDTH + CARD_PADDING));
-		scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
-	}
+    private void calcLayout() {
+        List<Integer> widths = new ArrayList<>();
+        for (var filter : segmentFilters()) widths.add(Math.max(32, font.width(segmentLabel(filter)) + SEGMENT_TEXT_PADDING));
+        int primary = Math.max(font.width(Component.translatable(ModTranslationKeys.MANAGER_BATCH_SELECT)),
+            font.width(Component.translatable(ModTranslationKeys.MANAGER_BATCH_DONE))) + 16;
+        int secondary = Math.max(font.width(Component.translatable(ModTranslationKeys.MANAGER_BTN_NEW_GROUP)),
+            font.width(Component.translatable("collapsible_groups.manager.batch_actions").append(" ▼"))) + 16;
+        int back = Math.max(50, font.width(Component.translatable(ModTranslationKeys.MANAGER_BTN_BACK)) + 12);
+        headerLayout = ManagerHeaderLayout.create(width, widths, back, Math.max(60, primary), Math.max(80, secondary));
+        contentLayout = ManagerContentLayout.create(width, height, headerHeight(), sidebarOpen,
+            font.width(Component.translatable("collapsible_groups.manager.settings")));
+        categorySidebar.layout(contentLayout.sidebar());
+        cols = contentLayout.columns();
+        scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
+    }
+
+    private void relayout(ScrollAnchor anchor) {
+        boolean focused = searchField != null && searchField.isFocused();
+        calcLayout();
+        clearWidgets();
+        createSearchField();
+        if (focused) { setFocused(searchField); searchField.setFocused(true); }
+        restoreAnchor(anchor);
+    }
+
+    private ScrollAnchor scrollAnchor() {
+        if (filteredCards.isEmpty()) return new ScrollAnchor(null, 0, scrollPixelOffset);
+        int index = Math.min(filteredCards.size() - 1, Math.max(0, scrollPixelOffset / (CARD_HEIGHT + CARD_PADDING) * cols));
+        return new ScrollAnchor(filteredCards.get(index).id(), scrollPixelOffset % (CARD_HEIGHT + CARD_PADDING), scrollPixelOffset);
+    }
+
+    private void restoreAnchor(ScrollAnchor anchor) {
+        int offset = anchor.fallback();
+        for (int i = 0; i < filteredCards.size(); i++) if (filteredCards.get(i).id().equals(anchor.id())) {
+            offset = i / cols * (CARD_HEIGHT + CARD_PADDING) + anchor.withinRow();
+            break;
+        }
+        scrollPixelOffset = clamp(offset, 0, maxScrollPixels());
+    }
 
 	private void createSearchField() {
 		SearchFieldLayout layout = searchFieldLayout();
@@ -410,7 +515,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			batchSelection = batchSelection.clear();
 			return;
 		}
-		batchSelection = batchSelection.pruneTo(filteredCards.stream().map(GroupManagerCard::id).toList());
+        int previous = batchSelection.selectedCount();
+        batchSelection = batchSelection.pruneTo(filteredCards.stream().map(GroupManagerCard::id).toList());
+        if (batchSelection.selectedCount() < previous) {
+            prunedSelectionCount = previous - batchSelection.selectedCount();
+            selectionNoticeUntil = System.currentTimeMillis() + 3500;
+        }
 	}
 
 	private void openEditor(GroupDefinition group) {
@@ -423,112 +533,172 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		g.fill(0, 0, this.width, this.height, UiPalette.SCREEN_SCRIM);
 	}
 
-	@Override
-	public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
-		renderBackground(g, mouseX, mouseY, partialTicks);
-		pendingTooltip = null;
-		int surfaceMouseX = isOverSortMenu(mouseX, mouseY) || categoryPopup != null || hasPendingDialog() ? Integer.MIN_VALUE : mouseX;
-
-		int headerHeight = headerHeight();
-		int vpTop = headerHeight;
-		int vpBottom = this.height - FOOTER_HEIGHT;
-		UiSkinRenderer.drawScreenBars(g, this.width, this.height, headerHeight, FOOTER_HEIGHT);
-
-		g.enableScissor(0, vpTop, this.width, vpBottom);
-		if (generationPending && filteredCards.isEmpty()) {
-			renderCenteredState(g, vpTop, vpBottom, Component.translatable(ModTranslationKeys.EDITOR_LOADING));
-		} else for (int i = 0; i < filteredCards.size(); i++) {
-			renderCard(g, i, surfaceMouseX, mouseY);
-		}
-		if (!generationPending && filteredCards.isEmpty()) {
-			renderEmptyState(g, vpTop, vpBottom);
-		}
-		g.disableScissor();
-
-		renderScrollbar(g);
-		renderHeaderButtons(g, surfaceMouseX, mouseY);
-
-		g.drawString(font, font.plainSubstrByWidth(this.title.getString(), headerLayout.titleWidth()), HEADER_TITLE_X, 7,
-			UiPalette.TEXT_PRIMARY, false);
-		Component countText = filteredCards.size() == allCards.size()
-			? Component.translatable(ModTranslationKeys.MANAGER_COUNT_ALL, allCards.size())
-			: Component.translatable(ModTranslationKeys.MANAGER_COUNT_FILTERED, filteredCards.size(), allCards.size());
-		g.drawString(font, font.plainSubstrByWidth(countText.getString(), headerLayout.titleWidth()), HEADER_TITLE_X, 18, UiPalette.TEXT_MUTED, false);
-		Component footer = footerText();
-		g.drawString(font, font.plainSubstrByWidth(footer.getString(), Math.max(0, this.width - 12)),
-			6, vpBottom + UiSkinRenderer.centeredTextY(font, 0, FOOTER_HEIGHT), UiPalette.TEXT_HINT, false);
-		renderSourceProblems(g, surfaceMouseX, mouseY);
-
-		for (var child : this.children()) {
-			if (child instanceof Renderable renderable) {
-				renderable.render(g, surfaceMouseX, mouseY, partialTicks);
-			}
-		}
-		if (sortMenuOpen && searchFieldLayout().visible() && !hasPendingDialog()) {
-			pendingTooltip = null;
-			renderSortMenu(g, mouseX, mouseY);
-		}
-
-		if (categoryPopup != null) {
+    @Override
+    public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+        renderBackground(g, mouseX, mouseY, partialTicks);
+        pendingTooltip = null;
+        boolean popup = hasPendingDialog() || categoryPopup != null || batchMenuOpen || sortMenuOpen;
+        int surfaceMouseX = popup || drawerOpen ? Integer.MIN_VALUE : mouseX;
+        Rect content = contentLayout.content();
+        UiSkinRenderer.drawScreenBars(g, width, height, headerHeight(), FOOTER_HEIGHT);
+        g.enableScissor(content.x(), content.y(), content.right(), content.bottom());
+        if (generationPending && filteredCards.isEmpty()) {
+            renderCenteredState(g, content.y(), content.bottom(), Component.translatable(ModTranslationKeys.EDITOR_LOADING));
+        } else {
+            for (int i = 0; i < filteredCards.size(); i++) renderCard(g, i, surfaceMouseX, mouseY);
+            if (filteredCards.isEmpty()) renderEmptyState(g, content.y(), content.bottom());
+        }
+        g.disableScissor();
+        renderScrollbar(g);
+        renderHeaderButtons(g, surfaceMouseX, mouseY);
+        g.drawString(font, ellipsize(title.getString(), headerLayout.titleWidth()), headerLayout.titleX(), 7, UiPalette.TEXT_PRIMARY, false);
+        Component count = batchMode
+            ? Component.translatable("collapsible_groups.manager.selected_count", batchSelection.selectedCount())
+            : filteredCards.size() == allCards.size()
+                ? Component.translatable(ModTranslationKeys.MANAGER_COUNT_ALL, allCards.size())
+                : Component.translatable(ModTranslationKeys.MANAGER_COUNT_FILTERED, filteredCards.size(), allCards.size());
+        Component fullCount = count;
+        if (!sidebarVisible()) {
+            Component category = CategoryChoices.name(categoryFilter, categories.snapshot(), GroupRepository.resourceData());
+            fullCount = Component.translatable("collapsible_groups.manager.category_count", category, count);
+            int categoryWidth = headerLayout.titleWidth() - font.width(Component.translatable("collapsible_groups.manager.category_count", "", count));
+            if (categoryWidth > 0) count = Component.translatable("collapsible_groups.manager.category_count", ellipsize(category.getString(), categoryWidth), count);
+        }
+        String shownCount = ellipsize(count.getString(), headerLayout.titleWidth());
+        g.drawString(font, shownCount, headerLayout.titleX(), 18, UiPalette.TEXT_MUTED, false);
+        if (!shownCount.equals(fullCount.getString()) && isMouseOver(surfaceMouseX, mouseY, headerLayout.titleX(), 18, headerLayout.titleWidth(), font.lineHeight)) pendingTooltip = fullCount;
+        renderFooter(g, surfaceMouseX, mouseY);
+        renderSourceProblems(g, surfaceMouseX, mouseY);
+        for (var child : children()) if (child instanceof Renderable renderable) renderable.render(g, surfaceMouseX, mouseY, partialTicks);
+        if (sidebarVisible()) {
+            if (drawerOpen) {
+                g.pose().pushPose();
+                g.pose().translate(0, 0, 300);
+                g.fill(content.x(), content.y(), content.right(), content.bottom(), UiPalette.DISABLED_OVERLAY);
+            }
+            Component tooltip = categorySidebar.render(g, font, popup ? Integer.MIN_VALUE : mouseX, mouseY, sidebarFocused && !popup && minecraft.getLastInputType().isKeyboard());
+            if (tooltip != null) pendingTooltip = tooltip;
+            renderCategoryToggle(g, popup ? Integer.MIN_VALUE : mouseX, mouseY);
+            if (drawerOpen) g.pose().popPose();
+        } else {
+            Rect rail = contentLayout.rail();
+            g.fill(rail.x(), rail.y(), rail.right(), rail.bottom(), UiPalette.SURFACE);
+            g.fill(rail.right() - 1, rail.y(), rail.right(), rail.bottom(), UiPalette.OUTLINE_DARK);
+            renderCategoryToggle(g, surfaceMouseX, mouseY);
+        }
+        if (hasPendingDialog()) {
+            pendingTooltip = null;
+            renderPendingDialog(g, mouseX, mouseY);
+        } else if (categoryPopup != null) {
             pendingTooltip = null;
             categoryPopup.render(g, font, mouseX, mouseY);
-        } else if (hasPendingDialog()) {
-			pendingTooltip = null;
-			renderPendingDialog(g, mouseX, mouseY);
-		} else if (pendingTooltip != null) {
-			g.renderTooltip(font, font.split(pendingTooltip, Math.max(80, Math.min(360, this.width - 24))), mouseX, mouseY);
-		}
-	}
+        } else if (batchMenuOpen) {
+            pendingTooltip = null;
+            renderBatchMenu(g, mouseX, mouseY);
+        } else if (sortMenuOpen) {
+            pendingTooltip = null;
+            renderSortMenu(g, mouseX, mouseY);
+        } else if (pendingTooltip != null) {
+            g.renderTooltip(font, font.split(pendingTooltip, Math.max(80, Math.min(360, width - 24))), mouseX, mouseY);
+        }
+    }
 
-	private void renderHeaderButtons(GuiGraphics g, int mouseX, int mouseY) {
-		boolean backHover = isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H);
-		renderButton(g, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H,
-			Component.translatable(ModTranslationKeys.MANAGER_BTN_BACK).getString(), true, backHover, backButtonHeld && backHover);
+    private void renderHeaderButtons(GuiGraphics g, int mouseX, int mouseY) {
+        renderRectButton(g, headerLayout.back(), Component.translatable(ModTranslationKeys.MANAGER_BTN_BACK).getString(), mouseX, mouseY, backButtonHeld, false);
+        renderSegmentedFilter(g, mouseX, mouseY);
+        renderSearchFieldChrome(g, mouseX, mouseY);
+        renderSortButton(g, mouseX, mouseY);
+        renderRectButton(g, headerLayout.primary(), Component.translatable(batchMode ? ModTranslationKeys.MANAGER_BATCH_DONE : ModTranslationKeys.MANAGER_BATCH_SELECT).getString(),
+            mouseX, mouseY, batchToggleButtonHeld, false);
+        String secondary = batchMode ? Component.translatable("collapsible_groups.manager.batch_actions").getString() + " ▼"
+            : Component.translatable(ModTranslationKeys.MANAGER_BTN_NEW_GROUP).getString();
+        renderRectButton(g, headerLayout.secondary(), secondary, mouseX, mouseY, newGroupButtonHeld, batchMenuOpen);
+    }
 
-		renderSegmentedFilter(g, mouseX, mouseY);
-		renderSearchFieldChrome(g, mouseX, mouseY);
-		renderSortButton(g, mouseX, mouseY);
-        var category = headerLayout.category();
-        String categoryName = CategoryChoices.name(categoryFilter, categories.snapshot(), GroupRepository.resourceData()).getString();
-        int labelWidth = category.width() - 8 - font.width(" ▼");
-        String shownCategory = font.width(categoryName) > labelWidth ? font.plainSubstrByWidth(categoryName,
-            Math.max(0, labelWidth - font.width("…"))) + "…" : categoryName;
-        renderButton(g, category.x(), category.y(), category.width(), category.height(),
-            shownCategory + " ▼",
-            true, category.contains(mouseX, mouseY), false);
-        if (!shownCategory.equals(categoryName) && category.contains(mouseX, mouseY)) pendingTooltip = Component.literal(categoryName);
-		if (batchMode) {
-			renderBatchToolbar(g, mouseX, mouseY);
-			renderBatchSelectedStatus(g);
-		}
+    private void renderRectButton(GuiGraphics g, Rect rect, String label, int mouseX, int mouseY, boolean held, boolean selected) {
+        boolean hover = rect.contains(mouseX, mouseY);
+        UiSkinRenderer.ButtonState state = UiSkinRenderer.buttonState(true, selected, hover, held);
+        UiSkinRenderer.drawButton(g, font, rect.x(), rect.y(), rect.width(), rect.height(), ellipsize(label, rect.width() - 10), state);
+        if (hover && font.width(label) > rect.width() - 10) pendingTooltip = Component.literal(label);
+    }
 
-        int settingsX = width - 26;
-        boolean settingsHover = isMouseOver(mouseX, mouseY, settingsX, headerLayout.actionsY(), 20, 20);
-        renderButton(g, settingsX, headerLayout.actionsY(), 20, 20, "⚙", true, settingsHover, false);
-        if (settingsHover) pendingTooltip = Component.translatable("collapsible_groups.config.open");
-		int batchX = batchToggleButtonX();
-		int batchW = batchToggleButtonWidth();
-		boolean batchHover = isMouseOver(mouseX, mouseY, batchX, headerLayout.actionsY(), batchW, NEW_BTN_H);
-		String batchLabel = Component.translatable(batchMode
-			? ModTranslationKeys.MANAGER_BATCH_DONE
-			: ModTranslationKeys.MANAGER_BATCH_SELECT).getString();
-		renderButton(g, batchX, headerLayout.actionsY(), batchW, NEW_BTN_H, batchLabel,
-			true, batchHover, batchToggleButtonHeld && batchHover);
+    private void renderCategoryToggle(GuiGraphics g, int mouseX, int mouseY) {
+        Rect rect = contentLayout.categoryToggle(sidebarVisible());
+        if (rect.height() < 20) return;
+        boolean hover = rect.contains(mouseX, mouseY);
+        boolean focused = categoryToggleFocused && mouseX != Integer.MIN_VALUE && minecraft.getLastInputType().isKeyboard();
+        UiSkinRenderer.ButtonState state = UiSkinRenderer.buttonState(true, false, hover || focused, categoryButtonHeld && hover);
+        UiSkinRenderer.drawToolbarChevronButton(g, rect.x(), rect.y(), !sidebarVisible(), state);
+        if (focused) UiSkinRenderer.drawOutline(g, rect.x(), rect.y(), rect.width(), rect.height(), UiPalette.OUTLINE_SELECTED);
+        if (hover) pendingTooltip = Component.translatable(sidebarVisible()
+            ? "collapsible_groups.manager.hide_categories" : "collapsible_groups.manager.show_categories",
+            CategoryChoices.name(categoryFilter, categories.snapshot(), GroupRepository.resourceData()));
+    }
 
-		int newBtnX = newButtonX();
-		boolean newHover = isMouseOver(mouseX, mouseY, newBtnX, headerLayout.actionsY(), NEW_BTN_W, NEW_BTN_H);
-		renderButton(g, newBtnX, headerLayout.actionsY(), NEW_BTN_W, NEW_BTN_H,
-			Component.translatable(ModTranslationKeys.MANAGER_BTN_NEW_GROUP).getString(), true, newHover, newGroupButtonHeld && newHover);
-	}
+    private void renderFooter(GuiGraphics g, int mouseX, int mouseY) {
+        Rect hint = contentLayout.footerHint();
+        Component message = footerText();
+        String shown = ellipsize(message.getString(), hint.width());
+        g.drawString(font, shown, hint.x(), UiSkinRenderer.centeredTextY(font, hint.y(), hint.height()), UiPalette.TEXT_HINT, false);
+        if (hint.contains(mouseX, mouseY) && !shown.equals(message.getString())) pendingTooltip = message;
+        Rect settings = contentLayout.settings();
+        boolean hovered = settings.contains(mouseX, mouseY);
+        String label = Component.translatable("collapsible_groups.manager.settings").getString();
+        UiSkinRenderer.ButtonState state = UiSkinRenderer.buttonState(true, false, hovered, settingsButtonHeld);
+        g.drawString(font, ellipsize(label, settings.width() - 24), settings.x(),
+            UiSkinRenderer.centeredTextY(font, settings.y(), settings.height()) + UiSkinRenderer.toolbarButtonOffset(state), hovered ? UiPalette.TEXT_PRIMARY : UiPalette.TEXT_MUTED, false);
+        renderIconButton(g, settings.right() - 18, settings.y(), 18, 20, UiSkinRenderer.ICON_EDIT,
+            true, hovered, settingsButtonHeld && hovered);
+    }
 
-	private void renderBatchToolbar(GuiGraphics g, int mouseX, int mouseY) {
-		BatchActionEligibility eligibility = currentBatchEligibility();
-		renderBatchToolbarButton(g, BatchToolbarAction.SELECT_ALL_RESULTS, eligibility, mouseX, mouseY);
-		renderBatchToolbarButton(g, BatchToolbarAction.ENABLE, eligibility, mouseX, mouseY);
-		renderBatchToolbarButton(g, BatchToolbarAction.DISABLE, eligibility, mouseX, mouseY);
-		renderBatchToolbarButton(g, BatchToolbarAction.DELETE, eligibility, mouseX, mouseY);
-        renderBatchToolbarButton(g, BatchToolbarAction.MOVE, eligibility, mouseX, mouseY);
-	}
+    private String ellipsize(String value, int width) {
+        if (width <= 0) return "";
+        if (width < font.width("…")) return font.plainSubstrByWidth(value, width);
+        return font.width(value) <= width ? value : font.plainSubstrByWidth(value, Math.max(0, width - font.width("…"))) + "…";
+    }
+
+    private BatchMenuLayout batchMenuLayout() {
+        int width = 96;
+        for (BatchToolbarAction action : BatchToolbarAction.values()) width = Math.max(width, font.width(batchActionLabel(action)) + 20);
+        width = Math.min(width, this.width - 12);
+        int height = BatchToolbarAction.values().length * 20 + 8;
+        Rect anchor = headerLayout.secondary();
+        return new BatchMenuLayout(new Rect(clamp(anchor.right() - width, 6, this.width - width - 6),
+            clamp(anchor.bottom() + 2, 6, Math.max(6, this.height - height - 6)), width, height));
+    }
+
+    private void renderBatchMenu(GuiGraphics g, int mouseX, int mouseY) {
+        BatchMenuLayout layout = batchMenuLayout();
+        Rect bounds = layout.bounds();
+        g.pose().pushPose();
+        g.pose().translate(0, 0, 400);
+        g.fill(bounds.x(), bounds.y(), bounds.right(), bounds.bottom(), UiPalette.SURFACE);
+        UiSkinRenderer.drawOutline(g, bounds.x(), bounds.y(), bounds.width(), bounds.height(), UiPalette.OUTLINE);
+        BatchActionEligibility eligibility = currentBatchEligibility();
+        for (BatchToolbarAction action : BatchToolbarAction.values()) {
+            Rect row = layout.row(action.ordinal());
+            boolean active = batchActionActive(action, eligibility);
+            boolean hovered = row.contains(mouseX, mouseY);
+            UiSkinRenderer.ButtonState state = UiSkinRenderer.buttonState(active, false, hovered, heldBatchToolbarAction == action);
+            UiSkinRenderer.drawButton(g, font, row.x(), row.y(), row.width(), row.height(), batchActionLabel(action), state);
+            if (batchMenuFocus == action.ordinal()) {
+                UiSkinRenderer.drawOutline(g, row.x(), row.y(), row.width(), row.height(), UiPalette.OUTLINE_HOVER);
+            }
+        }
+        g.pose().popPose();
+    }
+
+    private void executeBatchAction(BatchToolbarAction action) {
+        if (!batchActionActive(action, currentBatchEligibility())) return;
+        clearTransientInputState();
+        switch (action) {
+            case SELECT_ALL_RESULTS -> toggleSelectAllResults();
+            case ENABLE -> executeBatchSetEnabled(true);
+            case DISABLE -> executeBatchSetEnabled(false);
+            case DELETE -> openBatchDeleteDialog();
+            case MOVE -> openCategoryPopup();
+        }
+    }
 
 	private void renderSortButton(GuiGraphics g, int mouseX, int mouseY) {
 		SearchFieldLayout layout = searchFieldLayout();
@@ -604,8 +774,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		if (value && lastSavedGroupId != null) ensureCardVisible(lastSavedGroupId);
 	}
 
-	private Component footerText() {
+    private Component footerText() {
 		if (operationMessage != null) return operationMessage;
+        if (System.currentTimeMillis() < selectionNoticeUntil) return Component.translatable("collapsible_groups.manager.selection_pruned", prunedSelectionCount);
 		GroupManagerCard saved = findCurrentCard(lastSavedGroupId);
 		if (!showEmptyGroups && saved != null && saved.evaluation().empty()) {
 			return Component.translatable(ModTranslationKeys.MANAGER_SAVED_EMPTY, localizedDisplayName(saved));
@@ -653,40 +824,22 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return new SortMenuLayout(x, y, w, h);
 	}
 
-	private void renderBatchToolbarButton(GuiGraphics g, BatchToolbarAction action,
-	                                     BatchActionEligibility eligibility, int mouseX, int mouseY) {
-		int x = batchActionButtonX(action);
-		int y = batchActionButtonY(action);
-		int w = batchActionButtonWidth(action);
-		boolean active = batchActionActive(action, eligibility);
-		boolean hovered = isMouseOver(mouseX, mouseY, x, y, w, BATCH_ACTION_BTN_H);
-		renderButton(g, x, y, w, BATCH_ACTION_BTN_H, batchActionLabel(action),
-			active, hovered, heldBatchToolbarAction == action && hovered);
-	}
+    private void renderEmptyState(GuiGraphics g, int viewportTop, int viewportBottom) {
+        boolean hasCategory = allCards.stream().anyMatch(card -> CategoryChoices.ALL.equals(categoryFilter) || categoryFilter.equals(categoryFilterId(card)));
+        String key = hiddenEmptyCount > 0 ? "collapsible_groups.manager.empty_hidden"
+            : !hasCategory && !CategoryChoices.ALL.equals(categoryFilter) ? "collapsible_groups.manager.empty_category" : ModTranslationKeys.MANAGER_EMPTY_SEARCH;
+        renderCenteredState(g, viewportTop, viewportBottom, Component.translatable(key));
+    }
 
-	private void renderBatchSelectedStatus(GuiGraphics g) {
-        var rect = headerLayout.selectedCount();
-		int y = rect.y();
-		Component selected = Component.translatable(ModTranslationKeys.MANAGER_BATCH_SELECTED_COUNT, batchSelection.selectedCount());
-		int textY = UiSkinRenderer.textFieldTextY(font, y, SEARCH_FIELD_HEIGHT);
-		int barY = textY - 2;
-		String selectedText = font.plainSubstrByWidth(selected.getString(), rect.width() - 8);
-		int textX = rect.x() + 8;
-		g.fill(textX - 6, barY, textX - 4, barY + font.lineHeight + 4, UiPalette.OUTLINE_SELECTED);
-		g.drawString(font, selectedText, textX, textY, UiPalette.TEXT_PRIMARY, false);
-	}
-
-	private void renderEmptyState(GuiGraphics g, int viewportTop, int viewportBottom) {
-		renderCenteredState(g, viewportTop, viewportBottom,
-			Component.translatable(ModTranslationKeys.MANAGER_EMPTY_SEARCH));
-	}
-
-	private void renderCenteredState(GuiGraphics g, int viewportTop, int viewportBottom, Component message) {
-		String text = font.plainSubstrByWidth(message.getString(), Math.max(0, this.width - 24));
-		int x = Math.max(6, (this.width - font.width(text)) / 2);
-		int y = viewportTop + Math.max(0, (viewportBottom - viewportTop - font.lineHeight) / 2);
-		g.drawString(font, text, x, y, UiPalette.TEXT_HINT, false);
-	}
+    private void renderCenteredState(GuiGraphics g, int viewportTop, int viewportBottom, Component message) {
+        Rect content = contentLayout.content();
+        var lines = font.split(message, Math.max(1, content.width() - 24));
+        int y = viewportTop + Math.max(0, (viewportBottom - viewportTop - lines.size() * (font.lineHeight + 2)) / 2);
+        for (var line : lines) {
+            g.drawString(font, line, content.x() + (content.width() - font.width(line)) / 2, y, UiPalette.TEXT_HINT, false);
+            y += font.lineHeight + 2;
+        }
+    }
 
 	private void renderSegmentedFilter(GuiGraphics g, int mouseX, int mouseY) {
 		GroupUiState.ManagerSourceFilter[] filters = segmentFilters();
@@ -708,29 +861,24 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		}
 	}
 
-	private int hoveredSegmentIndex(GroupUiState.ManagerSourceFilter[] filters, double mouseX, double mouseY) {
-		if (batchMode && hoveredBatchAction(mouseX, mouseY) != null) {
-			return -1;
-		}
-		for (int i = 0; i < filters.length; i++) {
-			if (isMouseOver(mouseX, mouseY, segmentX(filters, i), headerLayout.sources().get(i).y(), segmentWidth(filters), SEGMENT_HEIGHT)) {
-				return i;
-			}
-		}
-		return -1;
-	}
+    private int hoveredSegmentIndex(GroupUiState.ManagerSourceFilter[] filters, double mouseX, double mouseY) {
+        return headerLayout.sourceAt(mouseX, mouseY);
+    }
 
 	private void renderSegment(GuiGraphics g, GroupUiState.ManagerSourceFilter[] filters, int index,
 	                           boolean selected, boolean hovered) {
 		int x = segmentX(filters, index);
-		int w = segmentWidth(filters);
+		int w = headerLayout.sources().get(index).width();
 		boolean pressed = hovered && heldSegmentIndex == index;
 		UiSkinRenderer.ButtonState state = selected
 			? pressed ? UiSkinRenderer.ButtonState.SELECTED_PRESSED
 			: hovered ? UiSkinRenderer.ButtonState.SELECTED_HOVERED : UiSkinRenderer.ButtonState.SELECTED
 			: pressed ? UiSkinRenderer.ButtonState.PRESSED
 			: hovered ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL;
-		UiSkinRenderer.drawSegment(g, font, x, headerLayout.sources().get(index).y(), w, SEGMENT_HEIGHT, segmentLabel(filters[index]), state);
+		String label = segmentLabel(filters[index]);
+        String shown = ellipsize(label, w - 4);
+        UiSkinRenderer.drawSegment(g, font, x, headerLayout.sources().get(index).y(), w, SEGMENT_HEIGHT, shown, state);
+        if (hovered && !shown.equals(label)) pendingTooltip = Component.literal(label);
 	}
 
 	private GroupUiState.ManagerSourceFilter[] segmentFilters() {
@@ -767,9 +915,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		};
 	}
 
-	private int segmentWidth(GroupUiState.ManagerSourceFilter[] filters) {
-        return headerLayout.sources().getFirst().width();
-	}
+
 
 	private int segmentX(GroupUiState.ManagerSourceFilter[] filters, int index) {
         return headerLayout.sources().get(index).x();
@@ -895,11 +1041,13 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		g.pose().pushPose();
 		g.pose().translate(0, 0, CARD_CONTROL_Z);
 		UiSkinRenderer.drawSwitch(g, switchX, switchY, SWITCH_WIDTH, SWITCH_HEIGHT,
-			card.group().enabled(), canSwitch, switchHover, switchPressed);
+			card.group().enabled(), !batchMode && canSwitch, switchHover, switchPressed);
 		renderIconButton(g, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
-			UiSkinRenderer.ICON_EDIT, canUseMiddleAction, editHover, false);
+			UiSkinRenderer.ICON_EDIT, !batchMode && canUseMiddleAction, editHover,
+            editHover && heldCardAction != null && heldCardAction.matches(card.id(), canEdit ? GroupAction.EDIT : GroupAction.COPY_AS_CUSTOM));
 		renderIconButton(g, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
-			UiSkinRenderer.ICON_DELETE, canDelete || shiftDeleteArmed, deleteHover, shiftDeleteArmed);
+			UiSkinRenderer.ICON_DELETE, !batchMode && (canDelete || shiftDeleteArmed), deleteHover,
+            shiftDeleteArmed || deleteHover && heldCardAction != null && heldCardAction.matches(card.id(), GroupAction.DELETE));
 		g.pose().popPose();
 
 		if (controlsInteractive) {
@@ -1047,29 +1195,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return Component.translatable(key).getString();
 	}
 
-	private int newButtonX() {
-		return this.width - NEW_BTN_W - 30;
-	}
 
-	private int batchToggleButtonX() {
-		return newButtonX() - batchToggleButtonWidth() - TOP_BUTTON_GAP;
-	}
-
-	private int batchToggleButtonWidth() {
-		return BATCH_TOGGLE_BTN_W;
-	}
-
-	private int batchActionButtonY(BatchToolbarAction action) {
-        return headerLayout.batchActions().get(action.ordinal()).y();
-	}
-
-	private int batchActionButtonX(BatchToolbarAction action) {
-        return headerLayout.batchActions().get(action.ordinal()).x();
-	}
-
-	private int batchActionButtonWidth(BatchToolbarAction action) {
-        return headerLayout.batchActions().get(action.ordinal()).width();
-	}
 
 	private List<String> selectableResultIds() {
 		return filteredCards.stream()
@@ -1090,15 +1216,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			: batchSelection.selectAll(ids);
 	}
 
-	private BatchToolbarAction hoveredBatchAction(double mouseX, double mouseY) {
-		for (BatchToolbarAction action : BatchToolbarAction.values()) {
-			if (isMouseOver(mouseX, mouseY, batchActionButtonX(action), batchActionButtonY(action),
-				batchActionButtonWidth(action), BATCH_ACTION_BTN_H)) {
-				return action;
-			}
-		}
-		return null;
-	}
+    private BatchToolbarAction hoveredBatchAction(double mouseX, double mouseY) {
+        if (!batchMenuOpen) return null;
+        BatchMenuLayout menu = batchMenuLayout();
+        for (BatchToolbarAction action : BatchToolbarAction.values()) if (menu.row(action.ordinal()).contains(mouseX, mouseY)) return action;
+        return null;
+    }
 
 	private void renderPendingDialog(GuiGraphics g, int mouseX, int mouseY) {
 		Component title = pendingBatchDelete != null
@@ -1161,89 +1284,82 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		g.disableScissor();
 	}
 
-	@Override
-	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+    @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        if (batchMenuOpen) batchMenuFocus = -1;
+        super.mouseMoved(mouseX, mouseY);
+    }
+
+    @Override
+    public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        if (hasPendingDialog()) return handlePendingDialogClick(mouseX, mouseY, button);
         if (categoryPopup != null) {
             if (button == 0) {
                 var selected = categoryPopup.clicked(mouseX, mouseY);
                 if (selected != null) chooseCategory(selected);
-                else if (!categoryPopup.contains(mouseX, mouseY)) categoryPopup = null;
+                else if (!categoryPopup.contains(mouseX, mouseY)) clearTransientInputState();
             }
             return true;
         }
-		if (hasPendingDialog()) {
-			return handlePendingDialogClick(mouseX, mouseY, button);
-		}
-        if (button == 0 && headerLayout.category().contains(mouseX, mouseY)) {
-            openCategoryPopup(false);
+        if (batchMenuOpen) {
+            batchMenuFocus = -1;
+            if (button == 0) {
+                BatchToolbarAction action = hoveredBatchAction(mouseX, mouseY);
+                if (action != null) {
+                    if (batchActionActive(action, currentBatchEligibility())) heldBatchToolbarAction = action;
+                } else if (!batchMenuLayout().bounds().contains(mouseX, mouseY)) clearTransientInputState();
+            }
             return true;
         }
-
-		if (sortMenuOpen) {
-			if (isOverSortMenu(mouseX, mouseY)) {
-				if (button == 0) {
-					heldShowEmpty = hoveredShowEmpty(mouseX, mouseY);
-					heldSortMode = hoveredSortMode(mouseX, mouseY);
-				}
-				return true;
-			}
-			if (button == 0 && !isMouseOver(mouseX, mouseY, sortButtonX(), searchFieldLayout().y(), SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
-				closeSortMenu();
-				return true;
-			}
-		}
-
-		if (button == 0 && (hiddenEmptyCount > 0 || savedGroupIsHiddenEmpty()) && mouseY >= this.height - FOOTER_HEIGHT) {
-			if (savedGroupIsHiddenEmpty()) {
-				searchField.setValue("");
-				sourceFilter = GroupUiState.ManagerSourceFilter.ALL;
-				GroupUiState.setManagerSourceFilter(sourceFilter);
-			}
-			setShowEmptyGroups(true);
-			return true;
-		}
-		if (button == 0 && searchFieldLayout().visible()
-			&& isMouseOver(mouseX, mouseY, sortButtonX(), searchFieldLayout().y(), SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
-			sortButtonHeld = true;
-			blurSearchField();
-			return true;
-		}
-		if (button == 0 && handleSearchFieldClick(mouseX, mouseY, button)) {
-			return true;
-		}
-		if (button == 0) {
-			blurSearchField();
-		}
-		if (button == 0) {
-			heldSwitchGroupId = null;
-			heldBatchToolbarAction = null;
-		}
-		if (button == 0 && isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) {
-			backButtonHeld = true;
-			return true;
-		}
-		if (button == 0 && batchMode && handleBatchToolbarClick(mouseX, mouseY)) return true;
-		if (button == 0) {
-			int segmentIndex = hoveredSegmentIndex(segmentFilters(), mouseX, mouseY);
-			if (segmentIndex >= 0) {
-				heldSegmentIndex = segmentIndex;
-				return true;
-			}
-		}
-		int batchX = batchToggleButtonX();
-        if (button == 0 && isMouseOver(mouseX, mouseY, width - 26, headerLayout.actionsY(), 20, 20)) {
-            Minecraft.getInstance().setScreen(new com.starskyxiii.collapsible_groups.client.config.GroupConfigScreen(this));
+        if (sortMenuOpen) {
+            if (button == 0) {
+                if (headerLayout.sort().contains(mouseX, mouseY)) sortButtonHeld = true;
+                else if (isOverSortMenu(mouseX, mouseY)) {
+                    heldShowEmpty = hoveredShowEmpty(mouseX, mouseY);
+                    heldSortMode = hoveredSortMode(mouseX, mouseY);
+                } else clearTransientInputState();
+            }
             return true;
         }
-		if (button == 0 && isMouseOver(mouseX, mouseY, batchX, headerLayout.actionsY(), batchToggleButtonWidth(), NEW_BTN_H)) {
-			batchToggleButtonHeld = true;
-			return true;
-		}
-		int newBtnX = newButtonX();
-		if (button == 0 && isMouseOver(mouseX, mouseY, newBtnX, headerLayout.actionsY(), NEW_BTN_W, NEW_BTN_H)) {
-			newGroupButtonHeld = true;
-			return true;
-		}
+        if (drawerOpen) {
+            if (button == 0) {
+                if (contentLayout.categoryToggle(sidebarVisible()).contains(mouseX, mouseY)) { categoryButtonHeld = true; categoryToggleFocused = true; sidebarFocused = false; }
+                else if (categorySidebar.contains(mouseX, mouseY)) {
+                    categorySidebar.press(mouseX, mouseY);
+                    sidebarFocused = true;
+                    categoryToggleFocused = false;
+                } else closeCategoryDrawer();
+            }
+            return true;
+        }
+        if (button == 0) {
+            clearTransientInputState();
+            if (handleSearchFieldClick(mouseX, mouseY, button)) return true;
+            blurSearchField();
+            if (contentLayout.categoryToggle(sidebarVisible()).contains(mouseX, mouseY)) { categoryButtonHeld = true; categoryToggleFocused = true; return true; }
+            if (sidebarVisible() && categorySidebar.contains(mouseX, mouseY)) {
+                sidebarFocused = true;
+                categorySidebar.press(mouseX, mouseY);
+                return true;
+            }
+            if (contentLayout.settings().contains(mouseX, mouseY)) { settingsButtonHeld = true; return true; }
+            if ((hiddenEmptyCount > 0 || savedGroupIsHiddenEmpty()) && contentLayout.footerHint().contains(mouseX, mouseY)) {
+                if (savedGroupIsHiddenEmpty()) {
+                    searchField.setValue("");
+                    sourceFilter = GroupUiState.ManagerSourceFilter.ALL;
+                    GroupUiState.setManagerSourceFilter(sourceFilter);
+                }
+                setShowEmptyGroups(true);
+                return true;
+            }
+            if (headerLayout.sort().contains(mouseX, mouseY)) { sortButtonHeld = true; return true; }
+            if (headerLayout.back().contains(mouseX, mouseY)) { backButtonHeld = true; return true; }
+            if (headerLayout.primary().contains(mouseX, mouseY)) { batchToggleButtonHeld = true; return true; }
+            if (headerLayout.secondary().contains(mouseX, mouseY)) { newGroupButtonHeld = true; return true; }
+            int segment = hoveredSegmentIndex(segmentFilters(), mouseX, mouseY);
+            if (segment >= 0) { heldSegmentIndex = segment; return true; }
+        }
+
 		if (super.mouseClicked(mouseX, mouseY, button)) return true;
 		if (button != 0) return false;
 
@@ -1272,24 +1388,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				suppressedSwitchHoverGroupId = card.id();
 				return true;
 			}
-			if (editClick) {
-				if (card.actionEligibility().canRequest(GroupAction.EDIT)) {
-					openEditor(card.group());
-				} else if (card.actionEligibility().canRequest(GroupAction.COPY_AS_CUSTOM)) {
-					if (!executeCopyAsCustom(card.id())) operationMessage = Component.translatable("collapsible_groups.manager.operation_failed");
-				}
-				return true;
-			}
-			if (deleteClick) {
-				if (Screen.hasShiftDown()) {
-					if (!card.actionEligibility().canRequest(GroupAction.SHIFT_DELETE)) return true;
-					executeSingleDelete(card.id(), GroupAction.SHIFT_DELETE);
-				} else {
-					if (!card.actionEligibility().canRequest(GroupAction.DELETE)) return true;
-					openDeleteDialog(card);
-				}
-				return true;
-			}
+            if (editClick) {
+                GroupAction action = card.actionEligibility().canRequest(GroupAction.EDIT) ? GroupAction.EDIT : GroupAction.COPY_AS_CUSTOM;
+                if (card.actionEligibility().canRequest(action)) heldCardAction = new PressedCardAction(card.id(), action, Screen.hasShiftDown());
+                return true;
+            }
+            if (deleteClick) {
+                if (card.actionEligibility().canRequest(GroupAction.DELETE)) heldCardAction = new PressedCardAction(card.id(), GroupAction.DELETE, Screen.hasShiftDown());
+                return true;
+            }
 		}
 		return false;
 	}
@@ -1331,15 +1438,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return true;
 	}
 
-	private boolean handleBatchToolbarClick(double mouseX, double mouseY) {
-		BatchToolbarAction action = hoveredBatchAction(mouseX, mouseY);
-		if (action == null) return false;
-		BatchActionEligibility eligibility = currentBatchEligibility();
-		if (batchActionActive(action, eligibility)) {
-			heldBatchToolbarAction = action;
-		}
-		return true;
-	}
+
 
 	private boolean handleBatchCardClick(double mouseX, double mouseY) {
 		for (int i = 0; i < filteredCards.size(); i++) {
@@ -1396,16 +1495,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return true;
 	}
 
-	private void setBatchMode(boolean enabled) {
-		if (batchMode == enabled) return;
-		batchMode = enabled;
-		batchSelection = BatchSelectionState.empty();
-		suppressedSwitchHoverGroupId = null;
-		clearTransientInputState();
-        calcLayout();
-        clearWidgets();
-        createSearchField();
-	}
+    private void setBatchMode(boolean enabled) {
+        if (batchMode == enabled) return;
+        ScrollAnchor anchor = scrollAnchor();
+        batchMode = enabled;
+        batchSelection = BatchSelectionState.empty();
+        selectionNoticeUntil = 0;
+        clearTransientInputState();
+        relayout(anchor);
+    }
 
 	private void executeBatchSetEnabled(boolean enabled) {
 		List<GroupManagerCard> cards = selectedVisibleCards();
@@ -1507,6 +1605,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private void clearTransientInputState() {
         categoryPopup = null;
+        batchMenuOpen = false;
+        batchMenuFocus = -1;
+        drawerOpen = false;
+        sidebarFocused = false;
+        categorySidebar.cancelPress();
+        categoryButtonHeld = false;
+        categoryToggleFocused = false;
+        heldCardAction = null;
+        settingsButtonHeld = false;
 		backButtonHeld = false;
 		heldSegmentIndex = -1;
 		batchToggleButtonHeld = false;
@@ -1519,9 +1626,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private boolean handleScrollbarClick(double mouseX, double mouseY) {
-		int sbX = this.width - CARD_PADDING - SCROLLBAR_WIDTH;
-		int sbY = headerHeight() + CARD_PADDING;
-		int sbH = contentHeight();
+        Rect scrollbar = contentLayout.scrollbar();
+        int sbX = scrollbar.x();
+        int sbY = scrollbar.y();
+        int sbH = scrollbar.height();
 		if (mouseX < sbX || mouseX >= sbX + SCROLLBAR_WIDTH || mouseY < sbY || mouseY >= sbY + sbH) return false;
 		isDraggingScrollbar = true;
 		sbDragStartMouseY = mouseY;
@@ -1540,12 +1648,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        if (hasPendingDialog()) { clearTransientInputState(); return true; }
         if (categoryPopup != null) { categoryPopup.drag(mouseY); return true; }
-		if (hasPendingDialog()) {
-			clearTransientInputState();
-			return true;
-		}
-		if (sortMenuOpen) return true;
+        if (batchMenuOpen || sortMenuOpen) return true;
+        if (sidebarVisible() && categorySidebar.dragging()) { categorySidebar.drag(mouseY); return true; }
+        if (drawerOpen) return true;
 		if (button == 0 && heldSwitchGroupId != null && !isHeldSwitchHovered(mouseX, mouseY)) {
 			heldSwitchGroupId = null;
 		}
@@ -1564,147 +1671,189 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return super.mouseDragged(mouseX, mouseY, button, deltaX, deltaY);
 	}
 
-	@Override
-	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+    @Override
+    public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        if (hasPendingDialog()) { clearTransientInputState(); return true; }
         if (categoryPopup != null) { categoryPopup.release(); return true; }
-		if (hasPendingDialog()) {
-			clearTransientInputState();
-			return true;
-		}
-		if (button == 0) {
-			heldSwitchGroupId = null;
-		}
-		if (button == 0 && heldShowEmpty) {
-			heldShowEmpty = false;
-			if (hoveredShowEmpty(mouseX, mouseY)) setShowEmptyGroups(!showEmptyGroups);
-			return true;
-		}
-		if (button == 0 && heldSortMode != null) {
-			GroupSortMode chosen = heldSortMode;
-			heldSortMode = null;
-			if (hoveredSortMode(mouseX, mouseY) == chosen) {
-				sortMode = chosen;
-				GroupUiState.setManagerSortMode(sortMode);
-				closeSortMenu();
-				rebuildFilteredCards();
-			}
-			return true;
-		}
-		if (button == 0 && sortButtonHeld) {
-			sortButtonHeld = false;
-			if (isMouseOver(mouseX, mouseY, sortButtonX(), searchFieldLayout().y(), SORT_BUTTON_SIZE, SORT_BUTTON_SIZE)) {
-				boolean open = !sortMenuOpen;
-				clearTransientInputState();
-				sortMenuOpen = open;
-			}
-			return true;
-		}
-		if (isOverSortMenu(mouseX, mouseY)) return true;
-		if (button == 0 && backButtonHeld) {
-			backButtonHeld = false;
-			if (isMouseOver(mouseX, mouseY, BACK_BTN_X, BACK_BTN_Y, BACK_BTN_W, BACK_BTN_H)) {
-				Minecraft.getInstance().setScreen(previousScreen);
-			}
-			return true;
-		}
-		if (button == 0 && heldSegmentIndex >= 0) {
-			int index = heldSegmentIndex;
-			heldSegmentIndex = -1;
-			GroupUiState.ManagerSourceFilter[] filters = segmentFilters();
-			if (index < filters.length
-				&& isMouseOver(mouseX, mouseY, segmentX(filters, index), headerLayout.sources().get(index).y(), segmentWidth(filters), SEGMENT_HEIGHT)
-				&& sourceFilter != filters[index]) {
-				sourceFilter = filters[index];
-				GroupUiState.setManagerSourceFilter(sourceFilter);
-				suppressedSwitchHoverGroupId = null;
-				rebuildFilteredCards();
-			}
-			return true;
-		}
-		if (button == 0 && batchToggleButtonHeld) {
-			batchToggleButtonHeld = false;
-			if (isMouseOver(mouseX, mouseY, batchToggleButtonX(), headerLayout.actionsY(), batchToggleButtonWidth(), NEW_BTN_H)) {
-				setBatchMode(!batchMode);
-			}
-			return true;
-		}
-		int newBtnX = newButtonX();
-		if (button == 0 && newGroupButtonHeld) {
-			newGroupButtonHeld = false;
-			if (isMouseOver(mouseX, mouseY, newBtnX, headerLayout.actionsY(), NEW_BTN_W, NEW_BTN_H)) {
-				setBatchMode(false);
-				openEditor(null);
-			}
-			return true;
-		}
-		if (button == 0 && heldBatchToolbarAction != null) {
-			BatchToolbarAction action = heldBatchToolbarAction;
-			heldBatchToolbarAction = null;
-			if (batchMode
-				&& isMouseOver(mouseX, mouseY, batchActionButtonX(action), batchActionButtonY(action),
-					batchActionButtonWidth(action), BATCH_ACTION_BTN_H)
-				&& batchActionActive(action, currentBatchEligibility())) {
-				switch (action) {
-					case SELECT_ALL_RESULTS -> toggleSelectAllResults();
-					case ENABLE -> executeBatchSetEnabled(true);
-					case DISABLE -> executeBatchSetEnabled(false);
-					case DELETE -> openBatchDeleteDialog();
-                    case MOVE -> openCategoryPopup(true);
-				}
-			}
-			return true;
-		}
-		if (button == 0) isDraggingScrollbar = false;
-		return super.mouseReleased(mouseX, mouseY, button);
-	}
+        if (button != 0) return drawerOpen || batchMenuOpen || sortMenuOpen || super.mouseReleased(mouseX, mouseY, button);
+        if (batchMenuOpen) {
+            BatchToolbarAction action = heldBatchToolbarAction;
+            heldBatchToolbarAction = null;
+            if (action != null && action == hoveredBatchAction(mouseX, mouseY)) executeBatchAction(action);
+            return true;
+        }
+        if (categoryButtonHeld) {
+            categoryButtonHeld = false;
+            if (contentLayout.categoryToggle(sidebarVisible()).contains(mouseX, mouseY)) toggleCategorySidebar();
+            return true;
+        }
+        if (sidebarVisible() && categorySidebar.pressed()) {
+            CategoryChoices.Entry selected = categorySidebar.release(mouseX, mouseY);
+            if (selected != null) browseCategory(selected);
+            return true;
+        }
+        if (drawerOpen) return true;
+        heldSwitchGroupId = null;
+        if (heldShowEmpty) {
+            heldShowEmpty = false;
+            if (hoveredShowEmpty(mouseX, mouseY)) setShowEmptyGroups(!showEmptyGroups);
+            return true;
+        }
+        if (heldSortMode != null) {
+            GroupSortMode chosen = heldSortMode;
+            heldSortMode = null;
+            if (hoveredSortMode(mouseX, mouseY) == chosen) {
+                sortMode = chosen;
+                GroupUiState.setManagerSortMode(sortMode);
+                closeSortMenu();
+                rebuildFilteredCards();
+            }
+            return true;
+        }
+        if (sortButtonHeld) {
+            sortButtonHeld = false;
+            if (headerLayout.sort().contains(mouseX, mouseY)) {
+                boolean open = !sortMenuOpen;
+                clearTransientInputState();
+                sortMenuOpen = open;
+            }
+            return true;
+        }
+        if (sortMenuOpen) return true;
+        if (releaseCardAction(mouseX, mouseY)) return true;
+        if (settingsButtonHeld) {
+            settingsButtonHeld = false;
+            if (contentLayout.settings().contains(mouseX, mouseY)) {
+                clearTransientInputState();
+                Minecraft.getInstance().setScreen(new com.starskyxiii.collapsible_groups.client.config.GroupConfigScreen(this));
+            }
+            return true;
+        }
+        if (backButtonHeld) {
+            backButtonHeld = false;
+            if (headerLayout.back().contains(mouseX, mouseY)) Minecraft.getInstance().setScreen(previousScreen);
+            return true;
+        }
+        if (heldSegmentIndex >= 0) {
+            int index = heldSegmentIndex;
+            heldSegmentIndex = -1;
+            var filters = segmentFilters();
+            if (index < filters.length && headerLayout.sourceAt(mouseX, mouseY) == index && sourceFilter != filters[index]) {
+                sourceFilter = filters[index];
+                GroupUiState.setManagerSourceFilter(sourceFilter);
+                suppressedSwitchHoverGroupId = null;
+                rebuildFilteredCards();
+            }
+            return true;
+        }
+        if (batchToggleButtonHeld) {
+            batchToggleButtonHeld = false;
+            if (headerLayout.primary().contains(mouseX, mouseY)) setBatchMode(!batchMode);
+            return true;
+        }
+        if (newGroupButtonHeld) {
+            newGroupButtonHeld = false;
+            if (headerLayout.secondary().contains(mouseX, mouseY)) {
+                if (batchMode) {
+                    clearTransientInputState();
+                    batchMenuOpen = true;
+                } else openEditor(null);
+            }
+            return true;
+        }
+        isDraggingScrollbar = false;
+        return super.mouseReleased(mouseX, mouseY, button);
+    }
 
-	@Override
-	public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+    @Override
+    public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        if (hasPendingDialog()) return true;
         if (categoryPopup != null) { categoryPopup.scroll(deltaY); return true; }
-		if (hasPendingDialog()) return true;
-		if (sortMenuOpen) return true;
-		suppressedSwitchHoverGroupId = null;
-		if (scrollHoveredPreview(mouseX, mouseY, deltaY)) return true;
-		if (isInsideCardViewport(mouseX, mouseY)) {
-			scrollPixelOffset = clamp(scrollPixelOffset + (int)(deltaY * -20), 0, maxScrollPixels());
-			return true;
-		}
-		return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
-	}
+        if (batchMenuOpen || sortMenuOpen) return true;
+        if (sidebarVisible() && categorySidebar.contains(mouseX, mouseY)) { categorySidebar.scroll(deltaY); return true; }
+        if (drawerOpen) return true;
+        suppressedSwitchHoverGroupId = null;
+        heldCardAction = null;
+        if (scrollHoveredPreview(mouseX, mouseY, deltaY)) return true;
+        if (isInsideCardViewport(mouseX, mouseY)) {
+            scrollPixelOffset = clamp(scrollPixelOffset + (int) (deltaY * -20), 0, maxScrollPixels());
+            return true;
+        }
+        return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
+    }
 
-	@Override
-	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+    @Override
+    public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+        heldCardAction = null;
+        if (hasPendingDialog()) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) cancelPendingDialog();
+            return true;
+        }
         if (categoryPopup != null) {
-            if (keyCode == GLFW.GLFW_KEY_ESCAPE) categoryPopup = null;
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) clearTransientInputState();
             else {
                 var selected = categoryPopup.keyPressed(keyCode);
                 if (selected != null) chooseCategory(selected);
             }
             return true;
         }
-
-		if (hasPendingDialog() && keyCode == GLFW.GLFW_KEY_ESCAPE) {
-			cancelPendingDialog();
-			return true;
-		}
-		if (hasPendingDialog()) return true;
-		if (sortMenuOpen && keyCode == GLFW.GLFW_KEY_ESCAPE) {
-			closeSortMenu();
-			return true;
-		}
-		if (searchField != null && searchField.isFocused()) {
-			if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
-				if (!searchQuery.isEmpty()) {
-					searchField.setValue("");
-				} else {
-					blurSearchField();
-				}
-				return true;
-			}
-			if (searchField.keyPressed(keyCode, scanCode, modifiers)) return true;
-		}
-		return super.keyPressed(keyCode, scanCode, modifiers);
-	}
+        if (batchMenuOpen) {
+            heldBatchToolbarAction = null;
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) clearTransientInputState();
+            if (keyCode == GLFW.GLFW_KEY_UP || keyCode == GLFW.GLFW_KEY_TAB && hasShiftDown()) batchMenuFocus = batchMenuFocus < 0 ? BatchToolbarAction.values().length - 1 : Math.max(0, batchMenuFocus - 1);
+            if (keyCode == GLFW.GLFW_KEY_DOWN || keyCode == GLFW.GLFW_KEY_TAB && !hasShiftDown()) batchMenuFocus = Math.min(BatchToolbarAction.values().length - 1, batchMenuFocus + 1);
+            if (keyCode == GLFW.GLFW_KEY_HOME) batchMenuFocus = 0;
+            if (keyCode == GLFW.GLFW_KEY_END) batchMenuFocus = BatchToolbarAction.values().length - 1;
+            if (batchMenuFocus >= 0 && (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER || keyCode == GLFW.GLFW_KEY_SPACE)) executeBatchAction(BatchToolbarAction.values()[batchMenuFocus]);
+            return true;
+        }
+        if (sortMenuOpen) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) clearTransientInputState();
+            return true;
+        }
+        if (sidebarVisible() && !categoryToggleFocused && (drawerOpen || sidebarFocused)) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                if (drawerOpen) closeCategoryDrawer();
+                else { sidebarFocused = false; categoryToggleFocused = true; }
+            } else if (keyCode == GLFW.GLFW_KEY_TAB && !drawerOpen) {
+                sidebarFocused = false;
+                setFocused(searchField);
+                searchField.setFocused(true);
+            } else {
+                var selected = categorySidebar.keyPressed(keyCode == GLFW.GLFW_KEY_TAB ? GLFW.GLFW_KEY_DOWN : keyCode);
+                if (selected != null) browseCategory(selected);
+            }
+            return true;
+        }
+        if (categoryToggleFocused) {
+            categoryButtonHeld = false;
+            if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER || keyCode == GLFW.GLFW_KEY_SPACE) toggleCategorySidebar();
+            else if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                if (drawerOpen) closeCategoryDrawer();
+                else categoryToggleFocused = false;
+            } else if (keyCode == GLFW.GLFW_KEY_TAB) {
+                categoryToggleFocused = false;
+                if (sidebarVisible()) { sidebarFocused = true; categorySidebar.focusSelection(); }
+                else { setFocused(searchField); searchField.setFocused(true); }
+            }
+            return true;
+        }
+        if (searchField != null && searchField.isFocused()) {
+            if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
+                if (!searchQuery.isEmpty()) searchField.setValue("");
+                else blurSearchField();
+                return true;
+            }
+            if (keyCode == GLFW.GLFW_KEY_TAB) {
+                blurSearchField();
+                categoryToggleFocused = true;
+                return true;
+            }
+            if (searchField.keyPressed(keyCode, scanCode, modifiers)) return true;
+        }
+        if (keyCode == GLFW.GLFW_KEY_TAB) { categoryToggleFocused = true; return true; }
+        return super.keyPressed(keyCode, scanCode, modifiers);
+    }
 
 	private GroupSortMode hoveredSortMode(double mouseX, double mouseY) {
 		if (!sortMenuOpen) return null;
@@ -1720,8 +1869,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean charTyped(char codePoint, int modifiers) {
-        if (categoryPopup != null) return true;
-		if (hasPendingDialog()) return true;
+        if (categoryPopup != null || batchMenuOpen || sortMenuOpen || drawerOpen || categoryToggleFocused || (sidebarVisible() && sidebarFocused) || hasPendingDialog()) return true;
 		if (searchField != null && searchField.isFocused()
 			&& searchField.charTyped(codePoint, modifiers)) {
 			return true;
@@ -1835,30 +1983,23 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return this;
 	}
 
-	private int contentHeight() {
-		return this.height - headerHeight() - FOOTER_HEIGHT - CARD_PADDING;
-	}
+    private int contentHeight() {
+        return contentLayout == null ? Math.max(0, height - headerHeight() - FOOTER_HEIGHT - CARD_PADDING) : contentLayout.scrollHeight();
+    }
 
-	private int totalCardRows() {
-		return filteredCards.isEmpty() ? 0 : (filteredCards.size() + cols - 1) / cols;
-	}
+    private int maxScrollPixels() {
+        return contentLayout == null ? Math.max(0, ((filteredCards.size() + cols - 1) / cols) * (CARD_HEIGHT + CARD_PADDING) - contentHeight())
+            : contentLayout.maxScroll(filteredCards.size());
+    }
 
-	private int maxScrollPixels() {
-		return Math.max(0, totalCardRows() * (CARD_HEIGHT + CARD_PADDING) - contentHeight());
-	}
+    private int totalRowsForCard(GroupManagerCard card) {
+        return PreviewGridLayout.totalRows(card.previewEntries().size(), PREVIEW_COLS);
+    }
 
-	private int totalRowsForCard(GroupManagerCard card) {
-		return PreviewGridLayout.totalRows(card.previewEntries().size(), PREVIEW_COLS);
-	}
-
-	private int[] cardPos(int index) {
-		int usedWidth = cols * CARD_WIDTH + Math.max(0, cols - 1) * CARD_PADDING;
-		int left = (this.width - SCROLLBAR_WIDTH - CARD_PADDING - usedWidth) / 2;
-		return new int[] {
-			left + (index % cols) * (CARD_WIDTH + CARD_PADDING),
-			headerHeight() + CARD_PADDING + (index / cols) * (CARD_HEIGHT + CARD_PADDING) - scrollPixelOffset
-		};
-	}
+    private int[] cardPos(int index) {
+        Rect rect = contentLayout.card(index, scrollPixelOffset);
+        return new int[] { rect.x(), rect.y() };
+    }
 
 	private int switchControlX(int cardX) {
 		return cardX + CARD_WIDTH - SWITCH_WIDTH - 6;
@@ -1884,12 +2025,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return !groupId.equals(suppressedSwitchHoverGroupId);
 	}
 
-	private boolean isInsideCardViewport(double mouseX, double mouseY) {
-		return mouseX >= CARD_PADDING
-			&& mouseX < this.width - CARD_PADDING
-			&& mouseY >= headerHeight()
-			&& mouseY < this.height - FOOTER_HEIGHT;
-	}
+    private boolean isInsideCardViewport(double mouseX, double mouseY) {
+        return contentLayout != null && contentLayout.content().contains(mouseX, mouseY)
+            && !drawerOpen && !batchMenuOpen && categoryPopup == null && !hasPendingDialog() && !sortMenuOpen;
+    }
 
 	private boolean isHeldSwitchHovered(double mouseX, double mouseY) {
 		if (heldSwitchGroupId == null || !isInsideCardViewport(mouseX, mouseY)) return false;
@@ -1902,13 +2041,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return false;
 	}
 
-	private void renderScrollbar(GuiGraphics g) {
-		int x = this.width - CARD_PADDING - SCROLLBAR_WIDTH;
-		int y = headerHeight() + CARD_PADDING;
-		int height = contentHeight();
-		int maxPx = maxScrollPixels();
-		UiSkinRenderer.drawScrollbarPixels(g, x, y, height, height, maxPx + height, scrollPixelOffset);
-	}
+    private void renderScrollbar(GuiGraphics g) {
+        Rect rect = contentLayout.scrollbar();
+        if (rect.height() <= 0) return;
+        UiSkinRenderer.drawScrollbarPixels(g, rect.x(), rect.y(), rect.height(), rect.height(), maxScrollPixels() + rect.height(), scrollPixelOffset);
+    }
 
 	private static boolean isMouseOver(double mx, double my, int x, int y, int w, int h) {
 		return mx >= x && mx < x + w && my >= y && my < y + h;
@@ -1940,6 +2077,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         MOVE
 	}
 
+    private record ScrollAnchor(String id, int withinRow, int fallback) {}
+    private record BatchMenuLayout(Rect bounds) {
+        Rect row(int index) { return new Rect(bounds.x() + 4, bounds.y() + 4 + index * 20, bounds.width() - 8, 20); }
+    }
 	private record PendingDelete(String groupId, String displayName) {}
 
 	private record PendingBatchDelete(int deletableCount, int skippedCount) {}

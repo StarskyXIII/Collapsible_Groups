@@ -3,11 +3,19 @@
   "id": "__default_enderio_clear_glass",
   "name": {
     "translate": "collapsible_groups.group.__default_enderio_clear_glass",
-    "fallback": "Clear Glasses"
+    "fallback": "Clear Glass"
   },
   "enabled": true,
   "filter": {
-    "type": "item",
-    "tag": "c:glass_blocks/clear"
+    "all": [
+      {
+        "type": "item",
+        "tag": "c:glass_blocks/clear"
+      },
+      {
+        "type": "item",
+        "namespace": "enderio"
+      }
+    ]
   }
 }

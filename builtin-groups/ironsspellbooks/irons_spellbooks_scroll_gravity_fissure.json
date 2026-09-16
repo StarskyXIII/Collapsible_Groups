@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "id": "__default_irons_spellbooks_scroll_thunder_step",
+  "id": "__default_irons_spellbooks_scroll_gravity_fissure",
   "name": {
-    "translate": "collapsible_groups.group.__default_irons_spellbooks_scroll_thunder_step",
-    "fallback": "Thunder Step Scrolls"
+    "translate": "collapsible_groups.group.__default_irons_spellbooks_scroll_gravity_fissure",
+    "fallback": "Gravity Fissure Scrolls"
   },
   "enabled": true,
   "filter": {
@@ -18,7 +18,7 @@
         "path": "data[0].id",
         "value": {
           "data_format": "minecraft:data_component",
-          "data": "irons_spellbooks:thunder_step"
+          "data": "irons_spellbooks:gravity_fissure"
         }
       }
     ]

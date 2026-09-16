@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_ancient_stone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_ancient_stone",
+    "fallback": "Chisel: Ancient Stone"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/ancient_stone"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

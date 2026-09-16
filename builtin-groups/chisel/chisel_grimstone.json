@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_grimstone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_grimstone",
+    "fallback": "Chisel: Grimstone"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/grimstone"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

@@ -122,7 +122,8 @@ public final class GroupConfig {
 			boolean showEmpty = obj.has("manager_show_empty") && obj.get("manager_show_empty").getAsBoolean();
 			String categoryFilter = obj.has("manager_category_filter") && obj.get("manager_category_filter").isJsonPrimitive()
                 && obj.get("manager_category_filter").getAsJsonPrimitive().isString() ? obj.get("manager_category_filter").getAsString() : "all";
-			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, showEmpty, categoryFilter);
+            boolean sidebarOpen = !obj.has("manager_sidebar_open") || obj.get("manager_sidebar_open").getAsBoolean();
+			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, showEmpty, categoryFilter, sidebarOpen);
 		} catch (Exception e) {
 			Constants.LOG.warn("Failed to load {}, using defaults: {}", label, e.getMessage());
 			return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT, UiState.SORT_MODE_DEFAULT);
@@ -141,6 +142,11 @@ public final class GroupConfig {
 
     public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
         String managerSourceFilter, String managerSortMode, boolean managerShowEmpty, String managerCategoryFilter) {
+        saveUiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, managerShowEmpty, managerCategoryFilter, true);
+    }
+
+    public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+        String managerSourceFilter, String managerSortMode, boolean managerShowEmpty, String managerCategoryFilter, boolean managerSidebarOpen) {
 		Path file = getUiStateFile();
 		try {
 			Files.createDirectories(file.getParent());
@@ -152,6 +158,7 @@ public final class GroupConfig {
 			obj.addProperty("manager_sort_mode", managerSortMode);
 			obj.addProperty("manager_show_empty", managerShowEmpty);
             obj.addProperty("manager_category_filter", managerCategoryFilter);
+            obj.addProperty("manager_sidebar_open", managerSidebarOpen);
 			writeAtomically(file, GSON.toJson(obj));
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save UI state", e);
@@ -845,7 +852,10 @@ public final class GroupConfig {
 	) {}
 
 	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
-	                      String managerSourceFilter, String managerSortMode, boolean managerShowEmpty, String managerCategoryFilter) {
+	                      String managerSourceFilter, String managerSortMode, boolean managerShowEmpty, String managerCategoryFilter, boolean managerSidebarOpen) {
+        public UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String source, String sort, boolean showEmpty, String category) {
+            this(showBuiltin, showKubeJs, hideUsed, source, sort, showEmpty, category, true);
+        }
 		public UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String source, String sort) {
 			this(showBuiltin, showKubeJs, hideUsed, source, sort, false, "all");
 		}

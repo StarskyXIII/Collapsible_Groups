@@ -7,6 +7,16 @@
   },
   "enabled": true,
   "filter": {
-    "block_tag": "mcwbridges:stone_stairs"
+    "all": [
+      {
+        "block_tag": "mcwbridges:stone_stairs"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "mcwbridges:glass_bridge_stair"
+        }
+      }
+    ]
   }
 }

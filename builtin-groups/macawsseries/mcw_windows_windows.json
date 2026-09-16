@@ -7,6 +7,15 @@
   },
   "enabled": true,
   "filter": {
-    "block_tag": "mcwwindows:windows"
+    "all": [
+      {
+        "block_tag": "mcwwindows:windows"
+      },
+      {
+        "not": {
+          "item_path_ends_with": "_pane_window"
+        }
+      }
+    ]
   }
 }

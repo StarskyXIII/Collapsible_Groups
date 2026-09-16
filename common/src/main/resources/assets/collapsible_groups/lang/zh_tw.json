@@ -1,4 +1,13 @@
 {
+  "collapsible_groups.manager.batch_actions": "批次操作",
+  "collapsible_groups.manager.selected_count": "已選 %s 個群組",
+  "collapsible_groups.manager.categories": "分類",
+  "collapsible_groups.manager.show_categories": "顯示分類：%s",
+  "collapsible_groups.manager.hide_categories": "收起分類",
+  "collapsible_groups.manager.settings": "模組設定",
+  "collapsible_groups.manager.selection_pruned": "已取消 %s 個不符合目前篩選的選取。",
+  "collapsible_groups.manager.empty_category": "這個分類還沒有群組。",
+  "collapsible_groups.manager.empty_hidden": "符合條件的群組目前皆為空群組，已隱藏。",
   "collapsible_groups.category.name_required": "請輸入分類名稱。",
   "collapsible_groups.category.all": "全部分類",
   "collapsible_groups.category.uncategorized": "未分類",
@@ -452,5 +461,6 @@
   "collapsible_groups.config.read_failed": "無法讀取設定。請檢查檔案並重新開啟此畫面。",
   "collapsible_groups.config.save_failed": "無法儲存設定。修改仍保留在畫面上，請重試。",
   "collapsible_groups.config.apply_pending": "已儲存，但部分設定尚未套用；再次儲存可重試。",
-  "collapsible_groups.config.invalid_threshold": "請輸入 0 到 2147483647 之間的整數。"
+  "collapsible_groups.config.invalid_threshold": "請輸入 0 到 2147483647 之間的整數。",
+  "collapsible_groups.manager.category_count": "%s · %s"
 }
