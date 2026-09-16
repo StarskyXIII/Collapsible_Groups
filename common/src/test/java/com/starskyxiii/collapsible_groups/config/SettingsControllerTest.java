@@ -162,6 +162,63 @@ class SettingsControllerTest {
         assertTrue(fixture.events.isEmpty());
     }
 
+    @Test void categoryDraftAndSnapshotDoNotShareMutableState() {
+        var first = new SettingsDraft(SettingsSnapshot.DEFAULTS);
+        first.disabledBuiltinCategories.add("collapsible_groups:macaw");
+        var snapshot = first.snapshot();
+        first.disabledBuiltinCategories.clear();
+        var second = new SettingsDraft(snapshot);
+        second.disabledBuiltinCategories.add("absent:future");
+        assertEquals(java.util.Set.of("collapsible_groups:macaw"), snapshot.disabledBuiltinCategories());
+        assertTrue(SettingsSnapshot.DEFAULTS.disabledBuiltinCategories().isEmpty());
+        assertThrows(UnsupportedOperationException.class, () -> snapshot.disabledBuiltinCategories().clear());
+    }
+
+    @Test void categoryJsonRoundTripKeepsUnknownIdsAndCanonicalOrdering() throws Exception {
+        Path path = directory.resolve("categories-settings.json");
+        Files.writeString(path, "{\"defaultGroups\":{\"disabledCategories\":[\"z:last\",\"a:first\",\"z:last\"]},\"ui\":{\"showCategorySidebar\":false}}");
+        var storage = new JsonSettingsStorage(path);
+        var snapshot = storage.read();
+        assertEquals(java.util.Set.of("z:last", "a:first"), snapshot.disabledBuiltinCategories());
+        assertFalse(snapshot.showCategorySidebar());
+        storage.write(snapshot);
+        assertEquals(snapshot, storage.read());
+        var array = com.google.gson.JsonParser.parseString(Files.readString(path)).getAsJsonObject()
+            .getAsJsonObject("defaultGroups").getAsJsonArray("disabledCategories");
+        assertEquals("a:first", array.get(0).getAsString());
+        assertEquals(2, array.size());
+        for (String invalid : List.of("7", "true", "null", "\"a:first\"", "[7]", "[\"bad:UPPER\"]")) {
+            String malformed = "{\"defaultGroups\":{\"disabledCategories\":" + invalid + "}}";
+            Files.writeString(path, malformed);
+            assertThrows(RuntimeException.class, storage::read);
+            assertThrows(RuntimeException.class, () -> storage.write(snapshot));
+            assertEquals(malformed, Files.readString(path));
+        }
+    }
+
+    @Test void categoryAndMasterChangesCoalesceWhileSidebarChangesDoNotRebuild() {
+        var fixture = new Fixture();
+        fixture.controller.initialize();
+        var draft = new SettingsDraft(fixture.disk);
+        draft.showCategorySidebar = false;
+        fixture.controller.save(draft.snapshot());
+        assertTrue(fixture.events.isEmpty());
+        draft.disabledBuiltinCategories.add("future:category");
+        draft.loadDefaultGroups = false;
+        draft.searchUngroupThreshold = "18";
+        fixture.failWrite = true;
+        assertEquals(SettingsController.Result.SAVE_FAILED, fixture.controller.save(draft.snapshot()));
+        assertTrue(fixture.controller.snapshot().disabledBuiltinCategories().isEmpty());
+        fixture.failWrite = false;
+        fixture.failEffect = true;
+        assertEquals(SettingsController.Result.APPLY_PENDING, fixture.controller.save(draft.snapshot()));
+        assertEquals(draft.snapshot(), fixture.controller.snapshot());
+        assertEquals(List.of("builtins"), fixture.events);
+        fixture.failEffect = false;
+        assertEquals(SettingsController.Result.SUCCESS, fixture.controller.save(draft.snapshot()));
+        assertEquals(List.of("builtins", "builtins"), fixture.events);
+    }
+
     private static SettingsController.Effects noEffects() {
         return new SettingsController.Effects() {
             public void builtins() {}

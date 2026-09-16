@@ -121,6 +121,28 @@ public final class GroupResourceLoader {
             problems, data.rejected(), data.stale());
     }
 
+    public static Map<String, GroupDisplayName> builtinCategories() {
+        return builtinCategories(GroupResourceLoader.class.getClassLoader());
+    }
+
+    static Map<String, GroupDisplayName> builtinCategories(ClassLoader loader) {
+        Map<String, GroupDisplayName> names = new LinkedHashMap<>();
+        try {
+            for (Resource resource : readBundled(loader)) {
+                ResourceLocation id = categoryId(resource.path());
+                if (id == null) continue;
+                names.putIfAbsent(id.toString(), new GroupDisplayName.Localized(id.toString(), id.toString()));
+                if (!isMetadata(resource.path())) continue;
+                try {
+                    names.put(id.toString(), GroupCategory.parse(id, resource.document().json(), ignored -> false).displayName());
+                } catch (RuntimeException ignored) {}
+            }
+        } catch (IOException | RuntimeException failure) {
+            Constants.LOG.warn("Could not read built-in category names", failure);
+        }
+        return Collections.unmodifiableMap(names);
+    }
+
     private static boolean isMetadata(ResourceLocation path) {
         return path.getPath().endsWith("/metadata.json");
     }

@@ -9,6 +9,8 @@ public abstract class AcceptedConfigProvider implements IConfigProvider, Setting
         public void search() { GroupRepository.notifyStructureChanged(); }
     });
 
+    @Override public java.util.Set<String> disabledBuiltinCategories() { return settings.snapshot().disabledBuiltinCategories(); }
+    @Override public boolean showCategorySidebar() { return settings.snapshot().showCategorySidebar(); }
     @Override public SettingsController settings() { return settings; }
     @Override public boolean loadDefaultGroups() { return settings.snapshot().loadDefaultGroups(); }
     @Override public boolean showManagerButton() { return settings.snapshot().showManagerButton(); }

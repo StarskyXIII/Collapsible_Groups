@@ -5,6 +5,8 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
 public final class NeoForgeConfig extends AcceptedConfigProvider {
+    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> DISABLED_BUILTIN_CATEGORIES;
+    public static final ModConfigSpec.BooleanValue SHOW_CATEGORY_SIDEBAR;
 	public static final ModConfigSpec.BooleanValue LOAD_DEFAULT_GROUPS;
 
 	// ui
@@ -56,10 +58,13 @@ public final class NeoForgeConfig extends AcceptedConfigProvider {
 			)
 			.translation("collapsible_groups.configuration.defaultGroups.enabled")
 			.define("enabled", true);
+        DISABLED_BUILTIN_CATEGORIES = builder.defineListAllowEmpty(java.util.List.of("disabledCategories"),
+            java.util.List.of(), SettingsSnapshot::validCategoryId);
 		builder.pop();
 
 		// [ui]
 		builder.translation("collapsible_groups.configuration.ui").push("ui");
+        SHOW_CATEGORY_SIDEBAR = builder.define("showCategorySidebar", true);
 		SHOW_MANAGER_BUTTON = builder
 			.comment("Whether to show the group manager button in the JEI ingredient list overlay.")
 			.translation("collapsible_groups.configuration.ui.showManagerButton")

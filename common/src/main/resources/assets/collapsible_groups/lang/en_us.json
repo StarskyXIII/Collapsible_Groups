@@ -467,5 +467,11 @@
   "collapsible_groups.category.no_results": "No matching categories",
   "collapsible_groups.category.move_confirm": "Move",
   "collapsible_groups.category.move_count": "Moving %s groups",
-  "collapsible_groups.category.targets_changed": "The group list changed. Review it and confirm again."
+  "collapsible_groups.category.targets_changed": "The group list changed. Review it and confirm again.",
+  "collapsible_groups.config.builtin_categories": "Built-in categories",
+  "collapsible_groups.config.manage_categories": "Manage…",
+  "collapsible_groups.configuration.defaultGroups.disabledCategories": "Built-in categories",
+  "collapsible_groups.configuration.defaultGroups.disabledCategories.tooltip": "Choose which built-in categories to enable. Copies you created are kept. Changes are saved from the main settings screen.",
+  "collapsible_groups.configuration.ui.showCategorySidebar": "Show category sidebar",
+  "collapsible_groups.configuration.ui.showCategorySidebar.tooltip": "Show the category sidebar and its toggle. When hidden, the Manager shows all categories and remembers your previous filter."
 }

@@ -6,6 +6,8 @@ package com.starskyxiii.collapsible_groups.platform.services;
  * Fabric/Forge via their respective config systems).
  */
 public interface IConfigProvider {
+    default java.util.Set<String> disabledBuiltinCategories() { return java.util.Set.of(); }
+    default boolean showCategorySidebar() { return true; }
     default com.starskyxiii.collapsible_groups.config.SettingsController settings() {
         throw new UnsupportedOperationException("Settings are not editable");
     }

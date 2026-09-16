@@ -1,6 +1,8 @@
 package com.starskyxiii.collapsible_groups.config;
 
 public final class SettingsDraft {
+    public final java.util.Set<String> disabledBuiltinCategories;
+    public boolean showCategorySidebar;
     public boolean loadDefaultGroups;
     public boolean showManagerButton;
     public boolean showGroupBackgrounds;
@@ -15,6 +17,8 @@ public final class SettingsDraft {
     public boolean debugEditorIndexVerificationEnabled;
 
     public SettingsDraft(SettingsSnapshot value) {
+        disabledBuiltinCategories = new java.util.TreeSet<>(value.disabledBuiltinCategories());
+        showCategorySidebar = value.showCategorySidebar();
         loadDefaultGroups = value.loadDefaultGroups();
         showManagerButton = value.showManagerButton();
         showGroupBackgrounds = value.showGroupBackgrounds();
@@ -33,7 +37,8 @@ public final class SettingsDraft {
         return new SettingsSnapshot(loadDefaultGroups, showManagerButton, showGroupBackgrounds,
             searchUngroupSmallGroups, Integer.parseInt(searchUngroupThreshold.trim()),
             collapsedGroupBackgroundColor, expandedGroupBackgroundColor, groupNameColor, expandedGroupBorderColor,
-            debugTimingEnabled, debugStartupIndexVerificationEnabled, debugEditorIndexVerificationEnabled);
+            debugTimingEnabled, debugStartupIndexVerificationEnabled, debugEditorIndexVerificationEnabled,
+            disabledBuiltinCategories, showCategorySidebar);
     }
 
     public boolean valid() {

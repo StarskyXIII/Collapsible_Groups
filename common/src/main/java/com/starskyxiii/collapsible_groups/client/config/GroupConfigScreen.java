@@ -18,9 +18,9 @@ import java.util.List;
 
 public final class GroupConfigScreen extends Screen {
     private static final List<List<String>> KEYS = List.of(
-        List.of("defaultGroups.enabled", "ui.showManagerButton", "ui.searchUngroupSmallGroups", "ui.searchUngroupThreshold"),
+        List.of("defaultGroups.enabled", "defaultGroups.disabledCategories", "ui.showManagerButton", "ui.searchUngroupSmallGroups", "ui.searchUngroupThreshold"),
         List.of("ui.showGroupBackgrounds", "ui.collapsedGroupBackgroundColor", "ui.expandedGroupBackgroundColor",
-            "ui.groupNameColor", "ui.expandedGroupBorderColor"),
+            "ui.groupNameColor", "ui.expandedGroupBorderColor", "ui.showCategorySidebar"),
         List.of("debug.enableTimingLogs", "debug.verifyStartupIndex", "debug.verifyEditorPreviewIndex"));
     private static final int TOP = 60;
     private static final int ROW = 38;
@@ -51,7 +51,7 @@ public final class GroupConfigScreen extends Screen {
         scroll = Math.max(0, Math.min(maxScroll(), scroll));
         threshold = null;
         if (page == 0) {
-            threshold = new EditBox(font, right() - 92, rowY(3) + 13, 76, 12,
+            threshold = new EditBox(font, right() - 92, rowY(4) + 13, 76, 12,
                 Component.translatable("collapsible_groups.configuration.ui.searchUngroupThreshold"));
             threshold.setBordered(false);
             threshold.setMaxLength(16);
@@ -101,21 +101,25 @@ public final class GroupConfigScreen extends Screen {
             for (int line = 0; line < Math.min(2, lines.size()); line++)
                 graphics.drawString(font, lines.get(line), left() + 8, y + (lines.size() > 1 ? 8 : 14) + line * 10, UiPalette.TEXT_PRIMARY, false);
             boolean hot = contains(left(), y, right() - left() - 10, ROW - 3, rowMouseX, mouseY);
-            if (hot && !(page == 0 && i == 3 && threshold.isFocused()))
+            if (hot && !(page == 0 && i == 4 && threshold.isFocused()))
                 tooltip = Component.translatable("collapsible_groups.configuration." + key + ".tooltip");
-            if (page == 0 && i == 3) {
+            if (page == 0 && i == 4) {
                 graphics.fill(right() - 98, y + 7, right() - 12, y + 29, UiPalette.SURFACE_DARK);
                 UiSkinRenderer.drawOutline(graphics, right() - 98, y + 7, 86, 22,
                     !draft.valid() ? 0xFFFF6B5F : threshold.isFocused() ? UiPalette.OUTLINE_SELECTED : UiPalette.OUTLINE_DARK);
                 threshold.setTextColor(draft.valid() ? UiPalette.TEXT_PRIMARY : 0xFFFF6B5F);
                 threshold.render(graphics, rowMouseX, mouseY, partialTick);
-            } else if (page == 1 && i > 0) {
+            } else if (page == 1 && i > 0 && i < 5) {
                 int color = color(i);
                 UiSkinRenderer.drawButton(graphics, font, right() - 104, y + 8, 92, 20,
                     SettingsSnapshot.hex(color, i == 3), UiSkinRenderer.buttonState(true, false,
                         contains(right() - 104, y + 8, 92, 20, rowMouseX, mouseY), press.isHeld("color:" + i)));
                 graphics.fill(right() - 122, y + 11, right() - 108, y + 25, i == 3 ? color | 0xFF000000 : color);
                 UiSkinRenderer.drawOutline(graphics, right() - 122, y + 11, 14, 14, UiPalette.OUTLINE_DARK);
+            } else if (page == 0 && i == 1) {
+                UiSkinRenderer.drawButton(graphics, font, right() - 104, y + 8, 92, 20,
+                    text("manage_categories").getString(), UiSkinRenderer.buttonState(true, false,
+                        contains(right() - 104, y + 8, 92, 20, rowMouseX, mouseY), press.isHeld("categories")));
             } else UiSkinRenderer.drawSwitch(graphics, right() - 58, y + 7, 44, 22, enabled(i), true, hot, false);
         }
         graphics.disableScissor();
@@ -165,8 +169,9 @@ public final class GroupConfigScreen extends Screen {
             return draft.valid() && controller.writable() ? "save" : null;
         int tab = tabAt(x, y);
         if (tab >= 0) return "tab:" + tab;
+        if (page == 0 && y >= TOP && y < bottom() && contains(right() - 104, rowY(1) + 8, 92, 20, x, y)) return "categories";
         if (page == 1 && y >= TOP && y < bottom()) {
-            for (int i = 1; i < KEYS.get(page).size(); i++)
+            for (int i = 1; i < 5; i++)
                 if (contains(right() - 104, rowY(i) + 8, 92, 20, x, y)) return "color:" + i;
         }
         return null;
@@ -174,6 +179,10 @@ public final class GroupConfigScreen extends Screen {
 
     private void execute(String command) {
         if (command.equals("cancel")) { onClose(); return; }
+        if (command.equals("categories")) {
+            minecraft.setScreen(new BuiltinCategoryScreen(this, draft));
+            return;
+        }
         if (command.equals("save")) {
             SettingsController.Result result = controller.save(draft.snapshot());
             if (result == SettingsController.Result.SUCCESS) onClose();
@@ -191,9 +200,9 @@ public final class GroupConfigScreen extends Screen {
 
     private boolean enabled(int index) {
         if (page == 0) return switch (index) {
-            case 0 -> draft.loadDefaultGroups; case 1 -> draft.showManagerButton; default -> draft.searchUngroupSmallGroups;
+            case 0 -> draft.loadDefaultGroups; case 2 -> draft.showManagerButton; default -> draft.searchUngroupSmallGroups;
         };
-        if (page == 1) return draft.showGroupBackgrounds;
+        if (page == 1) return index == 0 ? draft.showGroupBackgrounds : draft.showCategorySidebar;
         return switch (index) {
             case 0 -> draft.debugTimingEnabled; case 1 -> draft.debugStartupIndexVerificationEnabled; default -> draft.debugEditorIndexVerificationEnabled;
         };
@@ -203,10 +212,13 @@ public final class GroupConfigScreen extends Screen {
         if (page == 0) {
             switch (index) {
                 case 0 -> draft.loadDefaultGroups = !draft.loadDefaultGroups;
-                case 1 -> draft.showManagerButton = !draft.showManagerButton;
+                case 2 -> draft.showManagerButton = !draft.showManagerButton;
                 default -> draft.searchUngroupSmallGroups = !draft.searchUngroupSmallGroups;
             }
-        } else if (page == 1) draft.showGroupBackgrounds = !draft.showGroupBackgrounds;
+        } else if (page == 1) {
+            if (index == 0) draft.showGroupBackgrounds = !draft.showGroupBackgrounds;
+            else draft.showCategorySidebar = !draft.showCategorySidebar;
+        }
         else {
             switch (index) {
                 case 0 -> draft.debugTimingEnabled = !draft.debugTimingEnabled;
@@ -246,12 +258,12 @@ public final class GroupConfigScreen extends Screen {
             return true;
         }
         if (threshold != null) {
-            threshold.setFocused(contains(right() - 98, rowY(3) + 7, 86, 22, x, y));
+            threshold.setFocused(contains(right() - 98, rowY(4) + 7, 86, 22, x, y));
             if (threshold.isFocused()) { setFocused(threshold); return threshold.mouseClicked(x, y, button); }
         }
         for (int i = 0; i < KEYS.get(page).size(); i++) if (contains(left(), rowY(i), right() - left() - 10, ROW - 3, x, y)) {
-            if (page == 0 && i == 3) return true;
-            if (page == 1 && i > 0) return true;
+            if (page == 0 && (i == 1 || i == 4)) return true;
+            if (page == 1 && i > 0 && i < 5) return true;
             toggle(i);
             message = null;
             return true;
@@ -262,7 +274,7 @@ public final class GroupConfigScreen extends Screen {
     private void setScroll(int value) {
         press.clear();
         scroll = Math.max(0, Math.min(maxScroll(), value));
-        if (threshold != null) threshold.setPosition(right() - 92, rowY(3) + 13);
+        if (threshold != null) threshold.setPosition(right() - 92, rowY(4) + 13);
     }
 
     private void dragScroll(double y) {

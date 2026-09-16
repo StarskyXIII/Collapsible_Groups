@@ -142,6 +142,23 @@ class GroupCategoryLoadingTest {
         assertFalse(opened.containsKey(GROUP));
     }
 
+    @Test void settingsCategoryNamesIgnoreRequirementsAndNeverReadGroupBodies() {
+        for (String meta : List.of(metadata(",\"requirement\":{\"any\":[{\"mod\":\"missing\"}]}"), "{")) {
+            var loader = new ClassLoader(null) {
+                @Override public InputStream getResourceAsStream(String path) {
+                    if (path.equals(GroupResourceLoader.CATALOG_RESOURCE)) return bytes(
+                        "{\"version\":1,\"groups\":[{\"path\":\"assets/collapsible_groups/" + GROUP + "\",\"id\":\"reserved\"}]}");
+                    if (path.endsWith("/metadata.json")) return bytes(meta);
+                    fail("Settings opened a group body: " + path);
+                    return null;
+                }
+            };
+            var names = GroupResourceLoader.builtinCategories(loader);
+            assertTrue(names.containsKey(CATEGORY.toString()));
+            assertEquals(meta.equals("{") ? CATEGORY.toString() : "Sample", names.get(CATEGORY.toString()).fallback());
+        }
+    }
+
     private GroupResourceData load(Map<String, String> files, List<PackResources> packs) {
         return load(files, packs, "{\"version\":1,\"groups\":[{\"path\":\"assets/collapsible_groups/" + GROUP + "\",\"id\":\"reserved\"}]}");
     }

@@ -23,7 +23,16 @@ public final class JsonSettingsStorage implements SettingsController.Storage {
             if (!document.has(parts[0])) return null;
             var section = document.getAsJsonObject(parts[0]);
             if (!section.has(parts[1])) return null;
-            var value = section.get(parts[1]).getAsJsonPrimitive();
+            var element = section.get(parts[1]);
+            if (element.isJsonArray()) {
+                java.util.List<String> values = new java.util.ArrayList<>();
+                for (var entry : element.getAsJsonArray()) {
+                    if (!entry.isJsonPrimitive() || !entry.getAsJsonPrimitive().isString()) throw new IllegalArgumentException(key);
+                    values.add(entry.getAsString());
+                }
+                return values;
+            }
+            var value = element.getAsJsonPrimitive();
             if (value.isBoolean()) return value.getAsBoolean();
             if (value.isNumber()) return value.getAsNumber();
             return value.getAsString();
@@ -44,7 +53,11 @@ public final class JsonSettingsStorage implements SettingsController.Storage {
             JsonObject section = document.getAsJsonObject(parts[0]);
             if (value instanceof Boolean bool) section.addProperty(parts[1], bool);
             else if (value instanceof Number number) section.addProperty(parts[1], number);
-            else section.addProperty(parts[1], (String) value);
+            else if (value instanceof java.util.List<?> values) {
+                var array = new com.google.gson.JsonArray();
+                values.forEach(id -> array.add((String) id));
+                section.add(parts[1], array);
+            } else section.addProperty(parts[1], (String) value);
         });
         AtomicFileWriter.write(path, new GsonBuilder().setPrettyPrinting().create().toJson(document) + "\n");
     }
