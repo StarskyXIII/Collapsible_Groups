@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.manager;
 
 import com.starskyxiii.collapsible_groups.client.widget.ConfirmDialog;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
 import com.starskyxiii.collapsible_groups.group.GroupRepository;
@@ -19,9 +20,12 @@ public final class CategoryManagerScreen extends Screen {
     private static final int LIST_TOP = 34;
     private static final int ROW_HEIGHT = 28;
     private final Screen parent;
+    private final CommandPress<String> press = new CommandPress<>();
     private final GroupCategoryStore store = GroupCategoryStore.current();
     private List<CategoryChoices.Entry> entries = List.of();
     private int scroll;
+    private Object sourceSnapshot;
+    private Object preferenceSnapshot;
     private boolean dragging;
     private double thumbGrabOffset;
     private String editingId;
@@ -36,11 +40,28 @@ public final class CategoryManagerScreen extends Screen {
     }
 
     @Override protected void init() {
+        press.clear();
         String text = nameField == null ? "" : nameField.getValue();
         clearWidgets();
-        entries = CategoryChoices.available(store.snapshot(), GroupRepository.resourceData());
+        refreshEntries();
         if (editingId != null) createNameField(text);
         scroll = Math.max(0, Math.min(maxScroll(), scroll));
+    }
+
+    private void refreshEntries() {
+        var sources = GroupRepository.resourceData();
+        var preferences = store.snapshot();
+        if (sources == sourceSnapshot && preferences == preferenceSnapshot) return;
+        press.clear();
+        dragging = false;
+        sourceSnapshot = sources;
+        preferenceSnapshot = preferences;
+        entries = CategoryChoices.available(preferences, sources);
+        scroll = Math.max(0, Math.min(maxScroll(), scroll));
+    }
+
+    private boolean categoryExists(String id) {
+        return entries.stream().anyMatch(entry -> entry.id().equals(id));
     }
 
     private void createNameField(String value) {
@@ -50,7 +71,7 @@ public final class CategoryManagerScreen extends Screen {
         nameField.setTextColor(UiPalette.TEXT_PRIMARY);
         nameField.setMaxLength(128);
         nameField.setValue(value);
-        nameField.setResponder(text -> { nameField.setTextColor(UiPalette.TEXT_PRIMARY); message = null; });
+        nameField.setResponder(text -> { press.clear(); nameField.setTextColor(UiPalette.TEXT_PRIMARY); message = null; });
         nameField.setFocused(true);
         addRenderableWidget(nameField);
         setFocused(nameField);
@@ -61,6 +82,7 @@ public final class CategoryManagerScreen extends Screen {
     }
 
     @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        refreshEntries();
         renderBackground(graphics, mouseX, mouseY, partialTick);
         UiSkinRenderer.drawScreenBars(graphics, width, height, 29, 28);
         int surfaceX = editingId != null || deletingId != null ? Integer.MIN_VALUE : mouseX;
@@ -90,7 +112,7 @@ public final class CategoryManagerScreen extends Screen {
         if (editingId != null) {
             ConfirmDialog.render(graphics, font, width, height, CategoryChoices.label(editingId.isEmpty() ? "create" : "rename"),
                 List.of(), Component.translatable("collapsible_groups.button.save"), Component.translatable("collapsible_groups.button.cancel"),
-                mouseX, mouseY);
+                mouseX, mouseY, canConfirm(), dialogHeld());
             var bounds = ConfirmDialog.bounds(width, height);
             graphics.pose().pushPose();
             graphics.pose().translate(0, 0, 501);
@@ -103,31 +125,78 @@ public final class CategoryManagerScreen extends Screen {
         } else if (deletingId != null) {
             ConfirmDialog.render(graphics, font, width, height, CategoryChoices.label("delete"),
                 message == null ? List.of(CategoryChoices.label("delete_body")) : List.of(CategoryChoices.label("delete_body"), message), CategoryChoices.label("delete"),
-                Component.translatable("collapsible_groups.button.cancel"), mouseX, mouseY);
+                Component.translatable("collapsible_groups.button.cancel"), mouseX, mouseY, canConfirm(), dialogHeld());
         }
     }
 
     private void button(GuiGraphics graphics, int x, int y, int w, Component label, boolean enabled, int mouseX, int mouseY) {
-        UiSkinRenderer.drawButton(graphics, font, x, y, w, 20, label.getString(), !enabled ? UiSkinRenderer.ButtonState.DISABLED
-            : inside(mouseX, mouseY, x, y, w, 20) ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL);
+        UiSkinRenderer.drawButton(graphics, font, x, y, w, 20, label.getString(),
+            UiSkinRenderer.buttonState(enabled, false, inside(mouseX, mouseY, x, y, w, 20), press.isHeld(commandAt(mouseX, mouseY))));
+    }
+
+    private boolean canConfirm() {
+        refreshEntries();
+        return store.writable() && (deletingId == null || categoryExists(deletingId))
+            && (editingId == null || (editingId.isEmpty() || categoryExists(editingId))
+                && nameField != null && !nameField.getValue().trim().isEmpty());
+    }
+
+    private ConfirmDialog.Action dialogHeld() {
+        return press.isHeld("confirm") ? ConfirmDialog.Action.PRIMARY
+            : press.isHeld("cancel") ? ConfirmDialog.Action.SECONDARY : ConfirmDialog.Action.NONE;
+    }
+
+    private String commandAt(double x, double y) {
+        if (editingId != null || deletingId != null) {
+            var action = ConfirmDialog.hitTest(width, height, x, y);
+            if (action == ConfirmDialog.Action.SECONDARY) return "cancel";
+            if (action == ConfirmDialog.Action.PRIMARY && canConfirm()) return "confirm";
+            return null;
+        }
+        if (inside(x, y, 6, 5, 50, 20)) return "back";
+        if (!store.writable()) return null;
+        if (inside(x, y, width - 108, 5, 102, 20)) return "create";
+        if (y < LIST_TOP || y >= listBottom()) return null;
+        int index = (int) (y - LIST_TOP + scroll) / ROW_HEIGHT;
+        if (index < 0 || index >= entries.size()) return null;
+        var entry = entries.get(index);
+        int top = LIST_TOP + index * ROW_HEIGHT - scroll + 3;
+        if (inside(x, y, width - 162, top, 64, 20)) return "rename|" + entry.id();
+        if (inside(x, y, width - 94, top, 74, 20)) {
+            if (entry.id().startsWith("local:")) return "delete|" + entry.id();
+            if (store.snapshot().sourceNames().containsKey(entry.id())) return "reset|" + entry.id();
+        }
+        return null;
+    }
+
+    private void execute(String action) {
+        switch (action) {
+            case "back" -> onClose();
+            case "create" -> edit("", "");
+            case "confirm" -> confirm();
+            case "cancel" -> closeDialog();
+            default -> {
+                int separator = action.indexOf('|');
+                String id = action.substring(separator + 1);
+                switch (action.substring(0, separator)) {
+                    case "rename" -> entries.stream().filter(entry -> entry.id().equals(id)).findFirst()
+                        .ifPresent(entry -> edit(id, entry.label().getString()));
+                    case "delete" -> deletingId = id;
+                    case "reset" -> apply(store.update(current -> current.resetName(id)));
+                }
+            }
+        }
     }
 
     @Override public boolean mouseClicked(double x, double y, int button) {
+        refreshEntries();
+        if (button != 0) return true;
+        press.begin(commandAt(x, y));
+        if (press.target() != null) return true;
         if (editingId != null || deletingId != null) {
-            if (button != 0) return true;
-            if (editingId != null && !ConfirmDialog.bounds(width, height).contains(x, y)) {
-                closeDialog();
-                return true;
-            }
-            var action = ConfirmDialog.hitTest(width, height, x, y);
-            if (action == ConfirmDialog.Action.SECONDARY) closeDialog();
-            else if (action == ConfirmDialog.Action.PRIMARY) confirm();
-            else if (editingId != null) super.mouseClicked(x, y, button);
+            if (editingId != null) super.mouseClicked(x, y, button);
             return true;
         }
-        if (button != 0) return true;
-        if (inside(x, y, 6, 5, 50, 20)) { onClose(); return true; }
-        if (inside(x, y, width - 108, 5, 102, 20) && store.writable()) { edit("", ""); return true; }
         if (y < LIST_TOP || y >= listBottom()) return true;
         if (x >= width - 14 && x < width - 6 && maxScroll() > 0) {
             int trackHeight = listBottom() - LIST_TOP;
@@ -136,27 +205,19 @@ public final class CategoryManagerScreen extends Screen {
             thumbGrabOffset = y >= top && y < top + thumbHeight ? y - top : thumbHeight / 2.0;
             dragging = true;
             dragTo(y);
-            return true;
-        }
-        int index = (int) (y - LIST_TOP + scroll) / ROW_HEIGHT;
-        if (index < 0 || index >= entries.size() || !store.writable()) return true;
-        var entry = entries.get(index);
-        int top = LIST_TOP + index * ROW_HEIGHT - scroll + 3;
-        if (inside(x, y, width - 162, top, 64, 20)) edit(entry.id(), entry.label().getString());
-        else if (inside(x, y, width - 94, top, 74, 20)) {
-            if (entry.id().startsWith("local:")) deletingId = entry.id();
-            else apply(store.update(current -> current.resetName(entry.id())));
         }
         return true;
     }
 
     private void edit(String id, String value) {
+        press.clear();
         message = null;
         editingId = id;
         createNameField(value);
     }
 
     private void confirm() {
+        if (!canConfirm()) return;
         if (editingId != null) {
             String name = nameField.getValue().trim();
             if (name.isEmpty()) { nameField.setTextColor(0xFFFF6060); message = CategoryChoices.label("name_required"); return; }
@@ -178,13 +239,22 @@ public final class CategoryManagerScreen extends Screen {
     }
 
     private void closeDialog() {
+        press.clear();
         editingId = null;
         deletingId = null;
         nameField = null;
         clearWidgets();
     }
 
-    @Override public boolean mouseReleased(double x, double y, int button) { dragging = false; return true; }
+    @Override public boolean mouseReleased(double x, double y, int button) {
+        refreshEntries();
+        if (button == 0) {
+            String action = press.release(commandAt(x, y));
+            if (action != null) execute(action);
+            dragging = false;
+        }
+        return true;
+    }
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
         if (editingId != null) { super.mouseDragged(x, y, button, dx, dy); return true; }
         if (deletingId != null) return true;
@@ -192,16 +262,19 @@ public final class CategoryManagerScreen extends Screen {
         return true;
     }
     private void dragTo(double y) {
+        press.clear();
         int trackHeight = listBottom() - LIST_TOP;
         int thumbHeight = Math.max(14, trackHeight * trackHeight / Math.max(1, entries.size() * ROW_HEIGHT));
         scroll = Math.max(0, Math.min(maxScroll(), (int) Math.round(
             (y - LIST_TOP - thumbGrabOffset) * maxScroll() / Math.max(1, trackHeight - thumbHeight))));
     }
     @Override public boolean mouseScrolled(double x, double y, double dx, double dy) {
+        press.clear();
         if (editingId == null && deletingId == null) scroll = Math.max(0, Math.min(maxScroll(), scroll - (int) (dy * ROW_HEIGHT)));
         return true;
     }
     @Override public boolean keyPressed(int key, int scanCode, int modifiers) {
+        press.clear();
         if (editingId != null || deletingId != null) {
             if (key == GLFW.GLFW_KEY_ESCAPE) closeDialog();
             else if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) confirm();
@@ -215,6 +288,7 @@ public final class CategoryManagerScreen extends Screen {
         return true;
     }
     @Override public void onClose() {
+        press.clear();
         if (editingId != null || deletingId != null) closeDialog();
         else Minecraft.getInstance().setScreen(parent);
     }

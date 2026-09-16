@@ -18,7 +18,7 @@ public final class ConfirmDialog {
 	public static void render(GuiGraphics g, Font font, int screenWidth, int screenHeight,
 	                          Component title, List<Component> bodyLines,
 	                          Component primaryLabel, Component secondaryLabel,
-	                          int mouseX, int mouseY) {
+	                          int mouseX, int mouseY, boolean primaryEnabled, Action held) {
 		Rect bounds = bounds(screenWidth, screenHeight);
 		g.pose().pushPose();
 		g.pose().translate(0, 0, 500);
@@ -38,9 +38,9 @@ public final class ConfirmDialog {
 		Rect primary = primaryButton(screenWidth, screenHeight);
 		Rect secondary = secondaryButton(screenWidth, screenHeight);
 		UiSkinRenderer.drawButton(g, font, primary.x(), primary.y(), primary.width(), primary.height(),
-			primaryLabel.getString(), buttonState(primary.contains(mouseX, mouseY)));
+			primaryLabel.getString(), UiSkinRenderer.buttonState(primaryEnabled, false, primary.contains(mouseX, mouseY), held == Action.PRIMARY));
 		UiSkinRenderer.drawButton(g, font, secondary.x(), secondary.y(), secondary.width(), secondary.height(),
-			secondaryLabel.getString(), buttonState(secondary.contains(mouseX, mouseY)));
+			secondaryLabel.getString(), UiSkinRenderer.buttonState(true, false, secondary.contains(mouseX, mouseY), held == Action.SECONDARY));
 		g.pose().popPose();
 	}
 
@@ -72,9 +72,6 @@ public final class ConfirmDialog {
 		g.drawString(font, clipped, bounds.x() + (bounds.width() - font.width(clipped)) / 2, y, color, false);
 	}
 
-	private static UiSkinRenderer.ButtonState buttonState(boolean hovered) {
-		return hovered ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL;
-	}
 
 	public enum Action {
 		NONE,

@@ -28,6 +28,7 @@ import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
 import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.client.widget.ConfirmDialog;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
@@ -57,6 +58,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 public class GroupManagerScreen extends Screen implements GroupManagerParent {
+    private final CommandPress<ConfirmDialog.Action> dialogPress = new CommandPress<>();
 	private static final int CARD_WIDTH = 196;
 	private static final int CARD_HEIGHT = 116;
 	private static final int CARD_PADDING = 6;
@@ -1245,7 +1247,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 		ConfirmDialog.render(g, font, this.width, this.height, title, bodyLines,
 			Component.literal(deleteConfirmLabel()), Component.translatable(ModTranslationKeys.BUTTON_CANCEL),
-			mouseX, mouseY);
+			mouseX, mouseY, true, dialogPress.target());
 	}
 
 	private String deleteConfirmLabel() {
@@ -1424,7 +1426,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private boolean handlePendingDialogClick(double mouseX, double mouseY, int button) {
 		if (button != 0) return true;
-		ConfirmDialog.Action action = ConfirmDialog.hitTest(this.width, this.height, mouseX, mouseY);
+		dialogPress.begin(ConfirmDialog.hitTest(this.width, this.height, mouseX, mouseY));
+		return true;
+	}
+
+	private void executeDialogAction(ConfirmDialog.Action action) {
 		if (action == ConfirmDialog.Action.SECONDARY) {
 			cancelPendingDialog();
 		} else if (action == ConfirmDialog.Action.PRIMARY) {
@@ -1435,7 +1441,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				if (pending != null) executeSingleDelete(pending.groupId(), GroupAction.DELETE);
 			}
 		}
-		return true;
 	}
 
 
@@ -1604,6 +1609,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void clearTransientInputState() {
+        dialogPress.clear();
         categoryPopup = null;
         batchMenuOpen = false;
         batchMenuFocus = -1;
@@ -1648,7 +1654,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
-        if (hasPendingDialog()) { clearTransientInputState(); return true; }
+        if (hasPendingDialog()) return true;
         if (categoryPopup != null) { categoryPopup.drag(mouseY); return true; }
         if (batchMenuOpen || sortMenuOpen) return true;
         if (sidebarVisible() && categorySidebar.dragging()) { categorySidebar.drag(mouseY); return true; }
@@ -1673,7 +1679,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
-        if (hasPendingDialog()) { clearTransientInputState(); return true; }
+        if (hasPendingDialog()) {
+            if (button == 0) executeDialogAction(dialogPress.release(ConfirmDialog.hitTest(width, height, mouseX, mouseY)));
+            return true;
+        }
         if (categoryPopup != null) { categoryPopup.release(); return true; }
         if (button != 0) return drawerOpen || batchMenuOpen || sortMenuOpen || super.mouseReleased(mouseX, mouseY, button);
         if (batchMenuOpen) {

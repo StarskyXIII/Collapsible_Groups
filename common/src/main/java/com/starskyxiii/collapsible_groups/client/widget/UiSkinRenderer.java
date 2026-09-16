@@ -142,15 +142,9 @@ public final class UiSkinRenderer {
 	public static void drawButton(GuiGraphics g, Font font, int x, int y, int width, int height,
 	                              String label, ButtonState state) {
 		warnNonDesignHeight("drawButton", width, height);
-		g.fill(x, y, x + width, y + height, CONTROL_EDGE_DARK);
 		int depth = buttonVisualDepth(state);
-		ResourceLocation sprite = buttonSprite(state);
-		if (sprite != null) {
-			g.blitSprite(sprite, x, y, width, height);
-		} else {
-			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
-		}
-		drawControlFrame(g, x, y, width, height);
+		g.blitSprite(buttonSprite(state), x, y, width, height);
+		drawControlFrame(g, x, y, width, height, depth);
 		int text = buttonTextColor(state);
 		int yOffset = buttonTextOffset(state);
 		String clipped = font.plainSubstrByWidth(label, Math.max(0, width - 4));
@@ -160,7 +154,6 @@ public final class UiSkinRenderer {
 
 	public static void drawSegment(GuiGraphics g, Font font, int x, int y, int width, int height,
 	                               String label, ButtonState state) {
-		g.fill(x, y, x + width, y + height, CONTROL_EDGE_DARK);
 		int depth = buttonVisualDepth(state);
 		ResourceLocation sprite = segmentSprite(state);
 		if (sprite != null) {
@@ -168,7 +161,7 @@ public final class UiSkinRenderer {
 		} else {
 			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
 		}
-		drawControlFrame(g, x, y, width, height);
+		drawControlFrame(g, x, y, width, height, depth);
 		int text = buttonTextColor(state);
 		int yOffset = buttonTextOffset(state);
 		String clipped = font.plainSubstrByWidth(label, Math.max(0, width - 4));
@@ -176,10 +169,19 @@ public final class UiSkinRenderer {
 			centeredTextY(font, y, height) + yOffset, text, false);
 	}
 
-	private static void drawControlFrame(GuiGraphics g, int x, int y, int width, int height) {
+	@FunctionalInterface
+	interface RectFill {
+		void fill(int left, int top, int right, int bottom, int color);
+	}
+
+	static void drawControlFrame(GuiGraphics g, int x, int y, int width, int height, int depth) {
+		drawControlFrame(g::fill, x, y, width, height, depth);
+	}
+
+	static void drawControlFrame(RectFill g, int x, int y, int width, int height, int depth) {
 		int right = x + width;
 		int bottom = y + height;
-		int top = y;
+		int top = y + depth;
 		g.fill(x, top, right, top + 1, CONTROL_EDGE_DARK);
 		g.fill(x, top + 1, x + 1, bottom, CONTROL_EDGE_DARK);
 		g.fill(right - 1, top + 1, right, bottom, CONTROL_EDGE_DARK);
@@ -208,23 +210,6 @@ public final class UiSkinRenderer {
 		};
 	}
 
-	public static void drawIconButton(GuiGraphics g, int x, int y, int buttonSize,
-	                                  ResourceLocation icon, int iconSize, ButtonState state) {
-		warnNonDesignHeight("drawIconButton", buttonSize, buttonSize);
-		g.fill(x, y, x + buttonSize, y + buttonSize, CONTROL_EDGE_DARK);
-		int depth = buttonVisualDepth(state);
-		ResourceLocation sprite = buttonSprite(state);
-		if (sprite != null) {
-			g.blitSprite(sprite, x, y, buttonSize, buttonSize);
-		} else {
-			drawButtonFallback(g, x + 1, y + depth + 1, buttonSize - 2, buttonSize - depth - 2, state);
-		}
-		drawControlFrame(g, x, y, buttonSize, buttonSize);
-		int iconX = x + Math.max(0, (buttonSize - iconSize) / 2);
-		int iconY = y + Math.max(0, (buttonSize - iconSize) / 2) + buttonTextOffset(state);
-		g.blitSprite(icon, iconX, iconY, iconSize, iconSize);
-	}
-
 	public static void drawToolbarIconButton(GuiGraphics g, int x, int y, int width, int height,
 	                                         ResourceLocation icon, ButtonState state) {
 		int yOffset = toolbarButtonOffset(state);
@@ -240,20 +225,6 @@ public final class UiSkinRenderer {
 		if (state == ButtonState.DISABLED) {
 			g.setColor(1.0F, 1.0F, 1.0F, 1.0F);
 		}
-	}
-
-	/** Draws the toolbar chrome with a compact text mark when no sprite icon exists. */
-	public static void drawToolbarTextButton(GuiGraphics g, Font font, int x, int y, int width, int height,
-	                                         String mark, ButtonState state) {
-		int yOffset = toolbarButtonOffset(state);
-		int originX = x + Math.max(0, (width - TOOLBAR_ICON_WIDTH) / 2);
-		int originY = y + Math.max(0, (height - TOOLBAR_BUTTON_HEIGHT) / 2);
-		g.blitSprite(toolbarButtonSprite(state),
-			originX - 1, originY + yOffset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
-		int color = buttonTextColor(state);
-		String clipped = font.plainSubstrByWidth(mark, TOOLBAR_ICON_WIDTH);
-		g.drawString(font, clipped, originX + Math.max(0, (TOOLBAR_ICON_WIDTH - font.width(clipped)) / 2),
-			centeredTextY(font, originY, TOOLBAR_BUTTON_HEIGHT) + yOffset, color, false);
 	}
 
 	private static ResourceLocation buttonSprite(ButtonState state) {

@@ -15,6 +15,7 @@ import com.starskyxiii.collapsible_groups.client.editor.model.EditorShellMode;
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
 import com.starskyxiii.collapsible_groups.client.widget.EditorLayout;
 import com.starskyxiii.collapsible_groups.client.widget.ConfirmDialog;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.EditorShellLayout;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
@@ -44,6 +45,7 @@ import java.util.List;
 import java.util.Optional;
 
 public class GroupEditorScreen extends Screen {
+    private final CommandPress<ConfirmDialog.Action> dialogPress = new CommandPress<>();
 	private static final int ERROR_TEXT_COLOR = 0xFFFF6B5F;
 	private static final int READY_TEXT_COLOR = 0xFF7FB95A;
 	private static final int UNRESOLVED_TEXT_COLOR = 0xFFE88A82;
@@ -152,6 +154,7 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	protected void init() {
+		clearHeldControls();
 		if (rulesPanel != null) rulesPanel.onDeactivate();
 		if (settingsPanel != null) settingsPanel.onDeactivate();
 		editorItemUniverse = List.of();
@@ -212,6 +215,7 @@ public class GroupEditorScreen extends Screen {
 		leftPanel.clampScroll(layout);
 		rightPanel.clampScroll(previewLayout());
 		editorDataLoading = false;
+		clearHeldControls();
 		editorPreviewGeneration = generation;
 		previewRuntime = runtime;
 	}
@@ -303,6 +307,7 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public void removed() {
+		clearHeldControls();
 		previewCache.clear();
 		itemSearchSession.clear();
 		state.itemSelection.clearCache();
@@ -619,7 +624,7 @@ public class GroupEditorScreen extends Screen {
 		List<EditorRuntimeAccess.PreviewEntry> entries = settingsPreviewEntries();
 		settingsPreviewLayout = EditorRuntimeServices.get().renderPreview(g, sampleRect(area), settingsPreviewExpanded,
 			settingsPreviewPage, state.appearanceDraft, settingsSampleHeaderIcons(entries), entries,
-			font, sampleFallbacks());
+			font, sampleFallbacks(), mouseX, mouseY, pagePress.target() == null ? 0 : pagePress.target().direction());
 		settingsPreviewPage = settingsPreviewLayout.page();
 		recordSettingsPreviewHover(mouseX, mouseY);
 	}
@@ -665,6 +670,9 @@ public class GroupEditorScreen extends Screen {
 
 	private final EditorPreviewCache previewCache = new EditorPreviewCache();
 	private final EditorPerformanceTrace performanceTrace = new EditorPerformanceTrace();
+	private record PageCommand(int direction, int page, Object generation) {}
+	private final CommandPress<PageCommand> pagePress = new CommandPress<>();
+	private boolean modalGesture;
 	private Object editorPreviewGeneration;
 	private EditorRuntimeAccess previewRuntime;
 	private long previewRevision;
@@ -916,7 +924,7 @@ public class GroupEditorScreen extends Screen {
 			List.of(Component.translatable(ModTranslationKeys.ORE_EDITOR_DISCARD_DIALOG_BODY)),
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_DISCARD_DIALOG_CONFIRM),
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_DISCARD_DIALOG_CANCEL),
-			mouseX, mouseY);
+			mouseX, mouseY, true, dialogPress.target());
 	}
 
 	private UiSkinRenderer.ButtonState buttonState(boolean active, boolean selected, boolean hovered, boolean held) {
@@ -947,6 +955,11 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private boolean handleEditorClick(double mouseX, double mouseY, int button) {
+		if (button == 0) {
+			clearHeldControls();
+			modalGesture = discardDialogOpen || activeMode == EditorShellMode.LOOK && settingsPanel.isModalOpen()
+				|| activeMode == EditorShellMode.RULES && rulesPanel.isModalOpen();
+		}
 		if (discardDialogOpen) {
 			handleDiscardDialogClick(mouseX, mouseY, button);
 			return true;
@@ -1061,16 +1074,8 @@ public class GroupEditorScreen extends Screen {
 			? settingsPreviewLayout
 			: EditorRuntimeServices.get().layoutPreview(sampleRect(settingsPreviewAreaRect()), settingsPreviewExpanded,
 				previewEntryCount(), settingsPreviewPage);
-		if (layout.previousPageButton() != null && layout.previousPageButton().contains(mouseX, mouseY)
-			&& layout.canPageBackward()) {
-			settingsPreviewPage = Math.max(0, layout.page() - 1);
-			return true;
-		}
-		if (layout.nextPageButton() != null && layout.nextPageButton().contains(mouseX, mouseY)
-			&& layout.canPageForward()) {
-			settingsPreviewPage = layout.page() + 1;
-			return true;
-		}
+		PageCommand page = pageCommandAt(layout, mouseX, mouseY);
+		if (page != null) { pagePress.begin(page); return true; }
 		if (layout.headerCell().contains(mouseX, mouseY)) {
 			settingsPreviewExpanded = !settingsPreviewExpanded;
 			settingsPreviewPage = 0;
@@ -1079,34 +1084,42 @@ public class GroupEditorScreen extends Screen {
 		return false;
 	}
 
+	private PageCommand pageCommandAt(EditorRuntimeAccess.PreviewLayout layout, double x, double y) {
+		if (editorDataLoading || layout == null) return null;
+		if (layout.canPageBackward() && layout.previousPageButton().contains(x, y))
+			return new PageCommand(-1, layout.page(), editorPreviewGeneration);
+		if (layout.canPageForward() && layout.nextPageButton().contains(x, y))
+			return new PageCommand(1, layout.page(), editorPreviewGeneration);
+		return null;
+	}
+
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
 		if (discardDialogOpen) {
-			clearHeldControls();
+			if (button == 0) executeDiscardAction(dialogPress.release(ConfirmDialog.hitTest(width, height, mouseX, mouseY)));
+			modalGesture = false;
 			return true;
 		}
-		if (activeMode == EditorShellMode.LOOK && settingsPanel.mouseReleased(mouseX, mouseY, button)) {
-			clearHeldControls();
-			return true;
-		}
+		boolean modalOwned = modalGesture || activeMode == EditorShellMode.LOOK && settingsPanel.isModalOpen()
+			|| activeMode == EditorShellMode.RULES && rulesPanel.isModalOpen();
+		modalGesture = false;
+		boolean panelHandled = activeMode == EditorShellMode.LOOK ? settingsPanel.mouseReleased(mouseX, mouseY, button)
+			: activeMode == EditorShellMode.RULES && rulesPanel.mouseReleased(mouseX, mouseY, button);
+		if (modalOwned || panelHandled) { clearHeldControls(); return true; }
 		if (button == 0) {
+			PageCommand page = pagePress.release(pageCommandAt(settingsPreviewLayout, mouseX, mouseY));
+			if (page != null && activeMode == EditorShellMode.LOOK) settingsPreviewPage = page.page() + page.direction();
 			if (saveButtonHeld && shell.saveButton().contains(mouseX, mouseY)) saveAndClose();
 			if (cancelButtonHeld && shell.cancelButton().contains(mouseX, mouseY)) requestClose();
-			if (disableSourceCheckboxHeld && disableSourceOptionContains(mouseX, mouseY)) {
-				disableSourceAfterCopy = !disableSourceAfterCopy;
-			}
+			if (disableSourceCheckboxHeld && disableSourceOptionContains(mouseX, mouseY)) disableSourceAfterCopy = !disableSourceAfterCopy;
 			if (heldMode != null && modeSegmentContains(heldMode, mouseX, mouseY)) switchMode(heldMode);
-			if (heldContentFilter != null && contentFilterContains(heldContentFilter, mouseX, mouseY)) {
-				applyContentFilter(heldContentFilter);
-			}
+			if (heldContentFilter != null && contentFilterContains(heldContentFilter, mouseX, mouseY)) applyContentFilter(heldContentFilter);
 			if (hideUsedHeld && shell.hideUsedButton().contains(mouseX, mouseY)) toggleHideUsed();
 			clearHeldControls();
 		}
 		if (activeMode == EditorShellMode.CONTENTS) {
 			leftPanel.mouseReleased(button);
 			rightPanel.mouseReleased(button);
-		} else if (activeMode == EditorShellMode.RULES) {
-			rulesPanel.mouseReleased(mouseX, mouseY, button);
 		}
 		return super.mouseReleased(mouseX, mouseY, button);
 	}
@@ -1159,7 +1172,10 @@ public class GroupEditorScreen extends Screen {
 
 	private void handleDiscardDialogClick(double mouseX, double mouseY, int button) {
 		if (button != 0) return;
-		ConfirmDialog.Action action = ConfirmDialog.hitTest(this.width, this.height, mouseX, mouseY);
+		dialogPress.begin(ConfirmDialog.hitTest(this.width, this.height, mouseX, mouseY));
+	}
+
+	private void executeDiscardAction(ConfirmDialog.Action action) {
 		if (action == ConfirmDialog.Action.PRIMARY) {
 			closeWithoutSaving();
 		} else if (action == ConfirmDialog.Action.SECONDARY) {
@@ -1189,6 +1205,10 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private void clearHeldControls() {
+		pagePress.clear();
+		if (settingsPanel != null) settingsPanel.clearHeldCommand();
+		if (rulesPanel != null) rulesPanel.clearHeldCommand();
+        dialogPress.clear();
 		saveButtonHeld = false;
 		cancelButtonHeld = false;
 		disableSourceCheckboxHeld = false;
@@ -1199,6 +1219,7 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		clearHeldControls();
 		if (discardDialogOpen) {
 			if (keyCode == GLFW.GLFW_KEY_ESCAPE) discardDialogOpen = false;
 			return true;
@@ -1256,7 +1277,6 @@ public class GroupEditorScreen extends Screen {
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
 		if (discardDialogOpen) {
-			clearHeldControls();
 			return true;
 		}
 		if (button != 0) return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
@@ -1278,6 +1298,7 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+		clearHeldControls();
 		if (discardDialogOpen) return true;
 		if (activeMode == EditorShellMode.LOOK && settingsPanel.mouseScrolled(mouseX, mouseY, scrollY)) {
 			return true;

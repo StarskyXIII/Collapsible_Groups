@@ -17,6 +17,7 @@ public final class ColorPicker {
         0xFF6F5AE0, 0xFFB05AD6, 0xFFE066A6, 0xFF7A5A44
     };
     private final Font font;
+    private final CommandPress<String> press = new CommandPress<>();
     private final Component title;
     private final boolean rgb;
     private final IntConsumer onChange;
@@ -47,9 +48,10 @@ public final class ColorPicker {
 
     public boolean isOpen() { return open; }
     public void clearFocus() { hex.setFocused(false); }
-    public void cancel() { onCancel.run(); open = false; draggingChannel = -1; }
+    public void cancel() { press.clear(); onCancel.run(); open = false; draggingChannel = -1; }
 
     public void setBounds(EditorChrome.Rect available) {
+        press.clear();
         int w = Math.min(266, Math.max(120, available.width() - 16));
         int h = Math.min(196, Math.max(120, available.height() - 16));
         bounds = new EditorChrome.Rect(available.x() + (available.width() - w) / 2,
@@ -129,13 +131,14 @@ public final class ColorPicker {
     private void button(GuiGraphics graphics, int x, String key, boolean enabled, int mouseX, int mouseY) {
         boolean hot = contains(x, bounds.bottom() - 28, 58, 20, mouseX, mouseY);
         UiSkinRenderer.drawButton(graphics, font, x, bounds.bottom() - 28, 58, 20, Component.translatable(key).getString(),
-            !enabled ? UiSkinRenderer.ButtonState.DISABLED : hot ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL);
+            UiSkinRenderer.buttonState(enabled, false, hot, press.isHeld(key)));
     }
 
     public boolean mouseClicked(double x, double y, int button) {
         if (button != 0) return true;
-        if (contains(bounds.right() - 66, bounds.bottom() - 28, 58, 20, x, y)) { cancel(); return true; }
-        if (contains(bounds.right() - 127, bounds.bottom() - 28, 58, 20, x, y) || !bounds.contains(x, y)) {
+        press.begin(commandAt(x, y));
+        if (press.target() != null || contains(bounds.right() - 127, bounds.bottom() - 28, 58, 20, x, y)) return true;
+        if (!bounds.contains(x, y)) {
             if (valid()) open = false;
             return true;
         }
@@ -162,9 +165,24 @@ public final class ColorPicker {
         return true;
     }
 
-    public boolean mouseReleased() { draggingChannel = -1; return true; }
+    private String commandAt(double x, double y) {
+        if (contains(bounds.right() - 66, bounds.bottom() - 28, 58, 20, x, y)) return "collapsible_groups.button.cancel";
+        if (valid() && contains(bounds.right() - 127, bounds.bottom() - 28, 58, 20, x, y)) return "collapsible_groups.editor.rules.picker.confirm";
+        return null;
+    }
+
+    public boolean mouseReleased(double x, double y, int button) {
+        if (button == 0) {
+            String command = press.release(commandAt(x, y));
+            if ("collapsible_groups.button.cancel".equals(command)) cancel();
+            else if (command != null) open = false;
+            draggingChannel = -1;
+        }
+        return true;
+    }
 
     public boolean keyPressed(int key, int scan, int modifiers) {
+        press.clear();
         if (key == GLFW.GLFW_KEY_ESCAPE) cancel();
         else if (key == GLFW.GLFW_KEY_ENTER || key == GLFW.GLFW_KEY_KP_ENTER) { if (valid()) open = false; }
         else hex.keyPressed(key, scan, modifiers);

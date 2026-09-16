@@ -299,13 +299,13 @@ public class JeiEditorRuntimeAccess implements EditorRuntimeAccess {
 	@Override
 	public PreviewLayout renderPreview(GuiGraphics graphics, PreviewRect area, boolean expanded, int page,
 		AppearanceDraft appearance, List<PreviewEntry> headerIcons, List<PreviewEntry> items, Font font,
-		PreviewFallbacks fallbacks) {
+		PreviewFallbacks fallbacks, int mouseX, int mouseY, int heldPageDirection) {
 		List<GroupPreviewEntry> convertedHeaders = convertPreviewEntries(headerIcons);
 		List<GroupPreviewEntry> convertedItems = convertPreviewEntries(items);
 		GroupSampleRenderer.Layout layout = GroupSampleRenderer.render(graphics, rect(area), expanded, page,
 			appearance.toTheme(), convertedHeaders, convertedItems, font, new GroupSampleRenderer.Fallbacks(
 				fallbacks.nameRgb(), fallbacks.collapsedHeaderArgb(), fallbacks.expandedHeaderArgb(),
-				fallbacks.expandedGroupArgb(), fallbacks.expandedBorderArgb()));
+				fallbacks.expandedGroupArgb(), fallbacks.expandedBorderArgb()), mouseX, mouseY, heldPageDirection);
 		return layout(layout);
 	}
 

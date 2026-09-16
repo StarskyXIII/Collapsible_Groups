@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.config;
 
 import com.starskyxiii.collapsible_groups.client.widget.ColorPicker;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
@@ -24,6 +25,7 @@ public final class GroupConfigScreen extends Screen {
     private static final int TOP = 60;
     private static final int ROW = 38;
     private final Screen parent;
+    private final CommandPress<String> press = new CommandPress<>();
     private final SettingsController controller;
     private final SettingsDraft draft;
     private int page;
@@ -44,6 +46,7 @@ public final class GroupConfigScreen extends Screen {
     }
 
     @Override protected void init() {
+        press.clear();
         clearWidgets();
         scroll = Math.max(0, Math.min(maxScroll(), scroll));
         threshold = null;
@@ -77,13 +80,14 @@ public final class GroupConfigScreen extends Screen {
         UiSkinRenderer.drawScreenBars(graphics, width, height, 29, 48);
         graphics.drawCenteredString(font, title, width / 2, 11, UiPalette.TEXT_PRIMARY);
         int surfaceX = modal() ? Integer.MIN_VALUE : mouseX;
-        int tabW = (right() - left()) / 3;
+        int hoveredTab = tabAt(surfaceX, mouseY);
         String[] tabs = {"general", "appearance", "advanced"};
-        for (int i = 0; i < 3; i++) {
-            int x = left() + i * tabW;
-            UiSkinRenderer.drawButton(graphics, font, x, 33, tabW, 20, text("tab." + tabs[i]).getString(),
-                page == i ? UiSkinRenderer.ButtonState.SELECTED : contains(x, 33, tabW, 20, surfaceX, mouseY)
-                    ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL);
+        for (int pass = 0; pass < 3; pass++) for (int i = 0; i < 3; i++) {
+            var rect = tabRect(i);
+            boolean hot = i == hoveredTab;
+            if ((hot ? 2 : page == i ? 1 : 0) != pass) continue;
+            UiSkinRenderer.drawSegment(graphics, font, rect.x(), rect.y(), rect.width(), rect.height(),
+                text("tab." + tabs[i]).getString(), UiSkinRenderer.buttonState(true, page == i, hot, press.isHeld("tab:" + i)));
         }
         Component tooltip = null;
         graphics.enableScissor(left(), TOP, right(), bottom());
@@ -108,7 +112,8 @@ public final class GroupConfigScreen extends Screen {
             } else if (page == 1 && i > 0) {
                 int color = color(i);
                 UiSkinRenderer.drawButton(graphics, font, right() - 104, y + 8, 92, 20,
-                    SettingsSnapshot.hex(color, i == 3), hot ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL);
+                    SettingsSnapshot.hex(color, i == 3), UiSkinRenderer.buttonState(true, false,
+                        contains(right() - 104, y + 8, 92, 20, rowMouseX, mouseY), press.isHeld("color:" + i)));
                 graphics.fill(right() - 122, y + 11, right() - 108, y + 25, i == 3 ? color | 0xFF000000 : color);
                 UiSkinRenderer.drawOutline(graphics, right() - 122, y + 11, 14, 14, UiPalette.OUTLINE_DARK);
             } else UiSkinRenderer.drawSwitch(graphics, right() - 58, y + 7, 44, 22, enabled(i), true, hot, false);
@@ -141,8 +146,47 @@ public final class GroupConfigScreen extends Screen {
 
     private void button(GuiGraphics graphics, int x, int y, int w, Component text, boolean enabled, int mouseX, int mouseY) {
         UiSkinRenderer.drawButton(graphics, font, x, y, w, 20, text.getString(),
-            !enabled ? UiSkinRenderer.ButtonState.DISABLED : contains(x, y, w, 20, mouseX, mouseY)
-                ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL);
+            UiSkinRenderer.buttonState(enabled, false, contains(x, y, w, 20, mouseX, mouseY), press.isHeld(commandAt(x + 1, y + 1))));
+    }
+
+    private EditorChrome.Rect tabRect(int index) {
+        int tabWidth = (right() - left() + 2) / 3;
+        return new EditorChrome.Rect(left() + index * (tabWidth - 1), 33, tabWidth, 18);
+    }
+
+    private int tabAt(double x, double y) {
+        for (int i = 2; i >= 0; i--) if (tabRect(i).contains(x, y)) return i;
+        return -1;
+    }
+
+    private String commandAt(double x, double y) {
+        if (contains(width / 2 + 4, height - 27, 84, 20, x, y)) return "cancel";
+        if (contains(width / 2 - 88, height - 27, 84, 20, x, y))
+            return draft.valid() && controller.writable() ? "save" : null;
+        int tab = tabAt(x, y);
+        if (tab >= 0) return "tab:" + tab;
+        if (page == 1 && y >= TOP && y < bottom()) {
+            for (int i = 1; i < KEYS.get(page).size(); i++)
+                if (contains(right() - 104, rowY(i) + 8, 92, 20, x, y)) return "color:" + i;
+        }
+        return null;
+    }
+
+    private void execute(String command) {
+        if (command.equals("cancel")) { onClose(); return; }
+        if (command.equals("save")) {
+            SettingsController.Result result = controller.save(draft.snapshot());
+            if (result == SettingsController.Result.SUCCESS) onClose();
+            else message = text(switch (result) {
+                case READ_FAILED -> "read_failed"; case SAVE_FAILED -> "save_failed"; default -> "apply_pending";
+            });
+        } else if (command.startsWith("tab:")) {
+            page = Integer.parseInt(command.substring(4)); scroll = 0; init();
+        } else if (command.startsWith("color:")) {
+            int index = Integer.parseInt(command.substring(6)), previous = color(index);
+            picker = new ColorPicker(font, label(KEYS.get(page).get(index)), previous, index == 3,
+                value -> color(index, value), () -> color(index, previous), new EditorChrome.Rect(0, 0, width, height));
+        }
     }
 
     private boolean enabled(int index) {
@@ -189,20 +233,8 @@ public final class GroupConfigScreen extends Screen {
     @Override public boolean mouseClicked(double x, double y, int button) {
         if (modal()) return picker.mouseClicked(x, y, button);
         if (button != 0) return true;
-        if (contains(width / 2 + 4, height - 27, 84, 20, x, y)) { onClose(); return true; }
-        if (contains(width / 2 - 88, height - 27, 84, 20, x, y)) {
-            if (!draft.valid() || !controller.writable()) return true;
-            SettingsController.Result result = controller.save(draft.snapshot());
-            if (result == SettingsController.Result.SUCCESS) onClose();
-            else message = text(switch (result) {
-                case READ_FAILED -> "read_failed"; case SAVE_FAILED -> "save_failed"; default -> "apply_pending";
-            });
-            return true;
-        }
-        int tabW = (right() - left()) / 3;
-        for (int i = 0; i < 3; i++) if (contains(left() + i * tabW, 33, tabW, 20, x, y)) {
-            page = i; scroll = 0; init(); return true;
-        }
+        press.begin(commandAt(x, y));
+        if (press.target() != null) return true;
         if (y < TOP || y >= bottom()) return true;
         if (maxScroll() > 0 && x >= right() - 8 && x < right()) {
             int visible = bottom() - TOP;
@@ -219,11 +251,8 @@ public final class GroupConfigScreen extends Screen {
         }
         for (int i = 0; i < KEYS.get(page).size(); i++) if (contains(left(), rowY(i), right() - left() - 10, ROW - 3, x, y)) {
             if (page == 0 && i == 3) return true;
-            if (page == 1 && i > 0) {
-                int index = i, previous = color(i);
-                picker = new ColorPicker(font, label(KEYS.get(page).get(i)), previous, i == 3,
-                    value -> color(index, value), () -> color(index, previous), new EditorChrome.Rect(0, 0, width, height));
-            } else toggle(i);
+            if (page == 1 && i > 0) return true;
+            toggle(i);
             message = null;
             return true;
         }
@@ -231,6 +260,7 @@ public final class GroupConfigScreen extends Screen {
     }
 
     private void setScroll(int value) {
+        press.clear();
         scroll = Math.max(0, Math.min(maxScroll(), value));
         if (threshold != null) threshold.setPosition(right() - 92, rowY(3) + 13);
     }
@@ -247,8 +277,12 @@ public final class GroupConfigScreen extends Screen {
         return threshold != null && threshold.isFocused() && threshold.mouseDragged(x, y, button, dx, dy);
     }
     @Override public boolean mouseReleased(double x, double y, int button) {
-        if (modal()) return picker.mouseReleased();
-        dragging = false;
+        if (modal()) return picker.mouseReleased(x, y, button);
+        if (button == 0) {
+            String command = press.release(commandAt(x, y));
+            if (command != null) execute(command);
+            dragging = false;
+        }
         return true;
     }
     @Override public boolean mouseScrolled(double x, double y, double horizontal, double vertical) {
@@ -256,6 +290,7 @@ public final class GroupConfigScreen extends Screen {
         return true;
     }
     @Override public boolean keyPressed(int key, int scan, int modifiers) {
+        press.clear();
         if (modal()) return picker.keyPressed(key, scan, modifiers);
         if (key == GLFW.GLFW_KEY_ESCAPE) { onClose(); return true; }
         return threshold != null && threshold.isFocused() ? threshold.keyPressed(key, scan, modifiers) : super.keyPressed(key, scan, modifiers);
@@ -264,7 +299,7 @@ public final class GroupConfigScreen extends Screen {
         if (modal()) return picker.charTyped(character, modifiers);
         return threshold != null && threshold.isFocused() && threshold.charTyped(character, modifiers);
     }
-    @Override public void onClose() { minecraft.setScreen(parent); }
+    @Override public void onClose() { press.clear(); minecraft.setScreen(parent); }
     private static boolean contains(int x, int y, int w, int h, double mouseX, double mouseY) {
         return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }

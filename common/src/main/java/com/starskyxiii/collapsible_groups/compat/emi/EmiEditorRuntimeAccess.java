@@ -395,12 +395,12 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 
 	@Override public PreviewLayout renderPreview(GuiGraphics graphics, PreviewRect area, boolean expanded, int page,
 		AppearanceDraft appearance, List<PreviewEntry> headerIcons, List<PreviewEntry> entries, Font font,
-		PreviewFallbacks fallbacks) {
+		PreviewFallbacks fallbacks, int mouseX, int mouseY, int heldPageDirection) {
 		GroupSampleRenderer.Layout layout = GroupSampleRenderer.render(graphics,
 			new GroupSampleRenderer.Rect(area.x(), area.y(), area.width(), area.height()), expanded, page,
 			appearance.toTheme(), previewEntries(headerIcons), previewEntries(entries), font,
 			new GroupSampleRenderer.Fallbacks(fallbacks.nameRgb(), fallbacks.collapsedHeaderArgb(),
-				fallbacks.expandedHeaderArgb(), fallbacks.expandedGroupArgb(), fallbacks.expandedBorderArgb()));
+				fallbacks.expandedHeaderArgb(), fallbacks.expandedGroupArgb(), fallbacks.expandedBorderArgb()), mouseX, mouseY, heldPageDirection);
 		return previewLayout(layout);
 	}
 

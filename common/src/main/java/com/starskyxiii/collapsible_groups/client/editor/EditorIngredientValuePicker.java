@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.ScrollbarHelper;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
@@ -15,6 +16,7 @@ import java.util.function.Consumer;
 
 final class EditorIngredientValuePicker {
 	private final Font font;
+    private final CommandPress<String> press = new CommandPress<>();
 	private final EditorChrome.Rect bounds;
 	private final String type;
 	private final EditorValuePickerKind kind;
@@ -52,7 +54,7 @@ final class EditorIngredientValuePicker {
 		search.setBordered(false);
 		search.setMaxLength(512);
 		search.setHint(Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH));
-		search.setResponder(value -> { selection.search(value); offset = 0; lastClicked = null; });
+		search.setResponder(value -> { press.clear(); selection.search(value); offset = 0; lastClicked = null; });
 		search.setFocused(true);
 		refresh();
 	}
@@ -72,6 +74,7 @@ final class EditorIngredientValuePicker {
 	}
 
 	void close() {
+        press.clear();
 		var previous = runtime.get();
 		if (previous != null) kind.cancel(previous);
 		runtime.clear();
@@ -81,6 +84,7 @@ final class EditorIngredientValuePicker {
 	private boolean refresh() {
 		var next = kind.snapshot(EditorRuntimeServices.findIngredients().orElse(null), type, namespaces);
 		if (!selection.update(next)) return false;
+		press.clear();
 		offset = 0;
 		lastClicked = null;
 		dragging = false;
@@ -141,7 +145,8 @@ final class EditorIngredientValuePicker {
 	private void button(GuiGraphics g, EditorChrome.Rect rect, String key, boolean enabled, boolean focused, int mx, int my) {
 		String label = Component.translatable(key).getString();
 		UiSkinRenderer.drawButton(g, font, rect.x(), rect.y(), rect.width(), rect.height(), font.plainSubstrByWidth(label, rect.width() - 8),
-			!enabled ? UiSkinRenderer.ButtonState.DISABLED : focused || rect.contains(mx, my) ? UiSkinRenderer.ButtonState.HOVERED : UiSkinRenderer.ButtonState.NORMAL);
+			UiSkinRenderer.buttonState(enabled, false, rect.contains(mx, my), press.isHeld(key)));
+        if (focused) UiSkinRenderer.drawOutline(g, rect.x() - 1, rect.y() - 1, rect.width() + 2, rect.height() + 2, UiPalette.OUTLINE_HOVER);
 		if (rect.contains(mx, my) && font.width(label) > rect.width() - 8) g.renderTooltip(font, Component.literal(label), mx, my);
 	}
 
@@ -150,10 +155,10 @@ final class EditorIngredientValuePicker {
 
 	boolean click(double mx, double my) {
 		boolean changed = refresh();
-		if (!bounds.contains(mx, my) || footer.cancel().contains(mx, my)) { cancel.run(); return true; }
-		if (footer.manual().contains(mx, my)) { manual.accept(search.getValue()); return true; }
-		if (changed) return true;
-		if (footer.confirm().contains(mx, my)) { accept(); return true; }
+        if (!bounds.contains(mx, my)) { press.clear(); cancel.run(); return true; }
+        String command = commandAt(mx, my);
+        press.begin(changed && ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM.equals(command) ? null : command);
+        if (command != null || changed) return true;
 		if (searchRect().contains(mx, my)) {
 			focus(0);
 			search.mouseClicked(Math.max(search.getX(), Math.min(search.getX() + search.getWidth() - 1, mx)),
@@ -178,6 +183,7 @@ final class EditorIngredientValuePicker {
 	}
 
 	boolean key(int key, int scan, int mods) {
+        press.clear();
 		refresh();
 		if (key == 256) { cancel.run(); return true; }
 		if (key == 258) { focus(Math.floorMod(focus + ((mods & 1) == 0 ? 1 : -1), 5)); return true; }
@@ -198,10 +204,25 @@ final class EditorIngredientValuePicker {
 
 	boolean character(char c, int mods) { return search.isFocused() && search.charTyped(c, mods); }
 	boolean textFocused() { return search.isFocused(); }
-	void scroll(double delta) { refresh(); offset = Math.max(0, Math.min(maxOffset(), offset - (int) Math.signum(delta) * 18)); }
+	void scroll(double delta) { press.clear(); refresh(); offset = Math.max(0, Math.min(maxOffset(), offset - (int) Math.signum(delta) * 18)); }
 	void drag(double my) {
 		if (refresh() || !dragging) return;
 		offset = Math.max(0, Math.min(maxOffset(), dragOffset + (int) ((my - dragY) * selection.rows().size() * 18 / Math.max(1, list().height()))));
 	}
-	void release() { dragging = false; }
+    private String commandAt(double mx, double my) {
+        if (footer.cancel().contains(mx, my)) return ModTranslationKeys.BUTTON_CANCEL;
+        if (footer.manual().contains(mx, my)) return kind.manualKey;
+        if (canConfirm() && footer.confirm().contains(mx, my)) return ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM;
+        return null;
+    }
+
+    void release(double mx, double my, int button) {
+        if (button != 0) return;
+        refresh();
+        String action = press.release(commandAt(mx, my));
+        dragging = false;
+        if (ModTranslationKeys.BUTTON_CANCEL.equals(action)) cancel.run();
+        else if (kind.manualKey.equals(action)) manual.accept(search.getValue());
+        else if (action != null) accept();
+    }
 }
