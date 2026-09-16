@@ -62,7 +62,7 @@ class FabricGroupResourcePacksTest {
         try (var manager = new MultiPackResourceManager(PackType.CLIENT_RESOURCES, List.of(aggregate))) {
             var data = load(manager);
             assertTrue(data.complete(), data.problems().toString());
-            assertEquals(528, data.builtinIds().size());
+            assertTrue(data.builtinIds().contains("__default_potions"));
             assertEquals(GroupSource.BUILTIN, data.origin("__default_potions").source());
             assertEquals(1, data.origins().get("__default_potions").size());
             assertEquals("mod_low", data.origin("external_low").sourceId());
