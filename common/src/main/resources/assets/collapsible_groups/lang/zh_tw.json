@@ -486,5 +486,10 @@
   "collapsible_groups.config.save_failed": "無法儲存設定。修改仍保留在畫面上，請重試。",
   "collapsible_groups.config.apply_pending": "已儲存，但部分設定尚未套用；再次儲存可重試。",
   "collapsible_groups.config.invalid_threshold": "請輸入 0 到 2147483647 之間的整數。",
-  "collapsible_groups.manager.category_count": "%s · %s"
+  "collapsible_groups.manager.category_count": "%s · %s",
+  "collapsible_groups.category.search": "搜尋分類…",
+  "collapsible_groups.category.no_results": "沒有符合的分類",
+  "collapsible_groups.category.move_confirm": "移入",
+  "collapsible_groups.category.move_count": "移動 %s 個群組",
+  "collapsible_groups.category.targets_changed": "群組清單已更新，請檢查後再次確認。"
 }

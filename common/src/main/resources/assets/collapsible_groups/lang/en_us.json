@@ -486,5 +486,10 @@
   "collapsible_groups.config.save_failed": "Could not save settings. Your changes are still here; try again.",
   "collapsible_groups.config.apply_pending": "Saved. Some changes are still waiting to apply; save again to retry.",
   "collapsible_groups.config.invalid_threshold": "Enter a whole number from 0 to 2147483647.",
-  "collapsible_groups.manager.category_count": "%s · %s"
+  "collapsible_groups.manager.category_count": "%s · %s",
+  "collapsible_groups.category.search": "Search categories…",
+  "collapsible_groups.category.no_results": "No matching categories",
+  "collapsible_groups.category.move_confirm": "Move",
+  "collapsible_groups.category.move_count": "Moving %s groups",
+  "collapsible_groups.category.targets_changed": "The group list changed. Review it and confirm again."
 }
