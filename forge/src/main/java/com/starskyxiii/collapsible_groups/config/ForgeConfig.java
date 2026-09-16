@@ -9,6 +9,8 @@ import net.minecraftforge.common.ForgeConfigSpec;
  * {@code config/collapsiblegroups/collapsiblegroups.toml} via {@link ForgeConfigSpec}.
  */
 public final class ForgeConfig extends AcceptedConfigProvider {
+    public static final ForgeConfigSpec.ConfigValue<java.util.List<? extends String>> DISABLED_BUILTIN_CATEGORIES;
+    public static final ForgeConfigSpec.BooleanValue SHOW_CATEGORY_SIDEBAR;
 	public static final ForgeConfigSpec.BooleanValue LOAD_DEFAULT_GROUPS;
 
 	// ui
@@ -61,10 +63,13 @@ public final class ForgeConfig extends AcceptedConfigProvider {
 				"Set to false to start with a completely clean slate (no default groups)."
 			)
 			.define("enabled", true);
+        DISABLED_BUILTIN_CATEGORIES = builder.defineListAllowEmpty(java.util.List.of("disabledCategories"),
+            java.util.List.of(), SettingsSnapshot::validCategoryId);
 		builder.pop();
 
 		// [ui]
 		builder.push("ui");
+        SHOW_CATEGORY_SIDEBAR = builder.define("showCategorySidebar", true);
 		SHOW_MANAGER_BUTTON = builder
 			.comment("Whether to show the group manager button in the JEI ingredient list overlay.")
 			.define("showManagerButton", true);

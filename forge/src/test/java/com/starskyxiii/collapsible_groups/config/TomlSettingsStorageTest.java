@@ -13,7 +13,8 @@ class TomlSettingsStorageTest {
         Path path = directory.resolve("settings.toml");
         var storage = new TomlSettingsStorage(path);
         for (String text : java.util.List.of("ui = \"broken\"", "debug = [1, 2]",
-            "defaultGroups = 7", "[ui]\nsearchUngroupThreshold = 1.5",
+            "defaultGroups = 7", "[defaultGroups]\ndisabledCategories = [7]",
+            "[defaultGroups]\ndisabledCategories = [\"invalid:UPPER\"]", "[ui]\nsearchUngroupThreshold = 1.5",
             "[ui]\nexpandedGroupBorderColor = \"nope\"")) {
             Files.writeString(path, text);
             assertThrows(IllegalArgumentException.class, storage::read, text);
@@ -29,6 +30,8 @@ class TomlSettingsStorageTest {
         var draft = new SettingsDraft(storage.read());
         draft.loadDefaultGroups = false;
         draft.groupNameColor = 0x123456;
+        draft.disabledBuiltinCategories.add("missing:category");
+        draft.showCategorySidebar = false;
         storage.write(draft.snapshot());
         assertEquals(draft.snapshot(), storage.read());
         String saved = Files.readString(path);

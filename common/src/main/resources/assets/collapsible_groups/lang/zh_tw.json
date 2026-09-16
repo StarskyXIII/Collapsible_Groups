@@ -491,5 +491,11 @@
   "collapsible_groups.category.no_results": "沒有符合的分類",
   "collapsible_groups.category.move_confirm": "移入",
   "collapsible_groups.category.move_count": "移動 %s 個群組",
-  "collapsible_groups.category.targets_changed": "群組清單已更新，請檢查後再次確認。"
+  "collapsible_groups.category.targets_changed": "群組清單已更新，請檢查後再次確認。",
+  "collapsible_groups.config.builtin_categories": "內建分類",
+  "collapsible_groups.config.manage_categories": "管理…",
+  "collapsible_groups.configuration.defaultGroups.disabledCategories": "內建分類",
+  "collapsible_groups.configuration.defaultGroups.disabledCategories.tooltip": "選擇要啟用的內建分類。你建立的自訂副本會保留。變更需回到主設定畫面儲存。",
+  "collapsible_groups.configuration.ui.showCategorySidebar": "顯示分類側欄",
+  "collapsible_groups.configuration.ui.showCategorySidebar.tooltip": "顯示分類側欄與開關按鈕。關閉時管理器顯示全部分類，並保留先前的篩選偏好。"
 }

@@ -1,6 +1,10 @@
 package com.starskyxiii.collapsible_groups.config;
 
 import java.util.function.BiConsumer;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.Collections;
+import net.minecraft.resources.ResourceLocation;
 import java.util.function.Function;
 
 public record SettingsSnapshot(
@@ -9,14 +13,17 @@ public record SettingsSnapshot(
     int collapsedGroupBackgroundColor, int expandedGroupBackgroundColor,
     int groupNameColor, int expandedGroupBorderColor,
     boolean debugTimingEnabled, boolean debugStartupIndexVerificationEnabled,
-    boolean debugEditorIndexVerificationEnabled
+    boolean debugEditorIndexVerificationEnabled, Set<String> disabledBuiltinCategories, boolean showCategorySidebar
 ) {
     public static final SettingsSnapshot DEFAULTS = new SettingsSnapshot(
-        true, true, true, true, 5, 0x24FFFFFF, 0x24FFFFFF, 0xFFAA00, 0x66FFFFFF, false, false, false);
+        true, true, true, true, 5, 0x24FFFFFF, 0x24FFFFFF, 0xFFAA00, 0x66FFFFFF, false, false, false, Set.of(), true);
 
     public SettingsSnapshot {
         if (searchUngroupThreshold < 0) throw new IllegalArgumentException("searchUngroupThreshold");
         groupNameColor &= 0xFFFFFF;
+        TreeSet<String> categories = new TreeSet<>(disabledBuiltinCategories);
+        if (categories.stream().anyMatch(id -> !validCategoryId(id))) throw new IllegalArgumentException("disabledBuiltinCategories");
+        disabledBuiltinCategories = Collections.unmodifiableSet(categories);
     }
 
     public static SettingsSnapshot read(Function<String, Object> read) {
@@ -29,11 +36,14 @@ public record SettingsSnapshot(
             color(read, "ui.groupNameColor", DEFAULTS.groupNameColor, true),
             color(read, "ui.expandedGroupBorderColor", DEFAULTS.expandedGroupBorderColor, false),
             bool(read, "debug.enableTimingLogs", false), bool(read, "debug.verifyStartupIndex", false),
-            bool(read, "debug.verifyEditorPreviewIndex", false));
+            bool(read, "debug.verifyEditorPreviewIndex", false), categories(read.apply("defaultGroups.disabledCategories")),
+            bool(read, "ui.showCategorySidebar", true));
     }
 
     public void write(BiConsumer<String, Object> write) {
         write.accept("defaultGroups.enabled", loadDefaultGroups);
+        write.accept("defaultGroups.disabledCategories", java.util.List.copyOf(disabledBuiltinCategories));
+        write.accept("ui.showCategorySidebar", showCategorySidebar);
         write.accept("ui.showManagerButton", showManagerButton);
         write.accept("ui.showGroupBackgrounds", showGroupBackgrounds);
         write.accept("ui.searchUngroupSmallGroups", searchUngroupSmallGroups);
@@ -45,6 +55,19 @@ public record SettingsSnapshot(
         write.accept("debug.enableTimingLogs", debugTimingEnabled);
         write.accept("debug.verifyStartupIndex", debugStartupIndexVerificationEnabled);
         write.accept("debug.verifyEditorPreviewIndex", debugEditorIndexVerificationEnabled);
+    }
+
+    public static boolean validCategoryId(Object value) {
+        return value instanceof String id && !id.isBlank() && id.contains(":") && ResourceLocation.tryParse(id) != null;
+    }
+
+    private static Set<String> categories(Object value) {
+        if (value == null) return Set.of();
+        if (!(value instanceof java.util.List<?> values) || values.stream().anyMatch(id -> !validCategoryId(id)))
+            throw new IllegalArgumentException("defaultGroups.disabledCategories");
+        TreeSet<String> result = new TreeSet<>();
+        values.forEach(id -> result.add((String) id));
+        return result;
     }
 
     public static String hex(int color, boolean rgb) {

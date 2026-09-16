@@ -82,7 +82,8 @@ public final class SettingsController {
     }
 
     private void accept(SettingsSnapshot candidate) {
-        builtinsPending |= candidate.loadDefaultGroups() != accepted.loadDefaultGroups();
+        builtinsPending |= candidate.loadDefaultGroups() != accepted.loadDefaultGroups()
+            || !candidate.disabledBuiltinCategories().equals(accepted.disabledBuiltinCategories());
         searchPending |= candidate.searchUngroupSmallGroups() != accepted.searchUngroupSmallGroups()
             || candidate.searchUngroupThreshold() != accepted.searchUngroupThreshold();
         accepted = candidate;

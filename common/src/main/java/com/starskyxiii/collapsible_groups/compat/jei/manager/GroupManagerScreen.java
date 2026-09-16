@@ -120,6 +120,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     private PressedCardAction heldCardAction;
     private boolean settingsButtonHeld;
     private boolean settingsButtonFocused;
+    private boolean sidebarAvailable;
     private boolean batchMenuOpen;
     private int batchMenuFocus = -1;
     private int prunedSelectionCount;
@@ -246,7 +247,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     }
 
 	private boolean matchesCurrentFilters(GroupManagerCard card) {
-		return (CategoryChoices.ALL.equals(categoryFilter) || categoryFilter.equals(categoryFilterId(card)))
+		return (CategoryChoices.ALL.equals(effectiveCategoryFilter()) || effectiveCategoryFilter().equals(categoryFilterId(card)))
             && GroupManagerSearchMatcher.matches(sourceFilter, searchQuery, searchFields(card));
 	}
 
@@ -262,6 +263,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     }
 
     private void validateCategoryFilter() {
+        if (!sidebarEnabled()) return;
         if (CategoryChoices.ALL.equals(categoryFilter) || CategoryChoices.UNCATEGORIZED.equals(categoryFilter)) return;
         if (CategoryChoices.available(categories.snapshot(), GroupRepository.resourceData()).stream()
             .noneMatch(entry -> entry.id().equals(categoryFilter))) {
@@ -289,11 +291,24 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         categorySidebar.entries(entries, categoryFilter);
     }
 
+    private boolean sidebarEnabled() { return Services.CONFIG.showCategorySidebar(); }
+    private String effectiveCategoryFilter() { return sidebarEnabled() ? categoryFilter : CategoryChoices.ALL; }
+
+    private void refreshSidebarSetting() {
+        if (sidebarAvailable == sidebarEnabled()) return;
+        ScrollAnchor anchor = scrollAnchor();
+        clearTransientInputState();
+        validateCategoryFilter();
+        rebuildFilteredCards();
+        relayout(anchor);
+    }
+
     private boolean sidebarVisible() {
-        return contentLayout != null && (contentLayout.dockable() ? sidebarOpen : drawerOpen);
+        return sidebarEnabled() && contentLayout != null && (contentLayout.dockable() ? sidebarOpen : drawerOpen);
     }
 
     private void toggleCategorySidebar() {
+        if (!sidebarEnabled()) return;
         ScrollAnchor anchor = scrollAnchor();
         boolean open = drawerOpen;
         clearTransientInputState();
@@ -309,6 +324,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     }
 
     private void browseCategory(CategoryChoices.Entry entry) {
+        if (!sidebarEnabled()) return;
         if (drawerOpen) closeCategoryDrawer();
         categorySidebar.cancelPress();
         chooseCategory(entry);
@@ -375,7 +391,8 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             font.width(Component.translatable("collapsible_groups.manager.batch_actions").append(" ▼"))) + 16;
         int back = Math.max(50, font.width(Component.translatable(ModTranslationKeys.MANAGER_BTN_BACK)) + 12);
         headerLayout = ManagerHeaderLayout.create(width, widths, back, Math.max(60, primary), Math.max(80, secondary));
-        contentLayout = ManagerContentLayout.create(width, height, headerHeight(), sidebarOpen);
+        sidebarAvailable = sidebarEnabled();
+        contentLayout = ManagerContentLayout.create(width, height, headerHeight(), sidebarOpen, sidebarEnabled());
         categorySidebar.layout(contentLayout.sidebar());
         cols = contentLayout.columns();
         scrollPixelOffset = clamp(scrollPixelOffset, 0, maxScrollPixels());
@@ -501,7 +518,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
 	private void openEditor(GroupDefinition group) {
-        draftCategory = CategoryChoices.ALL.equals(categoryFilter) || CategoryChoices.UNCATEGORIZED.equals(categoryFilter) ? null : categoryFilter;
+        draftCategory = !sidebarEnabled() || CategoryChoices.ALL.equals(categoryFilter) || CategoryChoices.UNCATEGORIZED.equals(categoryFilter) ? null : categoryFilter;
 		Minecraft.getInstance().setScreen(new GroupEditorScreen(this, group));
 	}
 
@@ -512,6 +529,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
+        refreshSidebarSetting();
         renderBackground(g);
         pendingTooltip = null;
         boolean popup = hasPendingDialog() || batchMenuOpen || sortMenuOpen;
@@ -535,7 +553,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
                 ? Component.translatable(ModTranslationKeys.MANAGER_COUNT_ALL, allCards.size())
                 : Component.translatable(ModTranslationKeys.MANAGER_COUNT_FILTERED, filteredCards.size(), allCards.size());
         Component fullCount = count;
-        if (!sidebarVisible()) {
+        if (sidebarEnabled() && !sidebarVisible()) {
             Component category = CategoryChoices.name(categoryFilter, categories.snapshot(), GroupRepository.resourceData());
             fullCount = Component.translatable("collapsible_groups.manager.category_count", category, count);
             int categoryWidth = headerLayout.titleWidth() - font.width(Component.translatable("collapsible_groups.manager.category_count", "", count));
@@ -557,7 +575,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             if (tooltip != null) pendingTooltip = tooltip;
             renderCategoryToggle(g, popup ? Integer.MIN_VALUE : mouseX, mouseY);
             if (drawerOpen) g.pose().popPose();
-        } else {
+        } else if (sidebarEnabled()) {
             Rect rail = contentLayout.rail();
             g.fill(rail.x(), rail.y(), rail.right(), rail.bottom(), UiPalette.SURFACE);
             g.fill(rail.right() - 1, rail.y(), rail.right(), rail.bottom(), UiPalette.OUTLINE_DARK);
@@ -597,6 +615,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     }
 
     private void renderCategoryToggle(GuiGraphics g, int mouseX, int mouseY) {
+        if (!sidebarEnabled()) return;
         Rect rect = contentLayout.categoryToggle(sidebarVisible());
         if (rect.height() < 20) return;
         boolean hover = rect.contains(mouseX, mouseY);
@@ -802,9 +821,9 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	}
 
     private void renderEmptyState(GuiGraphics g, int viewportTop, int viewportBottom) {
-        boolean hasCategory = allCards.stream().anyMatch(card -> CategoryChoices.ALL.equals(categoryFilter) || categoryFilter.equals(categoryFilterId(card)));
+        boolean hasCategory = allCards.stream().anyMatch(card -> CategoryChoices.ALL.equals(effectiveCategoryFilter()) || effectiveCategoryFilter().equals(categoryFilterId(card)));
         String key = hiddenEmptyCount > 0 ? "collapsible_groups.manager.empty_hidden"
-            : !hasCategory && !CategoryChoices.ALL.equals(categoryFilter) ? "collapsible_groups.manager.empty_category" : ModTranslationKeys.MANAGER_EMPTY_SEARCH;
+            : !hasCategory && !CategoryChoices.ALL.equals(effectiveCategoryFilter()) ? "collapsible_groups.manager.empty_category" : ModTranslationKeys.MANAGER_EMPTY_SEARCH;
         renderCenteredState(g, viewportTop, viewportBottom, Component.translatable(key));
     }
 
@@ -1294,7 +1313,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         }
         if (drawerOpen) {
             if (button == 0) {
-                if (contentLayout.categoryToggle(sidebarVisible()).contains(mouseX, mouseY)) { categoryButtonHeld = true; categoryToggleFocused = true; sidebarFocused = false; }
+                if (sidebarEnabled() && contentLayout.categoryToggle(sidebarVisible()).contains(mouseX, mouseY)) { categoryButtonHeld = true; categoryToggleFocused = true; sidebarFocused = false; }
                 else if (categorySidebar.contains(mouseX, mouseY)) {
                     categorySidebar.press(mouseX, mouseY);
                     sidebarFocused = true;
@@ -1307,7 +1326,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             clearTransientInputState();
             if (handleSearchFieldClick(mouseX, mouseY, button)) return true;
             blurSearchField();
-            if (contentLayout.categoryToggle(sidebarVisible()).contains(mouseX, mouseY)) { categoryButtonHeld = true; categoryToggleFocused = true; return true; }
+            if (sidebarEnabled() && contentLayout.categoryToggle(sidebarVisible()).contains(mouseX, mouseY)) { categoryButtonHeld = true; categoryToggleFocused = true; return true; }
             if (sidebarVisible() && categorySidebar.contains(mouseX, mouseY)) {
                 sidebarFocused = true;
                 categorySidebar.press(mouseX, mouseY);
@@ -1662,7 +1681,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
         }
         if (categoryButtonHeld) {
             categoryButtonHeld = false;
-            if (contentLayout.categoryToggle(sidebarVisible()).contains(mouseX, mouseY)) toggleCategorySidebar();
+            if (sidebarEnabled() && contentLayout.categoryToggle(sidebarVisible()).contains(mouseX, mouseY)) toggleCategorySidebar();
             return true;
         }
         if (sidebarVisible() && categorySidebar.pressed()) {
@@ -1806,7 +1825,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             }
             return true;
         }
-        if (categoryToggleFocused) {
+        if (sidebarEnabled() && categoryToggleFocused) {
             categoryButtonHeld = false;
             if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER || keyCode == GLFW.GLFW_KEY_SPACE) toggleCategorySidebar();
             else if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
@@ -1827,12 +1846,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             }
             if (keyCode == GLFW.GLFW_KEY_TAB) {
                 blurSearchField();
-                categoryToggleFocused = true;
+                if (sidebarEnabled()) categoryToggleFocused = true; else focusSettingsButton();
                 return true;
             }
             if (searchField.keyPressed(keyCode, scanCode, modifiers)) return true;
         }
-        if (keyCode == GLFW.GLFW_KEY_TAB) { categoryToggleFocused = true; return true; }
+        if (keyCode == GLFW.GLFW_KEY_TAB) { if (sidebarEnabled()) categoryToggleFocused = true; else focusSettingsButton(); return true; }
         return super.keyPressed(keyCode, scanCode, modifiers);
     }
 
@@ -1921,7 +1940,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		}
 		GroupManagerCard savedCard = findCurrentCard(context.groupId());
 		if (savedCard == null) return;
-        if (!CategoryChoices.ALL.equals(categoryFilter) && !categoryFilter.equals(categoryFilterId(savedCard))) {
+        if (sidebarEnabled() && !CategoryChoices.ALL.equals(categoryFilter) && !categoryFilter.equals(categoryFilterId(savedCard))) {
             categoryFilter = categoryFilterId(savedCard);
             GroupUiState.setManagerCategoryFilter(categoryFilter);
         }
