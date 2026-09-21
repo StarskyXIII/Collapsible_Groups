@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "id": "__default_gregtech_circuits",
+  "id": "__default_gregtech_circuits_zpm",
   "name": {
-    "translate": "collapsible_groups.group.__default_gregtech_circuits",
-    "fallback": "GregTech: Circuits"
+    "translate": "collapsible_groups.group.__default_gregtech_circuits_zpm",
+    "fallback": "GregTech: ZPM Circuits"
   },
   "enabled": true,
   "filter": {
@@ -14,7 +14,7 @@
       },
       {
         "type": "item",
-        "tag": "gtceu:circuits"
+        "tag": "gtceu:circuits/zpm"
       }
     ]
   }

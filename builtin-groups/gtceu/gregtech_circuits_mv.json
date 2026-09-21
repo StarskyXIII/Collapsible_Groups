@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "id": "__default_gregtech_wooden_doors",
+  "id": "__default_gregtech_circuits_mv",
   "name": {
-    "translate": "collapsible_groups.group.__default_gregtech_wooden_doors",
-    "fallback": "GregTech: Doors"
+    "translate": "collapsible_groups.group.__default_gregtech_circuits_mv",
+    "fallback": "GregTech: MV Circuits"
   },
   "enabled": true,
   "filter": {
@@ -14,7 +14,7 @@
       },
       {
         "type": "item",
-        "tag": "minecraft:wooden_doors"
+        "tag": "gtceu:circuits/mv"
       }
     ]
   }

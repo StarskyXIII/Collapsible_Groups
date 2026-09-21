@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "id": "__default_gregtech_wooden_trapdoors",
+  "id": "__default_gregtech_circuits_ulv",
   "name": {
-    "translate": "collapsible_groups.group.__default_gregtech_wooden_trapdoors",
-    "fallback": "GregTech: Trapdoors"
+    "translate": "collapsible_groups.group.__default_gregtech_circuits_ulv",
+    "fallback": "GregTech: ULV Circuits"
   },
   "enabled": true,
   "filter": {
@@ -14,7 +14,7 @@
       },
       {
         "type": "item",
-        "tag": "minecraft:wooden_trapdoors"
+        "tag": "gtceu:circuits/ulv"
       }
     ]
   }

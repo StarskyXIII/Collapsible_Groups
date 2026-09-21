@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_tools_electric_wire_cutters",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_tools_electric_wire_cutters",
+    "fallback": "GregTech: Electric Wire Cutters"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "forge:tools/wire_cutters"
+      },
+      {
+        "any": [
+          {
+            "item_path_starts_with": "ulv_"
+          },
+          {
+            "item_path_starts_with": "lv_"
+          },
+          {
+            "item_path_starts_with": "mv_"
+          },
+          {
+            "item_path_starts_with": "hv_"
+          },
+          {
+            "item_path_starts_with": "ev_"
+          },
+          {
+            "item_path_starts_with": "iv_"
+          },
+          {
+            "item_path_starts_with": "luv_"
+          },
+          {
+            "item_path_starts_with": "zpm_"
+          },
+          {
+            "item_path_starts_with": "uv_"
+          },
+          {
+            "item_path_starts_with": "uhv_"
+          },
+          {
+            "item_path_starts_with": "uev_"
+          },
+          {
+            "item_path_starts_with": "uiv_"
+          },
+          {
+            "item_path_starts_with": "uxv_"
+          },
+          {
+            "item_path_starts_with": "opv_"
+          },
+          {
+            "item_path_starts_with": "max_"
+          }
+        ]
+      }
+    ]
+  }
+}

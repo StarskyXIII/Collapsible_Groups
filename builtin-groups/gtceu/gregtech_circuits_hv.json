@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "id": "__default_gregtech_wooden_stairs",
+  "id": "__default_gregtech_circuits_hv",
   "name": {
-    "translate": "collapsible_groups.group.__default_gregtech_wooden_stairs",
-    "fallback": "GregTech: Stairs"
+    "translate": "collapsible_groups.group.__default_gregtech_circuits_hv",
+    "fallback": "GregTech: HV Circuits"
   },
   "enabled": true,
   "filter": {
@@ -14,7 +14,7 @@
       },
       {
         "type": "item",
-        "tag": "minecraft:stairs"
+        "tag": "gtceu:circuits/hv"
       }
     ]
   }

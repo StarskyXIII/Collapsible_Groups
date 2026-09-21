@@ -1,9 +1,9 @@
 {
   "schema_version": 1,
-  "id": "__default_gregtech_wooden_signs",
+  "id": "__default_gregtech_circuits_lv",
   "name": {
-    "translate": "collapsible_groups.group.__default_gregtech_wooden_signs",
-    "fallback": "GregTech: Signs"
+    "translate": "collapsible_groups.group.__default_gregtech_circuits_lv",
+    "fallback": "GregTech: LV Circuits"
   },
   "enabled": true,
   "filter": {
@@ -14,7 +14,7 @@
       },
       {
         "type": "item",
-        "tag": "minecraft:signs"
+        "tag": "gtceu:circuits/lv"
       }
     ]
   }
