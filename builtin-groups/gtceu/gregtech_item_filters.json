@@ -3,7 +3,7 @@
   "id": "__default_gregtech_item_filters",
   "name": {
     "translate": "collapsible_groups.group.__default_gregtech_item_filters",
-    "fallback": "GregTech: Item Filters"
+    "fallback": "GregTech: Filters"
   },
   "enabled": true,
   "filter": {
@@ -19,6 +19,14 @@
       {
         "type": "item",
         "id": "gtceu:item_smart_filter"
+      },
+      {
+        "type": "item",
+        "id": "gtceu:fluid_filter"
+      },
+      {
+        "type": "item",
+        "id": "gtceu:fluid_tag_filter"
       }
     ]
   }
