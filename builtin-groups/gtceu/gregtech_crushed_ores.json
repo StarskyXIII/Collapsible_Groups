@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_crushed_ores",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_crushed_ores",
+    "fallback": "GregTech: Crushed Ores"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:crushed_ores"
+      }
+    ]
+  }
+}

@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_solar_panels",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_solar_panels",
+    "fallback": "GregTech: Solar Panels"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "item_path_ends_with": "_solar_panel"
+          },
+          {
+            "type": "item",
+            "id": "gtceu:solar_panel"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_hpca_components",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_hpca_components",
+    "fallback": "GregTech: HPCA Components"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "all": [
+          {
+            "item_path_starts_with": "hpca_"
+          },
+          {
+            "item_path_ends_with": "_component"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_screwdriver_tips",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_screwdriver_tips",
+    "fallback": "GregTech: Screwdriver Tips"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "_screwdriver_tip"
+      }
+    ]
+  }
+}

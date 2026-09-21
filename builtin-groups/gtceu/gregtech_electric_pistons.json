@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_electric_pistons",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_electric_pistons",
+    "fallback": "GregTech: Electric Pistons"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "gtceu:electric_pistons"
+      }
+    ]
+  }
+}

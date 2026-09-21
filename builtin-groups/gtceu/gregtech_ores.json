@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_ores",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_ores",
+    "fallback": "GregTech: Ores"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "block_tag": "c:ores"
+      },
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      }
+    ]
+  }
+}

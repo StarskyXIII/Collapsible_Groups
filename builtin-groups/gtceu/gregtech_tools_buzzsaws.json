@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_tools_buzzsaws",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_tools_buzzsaws",
+    "fallback": "GregTech: Buzzsaws"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:tools/buzzsaw"
+      }
+    ]
+  }
+}

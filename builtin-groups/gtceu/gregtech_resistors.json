@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_resistors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_resistors",
+    "fallback": "GregTech: Resistors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "type": "item",
+            "tag": "gtceu:resistors"
+          },
+          {
+            "item_path_contains": "_smd_resistor"
+          }
+        ]
+      }
+    ]
+  }
+}

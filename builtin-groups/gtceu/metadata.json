@@ -1,0 +1,16 @@
+{
+  "loaders": [
+    "neoforge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.gtceu",
+    "fallback": "GregTech CEu"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "gtceu"
+      }
+    ]
+  }
+}

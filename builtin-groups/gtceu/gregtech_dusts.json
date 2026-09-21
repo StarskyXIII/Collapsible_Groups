@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_dusts",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_dusts",
+    "fallback": "GregTech: Dusts"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "c:dusts"
+      },
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      }
+    ]
+  }
+}

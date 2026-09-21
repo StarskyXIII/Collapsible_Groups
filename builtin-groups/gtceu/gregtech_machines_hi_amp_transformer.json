@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_machines_hi_amp_transformer",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_machines_hi_amp_transformer",
+    "fallback": "GregTech: Hi-Amp Transformers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "item_path_ends_with": "_transformer_2a"
+          },
+          {
+            "item_path_ends_with": "_transformer_4a"
+          }
+        ]
+      }
+    ]
+  }
+}

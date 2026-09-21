@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_circuits_mv",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_circuits_mv",
+    "fallback": "GregTech: MV Circuits"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "gtceu:circuits/mv"
+      }
+    ]
+  }
+}

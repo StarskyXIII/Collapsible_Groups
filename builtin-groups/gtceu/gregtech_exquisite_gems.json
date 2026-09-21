@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_exquisite_gems",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_exquisite_gems",
+    "fallback": "GregTech: Exquisite Gems"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:exquisite_gems"
+      }
+    ]
+  }
+}

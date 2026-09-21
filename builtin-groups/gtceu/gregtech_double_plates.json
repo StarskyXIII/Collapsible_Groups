@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_double_plates",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_double_plates",
+    "fallback": "GregTech: Double Plates"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:double_plates"
+      }
+    ]
+  }
+}

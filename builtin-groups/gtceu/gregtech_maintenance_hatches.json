@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_maintenance_hatches",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_maintenance_hatches",
+    "fallback": "GregTech: Maintenance Hatches"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "item_path_ends_with": "_maintenance_hatch"
+          },
+          {
+            "type": "item",
+            "id": "gtceu:maintenance_hatch"
+          }
+        ]
+      }
+    ]
+  }
+}

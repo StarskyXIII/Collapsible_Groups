@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_purified_dusts",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_purified_dusts",
+    "fallback": "GregTech: Purified Dusts"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "c:pure_dusts"
+      },
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_tools_butchery_knives",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_tools_butchery_knives",
+    "fallback": "GregTech: Butchery Knives"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:tools/butchery_knife"
+      }
+    ]
+  }
+}
