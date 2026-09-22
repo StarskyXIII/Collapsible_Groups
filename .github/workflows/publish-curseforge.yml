@@ -82,10 +82,22 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
 
       - name: Build and check all loaders
+        id: build
         run: >-
-          bash ./gradlew --no-daemon --console=plain
+          bash ./gradlew --no-daemon --console=plain --stacktrace --info
           :buildSrc:test :common:check :neoforge:check
           :fabric:build :forge:build :neoforge:build
+
+      - name: Save failed test reports
+        if: failure() && steps.build.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: test-reports
+          path: |
+            **/build/test-results/**/*.xml
+            **/build/reports/tests/**
+          if-no-files-found: warn
+          retention-days: 14
 
       - name: Verify and collect release files
         run: python3 -B .github/scripts/curseforge_release.py stage --release-type "$RELEASE_TYPE"
