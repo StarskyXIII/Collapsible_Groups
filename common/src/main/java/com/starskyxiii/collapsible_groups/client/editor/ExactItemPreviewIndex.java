@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.function.ToIntFunction;
 
 public final class ExactItemPreviewIndex {
@@ -52,13 +53,26 @@ public final class ExactItemPreviewIndex {
 	}
 
 	public List<ItemStack> resolve(GroupFilter filter, GroupItemSelector.ExactDecodeContext context) {
+		refreshRegistry(context);
+		BitSet matches = evaluate(filter, context).matches();
+		return matches.stream().mapToObj(items::get).toList();
+	}
+
+	public void collectExactMatches(String selector, GroupItemSelector.ExactDecodeContext context,
+		Consumer<ItemStack> target) {
+		if (!GroupItemSelector.isExactSelector(selector)) return;
+		refreshRegistry(context);
+		for (int ordinal : exactMatches(selector.substring("stack:".length()), context).ordinals()) {
+			target.accept(items.get(ordinal));
+		}
+	}
+
+	private void refreshRegistry(GroupItemSelector.ExactDecodeContext context) {
 		if (registryIdentity != context.registryIdentity()) {
 			selectors.clear();
 			retainedBytes = 0;
 			registryIdentity = context.registryIdentity();
 		}
-		BitSet matches = evaluate(filter, context).matches();
-		return matches.stream().mapToObj(items::get).toList();
 	}
 
 	private Result evaluate(GroupFilter filter, GroupItemSelector.ExactDecodeContext context) {
@@ -173,11 +187,11 @@ public final class ExactItemPreviewIndex {
 		return all;
 	}
 
-	long decodes() { return decodes; }
+	public long decodes() { return decodes; }
 	long leafEvaluations() { return leafEvaluations; }
 	long idLookups() { return idLookups; }
 	int candidateViews() { return views.size(); }
-	long comparisons() { return comparisons; }
+	public long comparisons() { return comparisons; }
 	long cacheHits() { return cacheHits; }
 	int cachedSelectors() { return selectors.size(); }
 	long retainedBytes() { return retainedBytes; }
