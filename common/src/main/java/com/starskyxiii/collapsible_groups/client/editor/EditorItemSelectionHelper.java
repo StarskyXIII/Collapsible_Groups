@@ -4,63 +4,99 @@ import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.IdentityHashMap;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.ToIntFunction;
 import java.util.stream.Collectors;
 
 final class EditorItemSelectionHelper {
-	private final IdentityHashMap<ItemStack, Optional<String>> exactSelectorCache = new IdentityHashMap<>();
-    private final java.util.Map<String, Optional<ItemStack>> decodedSelections = new java.util.HashMap<>();
+    private final IdentityHashMap<ItemStack, EncodedSelection> exactSelectorCache = new IdentityHashMap<>();
+    private final Map<String, Optional<ItemStack>> decodedSelections = new HashMap<>();
+    private final ToIntFunction<ItemStack> hash;
     private Object registryIdentity;
     private Set<String> indexedSelections;
-    private int indexedSize = -1;
-    private final java.util.Map<Integer, List<ItemStack>> selectionBuckets = new java.util.HashMap<>();
+    private final Map<Integer, List<ItemStack>> selectionBuckets = new HashMap<>();
+
+    EditorItemSelectionHelper() {
+        this(ItemStack::hashItemAndComponents);
+    }
+
+    EditorItemSelectionHelper(ToIntFunction<ItemStack> hash) {
+        this.hash = hash;
+    }
 
 	Optional<String> cachedExactSelector(ItemStack stack) {
-		refreshRegistry();
-		return exactSelectorCache.computeIfAbsent(stack, GroupItemSelector::tryExactSelector);
+        refreshRegistry(GroupItemSelector.exactDecodeContext());
+        EncodedSelection cached = exactSelectorCache.get(stack);
+        if (cached != null && ItemStack.isSameItemSameComponents(cached.snapshot(), stack)) {
+            return Optional.of(cached.selector());
+        }
+        exactSelectorCache.remove(stack);
+        ItemStack snapshot = GroupItemSelector.normalizedCopy(stack);
+        Optional<String> encoded = GroupItemSelector.tryExactSelector(snapshot);
+        encoded.ifPresent(selector -> exactSelectorCache.put(stack, new EncodedSelection(snapshot, selector)));
+        return encoded;
 	}
 
 	void clearCache() { exactSelectorCache.clear(); decodedSelections.clear(); selectionChanged(); }
 
     void selectionChanged() {
         indexedSelections = null;
-        indexedSize = -1;
         selectionBuckets.clear();
     }
 
     private void indexSelections(Set<String> explicitSet) {
-        refreshRegistry();
-        if (indexedSelections == explicitSet && indexedSize == explicitSet.size()) return;
+        var context = GroupItemSelector.exactDecodeContext();
+        refreshRegistry(context);
+        if (indexedSelections == explicitSet) return;
         selectionBuckets.clear();
+        boolean retry = false;
         for (String selector : explicitSet) {
             if (!GroupItemSelector.isExactSelector(selector)) continue;
-            decodedSelections.computeIfAbsent(selector, GroupItemSelector::decodeExactSelector).ifPresent(decoded ->
-                selectionBuckets.computeIfAbsent(ItemStack.hashItemAndComponents(decoded), ignored -> new java.util.ArrayList<>()).add(decoded));
+            Optional<ItemStack> decoded = decode(selector, context);
+            decoded.ifPresent(this::indexSelection);
+            retry |= decoded.isEmpty() && !context.liveRegistry();
         }
-        indexedSelections = explicitSet;
-        indexedSize = explicitSet.size();
+        indexedSelections = retry ? null : explicitSet;
     }
 
-    private void refreshRegistry() {
-        Object current = GroupItemSelector.registryIdentity();
+    private void refreshRegistry(GroupItemSelector.ExactDecodeContext context) {
+        Object current = context.registryIdentity();
         if (registryIdentity != current) {
             clearCache();
             registryIdentity = current;
         }
     }
 
-    private boolean equivalent(String selector, ItemStack stack) {
-        refreshRegistry();
-        if (!GroupItemSelector.isExactSelector(selector)) return false;
-        return decodedSelections.computeIfAbsent(selector, GroupItemSelector::decodeExactSelector)
-            .map(decoded -> ItemStack.isSameItemSameComponents(decoded, stack)).orElse(false);
+    private Optional<ItemStack> decode(String selector, GroupItemSelector.ExactDecodeContext context) {
+        Optional<ItemStack> cached = decodedSelections.get(selector);
+        if (cached != null) return cached;
+        Optional<ItemStack> decoded = GroupItemSelector.decodeExactSelector(selector, context);
+        if (decoded.isPresent() || context.liveRegistry()) decodedSelections.put(selector, decoded);
+        return decoded;
+    }
+
+    private void indexSelection(ItemStack stack) {
+        selectionBuckets.computeIfAbsent(hash.applyAsInt(stack), ignored -> new ArrayList<>()).add(stack);
+    }
+
+    private boolean containsIndexed(ItemStack stack) {
+        for (ItemStack selected : selectionBuckets.getOrDefault(hash.applyAsInt(stack), List.of())) {
+            if (ItemStack.isSameItemSameComponents(selected, stack)) return true;
+        }
+        return false;
     }
 
     private boolean removeEquivalent(ItemStack stack, Set<String> explicitSet) {
         selectionChanged();
-        return explicitSet.removeIf(selector -> equivalent(selector, stack));
+        var context = GroupItemSelector.exactDecodeContext();
+        refreshRegistry(context);
+        return explicitSet.removeIf(selector -> GroupItemSelector.isExactSelector(selector)
+            && decode(selector, context).map(decoded -> ItemStack.isSameItemSameComponents(decoded, stack)).orElse(false));
     }
 
 	boolean isWholeItemSelected(ItemStack stack, Set<String> explicitSet) {
@@ -70,10 +106,7 @@ final class EditorItemSelectionHelper {
 	boolean isExactSelected(ItemStack stack, Set<String> explicitSet) {
 		if (cachedExactSelector(stack).map(explicitSet::contains).orElse(false)) return true;
         indexSelections(explicitSet);
-        for (ItemStack selected : selectionBuckets.getOrDefault(ItemStack.hashItemAndComponents(stack), List.of())) {
-            if (ItemStack.isSameItemSameComponents(selected, stack)) return true;
-        }
-        return false;
+        return containsIndexed(stack);
 	}
 
 	/**
@@ -154,6 +187,7 @@ final class EditorItemSelectionHelper {
 	}
 
 	private boolean removeExactSelectionsForItem(ItemStack stack, Set<String> explicitSet) {
+        selectionChanged();
 		Set<String> selectors = explicitSet.stream()
 			.filter(GroupItemSelector::isExactSelector)
 			.filter(selector -> GroupItemSelector.isSelectorForSameItem(selector, stack))
@@ -163,14 +197,19 @@ final class EditorItemSelectionHelper {
 
 	private void addAllSiblingVariantsExcept(ItemStack excludedStack, List<ItemStack> allItems,
 		Set<String> explicitSet) {
-				for (ItemStack candidate : allItems) {
-			if (GroupItemSelector.sameItem(candidate, excludedStack)) {
-				cachedExactSelector(candidate).ifPresent(selector -> {
-					if (!ItemStack.isSameItemSameComponents(candidate, excludedStack) && !isExactSelected(candidate, explicitSet)) {
-						explicitSet.add(selector);
-					}
-				});
-			}
-		}
+        indexSelections(explicitSet);
+        try {
+            for (ItemStack candidate : allItems) {
+                if (!GroupItemSelector.sameItem(candidate, excludedStack)
+                    || ItemStack.isSameItemSameComponents(candidate, excludedStack) || containsIndexed(candidate)) continue;
+                cachedExactSelector(candidate).ifPresent(selector -> {
+                    if (explicitSet.add(selector)) indexSelection(GroupItemSelector.normalizedCopy(candidate));
+                });
+            }
+        } finally {
+            selectionChanged();
+        }
 	}
+
+    private record EncodedSelection(ItemStack snapshot, String selector) {}
 }
