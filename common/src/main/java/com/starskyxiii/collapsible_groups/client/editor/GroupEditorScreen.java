@@ -1095,6 +1095,16 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		var release = performanceTrace.beginRelease(activeMode.name(), rightPanel.groupItems().size(),
+			button == 0 && saveButtonHeld && shell.saveButton().contains(mouseX, mouseY));
+		try {
+			return handleEditorRelease(mouseX, mouseY, button);
+		} finally {
+			performanceTrace.endRelease(release, minecraft.screen == parent.asScreen());
+		}
+	}
+
+	private boolean handleEditorRelease(double mouseX, double mouseY, int button) {
 		if (discardDialogOpen) {
 			if (button == 0) executeDiscardAction(dialogPress.release(ConfirmDialog.hitTest(width, height, mouseX, mouseY)));
 			modalGesture = false;

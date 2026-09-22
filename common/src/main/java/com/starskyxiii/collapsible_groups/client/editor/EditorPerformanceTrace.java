@@ -10,6 +10,7 @@ import jdk.jfr.Timespan;
 final class EditorPerformanceTrace {
 	private static final EventType FRAME = EventType.getEventType(Frame.class);
 	private static final EventType CLICK = EventType.getEventType(Click.class);
+	private static final EventType RELEASE = EventType.getEventType(Release.class);
 	private long previousFrame;
 	private long pendingClick;
 
@@ -54,6 +55,33 @@ final class EditorPerformanceTrace {
 		if (click == null) return;
 		click.end();
 		click.commit();
+	}
+
+	Release beginRelease(String mode, int members, boolean saveRequested) {
+		if (!RELEASE.isEnabled()) return null;
+		Release release = new Release();
+		release.mode = mode;
+		release.members = members;
+		release.saveRequested = saveRequested;
+		release.begin();
+		return release;
+	}
+
+	void endRelease(Release release, boolean returnedToParent) {
+		if (release == null) return;
+		release.end();
+		release.returnedToParent = returnedToParent;
+		release.commit();
+	}
+
+	@Name("collapsible_groups.EditorRelease")
+	@Category("Collapsible Groups")
+	@StackTrace(false)
+	static final class Release extends Event {
+		public String mode;
+		public int members;
+		public boolean saveRequested;
+		public boolean returnedToParent;
 	}
 
 	@Name("collapsible_groups.EditorFrame")
