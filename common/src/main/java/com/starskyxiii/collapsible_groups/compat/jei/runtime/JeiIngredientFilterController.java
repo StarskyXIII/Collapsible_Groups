@@ -97,6 +97,7 @@ public final class JeiIngredientFilterController {
 	}
 
 	public void initialize() {
+		JeiIngredientSourceState.deactivate();
 		sourceRevision++;
 		indexedSource = null;
 		if (fullChangeSubscription != null) fullChangeSubscription.close();
@@ -270,27 +271,28 @@ public final class JeiIngredientFilterController {
 
 	private void buildStructureCache(List<ITypedIngredient<?>> ingredients) {
 		long traceStart = hooks.traceBuilds() ? PerformanceTrace.begin() : 0L;
-		List<ITypedIngredient<?>> all = cachedFullList;
-		if (hooks.fluidCachePolicy() == FluidCachePolicy.INDEPENDENT) {
-			if (all == null) {
-				all = uncachedIngredients.apply("").toList();
-				cachedFullList = all;
+		JeiIngredientSourceState.SourceToken expected;
+		long revision;
+		List<ITypedIngredient<?>> all;
+		synchronized (this) {
+			expected = JeiIngredientSourceState.capture(ingredientManager);
+			revision = sourceRevision;
+			all = cachedFullList;
+		}
+		if (all == null) all = uncachedIngredients.apply("").toList();
+		synchronized (this) {
+			if (sourceRevision != revision) {
+				installRawStructure(ingredients);
+				return;
 			}
-			if (GroupRegistry.isJeiAllItemsEmpty()) {
-				GroupRegistry.setJeiAllItems(all.stream().flatMap(i -> i.getItemStack().stream()).toList());
-			}
-			if (hooks.hasFluidType() && GroupRegistry.isJeiAllFluidsEmpty()) {
-				GroupRegistry.setJeiAllFluids(extractFluids(all));
-			}
-		} else if (GroupRegistry.isJeiAllItemsEmpty()) {
-			if (all == null) all = uncachedIngredients.apply("").toList();
-			cachedFullList = all;
-			GroupRegistry.setJeiAllItems(all.stream().flatMap(i -> i.getItemStack().stream()).toList());
-			if (hooks.hasFluidType()) GroupRegistry.setJeiAllFluids(extractFluids(all));
-		} else if (all == null) {
-			all = uncachedIngredients.apply("").toList();
 			cachedFullList = all;
 		}
+		boolean needsItems = GroupRegistry.isJeiAllItemsEmpty();
+		boolean needsFluids = hooks.hasFluidType() && GroupRegistry.isJeiAllFluidsEmpty()
+			&& (needsItems || hooks.fluidCachePolicy() == FluidCachePolicy.INDEPENDENT);
+		JeiIngredientSourceState.install(expected,
+			needsItems ? all.stream().flatMap(i -> i.getItemStack().stream()).toList() : null,
+			needsFluids ? extractFluids(all) : null);
 
 		if (hooks.beforeIndex(all, ingredientManager)) {
 			viewerIndex.requestRebuild(GroupRegistry.getAllIncludingKubeJs());

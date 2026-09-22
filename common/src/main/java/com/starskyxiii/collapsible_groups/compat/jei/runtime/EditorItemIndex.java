@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.client.editor.ExactItemPreviewIndex;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
@@ -14,7 +15,6 @@ import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.function.Function;
 
 /**
@@ -34,6 +34,7 @@ import java.util.function.Function;
 public final class EditorItemIndex {
 
 	private final List<ItemStack> orderedItems;
+	private final ExactItemPreviewIndex exactItems;
 	private final Map<ResourceLocation, List<ItemStack>> byId;
 	private final Map<ResourceLocation, List<ItemStack>> byTag;
 	/** Maps each ItemStack object identity -> its stable index in JEI order. */
@@ -58,6 +59,7 @@ public final class EditorItemIndex {
 		IdentityHashMap<ItemStack, Integer> orderByIdentity
 	) {
 		this.orderedItems = orderedItems;
+		this.exactItems = new ExactItemPreviewIndex(orderedItems);
 		this.byId = byId;
 		this.byTag = byTag;
 		this.orderByIdentity = orderByIdentity;
@@ -121,6 +123,7 @@ public final class EditorItemIndex {
 		IdentityHashMap<ItemStack, Boolean> matched = new IdentityHashMap<>();
 
 		// --- Explicit item selectors (whole-item or exact-stack) ---
+		var context = GroupItemSelector.exactDecodeContext();
 		for (String selector : draft.explicitItemSelectors()) {
 			if (GroupItemSelector.isWholeItemSelector(selector)) {
 				// Whole-item selector: all JEI variants of this registry ID
@@ -132,21 +135,7 @@ public final class EditorItemIndex {
 					}
 				}
 			} else {
-				// Exact-stack selector: decode once, then narrow to registry-ID bucket
-				Optional<ItemStack> decoded = GroupItemSelector.decodeExactSelector(selector);
-				decoded.ifPresent(reference -> {
-					ResourceLocation id = BuiltInRegistries.ITEM.getKey(reference.getItem());
-					if (id != null) {
-						List<ItemStack> bucket = byId.get(id);
-						if (bucket != null) {
-							for (ItemStack candidate : bucket) {
-								if (ItemStack.isSameItemSameTags(reference, candidate)) {
-									matched.put(candidate, Boolean.TRUE);
-								}
-							}
-						}
-					}
-				});
+				exactItems.collectExactMatches(selector, context, stack -> matched.put(stack, Boolean.TRUE));
 			}
 		}
 
@@ -225,6 +214,9 @@ public final class EditorItemIndex {
 		cachedPreservedValue = resolved;
 		return resolved;
 	}
+
+	long exactDecodes() { return exactItems.decodes(); }
+	long exactComparisons() { return exactItems.comparisons(); }
 
 	/** Whether correctness verification mode is active (development only). */
 	public static boolean isVerifyEnabled() {

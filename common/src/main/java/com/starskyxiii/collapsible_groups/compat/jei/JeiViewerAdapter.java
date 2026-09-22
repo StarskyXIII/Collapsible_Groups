@@ -88,6 +88,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	}
 
 	public static synchronized void unregisterRuntime() {
+		com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientSourceState.deactivate();
 		INSTANCE.editorRuntimeAccess.closeEditor();
         JeiViewerGroupIndex.instance().reset();
 		if (runtimeRegistration != null) {

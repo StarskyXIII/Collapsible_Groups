@@ -205,12 +205,10 @@ public final class GroupRegistry {
 	// JEI ingredient caches
 	// -----------------------------------------------------------------------
 
-	public static void setJeiAllItems(List<ItemStack> items)   { JeiIngredientSourceState.setItems(items); }
 	public static boolean isJeiAllItemsEmpty()                  { return JeiIngredientSourceState.itemsEmpty(); }
 	public static List<ItemStack> getJeiAllItems()              { return JeiIngredientSourceState.items(); }
 	public static void clearJeiAllItems()                       { JeiIngredientSourceState.clearItems(); clearResolvedCaches(); }
 
-	public static void setJeiAllFluids(List<Object> fluids)     { JeiIngredientSourceState.setFluids(fluids); }
 	public static boolean isJeiAllFluidsEmpty()                  { return JeiIngredientSourceState.fluidsEmpty(); }
 	public static List<Object> getJeiAllFluids()                 { return JeiIngredientSourceState.fluids(); }
 	public static void clearJeiAllFluids()                       { JeiIngredientSourceState.clearFluids(); clearManagerPreviewCaches(); }
@@ -221,7 +219,7 @@ public final class GroupRegistry {
 
 	/**
 	 * Returns the cached {@link EditorItemIndex}, building it lazily on first call.
-	 * The index is invalidated whenever {@link #setJeiAllItems} or {@link #clearJeiAllItems}
+	 * The index is invalidated whenever {@link #clearJeiAllItems}
 	 * is called, so it always reflects the current JEI item cache generation.
 	 */
 	public static void warmEditorItemIndex() {
