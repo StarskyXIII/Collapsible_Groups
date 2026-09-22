@@ -42,6 +42,8 @@ final class EditorStateCore {
 	// indexed item preview must not be used for it — see canUseIndexedItemPreview().
 	private boolean flatIndexPreviewSafe;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
+	private GroupFilterRuleDraft compiledDraft;
+	private Optional<GroupFilter> compiledFilter = Optional.empty();
 	private Optional<GroupFilter> validatedFilter;
 	private List<Component> validationErrors = List.of();
 	private int validationRuns;
@@ -111,7 +113,11 @@ final class EditorStateCore {
 		if (readOnlyFilter) {
 			return Optional.of(existingDefinition.filter());
 		}
-		return ruleDraft.toFilter().map(filter -> GroupFormatPolicy.editorFilter(documentFormat(), filter));
+		if (!ruleDraft.contentEquals(compiledDraft)) {
+			compiledFilter = ruleDraft.toFilter().map(filter -> GroupFormatPolicy.editorFilter(documentFormat(), filter));
+			compiledDraft = ruleDraft.copy();
+		}
+		return compiledFilter;
 	}
 
 	GroupDefinition buildPreviewDefinition(String editId, String editName, boolean editEnabled) {
