@@ -8,6 +8,8 @@ import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
+import com.google.gson.JsonParser;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchDocument;
 import net.minecraft.network.chat.Component;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,77 @@ import static org.junit.jupiter.api.Assertions.assertSame;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class EditorStateCoreTest {
+	@Test void compiledSnapshotDetectsSameSizeReplacementAndReordering() {
+		EditorStateCore core = new EditorStateCore(new GroupDefinition("test", "Test", true,
+			Filters.any(Filters.itemId("minecraft:stone"), Filters.itemId("minecraft:dirt"))), () -> {});
+		var original = core.buildCurrentFilter();
+		var children = core.selectedRuleNode().children();
+		java.util.Collections.swap(children, 0, 1);
+		var reordered = core.buildCurrentFilter();
+		org.junit.jupiter.api.Assertions.assertNotSame(original, reordered);
+		assertEquals(Filters.any(Filters.itemId("minecraft:dirt"), Filters.itemId("minecraft:stone")), reordered.orElseThrow());
+		var replacement = GroupFilterRuleDraft.decode(Filters.itemId("minecraft:diamond")).root();
+		children.set(0, replacement);
+		assertEquals(Filters.any(Filters.itemId("minecraft:diamond"), Filters.itemId("minecraft:stone")),
+			core.buildCurrentFilter().orElseThrow());
+		assertSame(core.buildCurrentFilter(), core.buildCurrentFilter());
+	}
+
+	@Test void rawFieldChangesInvalidateEvenWithoutNotification() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		var node = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.ID);
+		node.setPrimaryValue("minecraft:stone");
+		var id = core.buildCurrentFilter();
+		node.setIngredientType("fluid");
+		assertEquals(Filters.id("fluid", "minecraft:stone"), core.buildCurrentFilter().orElseThrow());
+		org.junit.jupiter.api.Assertions.assertNotSame(id, core.buildCurrentFilter());
+		node.setKind(GroupFilterRuleDraft.NodeKind.COMPONENT_PATH);
+		node.setPrimaryValue("minecraft:custom_data");
+		node.setSecondaryValue("marker");
+		node.setTertiaryValue("1");
+		var first = core.buildCurrentFilter();
+		node.setSecondaryValue("other");
+		var second = core.buildCurrentFilter();
+		org.junit.jupiter.api.Assertions.assertNotEquals(first, second);
+		node.setTertiaryValue("2");
+		org.junit.jupiter.api.Assertions.assertNotEquals(second, core.buildCurrentFilter());
+	}
+
+	@Test void cachedFilterFollowsContentsWrapDeleteAndCancelledTransaction() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		core.setContentsQuickEditAvailable(true);
+		var contents = GroupFilterEditorDraft.empty();
+		contents.explicitItemSelectors().add("minecraft:stone");
+		core.syncRulesFromContentsDraft(contents);
+		var original = core.buildCurrentFilter().orElseThrow();
+		assertEquals(Filters.itemId("minecraft:stone"), original);
+		var node = core.selectedRuleNode();
+		assertTrue(core.beginRuleEdit(node));
+		node.setPrimaryValue("minecraft:dirt");
+		assertEquals(Filters.itemId("minecraft:dirt"), core.buildCurrentFilter().orElseThrow());
+		core.cancelRuleEdit();
+		assertEquals(original, core.buildCurrentFilter().orElseThrow());
+		core.wrapSelectedRule(GroupFilterRuleDraft.NodeKind.NOT);
+		assertEquals(Filters.not(original), core.buildCurrentFilter().orElseThrow());
+		core.deleteSelectedRule();
+		assertTrue(core.buildCurrentFilter().isEmpty());
+		assertFalse(core.canSave("Test"));
+		assertSame(core.buildCurrentFilter(), core.buildCurrentFilter());
+	}
+
+	@Test void exactSnapshotKeepsDocumentDataFormatAfterUnannouncedEdit() {
+		EditorStateCore core = new EditorStateCore(null, () -> {});
+		var node = core.insertRuleRelative(GroupFilterRuleDraft.NodeKind.EXACT_STACK);
+		node.setPrimaryValue("{\"id\":\"minecraft:stone\",\"count\":1}");
+		var first = assertInstanceOf(GroupFilter.ExactStack.class, core.buildCurrentFilter().orElseThrow());
+		assertEquals("minecraft:item_components", first.payload().dataFormat());
+		node.setPrimaryValue("{\"id\":\"minecraft:dirt\",\"count\":1}");
+		var second = assertInstanceOf(GroupFilter.ExactStack.class, core.buildCurrentFilter().orElseThrow());
+		assertEquals(first.payload().dataFormat(), second.payload().dataFormat());
+		assertEquals("minecraft:dirt", second.payload().data().getAsJsonObject().get("id").getAsString());
+		assertSame(second, core.buildCurrentFilter().orElseThrow());
+	}
+
 	@Test
 	void deletingNamespaceKeepsPreviewEmptyAcrossPendingPickerKinds() {
 		for (String type : List.of("item", "fluid", "emi:mekanism_chemical")) {
@@ -126,20 +199,26 @@ class EditorStateCoreTest {
 	}
 
 	@Test
-	void stableLargeExactDraftReusesValidation() {
-		List<GroupFilter> filters = java.util.stream.IntStream.range(0, 6165)
-			.<GroupFilter>mapToObj(i -> new GroupFilter.ExactStack("{\"id\":\"minecraft:stone\",\"count\":" + (i + 1) + "}"))
+	void stableLargeExactDraftReusesCompilationAndValidation() {
+		List<GroupFilter> filters = java.util.stream.IntStream.range(0, 6322)
+			.<GroupFilter>mapToObj(i -> new GroupFilter.ExactStack(new ItemDataPayload(ItemDataPayload.ITEM_COMPONENTS,
+				JsonParser.parseString("{\"id\":\"minecraft:stone\",\"count\":" + (i + 1) + "}"))))
 			.toList();
 		EditorStateCore core = new EditorStateCore(new GroupDefinition("large", "Large", true,
 			new GroupFilter.Any(filters)), () -> {});
 		int initial = core.validationRuns();
+		var compiled = core.buildCurrentFilter();
 		for (int i = 0; i < 100; i++) {
+			assertSame(compiled, core.buildCurrentFilter());
 			assertTrue(core.canSave("Large"));
 			assertTrue(core.currentValidationErrors().isEmpty());
 		}
 		assertEquals(initial, core.validationRuns());
 		assertFalse(core.canSave(" "));
 		assertTrue(core.canSave("Renamed"));
+		core.buildPreviewDefinition("large", "Renamed", false,
+			AppearanceDraft.fromIconIds(List.of(), GroupTheme.EMPTY), 7);
+		assertSame(compiled, core.buildCurrentFilter());
 	}
 
 	@Test
