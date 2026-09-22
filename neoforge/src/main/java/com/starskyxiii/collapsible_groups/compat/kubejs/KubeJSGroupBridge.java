@@ -14,7 +14,6 @@ import com.starskyxiii.collapsible_groups.viewer.ViewerBootstrapContext;
 import com.starskyxiii.collapsible_groups.viewer.ViewerBootstrapEntries;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientType;
-import dev.latvian.mods.kubejs.plugin.builtin.event.RecipeViewerEvents;
 import dev.latvian.mods.kubejs.event.EventResult;
 import dev.latvian.mods.kubejs.event.EventHandler;
 import dev.latvian.mods.kubejs.event.KubeEvent;
@@ -46,6 +45,7 @@ public final class KubeJSGroupBridge {
 	}
 
 	public static void applyGroups(ViewerBootstrapContext<?> bootstrap) {
+		if (!KubeJSCompatibility.isSupported()) return;
 		List<ItemStack> allItems = ViewerBootstrapEntries.itemStacks(bootstrap);
 		List<FluidStack> allFluids = ViewerBootstrapEntries.resourceIds(bootstrap, ViewerIngredient.Kind.FLUID).stream()
 			.map(BuiltInRegistries.FLUID::get)
@@ -65,19 +65,19 @@ public final class KubeJSGroupBridge {
 		}
 
 		KubeJsMaterializationCapture itemCapture = publication.capture(CLIENT_ITEM);
-		if (RecipeViewerEvents.GROUP_ENTRIES.hasListeners(RecipeViewerEntryType.ITEM)) {
+		if (KubeJSCompatibility.groupEntries().hasListeners(RecipeViewerEntryType.ITEM)) {
 			JEIGroupEntriesKubeEvent event = new JEIGroupEntriesKubeEvent(allItems, CLIENT_ITEM, itemCapture);
-			if (postFailed(RecipeViewerEvents.GROUP_ENTRIES, event,
-				() -> RecipeViewerEvents.GROUP_ENTRIES.post(
+			if (postFailed(KubeJSCompatibility.groupEntries(), event,
+				() -> KubeJSCompatibility.groupEntries().post(
 					ScriptType.CLIENT, RecipeViewerEntryType.ITEM, event))) return;
 			publication.replace(CLIENT_ITEM, acceptedGroups(CLIENT_ITEM, event.collectedGroups()));
 		}
 
 		KubeJsMaterializationCapture fluidCapture = publication.capture(CLIENT_FLUID);
-		if (RecipeViewerEvents.GROUP_ENTRIES.hasListeners(RecipeViewerEntryType.FLUID)) {
+		if (KubeJSCompatibility.groupEntries().hasListeners(RecipeViewerEntryType.FLUID)) {
 			JEIFluidGroupEntriesKubeEvent event = new JEIFluidGroupEntriesKubeEvent(allFluids, CLIENT_FLUID, fluidCapture);
-			if (postFailed(RecipeViewerEvents.GROUP_ENTRIES, event,
-				() -> RecipeViewerEvents.GROUP_ENTRIES.post(
+			if (postFailed(KubeJSCompatibility.groupEntries(), event,
+				() -> KubeJSCompatibility.groupEntries().post(
 					ScriptType.CLIENT, RecipeViewerEntryType.FLUID, event))) return;
 			publication.replace(CLIENT_FLUID, acceptedGroups(CLIENT_FLUID, event.collectedGroups()));
 		}
@@ -94,11 +94,11 @@ public final class KubeJSGroupBridge {
 	private static boolean applyGenericType(String typeId, List<? extends ViewerIngredient<?>> ingredients,
 		KubeJsGroupPublication.Session publication) {
 		RecipeViewerEntryType entryType = RecipeViewerEntryType.fromString(typeId);
-		if (entryType == null || !RecipeViewerEvents.GROUP_ENTRIES.hasListeners(entryType) || ingredients.isEmpty()) return true;
+		if (entryType == null || !KubeJSCompatibility.groupEntries().hasListeners(entryType) || ingredients.isEmpty()) return true;
 		String source = "client:generic:" + typeId;
 		JEIGenericGroupEntriesKubeEvent<Object> event = new JEIGenericGroupEntriesKubeEvent<>(typeId, source);
-		if (postFailed(RecipeViewerEvents.GROUP_ENTRIES, event,
-			() -> RecipeViewerEvents.GROUP_ENTRIES.post(ScriptType.CLIENT, entryType, event))) return false;
+		if (postFailed(KubeJSCompatibility.groupEntries(), event,
+			() -> KubeJSCompatibility.groupEntries().post(ScriptType.CLIENT, entryType, event))) return false;
 		publication.replace(source, acceptedGroups(source, event.collectedGroups()));
 		return true;
 	}

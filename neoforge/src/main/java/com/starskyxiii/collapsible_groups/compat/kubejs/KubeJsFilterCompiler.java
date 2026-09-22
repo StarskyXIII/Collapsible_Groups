@@ -5,14 +5,12 @@ import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.KubeJsItemFilterLowering;
 import dev.latvian.mods.kubejs.core.IngredientSupplierKJS;
-import dev.latvian.mods.kubejs.fluid.FluidWrapper;
 import dev.latvian.mods.kubejs.fluid.NamespaceFluidIngredient;
 import dev.latvian.mods.kubejs.fluid.RegExFluidIngredient;
 import dev.latvian.mods.kubejs.ingredient.CreativeTabIngredient;
 import dev.latvian.mods.kubejs.ingredient.NamespaceIngredient;
 import dev.latvian.mods.kubejs.ingredient.RegExIngredient;
 import dev.latvian.mods.kubejs.ingredient.WildcardIngredient;
-import dev.latvian.mods.kubejs.plugin.builtin.wrapper.IngredientWrapper;
 import dev.latvian.mods.kubejs.util.ListJS;
 import dev.latvian.mods.rhino.BaseFunction;
 import dev.latvian.mods.rhino.Context;
@@ -128,12 +126,12 @@ public final class KubeJsFilterCompiler {
 			return compileCustomItemIngredient(ingredient.getCustomIngredient());
 		}
 
-		TagKey<Item> tag = IngredientWrapper.tagKeyOf(ingredient);
+		TagKey<Item> tag = KubeJSCompatibility.tagKeyOf(ingredient);
 		if (tag != null) {
 			return Filters.itemTag(tag.location().toString());
 		}
 
-		if (IngredientWrapper.containsAnyTag(ingredient)) {
+		if (KubeJSCompatibility.containsAnyTag(ingredient)) {
 			return null;
 		}
 
@@ -256,7 +254,7 @@ public final class KubeJsFilterCompiler {
 			return Filters.blockTag(blockTag);
 		}
 
-		return compileItemFilter(IngredientWrapper.wrap(cx, trimmed));
+		return compileItemFilter(KubeJSCompatibility.wrapItem(cx, trimmed));
 	}
 
 	private static @Nullable GroupFilter compileItemObject(Map<?, ?> map) {
@@ -289,7 +287,7 @@ public final class KubeJsFilterCompiler {
 			return null;
 		}
 
-		return compileFluidFilter(FluidWrapper.wrapIngredient(cx, trimmed));
+		return compileFluidFilter(KubeJSCompatibility.wrapFluid(cx, trimmed));
 	}
 
 	private static @Nullable GroupFilter compileItemList(Context cx, List<?> list) {

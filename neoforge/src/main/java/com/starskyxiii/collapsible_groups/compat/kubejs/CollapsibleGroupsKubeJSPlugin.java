@@ -26,11 +26,13 @@ import java.util.function.Consumer;
 public class CollapsibleGroupsKubeJSPlugin implements KubeJSPlugin {
 	@Override
 	public void registerEvents(EventGroupRegistry registry) {
+		if (!KubeJSCompatibility.isSupported()) return;
 		registry.register(CGEvents.GROUP);
 	}
 
 	@Override
 	public void afterScriptsLoaded(ScriptManager manager) {
+		if (!KubeJSCompatibility.isSupported()) return;
 		if (manager.scriptType == ScriptType.CLIENT) {
 			com.starskyxiii.collapsible_groups.group.ScriptedGroupStore.invalidateAndNotify();
 		}
@@ -38,6 +40,7 @@ public class CollapsibleGroupsKubeJSPlugin implements KubeJSPlugin {
 
 	@Override
 	public void registerRecipeViewerEntryTypes(Consumer<RecipeViewerEntryType> consumer) {
+		if (!KubeJSCompatibility.isSupported()) return;
 		KnownRecipeViewerTypeIds.collect(
 			modId -> ModList.get().isLoaded(modId), IngredientTypeIds.getAllIds().keySet()
 		).forEach(id -> consumer.accept(new RecipeViewerEntryType(id, null, null, null)));

@@ -52,7 +52,8 @@ public class CollapsibleGroups {
 		// Register the KubeJS remote-data listener on the game event bus only when
 		// KubeJS is present. The class is loaded lazily so KubeJS types are never
 		// touched when the mod is absent.
-		if (ModList.get().isLoaded("kubejs")) {
+		if (ModList.get().isLoaded("kubejs")
+			&& com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSCompatibility.isSupported()) {
 			NeoForge.EVENT_BUS.register(
 				com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSRemoteListener.class
 			);
@@ -96,7 +97,8 @@ public class CollapsibleGroups {
 		if (ModList.get().isLoaded("emi") || ModList.get().isLoaded(ViewerLifecycleCoordinator.TMRV_MOD_ID)) {
 			com.starskyxiii.collapsible_groups.compat.emi.EmiViewerAdapter.unregisterRuntime();
 		}
-		if (ModList.get().isLoaded("kubejs")) {
+		if (ModList.get().isLoaded("kubejs")
+			&& com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSCompatibility.isSupported()) {
 			com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSRemoteListener.clear();
 		}
 	}
@@ -114,7 +116,8 @@ public class CollapsibleGroups {
     }
 
 	private void onClientSetup(FMLClientSetupEvent event) {
-		if (ModList.get().isLoaded("kubejs")) {
+		if (ModList.get().isLoaded("kubejs")
+			&& com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSCompatibility.isSupported()) {
 			ViewerLifecycleCoordinator.global().setScriptedGroupBootstrap(
 				com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge::applyGroupsNeutral
 			);

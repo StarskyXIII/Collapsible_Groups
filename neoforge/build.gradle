@@ -75,20 +75,26 @@ dependencies {
     runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     compileOnly "dev.emi:emi-neoforge:${emi_version}"
     runtimeOnly "dev.emi:emi-neoforge:${emi_version}"
-    // Optional — provides RecipeViewerEvents.groupEntries support when KubeJS is present.
-    // Adjust kubejs_version in gradle.properties to match the installed KubeJS build.
     compileOnly "dev.latvian.mods:kubejs-neoforge:${kubejs_version}"
 
 	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
 	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
-	testRuntimeOnly "dev.latvian.mods:kubejs-neoforge:${kubejs_version}"
+	testRuntimeOnly "dev.latvian.mods:kubejs-neoforge:${providers.gradleProperty('kubejs_test_version').getOrElse(kubejs_version)}"
+	if (providers.gradleProperty('rhino_test_version').isPresent()) {
+		testRuntimeOnly("dev.latvian.mods:rhino:${providers.gradleProperty('rhino_test_version').get()}") {
+			version { strictly(providers.gradleProperty('rhino_test_version').get()) }
+		}
+	}
 }
 
 sourceSets.test {
 	compileClasspath += sourceSets.main.compileClasspath
-	runtimeClasspath += sourceSets.main.compileClasspath
+	runtimeClasspath += sourceSets.main.compileClasspath.filter {
+		!it.name.startsWith('kubejs-') && !it.name.startsWith('rhino-')
+	}
 }
 
 test {
 	useJUnitPlatform()
+	systemProperty 'cg.test.kubejsVersion', providers.gradleProperty('kubejs_test_version').getOrElse(kubejs_version)
 }
