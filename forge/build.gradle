@@ -35,7 +35,10 @@ base {
 }
 
 legacyForge {
-    version = "${minecraft_version}-${forge_version}"
+    enable {
+        forgeVersion = "${minecraft_version}-${forge_version}"
+        disableRecompilation = false
+    }
     validateAccessTransformers = true
 
     runs {
