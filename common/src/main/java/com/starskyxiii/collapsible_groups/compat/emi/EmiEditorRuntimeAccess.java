@@ -267,7 +267,8 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 
 	/** Explicit EMI ClientTooltipComponent -> editor Component boundary: use EMI's text source. */
 	private static List<Component> tooltipText(EmiStack stack, String resourceId, String typeId) {
-		List<Component> result = new ArrayList<>(stack.getTooltipText());
+		List<Component> text = stack.getTooltipText();
+		List<Component> result = text == null ? new ArrayList<>() : new ArrayList<>(text);
 		if (result.isEmpty()) result.add(stack.getName());
 		result.add(Component.literal(resourceId).withStyle(ChatFormatting.DARK_GRAY));
 		if (typeId != null) result.add(Component.literal(typeId).withStyle(ChatFormatting.GRAY));
