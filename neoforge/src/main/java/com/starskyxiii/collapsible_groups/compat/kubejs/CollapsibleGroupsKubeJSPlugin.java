@@ -8,7 +8,9 @@ import dev.latvian.mods.kubejs.script.ScriptManager;
 import dev.latvian.mods.kubejs.script.ScriptType;
 import net.neoforged.fml.ModList;
 
+import java.util.Collection;
 import java.util.function.Consumer;
+import java.util.function.Predicate;
 
 /**
  * KubeJS plugin that exposes viewer-neutral custom ingredient type IDs to the script layer.
@@ -18,10 +20,6 @@ import java.util.function.Consumer;
  * callback are appended from {@link IngredientTypeIds}.
  * Scripts can then use RecipeViewerEvents.groupEntries('mekanism:chemical', ...)
  * to group those ingredients.
- *
- * <p>The entry, predicate, and base components are intentionally null: filter logic for these
- * types is handled directly by the legacy-named {@link JEIGenericGroupEntriesKubeEvent}, bypassing
- * KubeJS wrapping.
  */
 public class CollapsibleGroupsKubeJSPlugin implements KubeJSPlugin {
 	@Override
@@ -41,8 +39,13 @@ public class CollapsibleGroupsKubeJSPlugin implements KubeJSPlugin {
 	@Override
 	public void registerRecipeViewerEntryTypes(Consumer<RecipeViewerEntryType> consumer) {
 		if (!KubeJSCompatibility.isSupported()) return;
-		KnownRecipeViewerTypeIds.collect(
-			modId -> ModList.get().isLoaded(modId), IngredientTypeIds.getAllIds().keySet()
-		).forEach(id -> consumer.accept(new RecipeViewerEntryType(id, null, null, null)));
+		registerRecipeViewerEntryTypes(consumer,
+			modId -> ModList.get().isLoaded(modId), IngredientTypeIds.getAllIds().keySet());
+	}
+
+	static void registerRecipeViewerEntryTypes(Consumer<RecipeViewerEntryType> consumer,
+		Predicate<String> modLoaded, Collection<String> discoveredIds) {
+		KnownRecipeViewerTypeIds.collect(modLoaded, discoveredIds)
+			.forEach(id -> consumer.accept(new GenericRecipeViewerEntryType(id)));
 	}
 }
