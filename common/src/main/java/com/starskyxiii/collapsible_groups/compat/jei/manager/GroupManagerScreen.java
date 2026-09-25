@@ -31,6 +31,7 @@ import com.starskyxiii.collapsible_groups.client.widget.ConfirmDialog;
 import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
+import com.starskyxiii.collapsible_groups.client.widget.SwitchHoverState;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupSortMode;
 import com.starskyxiii.collapsible_groups.client.manager.model.SavedGroupContext;
@@ -141,12 +142,11 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 	private String lastSavedGroupId;
 	private GroupSortMode heldSortMode = null;
 	private boolean isDraggingScrollbar = false;
-	private String heldSwitchGroupId = null;
 	private boolean activeManager;
 	private boolean builtinsEnabled = true;
 	private SavedGroupContext pendingSavedContext;
 	private final List<com.starskyxiii.collapsible_groups.group.GroupChangeEvent.Subscription> subscriptions = new ArrayList<>();
-	private String suppressedSwitchHoverGroupId = null;
+	private final SwitchHoverState<String> switchHover = new SwitchHoverState<>();
 	private double sbDragStartMouseY;
 	private int sbDragStartPixelOffset;
 	private Component pendingTooltip;
@@ -192,7 +192,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	private void rebuildCards() {
         validateCategoryFilter();
-		suppressedSwitchHoverGroupId = null;
 		long traceStart = PerformanceTrace.begin();
 		ViewerGroupIndex index = ViewerLifecycleCoordinator.global().activeAdapter()
 			.map(adapter -> adapter.groupIndex()).orElse(UnavailableViewerGroupIndex.INSTANCE);
@@ -498,9 +497,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		Set<String> idSet = new HashSet<>(ids);
 		allCards.removeIf(card -> idSet.contains(card.id()));
 		previewScrollOffsets.keySet().removeIf(idSet::contains);
-		if (suppressedSwitchHoverGroupId != null && idSet.contains(suppressedSwitchHoverGroupId)) {
-			suppressedSwitchHoverGroupId = null;
-		}
+		switchHover.update(key -> !idSet.contains(key));
 		rebuildFilteredCards();
 	}
 
@@ -530,6 +527,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
     @Override
     public void render(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
         refreshSidebarSetting();
+        updateSwitchHover(mouseX, mouseY);
         renderBackground(g, mouseX, mouseY, partialTicks);
         pendingTooltip = null;
         boolean popup = hasPendingDialog() || batchMenuOpen || sortMenuOpen;
@@ -1028,16 +1026,15 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 		boolean controlsInteractive = !batchMode && isInsideCardViewport(mouseX, mouseY);
 		boolean rawSwitchHover = controlsInteractive && isMouseOver(mouseX, mouseY, switchX, switchY, SWITCH_WIDTH, SWITCH_HEIGHT);
-		boolean switchHover = effectiveSwitchHover(card.id(), rawSwitchHover);
+		boolean visualSwitchHover = canSwitch && rawSwitchHover && switchHover.allowsHover(card.id());
 		boolean editHover = controlsInteractive && isMouseOver(mouseX, mouseY, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
 		boolean deleteHover = controlsInteractive && isMouseOver(mouseX, mouseY, deleteX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT);
-		boolean switchPressed = canSwitch && switchHover && card.id().equals(heldSwitchGroupId);
 		boolean shiftDeleteArmed = controlsInteractive && deleteHover && canShiftDelete && Screen.hasShiftDown();
 
 		g.pose().pushPose();
 		g.pose().translate(0, 0, CARD_CONTROL_Z);
 		UiSkinRenderer.drawSwitch(g, switchX, switchY, SWITCH_WIDTH, SWITCH_HEIGHT,
-			card.group().enabled(), !batchMode && canSwitch, switchHover, switchPressed);
+			card.group().enabled(), !batchMode && canSwitch, visualSwitchHover);
 		renderIconButton(g, editX, actionY, ACTION_BUTTON_WIDTH, ACTION_BUTTON_HEIGHT,
 			UiSkinRenderer.ICON_EDIT, !batchMode && canUseMiddleAction, editHover,
             editHover && heldCardAction != null && heldCardAction.matches(card.id(), canEdit ? GroupAction.EDIT : GroupAction.COPY_AS_CUSTOM));
@@ -1047,7 +1044,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		g.pose().popPose();
 
 		if (controlsInteractive) {
-			if (switchHover && !canSwitch) pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_SWITCH_READONLY);
+			if (rawSwitchHover && !canSwitch) pendingTooltip = Component.translatable(ModTranslationKeys.MANAGER_TOOLTIP_SWITCH_READONLY);
 			if (editHover) pendingTooltip = canEdit
 				? Component.translatable(ModTranslationKeys.MANAGER_BTN_EDIT)
 				: canCopy
@@ -1282,12 +1279,14 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
     @Override
     public void mouseMoved(double mouseX, double mouseY) {
+        updateSwitchHover(mouseX, mouseY);
         if (batchMenuOpen) batchMenuFocus = -1;
         super.mouseMoved(mouseX, mouseY);
     }
 
     @Override
     public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        updateSwitchHover(mouseX, mouseY);
         settingsButtonFocused = false;
         if (hasPendingDialog()) return handlePendingDialogClick(mouseX, mouseY, button);
 
@@ -1371,11 +1370,10 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 			if (switchClick) {
 				if (!card.actionEligibility().canRequest(GroupAction.SWITCH_ENABLED)) return true;
-				heldSwitchGroupId = card.id();
 				boolean newEnabled = !card.group().enabled();
 				if (!GroupRepository.setEnabledQuietly(card.id(), newEnabled)) return true;
 				updateCardEnabled(card.id(), newEnabled);
-				suppressedSwitchHoverGroupId = card.id();
+				switchHover.activated(card.id());
 				return true;
 			}
             if (editClick) {
@@ -1615,8 +1613,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		newGroupButtonHeld = false;
 		closeSortMenu();
 		isDraggingScrollbar = false;
-		heldSwitchGroupId = null;
-		suppressedSwitchHoverGroupId = null;
 	}
 
 	private boolean handleScrollbarClick(double mouseX, double mouseY) {
@@ -1642,14 +1638,12 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double deltaX, double deltaY) {
+        updateSwitchHover(mouseX, mouseY);
         if (hasPendingDialog()) return true;
 
         if (batchMenuOpen || sortMenuOpen) return true;
         if (sidebarVisible() && categorySidebar.dragging()) { categorySidebar.drag(mouseY); return true; }
         if (drawerOpen) return true;
-		if (button == 0 && heldSwitchGroupId != null && !isHeldSwitchHovered(mouseX, mouseY)) {
-			heldSwitchGroupId = null;
-		}
 		if (button == 0 && isDraggingScrollbar) {
 			int maxPx = maxScrollPixels();
 			if (maxPx > 0) {
@@ -1658,6 +1652,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 				int travel = sbH - thumbH;
 				if (travel > 0) {
 					scrollPixelOffset = clamp((int)Math.round(sbDragStartPixelOffset + (mouseY - sbDragStartMouseY) * maxPx / travel), 0, maxPx);
+                    updateSwitchHover(mouseX, mouseY);
 				}
 			}
 			return true;
@@ -1667,6 +1662,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
     @Override
     public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        updateSwitchHover(mouseX, mouseY);
         if (hasPendingDialog()) {
             if (button == 0) executeDialogAction(dialogPress.release(ConfirmDialog.hitTest(width, height, mouseX, mouseY)));
             return true;
@@ -1690,7 +1686,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             return true;
         }
         if (drawerOpen) return true;
-        heldSwitchGroupId = null;
         if (heldShowEmpty) {
             heldShowEmpty = false;
             if (hoveredShowEmpty(mouseX, mouseY)) setShowEmptyGroups(!showEmptyGroups);
@@ -1739,7 +1734,6 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
             if (index < filters.length && headerLayout.sourceAt(mouseX, mouseY) == index && sourceFilter != filters[index]) {
                 sourceFilter = filters[index];
                 GroupUiState.setManagerSourceFilter(sourceFilter);
-                suppressedSwitchHoverGroupId = null;
                 rebuildFilteredCards();
             }
             return true;
@@ -1765,16 +1759,17 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 
     @Override
     public boolean mouseScrolled(double mouseX, double mouseY, double deltaX, double deltaY) {
+        updateSwitchHover(mouseX, mouseY);
         if (hasPendingDialog()) return true;
 
         if (batchMenuOpen || sortMenuOpen) return true;
         if (sidebarVisible() && categorySidebar.contains(mouseX, mouseY)) { categorySidebar.scroll(deltaY); return true; }
         if (drawerOpen) return true;
-        suppressedSwitchHoverGroupId = null;
         heldCardAction = null;
         if (scrollHoveredPreview(mouseX, mouseY, deltaY)) return true;
         if (isInsideCardViewport(mouseX, mouseY)) {
             scrollPixelOffset = clamp(scrollPixelOffset + (int) (deltaY * -20), 0, maxScrollPixels());
+            updateSwitchHover(mouseX, mouseY);
             return true;
         }
         return super.mouseScrolled(mouseX, mouseY, deltaX, deltaY);
@@ -1909,8 +1904,7 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 			cancelPendingDialog();
 			return;
 		}
-		heldSwitchGroupId = null;
-		suppressedSwitchHoverGroupId = null;
+		switchHover.clear();
 		Minecraft.getInstance().setScreen(previousScreen);
 	}
 
@@ -2017,24 +2011,20 @@ public class GroupManagerScreen extends Screen implements GroupManagerParent {
 		return cardX + CARD_WIDTH - ACTION_BUTTON_WIDTH - 6;
 	}
 
-	private boolean effectiveSwitchHover(String groupId, boolean rawHover) {
-		if (!rawHover) {
-			if (groupId.equals(suppressedSwitchHoverGroupId)) suppressedSwitchHoverGroupId = null;
-			return false;
-		}
-		return !groupId.equals(suppressedSwitchHoverGroupId);
-	}
+    private void updateSwitchHover(double mouseX, double mouseY) {
+        switchHover.update(key -> isSwitchHovered(key, mouseX, mouseY));
+    }
 
     private boolean isInsideCardViewport(double mouseX, double mouseY) {
         return contentLayout != null && contentLayout.content().contains(mouseX, mouseY)
             && !drawerOpen && !batchMenuOpen && !hasPendingDialog() && !sortMenuOpen;
     }
 
-	private boolean isHeldSwitchHovered(double mouseX, double mouseY) {
-		if (heldSwitchGroupId == null || !isInsideCardViewport(mouseX, mouseY)) return false;
+	private boolean isSwitchHovered(String groupId, double mouseX, double mouseY) {
+		if (contentLayout == null || !contentLayout.content().contains(mouseX, mouseY)) return false;
 		for (int i = 0; i < filteredCards.size(); i++) {
 			GroupManagerCard card = filteredCards.get(i);
-			if (!card.id().equals(heldSwitchGroupId)) continue;
+			if (!card.id().equals(groupId)) continue;
 			int[] pos = cardPos(i);
 			return isMouseOver(mouseX, mouseY, switchControlX(pos[0]), switchControlY(pos[1]), SWITCH_WIDTH, SWITCH_HEIGHT);
 		}

@@ -8,6 +8,7 @@ import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
+import com.starskyxiii.collapsible_groups.client.widget.SwitchHoverState;
 import com.starskyxiii.collapsible_groups.client.widget.SettingsRowLayout;
 import com.starskyxiii.collapsible_groups.config.ColorConfigParser;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
@@ -81,7 +82,8 @@ public final class EditorSettingsPanel {
 	private boolean scrollbarDragging;
 	private int scrollbarDragStartY;
 	private int scrollbarDragStartOffset;
-	private boolean switchHoverSuppressed;
+	private static final String ENABLED_SWITCH = "enabled";
+	private final SwitchHoverState<String> switchHover;
 
 	private @Nullable ColorPicker colorPicker;
 
@@ -116,11 +118,12 @@ public final class EditorSettingsPanel {
 	}
 
 	public EditorSettingsPanel(EditorSettingsState state, Font font, Runnable onChanged,
-	                           Supplier<List<EditorRuntimeAccess.PreviewEntry>> groupItems) {
+	                           Supplier<List<EditorRuntimeAccess.PreviewEntry>> groupItems, SwitchHoverState<String> switchHover) {
 		this.state = state;
 		this.font = font;
 		this.onChanged = onChanged;
 		this.groupItems = groupItems;
+		this.switchHover = switchHover;
 	}
 
 	/** Wires the Screen's dirty flag so the color picker can roll it back on cancel. */
@@ -165,7 +168,6 @@ public final class EditorSettingsPanel {
 			closeIconPicker();
 		}
 		commitPriorityEdit();
-		clearSwitchHoverSuppression();
 		scrollbarDragging = false;
 	}
 
@@ -199,10 +201,6 @@ public final class EditorSettingsPanel {
 		}
 		priorityEditing = false;
 		priorityEditText = "";
-	}
-
-	public void clearSwitchHoverSuppression() {
-		switchHoverSuppressed = false;
 	}
 
 	// ─────────────────────────────────────────────────────────────────────
@@ -260,7 +258,7 @@ public final class EditorSettingsPanel {
 	// Render (rows + backdrop + scrollbar)
 	// ─────────────────────────────────────────────────────────────────────
 
-	public void render(GuiGraphics g, int mouseX, int mouseY) {
+	public void render(GuiGraphics g, int mouseX, int mouseY, boolean interactive) {
 		colorTooltip = null;
 		EditorChrome.Rect content = contentRect();
 		clampScroll();
@@ -268,7 +266,7 @@ public final class EditorSettingsPanel {
 
 		g.enableScissor(content.x(), content.y(), content.right(), content.bottom());
 		renderSectionBackdrop(g, result, content);
-		boolean modalBlocking = isModalOpen();
+		boolean modalBlocking = !interactive || isModalOpen();
 		int rmx = modalBlocking ? Integer.MIN_VALUE : mouseX;
 		int rmy = modalBlocking ? Integer.MIN_VALUE : mouseY;
 		for (SettingsRowLayout.Row row : result.rows()) {
@@ -486,8 +484,8 @@ public final class EditorSettingsPanel {
 		g.drawString(font, label, rect.x() + 6, UiSkinRenderer.centeredTextY(font, rect.y(), rect.height()),
 			UiPalette.TEXT_PRIMARY, false);
 		SettingsRowLayout.Rect sw = row.switchRect();
-		boolean hovered = effectiveSwitchHover(sw.contains(mouseX, mouseY));
-		UiSkinRenderer.drawSwitch(g, sw.x(), sw.y(), sw.width(), sw.height(), state.editEnabled(), true, hovered, false);
+		boolean hovered = contentRect().contains(mouseX, mouseY) && sw.contains(mouseX, mouseY) && switchHover.allowsHover(ENABLED_SWITCH);
+		UiSkinRenderer.drawSwitch(g, sw.x(), sw.y(), sw.width(), sw.height(), state.editEnabled(), true, hovered);
 	}
 
 	private void drawRowButton(GuiGraphics g, SettingsRowLayout.Rect rect, Command command, String label, UiSkinRenderer.ButtonState buttonState) {
@@ -572,7 +570,6 @@ public final class EditorSettingsPanel {
     private void openColorPicker(SettingsColorTarget target) {
         press.clear();
         commitPriorityEdit();
-        clearSwitchHoverSuppression();
         AppearanceDraft previous = state.appearanceDraft();
         boolean wasDirty = dirtyGet.get();
         colorPicker = new ColorPicker(font,
@@ -606,7 +603,6 @@ public final class EditorSettingsPanel {
 			return;
 		}
 		commitPriorityEdit();
-		clearSwitchHoverSuppression();
 		iconPickerOpen = true;
 		iconPickerTargetBack = back;
 		iconPickerScrollOffset = 0;
@@ -992,7 +988,6 @@ public final class EditorSettingsPanel {
 		scrollbarDragging = true;
 		scrollbarDragStartY = (int) mouseY;
 		scrollbarDragStartOffset = scrollOffset;
-		clearSwitchHoverSuppression();
 		commitPriorityEdit();
 		return true;
 	}
@@ -1015,13 +1010,16 @@ public final class EditorSettingsPanel {
 		scrollOffset = clamp((thumbTop - track.y()) * max / travel, 0, max);
 	}
 
-	private boolean effectiveSwitchHover(boolean rawHover) {
-		if (!rawHover) {
-			clearSwitchHoverSuppression();
-			return false;
-		}
-		return !switchHoverSuppressed;
-	}
+    public void updateSwitchHover(double mouseX, double mouseY) {
+        switchHover.update(key -> {
+            clampScroll();
+            if (!contentRect().contains(mouseX, mouseY)) return false;
+            for (var row : settingsLayout().rows()) {
+                if (row.kind() == SettingsRowLayout.Kind.ENABLED) return row.switchRect().contains(mouseX, mouseY);
+            }
+            return false;
+        });
+    }
 
 	// ─────────────────────────────────────────────────────────────────────
 	// Input entry points (Screen delegates here; already gated by mode)
@@ -1082,6 +1080,7 @@ public final class EditorSettingsPanel {
     public void clearHeldCommand() { press.clear(); }
 
 	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+        updateSwitchHover(mouseX, mouseY);
         if (button == 0) {
             press.begin(commandAt(mouseX, mouseY));
             if (press.target() != null) { priorityStep = Screen.hasShiftDown() ? 10 : 1; return true; }
@@ -1135,12 +1134,13 @@ public final class EditorSettingsPanel {
 		if (row.switchRect().contains(mouseX, mouseY)) {
 			commitPriorityEdit();
 			state.setEditEnabled(!state.editEnabled());
-			switchHoverSuppressed = true;
+			switchHover.activated(ENABLED_SWITCH);
 			onChanged.run();
 		}
 	}
 
 	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+        updateSwitchHover(mouseX, mouseY);
         if (button == 0 && press.target() != null) {
             Command command = press.release(commandAt(mouseX, mouseY));
             if (command != null) execute(command);
@@ -1161,6 +1161,7 @@ public final class EditorSettingsPanel {
 	}
 
 	public boolean mouseDragged(double mouseX, double mouseY, int button) {
+        updateSwitchHover(mouseX, mouseY);
 		if (button != 0) return false;
 		if (isColorPickerOpen()) {
 			colorPicker.mouseDragged(mouseX);
@@ -1171,6 +1172,7 @@ public final class EditorSettingsPanel {
 		}
 		if (scrollbarDragging) {
 			handleScrollbarDrag(mouseY);
+            updateSwitchHover(mouseX, mouseY);
 			return true;
 		}
 		return false;
@@ -1178,6 +1180,7 @@ public final class EditorSettingsPanel {
 
 	/** Wheel over the whole editor panel scrolls the settings list. */
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+        updateSwitchHover(mouseX, mouseY);
         press.clear();
 		if (isColorPickerOpen()) return true;
 		if (iconPickerOpen) return handleIconPickerScroll(scrollY);
@@ -1185,7 +1188,7 @@ public final class EditorSettingsPanel {
 		int max = maxScroll();
 		if (max > 0) {
 			scrollOffset = clamp(scrollOffset - (int) (scrollY * 16), 0, max);
-			clearSwitchHoverSuppression();
+            updateSwitchHover(mouseX, mouseY);
 			return true;
 		}
 		return false;
@@ -1222,7 +1225,6 @@ public final class EditorSettingsPanel {
         press.clear();
 		clampScroll();
 		scrollbarDragging = false;
-		clearSwitchHoverSuppression();
 		if (iconPickerOpen) {
 			positionIconPickerSearch();
 		}
