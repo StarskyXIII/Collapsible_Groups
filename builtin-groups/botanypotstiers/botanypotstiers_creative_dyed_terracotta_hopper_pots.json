@@ -1,0 +1,36 @@
+{
+  "schema_version": 1,
+  "id": "__default_botanypotstiers_creative_dyed_terracotta_hopper_pots",
+  "name": {
+    "translate": "collapsible_groups.group.__default_botanypotstiers_creative_dyed_terracotta_hopper_pots",
+    "fallback": "Creative Colored Terracotta Hopper Botany Pots"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "botanypotstiers"
+      },
+      {
+        "item_path_starts_with": "creative_"
+      },
+      {
+        "item_path_ends_with": "_terracotta_hopper_botany_pot"
+      },
+      {
+        "not": {
+          "any": [
+            {
+              "type": "item",
+              "id": "botanypotstiers:creative_terracotta_hopper_botany_pot"
+            },
+            {
+              "item_path_ends_with": "_glazed_terracotta_hopper_botany_pot"
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

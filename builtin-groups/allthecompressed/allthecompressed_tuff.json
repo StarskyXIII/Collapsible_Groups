@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_tuff",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_tuff",
+    "fallback": "Compressed Tuff"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:tuff_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tuff_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tuff_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tuff_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tuff_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tuff_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tuff_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tuff_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tuff_9x"
+      }
+    ]
+  }
+}

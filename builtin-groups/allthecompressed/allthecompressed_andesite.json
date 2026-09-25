@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_andesite",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_andesite",
+    "fallback": "Compressed Andesite"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:andesite_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:andesite_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:andesite_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:andesite_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:andesite_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:andesite_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:andesite_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:andesite_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:andesite_9x"
+      }
+    ]
+  }
+}

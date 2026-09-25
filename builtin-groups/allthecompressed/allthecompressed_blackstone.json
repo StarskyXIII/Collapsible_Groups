@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_blackstone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_blackstone",
+    "fallback": "Compressed Blackstone"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:blackstone_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blackstone_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blackstone_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blackstone_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blackstone_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blackstone_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blackstone_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blackstone_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blackstone_9x"
+      }
+    ]
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_upgrades",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_upgrades",
+    "fallback": "Productive Bees: Upgrades"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "productivebees"
+      },
+      {
+        "item_path_starts_with": "upgrade_"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "productivebees:upgrade_base"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_type_genes",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_type_genes",
+    "fallback": "Productive Bees: Type Genes"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "productivebees:gene"
+      },
+      {
+        "all": [
+          {
+            "type": "item",
+            "nbt_path": "productivebees_gene_value",
+            "value": {
+              "data_format": "minecraft:nbt",
+              "data": "0"
+            }
+          },
+          {
+            "not": {
+              "any": [
+                {
+                  "type": "item",
+                  "nbt_path": "productivebees_gene_attribute",
+                  "value": {
+                    "data_format": "minecraft:nbt",
+                    "data": "\"productivity\""
+                  }
+                },
+                {
+                  "type": "item",
+                  "nbt_path": "productivebees_gene_attribute",
+                  "value": {
+                    "data_format": "minecraft:nbt",
+                    "data": "\"endurance\""
+                  }
+                },
+                {
+                  "type": "item",
+                  "nbt_path": "productivebees_gene_attribute",
+                  "value": {
+                    "data_format": "minecraft:nbt",
+                    "data": "\"temper\""
+                  }
+                },
+                {
+                  "type": "item",
+                  "nbt_path": "productivebees_gene_attribute",
+                  "value": {
+                    "data_format": "minecraft:nbt",
+                    "data": "\"behavior\""
+                  }
+                },
+                {
+                  "type": "item",
+                  "nbt_path": "productivebees_gene_attribute",
+                  "value": {
+                    "data_format": "minecraft:nbt",
+                    "data": "\"weather_tolerance\""
+                  }
+                },
+                {
+                  "type": "item",
+                  "nbt_path": "productivebees_gene_attribute",
+                  "value": {
+                    "data_format": "minecraft:nbt",
+                    "data": "\"\""
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

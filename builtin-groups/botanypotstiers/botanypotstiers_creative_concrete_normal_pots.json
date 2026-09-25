@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_botanypotstiers_creative_concrete_normal_pots",
+  "name": {
+    "translate": "collapsible_groups.group.__default_botanypotstiers_creative_concrete_normal_pots",
+    "fallback": "Creative Concrete Botany Pots"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "botanypotstiers"
+      },
+      {
+        "item_path_starts_with": "creative_"
+      },
+      {
+        "item_path_ends_with": "_concrete_botany_pot"
+      }
+    ]
+  }
+}

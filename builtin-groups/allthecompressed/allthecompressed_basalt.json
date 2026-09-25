@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_basalt",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_basalt",
+    "fallback": "Compressed Basalt"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:basalt_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:basalt_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:basalt_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:basalt_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:basalt_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:basalt_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:basalt_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:basalt_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:basalt_9x"
+      }
+    ]
+  }
+}

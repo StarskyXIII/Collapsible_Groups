@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_glowstone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_glowstone",
+    "fallback": "Compressed Glowstone"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:glowstone_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glowstone_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glowstone_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glowstone_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glowstone_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glowstone_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glowstone_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glowstone_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glowstone_9x"
+      }
+    ]
+  }
+}

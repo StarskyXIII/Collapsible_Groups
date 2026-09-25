@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_acacia_log",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_acacia_log",
+    "fallback": "Compressed Acacia Log"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:acacia_log_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:acacia_log_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:acacia_log_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:acacia_log_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:acacia_log_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:acacia_log_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:acacia_log_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:acacia_log_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:acacia_log_9x"
+      }
+    ]
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_bees",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_bees",
+    "fallback": "Productive Bees: Bees"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "cy.jdkdigital.productivebees.compat.jei.ingredients.BeeIngredient",
+        "namespace": "productivebees"
+      },
+      {
+        "type": "cy.jdkdigital.productivebees.compat.jei.ingredients.BeeIngredient",
+        "namespace": "minecraft"
+      },
+      {
+        "type": "cy.jdkdigital.productivebees.compat.jei.ingredients.BeeIngredient",
+        "namespace": "tropicraft"
+      }
+    ]
+  }
+}

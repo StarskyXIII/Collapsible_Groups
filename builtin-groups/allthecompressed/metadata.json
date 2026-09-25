@@ -1,0 +1,16 @@
+{
+  "loaders": [
+    "forge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.allthecompressed",
+    "fallback": "AllTheCompressed"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "allthecompressed"
+      }
+    ]
+  }
+}

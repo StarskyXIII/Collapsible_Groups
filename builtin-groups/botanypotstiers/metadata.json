@@ -1,0 +1,17 @@
+{
+  "loaders": [
+    "fabric",
+    "forge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.botanypotstiers",
+    "fallback": "Botany Pots Tiers"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "botanypotstiers"
+      }
+    ]
+  }
+}
