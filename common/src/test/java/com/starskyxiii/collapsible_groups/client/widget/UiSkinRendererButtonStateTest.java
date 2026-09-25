@@ -5,6 +5,21 @@ import static org.junit.jupiter.api.Assertions.*;
 import static com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer.*;
 
 class UiSkinRendererButtonStateTest {
+    @Test void allSegmentStatesHaveLoadableTextures() throws Exception {
+        for (ButtonState state : ButtonState.values()) {
+            var sprite = segmentSprite(state);
+            assertNotNull(sprite, state.name());
+            String path = "/assets/" + sprite.getNamespace() + "/textures/gui/sprites/" + sprite.getPath() + ".png";
+            try (var stream = getClass().getResourceAsStream(path)) {
+                assertNotNull(stream, path);
+                var image = javax.imageio.ImageIO.read(stream);
+                assertNotNull(image, path);
+                assertEquals(16, image.getWidth(), path);
+                assertEquals(16, image.getHeight(), path);
+            }
+        }
+    }
+
     @Test void disabledOverridesHoverSelectionAndHeldFeedback() {
         for (boolean selected : new boolean[] {false, true})
             for (boolean hovered : new boolean[] {false, true})

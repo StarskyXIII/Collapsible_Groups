@@ -22,6 +22,7 @@ public final class UiSkinRenderer {
 	private static final ResourceLocation SEGMENT = sprite("ore_segment");
 	private static final ResourceLocation SEGMENT_HOVER = sprite("ore_segment_hover");
 	private static final ResourceLocation SEGMENT_PRESSED = sprite("ore_segment_pressed");
+	private static final ResourceLocation SEGMENT_DISABLED = sprite("ore_segment_disabled");
 	private static final ResourceLocation SEGMENT_SELECTED = sprite("ore_segment_selected");
 	private static final ResourceLocation SEGMENT_SELECTED_HOVER = sprite("ore_segment_selected_hover");
 	private static final ResourceLocation SEGMENT_SELECTED_PRESSED = sprite("ore_segment_selected_pressed");
@@ -155,12 +156,7 @@ public final class UiSkinRenderer {
 	public static void drawSegment(GuiGraphics g, Font font, int x, int y, int width, int height,
 	                               String label, ButtonState state) {
 		int depth = buttonVisualDepth(state);
-		ResourceLocation sprite = segmentSprite(state);
-		if (sprite != null) {
-			g.blitSprite(sprite, x + 1, y + 1, width - 2, height - 2);
-		} else {
-			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
-		}
+		g.blitSprite(segmentSprite(state), x + 1, y + 1, width - 2, height - 2);
 		drawControlFrame(g, x, y, width, height, depth);
 		int text = buttonTextColor(state);
 		int yOffset = buttonTextOffset(state);
@@ -198,12 +194,12 @@ public final class UiSkinRenderer {
 
 
 
-	private static ResourceLocation segmentSprite(ButtonState state) {
+	static ResourceLocation segmentSprite(ButtonState state) {
 		return switch (state) {
 			case NORMAL -> SEGMENT;
 			case HOVERED -> SEGMENT_HOVER;
 			case PRESSED -> SEGMENT_PRESSED;
-			case DISABLED -> null;
+			case DISABLED -> SEGMENT_DISABLED;
 			case SELECTED -> SEGMENT_SELECTED;
 			case SELECTED_HOVERED -> SEGMENT_SELECTED_HOVER;
 			case SELECTED_PRESSED -> SEGMENT_SELECTED_PRESSED;
@@ -253,22 +249,6 @@ public final class UiSkinRenderer {
 			case HOVERED, PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 1;
 			case NORMAL, DISABLED -> 0;
 		};
-	}
-
-	private static void drawButtonFallback(GuiGraphics g, int x, int y, int width, int height, ButtonState state) {
-		if (width <= 0 || height <= 0) {
-			return;
-		}
-		int fill = switch (state) {
-			case NORMAL -> UiPalette.BUTTON_LIGHT;
-			case HOVERED -> UiPalette.BUTTON_LIGHT_HOVER;
-			case PRESSED -> UiPalette.BUTTON_LIGHT_PRESSED;
-			case DISABLED -> UiPalette.BUTTON_LIGHT_DISABLED;
-			case SELECTED -> UiPalette.BUTTON_PRIMARY;
-			case SELECTED_HOVERED -> UiPalette.BUTTON_PRIMARY_HOVER;
-			case SELECTED_PRESSED -> UiPalette.BUTTON_PRIMARY_PRESSED;
-		};
-		g.fill(x, y, x + width, y + height, fill);
 	}
 
 	private static int buttonTextColor(ButtonState state) {
