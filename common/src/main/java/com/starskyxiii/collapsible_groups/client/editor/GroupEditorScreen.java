@@ -19,6 +19,7 @@ import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.EditorShellLayout;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
+import com.starskyxiii.collapsible_groups.client.widget.SwitchHoverState;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.client.manager.model.SavedGroupContext;
 import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
@@ -96,6 +97,9 @@ public class GroupEditorScreen extends Screen {
 	private EditorShellMode heldMode = null;
 	private EditorContentFilter heldContentFilter = null;
 	private boolean hideUsedHeld = false;
+    private static final String HIDE_USED_SWITCH = "hide_used";
+    private final SwitchHoverState<String> hideUsedHover = new SwitchHoverState<>();
+    private final SwitchHoverState<String> settingsSwitchHover = new SwitchHoverState<>();
 	private boolean discardDialogOpen = false;
 	private boolean settingsPreviewExpanded = true;
 	private int settingsPreviewPage = 0;
@@ -170,7 +174,7 @@ public class GroupEditorScreen extends Screen {
 		rulesPanel = new EditorRulesPanel(state, font, this::onGroupChanged, this::editorItems, itemSearchSession);
 		rulesPanel.setDirtyGate(() -> dirty, value -> dirty = value);
 		settingsPanel = new EditorSettingsPanel(state, font, this::onGroupChanged,
-			this::settingsPreviewEntries);
+			this::settingsPreviewEntries, settingsSwitchHover);
 		settingsPanel.setDirtyGate(() -> dirty, value -> dirty = value);
 
 		editorDataLoading = true;
@@ -349,6 +353,7 @@ public class GroupEditorScreen extends Screen {
 
 	private void renderEditor(GuiGraphics g, int mouseX, int mouseY, float partialTicks) {
 		refreshPreviewGeneration();
+        updateSwitchHover(mouseX, mouseY);
 		renderBackground(g);
 		UiSkinRenderer.drawScreenBars(g, this.width, this.height,
 			EditorShellLayout.HEADER_HEIGHT, EditorShellLayout.FOOTER_HEIGHT);
@@ -540,11 +545,11 @@ public class GroupEditorScreen extends Screen {
 
 	private void renderHideUsedButton(GuiGraphics g, int mouseX, int mouseY) {
 		EditorShellLayout.Rect rect = shell.hideUsedButton();
-		boolean hovered = rect.contains(mouseX, mouseY);
+		boolean hovered = !discardDialogOpen && rect.contains(mouseX, mouseY) && hideUsedHover.allowsHover(HIDE_USED_SWITCH);
 		// boolean toggle uses a switch (matching the Manager enabled switch).
 		// drawSwitch centers a fixed-width visual inside the (wider) hit rect.
 		UiSkinRenderer.drawSwitch(g, rect.x(), rect.y(), rect.width(), rect.height(),
-			leftPanel.isHideUsed(), true, hovered, hideUsedHeld);
+			leftPanel.isHideUsed(), true, hovered);
 	}
 
 	private boolean isHideUsedHover(int mouseX, int mouseY) {
@@ -572,7 +577,7 @@ public class GroupEditorScreen extends Screen {
 		EditorShellLayout.Rect title = shell.contentTitle();
 		g.drawString(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_MODE_SETTINGS),
 			title.x(), title.y(), UiPalette.TEXT_PRIMARY, false);
-		settingsPanel.render(g, mouseX, mouseY);
+		settingsPanel.render(g, mouseX, mouseY, !discardDialogOpen);
 	}
 
 	private void renderPreviewPanel(GuiGraphics g, int mouseX, int mouseY) {
@@ -956,6 +961,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private boolean handleEditorClick(double mouseX, double mouseY, int button) {
+        updateSwitchHover(mouseX, mouseY);
 		if (button == 0) {
 			clearHeldControls();
 			modalGesture = discardDialogOpen || activeMode == EditorShellMode.LOOK && settingsPanel.isModalOpen()
@@ -1106,6 +1112,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private boolean handleEditorRelease(double mouseX, double mouseY, int button) {
+        updateSwitchHover(mouseX, mouseY);
 		if (discardDialogOpen) {
 			if (button == 0) executeDiscardAction(dialogPress.release(ConfirmDialog.hitTest(width, height, mouseX, mouseY)));
 			modalGesture = false;
@@ -1200,7 +1207,6 @@ public class GroupEditorScreen extends Screen {
 			return;
 		}
 		settingsPanel.commitPriorityEdit();
-		settingsPanel.clearSwitchHoverSuppression();
 		clearHeldControls();
 		blurEditorFields();
 		if (dirty) {
@@ -1287,6 +1293,7 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        updateSwitchHover(mouseX, mouseY);
 		if (discardDialogOpen) {
 			return true;
 		}
@@ -1309,6 +1316,7 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollY) {
+        updateSwitchHover(mouseX, mouseY);
 		clearHeldControls();
 		if (discardDialogOpen) return true;
 		if (activeMode == EditorShellMode.LOOK && settingsPanel.mouseScrolled(mouseX, mouseY, scrollY)) {
@@ -1350,6 +1358,8 @@ public class GroupEditorScreen extends Screen {
 
 	private void switchMode(EditorShellMode mode) {
 		if (mode == activeMode) return;
+        hideUsedHover.clear();
+        settingsSwitchHover.clear();
 		if (activeMode == EditorShellMode.RULES) rulesPanel.onDeactivate();
 		if (activeMode == EditorShellMode.LOOK) settingsPanel.onDeactivate();
 		activeMode = mode;
@@ -1385,12 +1395,26 @@ public class GroupEditorScreen extends Screen {
 		return filter != EditorContentFilter.OTHER_TYPES || hasGenericIngredients;
 	}
 
+    private void updateSwitchHover(double mouseX, double mouseY) {
+        hideUsedHover.update(key -> activeMode == EditorShellMode.CONTENTS && shell != null
+            && shell.hideUsedButton().contains(mouseX, mouseY));
+        if (activeMode == EditorShellMode.LOOK && settingsPanel != null) settingsPanel.updateSwitchHover(mouseX, mouseY);
+        else settingsSwitchHover.clear();
+    }
+
+    @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        updateSwitchHover(mouseX, mouseY);
+        super.mouseMoved(mouseX, mouseY);
+    }
+
 	private void toggleHideUsed() {
 		boolean hide = !leftPanel.isHideUsed();
 		leftPanel.setHideUsed(hide);
 		GroupUiState.setHideUsed(hide);
 		leftPanel.rebuildFilter(searchQuery());
 		leftPanel.clampScroll(layout);
+        hideUsedHover.activated(HIDE_USED_SWITCH);
 	}
 
 	private String searchQuery() {

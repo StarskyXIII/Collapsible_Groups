@@ -5,6 +5,7 @@ import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
+import com.starskyxiii.collapsible_groups.client.widget.SwitchHoverState;
 import com.starskyxiii.collapsible_groups.config.SettingsController;
 import com.starskyxiii.collapsible_groups.config.SettingsDraft;
 import com.starskyxiii.collapsible_groups.config.SettingsSnapshot;
@@ -26,6 +27,7 @@ public final class GroupConfigScreen extends Screen {
     private static final int ROW = 38;
     private final Screen parent;
     private final CommandPress<String> press = new CommandPress<>();
+    private final SwitchHoverState<String> switchHover = new SwitchHoverState<>();
     private final SettingsController controller;
     private final SettingsDraft draft;
     private int page;
@@ -76,6 +78,7 @@ public final class GroupConfigScreen extends Screen {
     }
 
     @Override public void render(GuiGraphics graphics, int mouseX, int mouseY, float partialTick) {
+        updateSwitchHover(mouseX, mouseY);
         renderBackground(graphics);
         UiSkinRenderer.drawScreenBars(graphics, width, height, 29, 48);
         graphics.drawCenteredString(font, title, width / 2, 11, UiPalette.TEXT_PRIMARY);
@@ -120,7 +123,7 @@ public final class GroupConfigScreen extends Screen {
                 UiSkinRenderer.drawButton(graphics, font, right() - 104, y + 8, 92, 20,
                     text("manage_categories").getString(), UiSkinRenderer.buttonState(true, false,
                         contains(right() - 104, y + 8, 92, 20, rowMouseX, mouseY), press.isHeld("categories")));
-            } else UiSkinRenderer.drawSwitch(graphics, right() - 58, y + 7, 44, 22, enabled(i), true, hot, false);
+            } else UiSkinRenderer.drawSwitch(graphics, right() - 58, y + 7, 44, 22, enabled(i), true, hot && switchHover.allowsHover(key));
         }
         graphics.disableScissor();
         if (maxScroll() > 0) UiSkinRenderer.drawScrollbarPixels(graphics, right() - 6, TOP, bottom() - TOP,
@@ -242,7 +245,26 @@ public final class GroupConfigScreen extends Screen {
         }
     }
 
+    private String switchAt(double x, double y) {
+        if (y < TOP || y >= bottom()) return null;
+        for (int i = 0; i < KEYS.get(page).size(); i++) {
+            if (page == 0 && (i == 1 || i == 4) || page == 1 && i > 0 && i < 5) continue;
+            if (contains(left(), rowY(i), right() - left() - 10, ROW - 3, x, y)) return KEYS.get(page).get(i);
+        }
+        return null;
+    }
+
+    private void updateSwitchHover(double x, double y) {
+        switchHover.update(key -> key.equals(switchAt(x, y)));
+    }
+
+    @Override public void mouseMoved(double x, double y) {
+        updateSwitchHover(x, y);
+        super.mouseMoved(x, y);
+    }
+
     @Override public boolean mouseClicked(double x, double y, int button) {
+        updateSwitchHover(x, y);
         if (modal()) return picker.mouseClicked(x, y, button);
         if (button != 0) return true;
         press.begin(commandAt(x, y));
@@ -265,6 +287,7 @@ public final class GroupConfigScreen extends Screen {
             if (page == 0 && (i == 1 || i == 4)) return true;
             if (page == 1 && i > 0 && i < 5) return true;
             toggle(i);
+            switchHover.activated(KEYS.get(page).get(i));
             message = null;
             return true;
         }
@@ -284,11 +307,13 @@ public final class GroupConfigScreen extends Screen {
     }
 
     @Override public boolean mouseDragged(double x, double y, int button, double dx, double dy) {
+        updateSwitchHover(x, y);
         if (modal()) return picker.mouseDragged(x);
-        if (dragging && button == 0) { dragScroll(y); return true; }
+        if (dragging && button == 0) { dragScroll(y); updateSwitchHover(x, y); return true; }
         return threshold != null && threshold.isFocused() && threshold.mouseDragged(x, y, button, dx, dy);
     }
     @Override public boolean mouseReleased(double x, double y, int button) {
+        updateSwitchHover(x, y);
         if (modal()) return picker.mouseReleased(x, y, button);
         if (button == 0) {
             String command = press.release(commandAt(x, y));
@@ -298,7 +323,9 @@ public final class GroupConfigScreen extends Screen {
         return true;
     }
     @Override public boolean mouseScrolled(double x, double y, double vertical) {
+        updateSwitchHover(x, y);
         if (!modal() && x >= left() && x < right() && y >= TOP && y < bottom()) setScroll(scroll - (int) (vertical * 20));
+        updateSwitchHover(x, y);
         return true;
     }
     @Override public boolean keyPressed(int key, int scan, int modifiers) {
@@ -311,7 +338,7 @@ public final class GroupConfigScreen extends Screen {
         if (modal()) return picker.charTyped(character, modifiers);
         return threshold != null && threshold.isFocused() && threshold.charTyped(character, modifiers);
     }
-    @Override public void onClose() { press.clear(); minecraft.setScreen(parent); }
+    @Override public void onClose() { press.clear(); switchHover.clear(); minecraft.setScreen(parent); }
     private static boolean contains(int x, int y, int w, int h, double mouseX, double mouseY) {
         return mouseX >= x && mouseX < x + w && mouseY >= y && mouseY < y + h;
     }

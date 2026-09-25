@@ -372,8 +372,8 @@ public final class UiSkinRenderer {
 
 
 	public static void drawSwitch(GuiGraphics g, int x, int y, int width, int height,
-	                              boolean on, boolean active, boolean hovered, boolean pressed) {
-		ResourceLocation sprite = switchSprite(on, active, hovered || pressed);
+	                              boolean on, boolean active, boolean hovered) {
+		ResourceLocation sprite = switchSprite(on, active, hovered);
 		int visualX = x + (width - SWITCH_VISUAL_WIDTH) / 2;
 		int visualY = y + (height - SWITCH_VISUAL_HEIGHT) / 2;
 		blitSprite(g, sprite, visualX, visualY, SWITCH_VISUAL_WIDTH, SWITCH_VISUAL_HEIGHT);
