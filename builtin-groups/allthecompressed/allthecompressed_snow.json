@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_snow",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_snow",
+    "fallback": "Compressed Snow Block"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:snow_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:snow_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:snow_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:snow_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:snow_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:snow_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:snow_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:snow_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:snow_9x"
+      }
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_blue_ice",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_blue_ice",
+    "fallback": "Compressed Blue Ice"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:blue_ice_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blue_ice_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blue_ice_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blue_ice_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blue_ice_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blue_ice_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blue_ice_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blue_ice_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:blue_ice_9x"
+      }
+    ]
+  }
+}

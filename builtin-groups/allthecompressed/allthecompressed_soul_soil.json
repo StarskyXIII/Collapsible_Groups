@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_soul_soil",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_soul_soil",
+    "fallback": "Compressed Soul Soil"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_soil_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_soil_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_soil_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_soil_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_soil_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_soil_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_soil_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_soil_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_soil_9x"
+      }
+    ]
+  }
+}

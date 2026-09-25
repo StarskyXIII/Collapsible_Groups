@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_spruce_planks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_spruce_planks",
+    "fallback": "Compressed Spruce Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_planks_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_planks_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_planks_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_planks_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_planks_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_planks_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_planks_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_planks_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_planks_9x"
+      }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_nests",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_nests",
+    "fallback": "Productive Bees: Bee Nests"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "productivebees"
+      },
+      {
+        "any": [
+          {
+            "item_path_ends_with": "_nest"
+          },
+          {
+            "type": "item",
+            "id": "productivebees:bamboo_hive"
+          },
+          {
+            "type": "item",
+            "id": "productivebees:dragon_egg_hive"
+          }
+        ]
+      }
+    ]
+  }
+}

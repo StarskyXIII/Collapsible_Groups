@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivelib_upgrades",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivelib_upgrades",
+    "fallback": "Productive Lib: Upgrades"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "productivelib"
+      },
+      {
+        "item_path_starts_with": "upgrade_"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "productivelib:upgrade_base"
+        }
+      }
+    ]
+  }
+}

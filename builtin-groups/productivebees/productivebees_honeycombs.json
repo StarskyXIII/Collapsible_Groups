@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_honeycombs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_honeycombs",
+    "fallback": "Productive Bees: Honeycombs"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "productivebees"
+      },
+      {
+        "any": [
+          {
+            "item_path_starts_with": "honeycomb_"
+          },
+          {
+            "item_path_ends_with": "_honeycomb"
+          }
+        ]
+      }
+    ]
+  }
+}

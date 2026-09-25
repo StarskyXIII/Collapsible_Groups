@@ -1,0 +1,26 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_type_genes",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_type_genes",
+    "fallback": "Productive Bees: Type Genes"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "productivebees:gene"
+      },
+      {
+        "type": "item",
+        "component": "productivebees:gene_group",
+        "path": "attribute",
+        "value": {
+          "data_format": "minecraft:data_component",
+          "data": "type"
+        }
+      }
+    ]
+  }
+}

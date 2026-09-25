@@ -1,0 +1,66 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_attribute_genes",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_attribute_genes",
+    "fallback": "Productive Bees: Attribute Genes"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "productivebees:gene"
+      },
+      {
+        "any": [
+          {
+            "type": "item",
+            "component": "productivebees:gene_group",
+            "path": "attribute",
+            "value": {
+              "data_format": "minecraft:data_component",
+              "data": "productivity"
+            }
+          },
+          {
+            "type": "item",
+            "component": "productivebees:gene_group",
+            "path": "attribute",
+            "value": {
+              "data_format": "minecraft:data_component",
+              "data": "endurance"
+            }
+          },
+          {
+            "type": "item",
+            "component": "productivebees:gene_group",
+            "path": "attribute",
+            "value": {
+              "data_format": "minecraft:data_component",
+              "data": "temper"
+            }
+          },
+          {
+            "type": "item",
+            "component": "productivebees:gene_group",
+            "path": "attribute",
+            "value": {
+              "data_format": "minecraft:data_component",
+              "data": "behavior"
+            }
+          },
+          {
+            "type": "item",
+            "component": "productivebees:gene_group",
+            "path": "attribute",
+            "value": {
+              "data_format": "minecraft:data_component",
+              "data": "weather_tolerance"
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

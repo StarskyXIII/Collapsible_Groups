@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_packed_mud",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_packed_mud",
+    "fallback": "Compressed Packed Mud"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:packed_mud_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:packed_mud_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:packed_mud_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:packed_mud_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:packed_mud_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:packed_mud_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:packed_mud_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:packed_mud_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:packed_mud_9x"
+      }
+    ]
+  }
+}

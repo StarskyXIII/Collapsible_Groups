@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_spruce_log",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_spruce_log",
+    "fallback": "Compressed Spruce Log"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_log_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_log_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_log_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_log_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_log_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_log_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_log_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_log_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:spruce_log_9x"
+      }
+    ]
+  }
+}

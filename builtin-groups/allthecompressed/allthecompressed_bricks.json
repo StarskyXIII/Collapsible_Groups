@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_bricks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_bricks",
+    "fallback": "Compressed Bricks"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:bricks_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:bricks_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:bricks_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:bricks_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:bricks_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:bricks_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:bricks_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:bricks_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:bricks_9x"
+      }
+    ]
+  }
+}

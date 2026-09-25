@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_light_blue_concrete",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_light_blue_concrete",
+    "fallback": "Compressed Light Blue Concrete"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:light_blue_concrete_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:light_blue_concrete_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:light_blue_concrete_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:light_blue_concrete_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:light_blue_concrete_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:light_blue_concrete_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:light_blue_concrete_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:light_blue_concrete_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:light_blue_concrete_9x"
+      }
+    ]
+  }
+}

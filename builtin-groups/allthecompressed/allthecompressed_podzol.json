@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_podzol",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_podzol",
+    "fallback": "Compressed Podzol"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:podzol_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:podzol_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:podzol_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:podzol_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:podzol_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:podzol_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:podzol_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:podzol_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:podzol_9x"
+      }
+    ]
+  }
+}

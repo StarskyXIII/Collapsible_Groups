@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_dust",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_dust",
+    "fallback": "Compressed Dust"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:dust_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:dust_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:dust_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:dust_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:dust_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:dust_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:dust_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:dust_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:dust_9x"
+      }
+    ]
+  }
+}

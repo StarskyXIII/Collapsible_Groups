@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_melon",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_melon",
+    "fallback": "Compressed Melon"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:melon_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:melon_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:melon_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:melon_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:melon_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:melon_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:melon_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:melon_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:melon_9x"
+      }
+    ]
+  }
+}

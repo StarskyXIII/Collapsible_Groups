@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_mycelium",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_mycelium",
+    "fallback": "Compressed Mycelium"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:mycelium_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:mycelium_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:mycelium_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:mycelium_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:mycelium_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:mycelium_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:mycelium_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:mycelium_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:mycelium_9x"
+      }
+    ]
+  }
+}

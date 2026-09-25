@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_soul_sand",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_soul_sand",
+    "fallback": "Compressed Soul Sand"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_sand_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_sand_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_sand_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_sand_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_sand_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_sand_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_sand_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_sand_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:soul_sand_9x"
+      }
+    ]
+  }
+}

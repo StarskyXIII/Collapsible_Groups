@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_sponge",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_sponge",
+    "fallback": "Compressed Sponge"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:sponge_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sponge_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sponge_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sponge_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sponge_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sponge_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sponge_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sponge_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sponge_9x"
+      }
+    ]
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_crushed_blackstone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_crushed_blackstone",
+    "fallback": "Compressed Crushed Blackstone"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_blackstone_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_blackstone_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_blackstone_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_blackstone_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_blackstone_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_blackstone_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_blackstone_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_blackstone_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_blackstone_9x"
+      }
+    ]
+  }
+}

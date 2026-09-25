@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_obsidian",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_obsidian",
+    "fallback": "Compressed Obsidian"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:obsidian_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:obsidian_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:obsidian_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:obsidian_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:obsidian_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:obsidian_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:obsidian_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:obsidian_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:obsidian_9x"
+      }
+    ]
+  }
+}

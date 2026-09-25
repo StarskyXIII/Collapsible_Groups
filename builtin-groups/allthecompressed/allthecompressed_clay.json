@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_clay",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_clay",
+    "fallback": "Compressed Clay"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:clay_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:clay_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:clay_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:clay_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:clay_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:clay_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:clay_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:clay_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:clay_9x"
+      }
+    ]
+  }
+}
