@@ -19,6 +19,26 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class JeiInputAbiTest {
 	@Test
+	void packagedBookmarkHooksRequireExactlyOneCompatibleBranch() throws IOException {
+		for (String loader : List.of("forge", "fabric")) {
+			ClassNode bookmarks = readMixin(loader, "MixinBookmarkList");
+			List<MethodNode> hooks = bookmarks.methods.stream().filter(m -> m.visibleAnnotations != null
+				&& m.visibleAnnotations.stream().anyMatch(a -> a.desc.endsWith("/Inject;"))).toList();
+			assertEquals(2, hooks.size());
+			for (MethodNode hook : hooks) {
+				AnnotationNode group = hook.invisibleAnnotations.stream()
+					.filter(a -> a.desc.endsWith("/Group;")).findFirst().orElseThrow();
+				assertEquals("cg$blockGroupHeaderBookmarks", value(group, "name"));
+				assertEquals(1, value(group, "min"));
+				assertEquals(1, value(group, "max"));
+				AnnotationNode inject = hook.visibleAnnotations.stream()
+					.filter(a -> a.desc.endsWith("/Inject;")).findFirst().orElseThrow();
+				assertEquals(true, value(inject, "cancellable"));
+			}
+		}
+	}
+
+	@Test
 	void bookmarkAndElementClickHooksMatchTheSelectedNativeOwner() throws IOException {
 		for (String loader : List.of("forge", "fabric")) {
 			ClassNode bookmarks = readMixin(loader, "MixinBookmarkList");
