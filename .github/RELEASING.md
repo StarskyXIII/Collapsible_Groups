@@ -31,8 +31,8 @@ The selected type controls the CurseForge release label independently of the
 version name. It does not rename the version or its changelog. The workflow uses
 the version committed in `gradle.properties` and its matching changelog.
 Accepted versions are `X.Y.Z`, `X.Y.Z-alphaN`, `X.Y.Z-betaN`, and `X.Y.Z-rcN`;
-a dot or hyphen before the prerelease number is also accepted. Snapshot versions
-are rejected.
+a dot or hyphen before the prerelease number is also accepted. Prereleases may
+include one numeric revision, such as `2.0.0-beta3.1`. Snapshot versions are rejected.
 
 The workflow builds the commit selected when the run starts, checks the packaged
 mod IDs and versions, and saves exactly two release JARs with the shared notes

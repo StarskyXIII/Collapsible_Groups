@@ -27,8 +27,8 @@ def release_metadata(root, release_type):
             properties[key.strip()] = value.strip()
 
     version = properties["version"]
-    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)[.-]?\d+)?", version):
-        raise ValueError("Version must be X.Y.Z, X.Y.Z-alphaN, X.Y.Z-betaN, or X.Y.Z-rcN.")
+    if not re.fullmatch(r"\d+\.\d+\.\d+(?:-(?:alpha|beta|rc)[.-]?\d+(?:\.\d+)?)?", version):
+        raise ValueError("Version must be X.Y.Z or an alpha, beta, or rc prerelease with an optional numeric revision, such as X.Y.Z-beta3.1.")
     for key, pattern in {
         "minecraft_version": r"\d+\.\d+(?:\.\d+)?",
         "java_version": r"\d+",

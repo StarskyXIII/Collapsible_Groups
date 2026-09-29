@@ -45,7 +45,7 @@ class ReleaseTest(unittest.TestCase):
         return names
 
     def test_selected_release_type_is_independent_of_version(self):
-        for version in ("2.0.0", "2.0.0-alpha1", "2.0.0-beta1", "2.0.0-rc.1"):
+        for version in ("2.0.0", "2.0.0-alpha1", "2.0.0-beta1", "2.0.0-rc.1", "2.0.0-beta3.1"):
             self.write_release(version)
             for release_type in ("release", "beta", "alpha"):
                 with self.subTest(version=version, release_type=release_type):
@@ -59,10 +59,11 @@ class ReleaseTest(unittest.TestCase):
             with self.subTest(release_type=release_type), self.assertRaises(ValueError):
                 release_metadata(self.root, release_type)
 
-    def test_snapshot_cannot_be_published_as_a_release(self):
-        self.write_release("2.0.0-SNAPSHOT")
-        with self.assertRaises(ValueError):
-            release_metadata(self.root, "release")
+    def test_invalid_version_cannot_be_published(self):
+        for version in ("2.0.0-SNAPSHOT", "2.0.0-beta3.", "2.0.0-beta3-fix", "2.0.0-beta3.1.2"):
+            self.write_release(version)
+            with self.subTest(version=version), self.assertRaises(ValueError):
+                release_metadata(self.root, "release")
 
     def test_missing_or_empty_changelog_stops_preparation(self):
         self.write_release(notes="# Release\n\n")
