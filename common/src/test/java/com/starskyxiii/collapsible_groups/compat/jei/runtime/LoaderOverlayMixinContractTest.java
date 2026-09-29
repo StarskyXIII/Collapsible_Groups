@@ -24,8 +24,6 @@ class LoaderOverlayMixinContractTest {
 		assertTrue(source.contains("at = @At(\"HEAD\")"));
 		assertTrue(source.contains("at = @At(\"TAIL\")"));
 		assertTrue(source.contains("method = \"drawTooltips"));
-		assertTrue(source.contains(
-			"method = \"createInputHandler()Lmezz/jei/gui/input/IUserInputHandler;\""));
 		assertFalse(source.contains("require = 0"));
 	}
 

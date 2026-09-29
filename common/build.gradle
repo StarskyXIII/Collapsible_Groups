@@ -43,6 +43,19 @@ dependencies {
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
     testImplementation 'com.google.code.gson:gson:2.10.1'
     testImplementation 'org.ow2.asm:asm:9.7.1'
+    testImplementation 'org.ow2.asm:asm-tree:9.7.1'
+}
+
+def jeiAbiArtifacts = []
+['forge', 'fabric'].each { loader ->
+    ['15.20.0.102', '15.59.0.211', '15.59.0.212', '15.62.0.214', '15.62.0.216'].each { version ->
+        def artifact = configurations.create("jeiAbi_${loader}_${version.replace('.', '_')}") {
+            canBeConsumed = false
+            transitive = false
+        }
+        dependencies.add(artifact.name, "mezz.jei:jei-${minecraft_version}-${loader}:${version}")
+        jeiAbiArtifacts.add(artifact)
+    }
 }
 
 sourceSets {
@@ -98,8 +111,13 @@ tasks.named('check') {
 }
 
 test {
+    dependsOn ':forge:compileJava', ':fabric:compileJava'
     useJUnitPlatform()
     systemProperty 'collapsibleGroupsRoot', rootProject.projectDir.absolutePath
+    inputs.files(jeiAbiArtifacts)
+    doFirst {
+        systemProperty 'jeiAbiArtifacts', jeiAbiArtifacts.collect { it.singleFile.absolutePath }.join(File.pathSeparator)
+    }
 }
 
 configurations {

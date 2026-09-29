@@ -3,9 +3,9 @@ package com.starskyxiii.collapsible_groups.mixin;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientListOverlayController;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
+import com.starskyxiii.collapsible_groups.viewer.LoaderViewerEnvironment;
 import mezz.jei.gui.elements.GuiIconToggleButton;
 import mezz.jei.gui.input.GuiTextFieldFilter;
-import mezz.jei.gui.input.IUserInputHandler;
 import mezz.jei.gui.overlay.IngredientListOverlay;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphics;
@@ -70,13 +70,18 @@ public abstract class MixinIngredientListOverlay {
 	}
 
 	@Inject(
-		method = "createInputHandler()Lmezz/jei/gui/input/IUserInputHandler;",
+		method = {
+			"createInputHandler()Lmezz/jei/gui/input/IUserInputHandler;",
+			"createInputHandler()Lmezz/jei/common/input/IUserInputHandler;"
+		},
 		at = @At("RETURN"),
 		cancellable = true,
-		require = 1
+		require = 1,
+		allow = 1
 	)
-	private void cg$wrapInputHandler(CallbackInfoReturnable<IUserInputHandler> cir) {
+	private void cg$wrapInputHandler(CallbackInfoReturnable<Object> cir) {
 		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
-		cir.setReturnValue(this.cg$controller.wrapInputHandler(cir.getReturnValue()));
+		cir.setReturnValue(this.cg$controller.wrapInputHandler(cir.getReturnValue(),
+			LoaderViewerEnvironment.detectRuntime().jeiVersion().detectedVersion()));
 	}
 }
