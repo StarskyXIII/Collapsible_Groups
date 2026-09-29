@@ -11,7 +11,7 @@ import mezz.jei.api.recipe.RecipeIngredientRole;
 import mezz.jei.api.runtime.IRecipesGui;
 import mezz.jei.common.gui.JeiTooltip;
 import mezz.jei.common.input.IInternalKeyMappings;
-import mezz.jei.gui.input.UserInput;
+import mezz.jei.api.gui.inputs.IJeiUserInput;
 import mezz.jei.gui.overlay.elements.IngredientElement;
 import mezz.jei.gui.util.FocusUtil;
 import net.minecraft.ChatFormatting;
@@ -68,8 +68,7 @@ public final class GroupHeaderElement extends IngredientElement<GroupIcon> imple
 		tooltip.add(Component.translatable(actionKey).withStyle(ChatFormatting.GRAY, ChatFormatting.ITALIC));
 	}
 
-	@Override
-	public boolean handleClick(UserInput input, IInternalKeyMappings keyBindings) {
+	public boolean handleJeiClick(IJeiUserInput input, IInternalKeyMappings keyBindings) {
 		if (!input.is(keyBindings.getLeftClick())) return false;
 		if (!input.isSimulate()) {
 			GroupRegistry.toggleById(icon().groupId());

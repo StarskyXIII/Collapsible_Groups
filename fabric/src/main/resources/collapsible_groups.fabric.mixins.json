@@ -8,6 +8,8 @@
   "mixins": ["MixinGroupResourcePackAccessor"],
   "client": [
     "MixinBookmarkList",
+    "MixinFocusInputHandler",
+    "MixinElementInputHandler",
     "MixinIngredientFilter",
     "MixinIngredientListRenderer",
     "MixinIngredientListSlot",

@@ -111,12 +111,20 @@ tasks.named('check') {
 }
 
 test {
-    dependsOn ':forge:compileJava', ':fabric:compileJava'
+    dependsOn ':forge:reobfJar', ':fabric:remapJar'
     useJUnitPlatform()
     systemProperty 'collapsibleGroupsRoot', rootProject.projectDir.absolutePath
     inputs.files(jeiAbiArtifacts)
+    inputs.files {
+        ['forge': 'reobfJar', 'fabric': 'remapJar'].collect { loader, jarTask ->
+            project(":${loader}").tasks.named(jarTask).get().archiveFile.get().asFile
+        }
+    }
     doFirst {
         systemProperty 'jeiAbiArtifacts', jeiAbiArtifacts.collect { it.singleFile.absolutePath }.join(File.pathSeparator)
+        ['forge': 'reobfJar', 'fabric': 'remapJar'].each { loader, jarTask ->
+            systemProperty "jeiAbi.${loader}.jar", project(":${loader}").tasks.named(jarTask).get().archiveFile.get().asFile.absolutePath
+        }
     }
 }
 

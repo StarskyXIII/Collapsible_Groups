@@ -6,10 +6,10 @@ import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
 import org.objectweb.asm.tree.ClassNode;
 import org.objectweb.asm.tree.MethodNode;
+import org.objectweb.asm.tree.MethodInsnNode;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.List;
@@ -18,13 +18,43 @@ import java.util.zip.ZipFile;
 import static org.junit.jupiter.api.Assertions.*;
 
 class JeiInputAbiTest {
+	@Test
+	void bookmarkAndElementClickHooksMatchTheSelectedNativeOwner() throws IOException {
+		for (String loader : List.of("forge", "fabric")) {
+			ClassNode bookmarks = readMixin(loader, "MixinBookmarkList");
+			List<AnnotationNode> bookmarkHooks = bookmarks.methods.stream().filter(m -> m.visibleAnnotations != null)
+				.flatMap(m -> m.visibleAnnotations.stream()).filter(a -> a.desc.endsWith("/Inject;")).toList();
+			for (Path artifact : artifacts()) {
+				if (!artifact.getFileName().toString().contains("-" + loader + "-")) continue;
+				try (ZipFile jar = new ZipFile(artifact.toFile())) {
+					ClassNode target = read(jar, "mezz/jei/gui/bookmarks/BookmarkList");
+					long bookmarkMatches = bookmarkHooks.stream().mapToLong(hook -> target.methods.stream()
+						.filter(m -> ((List<?>) value(hook, "method")).contains(m.name + m.desc)).count()).sum();
+					assertEquals(1, bookmarkMatches, artifact.toString());
+					String owner = JeiInputMixinTargets.select(true,
+						name -> jar.getEntry(name.replace('.', '/') + ".class") != null, artifact.toString());
+					String mixin = owner.equals(JeiInputMixinTargets.CURRENT) ? "MixinElementInputHandler" : "MixinFocusInputHandler";
+					ClassNode inputMixin = readMixin(loader, mixin);
+					AnnotationNode redirect = method(inputMixin, "cg$handleElementClick").visibleAnnotations.stream()
+						.filter(a -> a.desc.endsWith("/Redirect;")).findFirst().orElseThrow();
+					assertEquals(1, value(redirect, "require"));
+					assertEquals(1, value(redirect, "allow"));
+					List<?> selectors = (List<?>) value(redirect, "method");
+					String invoke = (String) value((AnnotationNode) value(redirect, "at"), "target");
+					long matches = read(jar, owner.replace('.', '/')).methods.stream()
+						.filter(m -> selectors.contains(m.name) || selectors.contains(m.name + m.desc))
+						.flatMap(m -> Arrays.stream(m.instructions.toArray()))
+						.filter(i -> i instanceof MethodInsnNode call && invoke.equals("L" + call.owner + ";" + call.name + call.desc)).count();
+					assertEquals(1, matches, artifact.toString());
+				}
+			}
+		}
+	}
 
 	@Test
 	void overlayInjectionAndNativeWrappersMatchEverySupportedAbi() throws IOException {
-		Path root = Path.of(System.getProperty("collapsibleGroupsRoot"));
 		for (String loader : List.of("forge", "fabric")) {
-			ClassNode mixin = read(Files.readAllBytes(root.resolve(loader + "/build/classes/java/main/"
-				+ "com/starskyxiii/collapsible_groups/mixin/MixinIngredientListOverlay.class")));
+			ClassNode mixin = readMixin(loader, "MixinIngredientListOverlay");
 			MethodNode callback = method(mixin, "cg$wrapInputHandler");
 			AnnotationNode inject = callback.visibleAnnotations.stream()
 				.filter(a -> a.desc.endsWith("/Inject;")).findFirst().orElseThrow();
@@ -61,6 +91,14 @@ class JeiInputAbiTest {
 			.map(Path::of).toList();
 		assertEquals(10, artifacts.size());
 		return artifacts;
+	}
+
+	static ClassNode readMixin(String loader, String name) throws IOException {
+		String path = System.getProperty("jeiAbi." + loader + ".jar");
+		assertNotNull(path);
+		try (ZipFile jar = new ZipFile(path)) {
+			return read(jar, "com/starskyxiii/collapsible_groups/mixin/" + name);
+		}
 	}
 
 	static ClassNode read(ZipFile jar, String name) throws IOException {

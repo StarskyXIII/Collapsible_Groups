@@ -27,7 +27,7 @@ class JeiInputLinkageTest {
 	@Test
 	void sharedInputIntegrationHasNoConcreteInputAbiLinkage() throws IOException {
 		for (String name : List.of("runtime/JeiInputHandlerAdapter", "runtime/JeiInputHandlerAdapter$Bindings",
-			"runtime/JeiIngredientListOverlayController")) {
+			"runtime/JeiIngredientListOverlayController", "runtime/JeiElementInputBridge", "element/GroupHeaderElement")) {
 			try (var stream = getClass().getClassLoader().getResourceAsStream(PREFIX + name + ".class")) {
 				assertNotNull(stream, name);
 				new ClassReader(stream).accept(new ClassVisitor(Opcodes.ASM9) {
