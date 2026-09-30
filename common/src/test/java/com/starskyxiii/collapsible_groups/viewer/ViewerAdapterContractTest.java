@@ -68,7 +68,7 @@ class ViewerAdapterContractTest {
 		);
 		ViewerProjection.GroupHeader<String> header = org.junit.jupiter.api.Assertions.assertInstanceOf(
 			ViewerProjection.GroupHeader.class,
-			projection.entries().getFirst()
+			projection.entries().get(0)
 		);
 		assertEquals(List.of(oxygen, hydrogen), header.children());
 		assertFalse(adapter.bookmarkPolicy().canBookmark(new ViewerProjection.DisplayHeader<>(header)));

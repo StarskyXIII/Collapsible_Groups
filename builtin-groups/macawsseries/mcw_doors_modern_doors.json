@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_doors_modern_doors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_doors_modern_doors",
+    "fallback": "Macaw's Doors: Modern Doors"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwdoors:modern_doors"
+  }
+}

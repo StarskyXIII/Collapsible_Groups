@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_vanilla_candles",
+  "name": {
+    "translate": "collapsible_groups.group.__default_vanilla_candles",
+    "fallback": "Vanilla Candles"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "minecraft:candles"
+      },
+      {
+        "type": "item",
+        "namespace": "minecraft"
+      }
+    ]
+  }
+}

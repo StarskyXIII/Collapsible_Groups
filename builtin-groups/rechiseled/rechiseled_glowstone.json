@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_glowstone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_glowstone",
+    "fallback": "Rechiseled: Glowstone"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:glowstone"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

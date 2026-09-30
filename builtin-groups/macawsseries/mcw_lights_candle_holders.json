@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_lights_candle_holders",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_lights_candle_holders",
+    "fallback": "Macaw's Lights: Candle Holders"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwlights:candle_holders"
+  }
+}

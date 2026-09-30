@@ -2,7 +2,27 @@ package com.starskyxiii.collapsible_groups.i18n;
 
 /** Centralised translation-key constants for all UI strings. */
 public final class ModTranslationKeys {
+	public static final String MANAGER_COPY_SOURCE_MISSING = "collapsible_groups.manager.copy_source_missing";
+	public static final String MANAGER_COPY_SOURCE_DISABLE_FAILED = "collapsible_groups.manager.copy_source_disable_failed";
 	private ModTranslationKeys() {}
+	public static final String MANAGER_BUILTINS_DISABLED = "collapsible_groups.manager.builtins_disabled";
+	public static final String MANAGER_EVALUATION_COMPLETE = "collapsible_groups.manager.evaluation.complete";
+	public static final String MANAGER_EVALUATION_UNAVAILABLE = "collapsible_groups.manager.evaluation.unavailable";
+	public static final String MANAGER_EVALUATION_ERROR = "collapsible_groups.manager.evaluation.error";
+	public static final String MANAGER_EVALUATION_PENDING = "collapsible_groups.manager.evaluation.pending";
+	public static final String MANAGER_SOURCE_PROBLEMS = "collapsible_groups.manager.source_problems";
+	public static final String MANAGER_SOURCES_STALE = "collapsible_groups.manager.sources_stale";
+	public static final String MANAGER_SAVED_EMPTY = "collapsible_groups.manager.saved_empty";
+	public static final String MANAGER_HIDDEN_EMPTY = "collapsible_groups.manager.hidden_empty";
+	public static final String MANAGER_SHOW_EMPTY = "collapsible_groups.manager.show_empty";
+
+	public static final String MANAGER_SOURCE_RESOURCE_PACK = "collapsible_groups.manager.source.resource_pack";
+
+	public static final String EDITOR_TAG_PENDING = "collapsible_groups.editor.tag.pending";
+	public static final String EDITOR_TAG_PARTIAL = "collapsible_groups.editor.tag.partial";
+	public static final String EDITOR_TAG_UNAVAILABLE = "collapsible_groups.editor.tag.unavailable";
+	public static final String EDITOR_TAG_WARNING_DETAIL = "collapsible_groups.editor.tag.warning_detail";
+	public static final String EDITOR_TAG_WARNING_COUNT = "collapsible_groups.editor.tag.warning_count";
 
 	public static final String BUTTON_CANCEL = "collapsible_groups.button.cancel";
 
@@ -81,6 +101,8 @@ public final class ModTranslationKeys {
 	public static final String EDITOR_FILTER_EDITABLE = "collapsible_groups.editor.filter.editable";
 
 	public static final String EDITOR_FILTER_READONLY = "collapsible_groups.editor.filter.readonly";
+
+	public static final String EDITOR_FILTER_UNAVAILABLE = "collapsible_groups.editor.filter.unavailable";
 
 	/** non-blocking Contents hint — "%s advanced rules managed in Rules mode". */
 
@@ -179,6 +201,8 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_RULES_ERROR_EXACT_STACK_BLANK = "collapsible_groups.editor.rules.error.exact_stack_blank";
 
+    public static final String EDITOR_RULES_ERROR_JSON_LITERAL = "collapsible_groups.editor.rules.error.json_literal";
+    public static final String EDITOR_RULES_FIELD_JSON_LITERAL = "collapsible_groups.editor.rules.field.json_literal";
 	public static final String EDITOR_RULES_ERROR_EXACT_STACK_INVALID = "collapsible_groups.editor.rules.error.exact_stack_invalid";
 
 	public static final String EDITOR_RULES_ERROR_HAS_COMPONENT_TYPE_BLANK = "collapsible_groups.editor.rules.error.has_component_type_blank";
@@ -540,6 +564,10 @@ public final class ModTranslationKeys {
 
 	public static final String EDITOR_UNSUPPORTED_NODE_NOT_REASON = "collapsible_groups.editor.unsupported_node.not.reason";
 
+	public static final String EDITOR_UNSUPPORTED_NODE_UNAVAILABLE_LABEL = "collapsible_groups.editor.unsupported_node.unavailable.label";
+
+	public static final String EDITOR_UNSUPPORTED_NODE_UNAVAILABLE_REASON = "collapsible_groups.editor.unsupported_node.unavailable.reason";
+
 	public static final String MANAGER_BADGE_BUILTIN = "collapsible_groups.manager.badge_builtin";
 
 	public static final String MANAGER_BADGE_KUBEJS = "collapsible_groups.manager.badge_kubejs";
@@ -645,4 +673,40 @@ public final class ModTranslationKeys {
 
 	public static final String TOOLTIP_EXPAND = "collapsible_groups.tooltip.expand";
 
+	public static final String EDITOR_RULES_OTHER_TAG = "collapsible_groups.editor.rules.other_tag";
+	public static final String EDITOR_RULES_OTHER_ID = "collapsible_groups.editor.rules.other_id";
+	public static final String EDITOR_RULES_ID_TITLE = "collapsible_groups.editor.rules.id.title";
+	public static final String EDITOR_RULES_ID_MANUAL = "collapsible_groups.editor.rules.id.manual";
+	public static final String EDITOR_RULES_ID_EMPTY = "collapsible_groups.editor.rules.id.empty";
+	public static final String EDITOR_RULES_ID_PENDING = "collapsible_groups.editor.rules.id.pending";
+	public static final String EDITOR_RULES_ID_UNAVAILABLE = "collapsible_groups.editor.rules.id.unavailable";
+	public static final String EDITOR_RULES_ID_PARTIAL = "collapsible_groups.editor.rules.id.partial";
+	public static final String EDITOR_RULES_ID_AVAILABLE = "collapsible_groups.editor.rules.id.available";
+	public static final String EDITOR_RULES_TYPE_TITLE = "collapsible_groups.editor.rules.type.title";
+	public static final String EDITOR_RULES_TYPE_CHANGE = "collapsible_groups.editor.rules.type.change";
+	public static final String EDITOR_RULES_TYPE_EMPTY = "collapsible_groups.editor.rules.type.empty";
+	public static final String EDITOR_RULES_TYPE_PENDING = "collapsible_groups.editor.rules.type.pending";
+	public static final String EDITOR_RULES_TYPE_UNAVAILABLE = "collapsible_groups.editor.rules.type.unavailable";
+	public static final String EDITOR_RULES_TYPE_MISSING = "collapsible_groups.editor.rules.type.missing";
+	public static final String EDITOR_RULES_TAG_TITLE = "collapsible_groups.editor.rules.tag.title";
+	public static final String EDITOR_RULES_TAG_MANUAL = "collapsible_groups.editor.rules.tag.manual";
+	public static final String EDITOR_RULES_TAG_PENDING = "collapsible_groups.editor.rules.tag.pending";
+	public static final String EDITOR_RULES_TAG_UNAVAILABLE = "collapsible_groups.editor.rules.tag.unavailable";
+	public static final String EDITOR_RULES_TAG_EMPTY = "collapsible_groups.editor.rules.tag.empty";
+	public static final String EDITOR_RULES_TAG_PARTIAL = "collapsible_groups.editor.rules.tag.partial";
+	public static final String EDITOR_RULES_TAG_OBSERVED = "collapsible_groups.editor.rules.tag.observed";
+	public static final String EDITOR_RULES_TAG_REGISTRY = "collapsible_groups.editor.rules.tag.registry";
+
+	public static final String EDITOR_RULES_OTHER_NAMESPACE = "collapsible_groups.editor.rules.other_namespace";
+	public static final String EDITOR_RULES_NAMESPACE_TITLE = "collapsible_groups.editor.rules.namespace.title";
+	public static final String EDITOR_RULES_NAMESPACE_MANUAL = "collapsible_groups.editor.rules.namespace.manual";
+	public static final String EDITOR_RULES_NAMESPACE_EMPTY = "collapsible_groups.editor.rules.namespace.empty";
+	public static final String EDITOR_RULES_NAMESPACE_PENDING = "collapsible_groups.editor.rules.namespace.pending";
+	public static final String EDITOR_RULES_NAMESPACE_UNAVAILABLE = "collapsible_groups.editor.rules.namespace.unavailable";
+	public static final String EDITOR_RULES_NAMESPACE_PARTIAL = "collapsible_groups.editor.rules.namespace.partial";
+	public static final String EDITOR_RULES_NAMESPACE_AVAILABLE = "collapsible_groups.editor.rules.namespace.available";
+	public static final String EDITOR_RULES_CHIP_ITEM_NAMESPACE = "collapsible_groups.editor.rules.chip.item_namespace";
+	public static final String EDITOR_RULES_CHIP_FLUID_NAMESPACE = "collapsible_groups.editor.rules.chip.fluid_namespace";
+	public static final String EDITOR_RULES_PICKER_TITLE_ITEM_NAMESPACE = "collapsible_groups.editor.rules.picker.title.item_namespace";
+	public static final String EDITOR_RULES_PICKER_TITLE_FLUID_NAMESPACE = "collapsible_groups.editor.rules.picker.title.fluid_namespace";
 }

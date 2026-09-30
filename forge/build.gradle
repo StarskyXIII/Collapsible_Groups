@@ -23,8 +23,17 @@ plugins {
 
 apply plugin: 'net.minecraftforge.gradle'
 apply plugin: 'org.spongepowered.mixin'
+repositories {
+    mavenLocal {
+        content { includeGroup 'dev.emi' }
+    }
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/'
+    }
+}
 base {
-    archivesName = "${mod_name}-forge-${minecraft_version}"
+    archivesName = "${mod_id}-forge-${minecraft_version}"
 }
 mixin {
     add sourceSets.main, "${mod_id}.refmap.json"
@@ -93,17 +102,30 @@ minecraft {
 sourceSets.main.resources.srcDir 'src/generated/resources'
 
 dependencies {
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
     minecraft "net.minecraftforge:forge:${minecraft_version}-${forge_version}"
-    annotationProcessor("org.spongepowered:mixin:0.8.5:processor")
+    annotationProcessor("org.spongepowered:mixin:0.8.7:processor")
     compileOnly "mezz.jei:jei-${minecraft_version}-common-api:${jei_version}"
     // JEI Forge API — public API surface (mezz.jei.api.*)
     compileOnly "mezz.jei:jei-${minecraft_version}-forge-api:${jei_version}"
     // JEI Forge full jar — provides mezz.jei.gui.* / mezz.jei.common.* needed by mixins at compile time
     compileOnly "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
     runtimeOnly "mezz.jei:jei-${minecraft_version}-forge:${jei_version}"
+    // Symbols only so the shared EMI compat sources compile; Forge 1.21 does not load EMI.
+    compileOnly "dev.emi:emi-xplat-mojmap:${emi_version}"
 
     // Forge's hack fix
     implementation('net.sf.jopt-simple:jopt-simple:5.0.4') { version { strictly '5.0.4' } }
+}
+
+sourceSets.test {
+    compileClasspath += sourceSets.main.compileClasspath
+    runtimeClasspath += sourceSets.main.compileClasspath
+}
+
+test {
+    useJUnitPlatform()
 }
 
 publishing {

@@ -73,6 +73,8 @@ public final class GroupFilterClauseFormatter {
 				clauses.add(new Clause(depth, "Has Component", hc.componentTypeId() + " = " + hc.encodedValue()));
 			case GroupFilter.ComponentPath cp ->
 				clauses.add(new Clause(depth, "Component Path", cp.componentTypeId() + " / " + cp.path() + " = " + cp.expectedValue()));
+			case GroupFilter.Unsupported unsupported ->
+				clauses.add(new Clause(depth, "Unavailable Rule", unsupported.recognizedKind()));
 		}
 	}
 
@@ -91,6 +93,7 @@ public final class GroupFilterClauseFormatter {
 			case GroupFilter.Namespace ignored -> true;
 			case GroupFilter.All ignored -> true;
 			case GroupFilter.Not ignored -> true;
+			case GroupFilter.Unsupported ignored -> true;
 		};
 	}
 

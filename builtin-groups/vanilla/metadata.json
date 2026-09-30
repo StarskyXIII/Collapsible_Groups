@@ -1,0 +1,11 @@
+{
+  "loaders": [
+    "fabric",
+    "forge",
+    "neoforge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.vanilla",
+    "fallback": "Vanilla"
+  }
+}

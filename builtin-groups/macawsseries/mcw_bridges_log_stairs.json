@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_bridges_log_stairs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_bridges_log_stairs",
+    "fallback": "Macaw's Bridges: Log Stairs"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwbridges:log_stairs"
+  }
+}

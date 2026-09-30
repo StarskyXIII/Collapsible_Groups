@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_paths_stone_engraved_blocks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_paths_stone_engraved_blocks",
+    "fallback": "Macaw's Paths: Stone Engraved Blocks"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwpaths:stone_engraved_blocks"
+  }
+}

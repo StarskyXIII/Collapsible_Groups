@@ -19,6 +19,7 @@ public final class GroupUiState {
 		ALL("all"),
 		USER("user"),
 		BUILTIN("builtin"),
+		RESOURCE_PACK("resource_pack"),
 		KUBEJS("kubejs");
 
 		private final String id;
@@ -44,6 +45,9 @@ public final class GroupUiState {
 	private static boolean hideUsed = false;
 	private static ManagerSourceFilter managerSourceFilter = ManagerSourceFilter.ALL;
 	private static GroupSortMode managerSortMode = GroupSortMode.PRIORITY;
+	private static boolean managerShowEmpty;
+    private static String managerCategoryFilter = "all";
+    private static boolean managerSidebarOpen = true;
 	private static boolean loaded = false;
 
 	private static final ExecutorService PERSIST_EXECUTOR = Executors.newSingleThreadExecutor(r -> {
@@ -126,8 +130,44 @@ public final class GroupUiState {
 		hideUsed = state.hideUsed();
 		managerSourceFilter = ManagerSourceFilter.fromId(state.managerSourceFilter());
 		managerSortMode = GroupSortMode.fromId(state.managerSortMode());
+		managerShowEmpty = state.managerShowEmpty();
+        managerCategoryFilter = state.managerCategoryFilter();
+        managerSidebarOpen = state.managerSidebarOpen();
 		loaded = true;
 	}
+
+	public static boolean managerShowEmpty() {
+		ensureLoaded();
+		return managerShowEmpty;
+	}
+
+	public static void setManagerShowEmpty(boolean value) {
+		ensureLoaded();
+		managerShowEmpty = value;
+		persist();
+	}
+
+    public static String managerCategoryFilter() {
+        ensureLoaded();
+        return managerCategoryFilter;
+    }
+
+    public static void setManagerCategoryFilter(String value) {
+        ensureLoaded();
+        managerCategoryFilter = value == null ? "all" : value;
+        persist();
+    }
+
+    public static boolean managerSidebarOpen() {
+        ensureLoaded();
+        return managerSidebarOpen;
+    }
+
+    public static void setManagerSidebarOpen(boolean value) {
+        ensureLoaded();
+        managerSidebarOpen = value;
+        persist();
+    }
 
 	private static void persist() {
 		boolean builtinSnapshot = showBuiltin;
@@ -135,9 +175,12 @@ public final class GroupUiState {
 		boolean hideUsedSnapshot = hideUsed;
 		String sourceFilterSnapshot = managerSourceFilter.id();
 		String sortModeSnapshot = managerSortMode.id();
+		boolean showEmptySnapshot = managerShowEmpty;
+        String categorySnapshot = managerCategoryFilter;
+        boolean sidebarSnapshot = managerSidebarOpen;
 		PERSIST_EXECUTOR.submit(() ->
 			GroupConfig.saveUiState(builtinSnapshot, kubeJsSnapshot, hideUsedSnapshot,
-				sourceFilterSnapshot, sortModeSnapshot));
+				sourceFilterSnapshot, sortModeSnapshot, showEmptySnapshot, categorySnapshot, sidebarSnapshot));
 	}
 
 	private static void shutdownPersistExecutor() {

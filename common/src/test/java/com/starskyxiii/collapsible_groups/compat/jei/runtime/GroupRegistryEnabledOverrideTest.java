@@ -12,11 +12,16 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class GroupRegistryEnabledOverrideTest {
+    @org.junit.jupiter.api.AfterEach void resetRepository() {
+        com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess.replace(List.of());
+    }
 	@Test
 	void appliesOverridesOnlyToBuiltinAndKubeJsGroups() {
 		GroupDefinition builtin = group("__default_food", true);
 		GroupDefinition kubeJs = group("__kjs_scripted", true);
 		GroupDefinition user = group("custom_group", true);
+        com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess.replace(List.of(builtin, user));
+        com.starskyxiii.collapsible_groups.group.GroupRepository.setScriptedGroups(List.of(kubeJs));
 
 		List<GroupDefinition> applied = GroupRegistry.applyEnabledOverridesToManagedSources(
 			List.of(builtin, kubeJs, user),

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_metals_uranium",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_metals_uranium",
+    "fallback": "Chisel: Uranium Blocks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/metals_uranium"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

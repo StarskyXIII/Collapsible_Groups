@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_wire_cutter_heads",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_wire_cutter_heads",
+    "fallback": "GregTech: Wire Cutter Heads"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "_wire_cutter_head"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_hot_ingots",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_hot_ingots",
+    "fallback": "GregTech: Hot Ingots"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:hot_ingots"
+      }
+    ]
+  }
+}

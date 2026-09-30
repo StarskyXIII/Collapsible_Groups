@@ -2,6 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupRepositoryTestAccess;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
@@ -142,21 +143,7 @@ class GroupRegistryPriorityTest {
 	}
 
 	private static void replaceRegistrySnapshot(List<GroupDefinition> groups) throws Exception {
-		Field groupsField = GroupRegistry.class.getDeclaredField("groups");
-		groupsField.setAccessible(true);
-		groupsField.set(null, List.copyOf(groups));
-
-		Field orderedGroupsField = GroupRegistry.class.getDeclaredField("orderedGroups");
-		orderedGroupsField.setAccessible(true);
-		orderedGroupsField.set(null, GroupRegistry.orderByPriority(groups));
-
-		Map<String, GroupDefinition> byId = new LinkedHashMap<>();
-		for (GroupDefinition group : groups) {
-			byId.put(group.id(), group);
-		}
-		Field groupsByIdField = GroupRegistry.class.getDeclaredField("groupsById");
-		groupsByIdField.setAccessible(true);
-		groupsByIdField.set(null, Map.copyOf(byId));
+		GroupRepositoryTestAccess.replace(groups);
 	}
 
 	private record FakeEntry(ITypedIngredient<?> typed) {}
@@ -172,7 +159,6 @@ class GroupRegistryPriorityTest {
 			return value;
 		}
 
-		// Present in JEI 29.33, absent from the 29.20 baseline.
 		public ITypedIngredient<Object> normalize(IIngredientHelper<Object> helper) {
 			return this;
 		}

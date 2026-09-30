@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_refined_ores",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_refined_ores",
+    "fallback": "GregTech: Refined Ores"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:refined_ores"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glasspanedyed_purple",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glasspanedyed_purple",
+    "fallback": "Chisel: Purple Dyed Glass Pane"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glasspanedyed_purple"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

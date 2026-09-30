@@ -2,16 +2,14 @@ package com.starskyxiii.collapsible_groups.mixin;
 
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
 import com.starskyxiii.collapsible_groups.compat.jei.element.FluidChildElement;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterController;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterHook;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.api.ingredients.ITypedIngredient;
-import mezz.jei.api.neoforge.NeoForgeTypes;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.gui.filter.IFilterTextSource;
 import mezz.jei.gui.ingredients.IngredientFilter;
 import mezz.jei.gui.overlay.elements.IElement;
-import net.minecraft.core.registries.BuiltInRegistries;
-import net.neoforged.fml.ModList;
 import net.neoforged.neoforge.fluids.FluidStack;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.asm.mixin.Final;
@@ -37,24 +35,18 @@ public abstract class MixinIngredientFilter {
 	protected abstract Stream<ITypedIngredient<?>> cg$getIngredientListUncached(String filterText);
 	@org.spongepowered.asm.mixin.gen.Invoker("notifyListenersOfChange")
 	protected abstract void cg$notifyListenersOfChange();
-	@Inject(method = "<init>", at = @At("TAIL"), require = 1)
+	@org.spongepowered.asm.mixin.gen.Invoker("updateDirtyState")
+	protected abstract void cg$updateDirtyState();
+
+	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		this.cg$controller = new JeiIngredientFilterController(
 			this.filterTextSource::getFilterText, this::cg$getIngredientListUncached,
 			this::cg$notifyListenersOfChange, this.ingredientManager,
 			() -> this.ingredientListCached, value -> this.ingredientListCached = value,
 			new JeiIngredientFilterController.PlatformHooks() {
-				@Override public Object fluidIngredient(ITypedIngredient<?> typed) {
-					return typed.getIngredient(NeoForgeTypes.FLUID_STACK).orElse(null);
-				}
-				@Override public Object previewFluid(ITypedIngredient<?> typed) {
-					return typed.getIngredient() instanceof FluidStack fluid ? fluid : null;
-				}
 				@Override public boolean hasFluidType() { return true; }
-				@Override public String fluidId(Object fluid) {
-					return fluid instanceof FluidStack stack
-						? BuiltInRegistries.FLUID.getKey(stack.getFluid()).toString() : null;
-				}
 				@Override @SuppressWarnings("unchecked")
 				public IElement<?> createFluidChild(ITypedIngredient<?> typed, String groupId) {
 					return new FluidChildElement((ITypedIngredient<FluidStack>) typed, groupId);
@@ -68,20 +60,19 @@ public abstract class MixinIngredientFilter {
 				@Override public boolean canIndexGeneric(IIngredientManager manager) { return manager != null; }
 				@Override public boolean probeFluidWithoutGroups() { return true; }
 				@Override public boolean beforeIndex(List<ITypedIngredient<?>> all, IIngredientManager manager) {
-					JeiViewerAdapter.instance().updateBootstrap(all, manager);
-					if (GroupRegistry.isKubeJsApplied() || !ModList.get().isLoaded("kubejs")) return false;
-					com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge.applyGroups(
-						JeiViewerAdapter.instance().bootstrapContext());
-					GroupRegistry.markKubeJsApplied();
-					return true;
+					return JeiViewerAdapter.instance().universeReady(all, manager);
 				}
 				@Override public boolean traceBuilds() { return true; }
 			});
 		this.cg$controller.initialize();
 	}
 
-	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true, require = 1)
+	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true, require = 0)
 	private void cg$onGetElements(CallbackInfoReturnable<List<IElement<?>>> cir) {
-		cir.setReturnValue(this.cg$controller.getElements());
+		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
+		cir.setReturnValue(JeiIngredientFilterHook.getElementsAfterDirtyStateUpdate(
+			this::cg$updateDirtyState,
+			this.cg$controller::getElements
+		));
 	}
 }

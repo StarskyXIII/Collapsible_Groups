@@ -1,0 +1,73 @@
+package com.starskyxiii.collapsible_groups.compat.emi;
+
+import org.junit.jupiter.api.Test;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+class EmiInputDispatchRegressionTest {
+	@Test void overlayDispatchHasNoReleaseHookAndOnlyConsumesAHitMouseClick() throws IOException {
+		String controller = source("common/src/main/java/com/starskyxiii/collapsible_groups/compat/emi/EmiOverlayController.java");
+		assertFalse(controller.contains("MOUSE_RELEASE"));
+		assertFalse(controller.contains("mouseReleased("));
+		assertTrue(controller.contains("case MOUSE_CLICK -> button.mouseClicked"));
+		assertTrue(controller.contains("case KEY_PRESS -> false"), "keys outside and inside the button must pass through");
+		assertTrue(controller.contains("!visible || !enabled"), "hidden, disabled, and external clicks pass through");
+		assertTrue(controller.contains("public void render(GuiGraphics graphics, int mouseX, int mouseY) {\n\t\tsyncState();"),
+			"render must refresh readiness without reopening the inventory");
+		assertTrue(controller.contains("public boolean handleInput(Input input) {\n\t\tsyncState();"),
+			"input must not consume against stale readiness");
+	}
+
+	@Test void loaderHooksCannotCancelNativeReleaseAndRemainingInputTargetsAreGuarded() throws IOException {
+		for (String loader : new String[]{"fabric", "neoforge"}) {
+			String mixin = source(loader + "/src/main/java/com/starskyxiii/collapsible_groups/mixin/MixinEmiScreenManager.java");
+			assertFalse(mixin.contains("method = \"mouseReleased\""));
+			assertFalse(mixin.contains("Input.Type.MOUSE_RELEASE"));
+			assertTrue(mixin.contains("method = \"mouseClicked\", at = @At(\"HEAD\"), cancellable = true, require = 1"));
+			assertTrue(mixin.contains("method = \"keyPressed\", at = @At(\"HEAD\"), cancellable = true, require = 1"));
+			assertFalse(mixin.contains("method = \"mouseClicked\", at = @At(\"HEAD\"), cancellable = true, require = 0"));
+			assertEquals(1, occurrences(mixin, "ViewerOverlayHook.Input.Type.MOUSE_CLICK"),
+				"the button click must be dispatched and consumed at most once");
+		}
+	}
+
+	@Test void headerClickDispatchUsesLeftClickBindingAndRejectsOtherActions() throws IOException {
+		for (String loader : new String[]{"fabric", "neoforge"}) {
+			String mixin = source(loader + "/src/main/java/com/starskyxiii/collapsible_groups/mixin/MixinEmiScreenManager.java");
+			assertTrue(mixin.contains("function.apply(EmiBind.LEFT_CLICK)"));
+			assertTrue(mixin.contains("EmiHeaderInteractionPolicy.Action.OTHER"));
+		}
+	}
+
+	@Test void syntheticHeadersCannotEnterNativeDragDispatchButChildrenKeepIt() throws IOException {
+		for (String loader : new String[]{"fabric", "neoforge"}) {
+			String mixin = source(loader + "/src/main/java/com/starskyxiii/collapsible_groups/mixin/MixinEmiScreenManager.java");
+			int start = mixin.indexOf("\t@Inject(method = \"mouseDragged\", at = @At(\"RETURN\")");
+			int end = mixin.indexOf("\n\t@Inject", start + 1);
+			String dragHook = mixin.substring(start, end);
+			assertTrue(dragHook.contains("require = 1"));
+			assertFalse(dragHook.contains("cancellable = true"));
+			assertTrue(dragHook.contains("if (ViewerLifecycleCoordinator.isEmiSelected())"));
+			assertTrue(dragHook.contains("if (draggedStack instanceof GroupHeaderEmiStack) {\n"
+				+ "\t\t\t\tpressedStack = EmiStack.EMPTY;\n"
+				+ "\t\t\t\tdraggedStack = EmiStack.EMPTY;\n\t\t\t}"));
+			assertFalse(dragHook.contains("cir.setReturnValue"));
+			assertFalse(mixin.contains("method = \"mouseReleased\""));
+		}
+	}
+
+	private static String source(String relative) throws IOException {
+		Path root = Path.of(System.getProperty("user.dir"));
+		Path path = root.resolve(relative);
+		if (!Files.exists(path) && root.getParent() != null) path = root.getParent().resolve(relative);
+		return Files.readString(path).replace("\r\n", "\n");
+	}
+
+	private static int occurrences(String value, String needle) {
+		return (value.length() - value.replace(needle, "").length()) / needle.length();
+	}
+}

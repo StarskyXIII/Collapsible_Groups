@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_jackolantern",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_jackolantern",
+    "fallback": "Chisel: Jackolantern"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/jackolantern"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

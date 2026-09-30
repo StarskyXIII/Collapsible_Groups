@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_doors_bark_glass_doors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_doors_bark_glass_doors",
+    "fallback": "Macaw's Doors: Bark Glass Doors"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwdoors:bark_glass_doors"
+  }
+}

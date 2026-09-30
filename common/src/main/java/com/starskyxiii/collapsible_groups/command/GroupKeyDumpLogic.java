@@ -3,7 +3,7 @@ package com.starskyxiii.collapsible_groups.command;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.starskyxiii.collapsible_groups.Constants;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
@@ -48,7 +48,7 @@ public final class GroupKeyDumpLogic {
 	 * @return {@code 1} on success, {@code 0} on failure
 	 */
 	public static int dump(String locale, boolean clean, Consumer<Component> feedback) {
-		List<GroupDefinition> allGroups = GroupRegistry.getAllIncludingKubeJs();
+		List<GroupDefinition> allGroups = GroupRepository.getAllIncludingScripted();
 
 		if (allGroups.isEmpty()) {
 			feedback.accept(Component.translatable("collapsible_groups.command.dump_empty"));

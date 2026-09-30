@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_hexplating_orange",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_hexplating_orange",
+    "fallback": "Chisel: Orange Hexplating"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/hexplating_orange"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

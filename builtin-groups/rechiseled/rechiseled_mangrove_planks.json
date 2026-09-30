@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_mangrove_planks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_mangrove_planks",
+    "fallback": "Rechiseled: Mangrove Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:mangrove_planks"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

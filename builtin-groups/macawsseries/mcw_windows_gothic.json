@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_windows_gothic",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_windows_gothic",
+    "fallback": "Macaw's Windows: Gothic"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwwindows:gothic"
+  }
+}

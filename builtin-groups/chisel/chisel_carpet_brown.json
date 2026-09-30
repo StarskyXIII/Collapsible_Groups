@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_carpet_brown",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_carpet_brown",
+    "fallback": "Chisel: Brown Carpet"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/carpet_brown"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

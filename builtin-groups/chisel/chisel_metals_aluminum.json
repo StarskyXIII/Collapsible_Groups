@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_metals_aluminum",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_metals_aluminum",
+    "fallback": "Chisel: Aluminum Blocks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/metals_aluminum"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

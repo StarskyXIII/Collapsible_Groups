@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_potions",
+  "name": {
+    "translate": "collapsible_groups.group.__default_potions",
+    "fallback": "Potions"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "id": "minecraft:potion"
+  }
+}

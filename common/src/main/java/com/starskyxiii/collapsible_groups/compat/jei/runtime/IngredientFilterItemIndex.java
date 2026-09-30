@@ -103,7 +103,7 @@ public final class IngredientFilterItemIndex {
 
 	public static List<ItemEntry> collectOrderedUnion(List<List<ItemEntry>> buckets) {
 		if (buckets.isEmpty()) return List.of();
-		if (buckets.size() == 1) return buckets.getFirst();
+		if (buckets.size() == 1) return buckets.get(0);
 
 		IdentityHashMap<ITypedIngredient<?>, Boolean> seen = new IdentityHashMap<>();
 		List<ItemEntry> merged = new ArrayList<>();

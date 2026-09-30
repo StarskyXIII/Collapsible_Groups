@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_apotheosis_gem_the_nether_molten_breach",
+  "name": {
+    "translate": "collapsible_groups.group.__default_apotheosis_gem_the_nether_molten_breach",
+    "fallback": "Molten Breach Gems"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "apotheosis:gem"
+      },
+      {
+        "type": "item",
+        "component": "apotheosis:gem",
+        "value": {
+          "data_format": "minecraft:data_component",
+          "data": "apotheosis:the_nether/molten_breach"
+        }
+      }
+    ]
+  }
+}

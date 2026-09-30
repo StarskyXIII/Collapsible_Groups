@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glassdyed_pink",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glassdyed_pink",
+    "fallback": "Chisel: Pink Dyed Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glassdyed_pink"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

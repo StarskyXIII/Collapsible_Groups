@@ -1,0 +1,177 @@
+package com.starskyxiii.collapsible_groups.client.editor;
+
+import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
+import com.starskyxiii.collapsible_groups.client.widget.ScrollbarHelper;
+import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
+import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
+import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import com.starskyxiii.collapsible_groups.client.widget.CompatEditBox;
+import net.minecraft.network.chat.Component;
+
+import java.util.function.Consumer;
+
+final class EditorIngredientTypePicker {
+	private final Font font;
+    private final CommandPress<String> press = new CommandPress<>();
+	private final EditorChrome.Rect bounds;
+	private final CompatEditBox search;
+	private final EditorTypeSelection selection = new EditorTypeSelection();
+	private final Consumer<String> confirm;
+	private final Runnable cancel;
+	private int focus;
+	private int offset;
+	private long lastClick;
+	private String lastClicked;
+	private boolean dragging;
+	private double dragY;
+	private int dragOffset;
+
+	EditorIngredientTypePicker(Font font, EditorChrome.Rect bounds, Consumer<String> confirm, Runnable cancel) {
+		this.font = font;
+		this.bounds = bounds;
+		this.confirm = confirm;
+		this.cancel = cancel;
+		var rect = searchRect();
+		search = new CompatEditBox(font, rect.x() + 4, rect.y() + (rect.height() - font.lineHeight) / 2,
+			rect.width() - 8, font.lineHeight, Component.empty());
+		search.setBordered(false);
+		search.setMaxLength(512);
+		search.setHint(Component.translatable(ModTranslationKeys.EDITOR_RULES_PICKER_SEARCH));
+		search.setResponder(value -> { press.clear(); selection.search(value); offset = 0; lastClicked = null; });
+		search.setFocused(true);
+		refresh();
+	}
+
+	private boolean refresh() {
+		if (!selection.update(EditorRuntimeServices.findIngredients().map(EditorIngredientAccess::ingredientTypes)
+			.orElse(EditorIngredientTypes.UNAVAILABLE))) return false;
+		press.clear();
+		offset = 0;
+		lastClicked = null;
+		dragging = false;
+		return true;
+	}
+
+	private EditorChrome.Rect searchRect() { return new EditorChrome.Rect(bounds.x() + 6, bounds.y() + 19, bounds.width() - 12, 14); }
+	private EditorChrome.Rect list() { return new EditorChrome.Rect(bounds.x() + 6, searchRect().bottom() + 3, bounds.width() - 22, Math.max(16, back().y() - searchRect().bottom() - 9)); }
+	private EditorChrome.Rect ok() { return new EditorChrome.Rect(bounds.right() - 62, bounds.bottom() - 26, 56, 20); }
+	private EditorChrome.Rect back() { return new EditorChrome.Rect(bounds.right() - 124, bounds.bottom() - 26, 56, 20); }
+	private int maxOffset() { return Math.max(0, selection.rows().size() * 18 - list().height()); }
+	private boolean canConfirm() { return selection.catalog().status() == EditorIngredientTypes.Status.READY && selection.selected() != null; }
+
+	void render(GuiGraphicsExtractor g, int mx, int my) {
+		refresh();
+		UiSkinRenderer.drawPanel(g, bounds.x(), bounds.y(), bounds.width(), bounds.height());
+		g.text(font, Component.translatable(ModTranslationKeys.EDITOR_RULES_TYPE_TITLE), bounds.x() + 6, bounds.y() + 6, UiPalette.TEXT_PRIMARY, false);
+		var searchBounds = searchRect();
+		UiSkinRenderer.drawOutline(g, searchBounds.x(), searchBounds.y(), searchBounds.width(), searchBounds.height(),
+			focus == 0 ? UiPalette.OUTLINE_SELECTED : UiPalette.OUTLINE_DARK);
+		search.render(g, mx, my, 0);
+		var list = list();
+		g.enableScissor(list.x(), list.y(), list.right(), list.bottom());
+		String hovered = null;
+		try {
+			for (int i = Math.max(0, offset / 18); i < selection.rows().size() && i * 18 - offset < list.height(); i++) {
+				String id = selection.rows().get(i).id();
+				int y = list.y() + i * 18 - offset;
+				boolean hover = list.contains(mx, my) && my >= y && my < y + 18;
+				if (id.equals(selection.selected()) || hover) g.fill(list.x(), y, list.right(), y + 18,
+					id.equals(selection.selected()) ? 0x554488AA : 0x33FFFFFF);
+				g.text(font, font.plainSubstrByWidth(id, list.width() - 6), list.x() + 3, y + 5, UiPalette.TEXT_PRIMARY, false);
+				if (hover) hovered = id;
+			}
+			if (selection.rows().isEmpty()) {
+				String key = selection.catalog().status() != EditorIngredientTypes.Status.READY
+					? selection.catalog().status() == EditorIngredientTypes.Status.PENDING
+						? ModTranslationKeys.EDITOR_RULES_TYPE_PENDING : ModTranslationKeys.EDITOR_RULES_TYPE_UNAVAILABLE
+					: selection.catalog().options().isEmpty() ? ModTranslationKeys.EDITOR_RULES_TYPE_EMPTY : ModTranslationKeys.EDITOR_RULES_PICKER_EMPTY;
+				g.textWithWordWrap(font, Component.translatable(key), list.x() + 3, list.y() + 5, list.width() - 6, UiPalette.TEXT_MUTED);
+			}
+		} finally { g.disableScissor(); }
+		if (focus == 1) UiSkinRenderer.drawOutline(g, list.x(), list.y(), list.width(), list.height(), UiPalette.OUTLINE_SELECTED);
+		ScrollbarHelper.renderPixels(g, list.right() + ScrollbarHelper.GAP, list.y(), list.height(), list.height(), selection.rows().size() * 18, offset);
+		button(g, back(), ModTranslationKeys.BUTTON_CANCEL, true, focus == 2, mx, my);
+		button(g, ok(), ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM, canConfirm(), focus == 3, mx, my);
+		if (hovered != null) g.setTooltipForNextFrame(font, font.split(Component.literal(hovered), Math.max(100, bounds.width())), mx, my);
+	}
+
+	private void button(GuiGraphicsExtractor g, EditorChrome.Rect rect, String key, boolean enabled, boolean focused, int mx, int my) {
+		UiSkinRenderer.drawButton(g, font, rect.x(), rect.y(), rect.width(), rect.height(), Component.translatable(key).getString(),
+			UiSkinRenderer.buttonState(enabled, false, rect.contains(mx, my), press.isHeld(key)));
+        if (focused) UiSkinRenderer.drawOutline(g, rect.x() - 1, rect.y() - 1, rect.width() + 2, rect.height() + 2, UiPalette.OUTLINE_HOVER);
+	}
+
+	private void accept() { if (!refresh() && canConfirm()) confirm.accept(selection.selected()); }
+	private void focus(int value) { focus = value; search.setFocused(value == 0); }
+
+	boolean click(double mx, double my) {
+		if (refresh()) return true;
+        press.begin(commandAt(mx, my));
+        if (press.target() != null) return true;
+        if (!bounds.contains(mx, my)) { cancel.run(); return true; }
+		if (searchRect().contains(mx, my)) {
+			focus(0);
+			search.mouseClicked(Math.max(search.getX(), Math.min(search.getX() + search.getWidth() - 1, mx)),
+				Math.max(search.getY(), Math.min(search.getY() + search.getHeight() - 1, my)), 0);
+			return true;
+		}
+		var list = list();
+		if (mx >= list.right() && mx < bounds.right() - 6 && my >= list.y() && my < list.bottom()) {
+			offset = ScrollbarHelper.trackClickToOffset(my, list.y(), list.height(), selection.rows().size() * 18, list.height(), offset);
+			dragging = true; dragY = my; dragOffset = offset;
+			return true;
+		}
+		if (list.contains(mx, my)) {
+			focus(1);
+			selection.select((int) (my - list.y() + offset) / 18);
+			long now = System.currentTimeMillis();
+			String id = selection.selected();
+			if (id != null && id.equals(lastClicked) && now - lastClick < 350) { accept(); return true; }
+			lastClick = now; lastClicked = id;
+		}
+		return true;
+	}
+
+	boolean key(int key, int scan, int mods) {
+        press.clear();
+		refresh();
+		if (key == 256) { cancel.run(); return true; }
+		if (key == 258) { focus(Math.floorMod(focus + ((mods & 1) == 0 ? 1 : -1), 4)); return true; }
+		if (key == 265 || key == 264) {
+			selection.move(key == 264 ? 1 : -1);
+			int y = selection.selectedIndex() * 18;
+			offset = Math.max(0, Math.min(maxOffset(), y < offset ? y : y + 18 > offset + list().height() ? y + 18 - list().height() : offset));
+			return true;
+		}
+		if (key == 257 || key == 335 || key == 32 && focus > 0) {
+			if (focus == 2) cancel.run(); else accept();
+			return true;
+		}
+		return search.isFocused() && search.keyPressed(key, scan, mods);
+	}
+
+	boolean character(int c, int mods) { return search.isFocused() && search.charTyped(c, mods); }
+	boolean textFocused() { return search.isFocused(); }
+	void scroll(double delta) { press.clear(); refresh(); offset = Math.max(0, Math.min(maxOffset(), offset - (int) Math.signum(delta) * 18)); }
+	void drag(double my) {
+		if (refresh() || !dragging) return;
+		offset = Math.max(0, Math.min(maxOffset(), dragOffset + (int) ((my - dragY) * selection.rows().size() * 18 / Math.max(1, list().height()))));
+	}
+    private String commandAt(double mx, double my) {
+        if (back().contains(mx, my)) return ModTranslationKeys.BUTTON_CANCEL;
+        if (canConfirm() && ok().contains(mx, my)) return ModTranslationKeys.EDITOR_RULES_PICKER_CONFIRM;
+        return null;
+    }
+
+    void release(double mx, double my, int button) {
+        if (button != 0) return;
+        refresh();
+        String action = press.release(commandAt(mx, my));
+        dragging = false;
+        if (ModTranslationKeys.BUTTON_CANCEL.equals(action)) cancel.run();
+        else if (action != null) accept();
+    }
+}

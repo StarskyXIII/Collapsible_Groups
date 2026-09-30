@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_apotheosis_gem_overworld_verdant_ruin",
+  "name": {
+    "translate": "collapsible_groups.group.__default_apotheosis_gem_overworld_verdant_ruin",
+    "fallback": "Verdant Ruin Gems"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "apotheosis:gem"
+      },
+      {
+        "type": "item",
+        "component": "apotheosis:gem",
+        "value": {
+          "data_format": "minecraft:data_component",
+          "data": "apotheosis:overworld/verdant_ruin"
+        }
+      }
+    ]
+  }
+}

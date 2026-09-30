@@ -1,0 +1,17 @@
+{
+  "id": "future_rule",
+  "name": {
+    "translate": "collapsible_groups.group.future_rule",
+    "fallback": "Future Rule"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "future_match": "mod:semantic/value",
+    "escaped": "line one\nline two",
+    "options": {
+      "preserve_order": true,
+      "threshold": 3
+    }
+  }
+}

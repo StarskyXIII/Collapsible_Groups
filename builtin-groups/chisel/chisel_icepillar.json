@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_icepillar",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_icepillar",
+    "fallback": "Chisel: Ice Pillar"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/icepillar"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

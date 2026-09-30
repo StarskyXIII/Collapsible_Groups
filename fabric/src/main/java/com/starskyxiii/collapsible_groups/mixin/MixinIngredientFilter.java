@@ -3,7 +3,9 @@ package com.starskyxiii.collapsible_groups.mixin;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.element.FluidChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterController;
-import com.starskyxiii.collapsible_groups.platform.Services;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientFilterHook;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.api.fabric.constants.FabricTypes;
 import mezz.jei.api.fabric.ingredients.fluids.IJeiFluidIngredient;
 import mezz.jei.api.ingredients.ITypedIngredient;
@@ -35,22 +37,18 @@ public abstract class MixinIngredientFilter {
 	protected abstract Stream<ITypedIngredient<?>> cg$getIngredientListUncached(String filterText);
 	@org.spongepowered.asm.mixin.gen.Invoker("notifyListenersOfChange")
 	protected abstract void cg$notifyListenersOfChange();
-	@Inject(method = "<init>", at = @At("TAIL"), require = 1)
+	@org.spongepowered.asm.mixin.gen.Invoker("updateDirtyState")
+	protected abstract void cg$updateDirtyState();
+
+	@Inject(method = "<init>", at = @At("TAIL"), require = 0)
 	private void cg$onInit(CallbackInfo ci) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected()) return;
 		this.cg$controller = new JeiIngredientFilterController(
 			this.filterTextSource::getFilterText, this::cg$getIngredientListUncached,
 			this::cg$notifyListenersOfChange, this.ingredientManager,
 			() -> this.ingredientListCached, value -> this.ingredientListCached = value,
 			new JeiIngredientFilterController.PlatformHooks() {
-				@Override public Object fluidIngredient(ITypedIngredient<?> typed) {
-					ITypedIngredient<IJeiFluidIngredient> fluid = typed.cast(FabricTypes.FLUID_STACK);
-					return fluid == null ? null : fluid.getIngredient();
-				}
-				@Override public Object previewFluid(ITypedIngredient<?> typed) {
-					return typed.getIngredient() instanceof IJeiFluidIngredient fluid ? fluid : null;
-				}
 				@Override public boolean hasFluidType() { return JeiIngredientTypes.getFluidType() != null; }
-				@Override public String fluidId(Object fluid) { return Services.PLATFORM.getFluidId(fluid); }
 				@Override public IElement<?> createFluidChild(ITypedIngredient<?> typed, String groupId) {
 					return new FluidChildElement(typed.cast(FabricTypes.FLUID_STACK), groupId);
 				}
@@ -60,12 +58,19 @@ public abstract class MixinIngredientFilter {
 				@Override public JeiIngredientFilterController.FluidCachePolicy fluidCachePolicy() {
 					return JeiIngredientFilterController.FluidCachePolicy.INDEPENDENT;
 				}
+				@Override public boolean beforeIndex(List<ITypedIngredient<?>> all, IIngredientManager manager) {
+					return JeiViewerAdapter.instance().universeReady(all, manager);
+				}
 			});
 		this.cg$controller.initialize();
 	}
 
-	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true, require = 1)
+	@Inject(method = "getElements", at = @At("HEAD"), cancellable = true, require = 0)
 	private void cg$onGetElements(CallbackInfoReturnable<List<IElement<?>>> cir) {
-		cir.setReturnValue(this.cg$controller.getElements());
+		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
+		cir.setReturnValue(JeiIngredientFilterHook.getElementsAfterDirtyStateUpdate(
+			this::cg$updateDirtyState,
+			this.cg$controller::getElements
+		));
 	}
 }

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_amethyst_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_amethyst_block",
+    "fallback": "Chipped: Amethyst Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:amethyst_block"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

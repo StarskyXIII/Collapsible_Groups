@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_bees",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_bees",
+    "fallback": "Productive Bees: Bee Entities"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "bee",
+        "namespace": "productivebees"
+      },
+      {
+        "type": "bee",
+        "namespace": "minecraft"
+      },
+      {
+        "type": "bee",
+        "namespace": "tropicraft"
+      }
+    ]
+  }
+}

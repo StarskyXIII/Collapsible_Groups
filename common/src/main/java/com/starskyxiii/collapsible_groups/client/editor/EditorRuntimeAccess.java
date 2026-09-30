@@ -1,5 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
+import net.minecraft.resources.Identifier;
+import com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
@@ -18,8 +20,22 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-/** JEI-backed operations consumed by the viewer-neutral group editor. */
-public interface EditorRuntimeAccess {
+/** Viewer-backed operations consumed by the viewer-neutral group editor. */
+public interface EditorRuntimeAccess extends EditorGroupAccess, EditorIngredientAccess, EditorPresentationAccess {
+	@Override default void closeEditor() { EditorPresentationAccess.super.closeEditor(); }
+	@Override default EditorIngredientTypes ingredientTypes() { return EditorIngredientAccess.super.ingredientTypes(); }
+	@Override default void updateIngredientTags(String type) { EditorIngredientAccess.super.updateIngredientTags(type); }
+	@Override default EditorIngredientTags ingredientTags(String type) { return EditorIngredientAccess.super.ingredientTags(type); }
+	@Override default void cancelIngredientTags() { EditorIngredientAccess.super.cancelIngredientTags(); }
+	@Override default void updateIngredientIds(String type) { EditorIngredientAccess.super.updateIngredientIds(type); }
+	@Override default EditorIngredientIds ingredientIds(String type) { return EditorIngredientAccess.super.ingredientIds(type); }
+	@Override default void cancelIngredientIds() { EditorIngredientAccess.super.cancelIngredientIds(); }
+	@Override default Object previewGeneration() { return EditorPresentationAccess.super.previewGeneration(); }
+	@Override
+	default TagQueryDiagnostics tagDiagnostics(
+		String type, Identifier tag) {
+		return EditorIngredientAccess.super.tagDiagnostics(type, tag);
+	}
 	List<ItemStack> allItems();
 	List<EditorFluidIngredientView> allFluids(String traceName);
 	List<EditorGenericIngredientView> allGenericIngredients(String traceName);
@@ -37,11 +53,17 @@ public interface EditorRuntimeAccess {
 		List<GroupDefinition> otherGroups);
 	void renderFluid(GuiGraphicsExtractor graphics, EditorFluidIngredientView entry, int x, int y);
 	void renderGeneric(GuiGraphicsExtractor graphics, EditorGenericIngredientView entry, int x, int y);
+	/** Returns a read-only tooltip snapshot. Callers must copy it before appending UI hints. */
 	List<Component> fluidTooltip(EditorFluidIngredientView entry);
+	/** Returns a read-only tooltip snapshot. Callers must copy it before appending UI hints. */
 	List<Component> genericTooltip(EditorGenericIngredientView entry);
 
 	List<ItemStack> resolveEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled);
 	List<ItemStack> resolveHybridEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled);
+	default List<ItemStack> resolvePreviewItems(GroupDefinition prepared, GroupFilterEditorDraft draft, boolean indexed) {
+		return indexed ? resolveEditorDraftItems(draft, prepared.enabled())
+			: resolveHybridEditorDraftItems(draft, prepared.enabled());
+	}
 	List<ItemStack> resolveItems(GroupDefinition definition);
 	List<EditorFluidIngredientView> resolveFluids(GroupDefinition definition, String traceName);
 	List<EditorGenericIngredientView> resolveGenericIngredients(GroupDefinition definition, String traceName);
@@ -58,15 +80,13 @@ public interface EditorRuntimeAccess {
 	String sanitizeGeneratedIdBase(String name);
 	String generateUniqueId(String name);
 	String generateUniqueIdIncludingKubeJs(String name);
-	void invalidateFullMatchCache(String id);
-	void populateFullMatchCacheFromSaved(GroupDefinition definition);
 	void notifyViewer();
-	void setEnabledQuietlyWithoutEvent(String id, boolean enabled);
+	boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled);
 	List<PreviewEntry> resolveHeaderIcons(List<GroupIconDefinition> iconIds, List<PreviewEntry> fallbackEntries);
 
 	PreviewLayout renderPreview(GuiGraphicsExtractor graphics, PreviewRect area, boolean expanded, int page,
-		AppearanceDraft appearance, List<PreviewEntry> headerIcons, List<PreviewEntry> items, Font font,
-		PreviewFallbacks fallbacks);
+		AppearanceDraft appearance, List<PreviewEntry> headerIcons, List<PreviewEntry> entries, Font font,
+		PreviewFallbacks fallbacks, int mouseX, int mouseY, int heldPageDirection);
 	PreviewLayout layoutPreview(PreviewRect area, boolean expanded, int itemCount, int page);
 	PreviewTooltip previewTooltip(String displayName, int nameColorRgb, int itemCount, int fluidCount,
 		int genericCount, boolean expanded, List<PreviewEntry> entries);

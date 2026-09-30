@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_pottery_sherds",
+  "name": {
+    "translate": "collapsible_groups.group.__default_pottery_sherds",
+    "fallback": "Pottery Sherds"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "tag": "minecraft:decorated_pot_sherds"
+  }
+}

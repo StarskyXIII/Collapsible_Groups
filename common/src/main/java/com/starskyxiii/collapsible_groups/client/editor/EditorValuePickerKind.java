@@ -1,0 +1,86 @@
+package com.starskyxiii.collapsible_groups.client.editor;
+
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
+import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
+
+import java.util.List;
+
+enum EditorValuePickerKind {
+	TAG(ModTranslationKeys.EDITOR_RULES_TAG_TITLE, ModTranslationKeys.EDITOR_RULES_TAG_MANUAL, ModTranslationKeys.EDITOR_RULES_TAG_EMPTY),
+	ID(ModTranslationKeys.EDITOR_RULES_ID_TITLE, ModTranslationKeys.EDITOR_RULES_ID_MANUAL, ModTranslationKeys.EDITOR_RULES_ID_EMPTY),
+	NAMESPACE(ModTranslationKeys.EDITOR_RULES_NAMESPACE_TITLE, ModTranslationKeys.EDITOR_RULES_NAMESPACE_MANUAL, ModTranslationKeys.EDITOR_RULES_NAMESPACE_EMPTY);
+
+	final String titleKey;
+	final String manualKey;
+	final String emptyKey;
+
+	EditorValuePickerKind(String titleKey, String manualKey, String emptyKey) {
+		this.titleKey = titleKey;
+		this.manualKey = manualKey;
+		this.emptyKey = emptyKey;
+	}
+
+	static EditorValuePickerKind forNode(GroupFilterRuleDraft.NodeKind kind) {
+		return switch (kind) {
+			case TAG -> TAG;
+			case ID -> ID;
+			case NAMESPACE -> NAMESPACE;
+			default -> throw new IllegalArgumentException(kind.name());
+		};
+	}
+
+	void update(EditorIngredientAccess runtime, String type) {
+		if (this == TAG) runtime.updateIngredientTags(type); else runtime.updateIngredientIds(type);
+	}
+
+	void cancel(EditorIngredientAccess runtime) {
+		if (this == TAG) runtime.cancelIngredientTags(); else runtime.cancelIngredientIds();
+	}
+
+	Snapshot snapshot(EditorIngredientAccess runtime, String type) {
+		return snapshot(runtime, type, null);
+	}
+
+	Snapshot snapshot(EditorIngredientAccess runtime, String type, EditorNamespaceCatalog namespaces) {
+		if (this == TAG) return fromTags(runtime == null ? EditorIngredientTags.UNAVAILABLE : runtime.ingredientTags(type));
+		var ids = runtime == null ? EditorIngredientIds.UNAVAILABLE : runtime.ingredientIds(type);
+		return this == ID ? fromIds(ids) : fromNamespaces((namespaces == null ? new EditorNamespaceCatalog() : namespaces).snapshot(ids));
+	}
+
+	static Snapshot fromNamespaces(EditorNamespaceCatalog.Snapshot catalog) {
+		String key = switch (catalog.status()) {
+			case PENDING -> ModTranslationKeys.EDITOR_RULES_NAMESPACE_PENDING;
+			case UNAVAILABLE -> ModTranslationKeys.EDITOR_RULES_NAMESPACE_UNAVAILABLE;
+			case TYPE_MISSING -> ModTranslationKeys.EDITOR_RULES_TYPE_MISSING;
+			case READY -> catalog.partial() ? ModTranslationKeys.EDITOR_RULES_NAMESPACE_PARTIAL : ModTranslationKeys.EDITOR_RULES_NAMESPACE_AVAILABLE;
+		};
+		boolean ready = catalog.status() == EditorIngredientIds.Status.READY;
+		return new Snapshot(NAMESPACE, ready ? catalog : catalog.sourceToken(), ready, catalog.values(), key);
+	}
+
+	static Snapshot fromTags(EditorIngredientTags catalog) {
+		String key = switch (catalog.status()) {
+			case PENDING -> ModTranslationKeys.EDITOR_RULES_TAG_PENDING;
+			case UNAVAILABLE -> ModTranslationKeys.EDITOR_RULES_TAG_UNAVAILABLE;
+			case TYPE_MISSING -> ModTranslationKeys.EDITOR_RULES_TYPE_MISSING;
+			case READY -> catalog.partial() ? ModTranslationKeys.EDITOR_RULES_TAG_PARTIAL
+				: catalog.coverage() == EditorIngredientTags.Coverage.OBSERVED_ONLY
+					? ModTranslationKeys.EDITOR_RULES_TAG_OBSERVED : ModTranslationKeys.EDITOR_RULES_TAG_REGISTRY;
+		};
+		return new Snapshot(TAG, catalog.token(), catalog.status() == EditorIngredientTags.Status.READY, catalog.tags(), key);
+	}
+
+	static Snapshot fromIds(EditorIngredientIds catalog) {
+		String key = switch (catalog.status()) {
+			case PENDING -> ModTranslationKeys.EDITOR_RULES_ID_PENDING;
+			case UNAVAILABLE -> ModTranslationKeys.EDITOR_RULES_ID_UNAVAILABLE;
+			case TYPE_MISSING -> ModTranslationKeys.EDITOR_RULES_TYPE_MISSING;
+			case READY -> catalog.partial() ? ModTranslationKeys.EDITOR_RULES_ID_PARTIAL : ModTranslationKeys.EDITOR_RULES_ID_AVAILABLE;
+		};
+		return new Snapshot(ID, catalog.token(), catalog.status() == EditorIngredientIds.Status.READY, catalog.ids(), key);
+	}
+
+	record Snapshot(EditorValuePickerKind kind, Object token, boolean ready, List<String> values, String statusKey) {
+		Snapshot { values = List.copyOf(values); }
+	}
+}

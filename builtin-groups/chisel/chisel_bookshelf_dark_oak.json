@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_bookshelf_dark_oak",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_bookshelf_dark_oak",
+    "fallback": "Chisel: Dark Oak Bookshelf"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/bookshelf_dark_oak"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

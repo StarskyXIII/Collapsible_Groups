@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_bridges_wooden_piers",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_bridges_wooden_piers",
+    "fallback": "Macaw's Bridges: Wooden Piers"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwbridges:wooden_piers"
+  }
+}

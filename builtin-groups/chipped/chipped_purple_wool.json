@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_purple_wool",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_purple_wool",
+    "fallback": "Chipped: Purple Wool"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:purple_wool"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

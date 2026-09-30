@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_cabinet",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_cabinet",
+    "fallback": "Macaw's Furnitures: Cabinet"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:cabinet"
+  }
+}

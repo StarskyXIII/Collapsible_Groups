@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_soul_sand",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_soul_sand",
+    "fallback": "Chipped: Soul Sand"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:soul_sand"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

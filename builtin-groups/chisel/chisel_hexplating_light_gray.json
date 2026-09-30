@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_hexplating_light_gray",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_hexplating_light_gray",
+    "fallback": "Chisel: Light Gray Hexplating"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/hexplating_light_gray"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

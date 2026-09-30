@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_quartz_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_quartz_block",
+    "fallback": "Rechiseled: Quartz Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:quartz_block"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

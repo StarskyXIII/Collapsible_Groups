@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_amethyst_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_amethyst_block",
+    "fallback": "Rechiseled: Amethyst Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:amethyst_block"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

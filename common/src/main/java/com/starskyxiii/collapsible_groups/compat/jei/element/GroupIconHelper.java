@@ -25,6 +25,7 @@ public final class GroupIconHelper implements IIngredientHelper<GroupIcon> {
 		return ingredient.resolvedDisplayName();
 	}
 
+
 	@Override
 	public Object getUid(GroupIcon ingredient, UidContext context) {
 		return ingredient.groupId();

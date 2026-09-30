@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_windows_shutters",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_windows_shutters",
+    "fallback": "Macaw's Windows: Shutters"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "block_tag": "mcwwindows:shutters"
+      },
+      {
+        "type": "item",
+        "id": "mcwwindows:iron_shutter"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_trapdoors_barrel_trapdoors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_trapdoors_barrel_trapdoors",
+    "fallback": "Macaw's Trapdoors: Barrel Trapdoors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "mcwtrpdoors"
+      },
+      {
+        "item_path_ends_with": "_barrel_trapdoor"
+      }
+    ]
+  }
+}

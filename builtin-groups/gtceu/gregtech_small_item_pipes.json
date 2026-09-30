@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_small_item_pipes",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_small_item_pipes",
+    "fallback": "GregTech: Small Item Pipes"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "_small_item_pipe"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_spruce_trapdoor",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_spruce_trapdoor",
+    "fallback": "Chipped: Spruce Trapdoor"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:spruce_trapdoor"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

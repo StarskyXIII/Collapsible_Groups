@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_lime_stained_glass",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_lime_stained_glass",
+    "fallback": "Chipped: Lime Stained Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:lime_stained_glass"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

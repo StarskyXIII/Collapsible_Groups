@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_carpet_purple",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_carpet_purple",
+    "fallback": "Chisel: Purple Carpet"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/carpet_purple"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

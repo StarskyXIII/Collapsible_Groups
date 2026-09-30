@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_brick_custom",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_brick_custom",
+    "fallback": "Chisel: Brick Custom"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/brick_custom"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

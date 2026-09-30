@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_mushroom_stem",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_mushroom_stem",
+    "fallback": "Chipped: Mushroom Stem"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:mushroom_stem"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

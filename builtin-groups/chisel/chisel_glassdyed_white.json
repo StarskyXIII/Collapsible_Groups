@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glassdyed_white",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glassdyed_white",
+    "fallback": "Chisel: White Dyed Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glassdyed_white"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

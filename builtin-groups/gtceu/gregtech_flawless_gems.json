@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_flawless_gems",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_flawless_gems",
+    "fallback": "GregTech: Flawless Gems"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:flawless_gems"
+      }
+    ]
+  }
+}

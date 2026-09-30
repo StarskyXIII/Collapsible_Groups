@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_bridges_bamboo_piers",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_bridges_bamboo_piers",
+    "fallback": "Macaw's Bridges: Bamboo Piers"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwbridges:bamboo_piers"
+  }
+}

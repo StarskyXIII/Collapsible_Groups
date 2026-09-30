@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_ae2_paint_balls",
+  "name": {
+    "translate": "collapsible_groups.group.__default_ae2_paint_balls",
+    "fallback": "AE2: Paint Balls"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "tag": "ae2:paint_balls"
+  }
+}

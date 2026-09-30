@@ -1,0 +1,16 @@
+{
+  "loaders": [
+    "neoforge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.productivelib",
+    "fallback": "Productive Lib"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "productivelib"
+      }
+    ]
+  }
+}

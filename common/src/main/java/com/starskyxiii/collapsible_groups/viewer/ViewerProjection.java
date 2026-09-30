@@ -4,6 +4,8 @@ import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -16,7 +18,7 @@ public record ViewerProjection<E>(
 ) {
 	public ViewerProjection {
 		entries = List.copyOf(entries);
-		ownership = Map.copyOf(ownership);
+		ownership = Collections.unmodifiableMap(new LinkedHashMap<>(ownership));
 	}
 
 	public List<DisplayEntry<E>> displayEntries() {

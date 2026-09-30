@@ -11,10 +11,10 @@ final class IngredientCellRenderer {
 	private IngredientCellRenderer() {}
 
 	static void renderFluid(GuiGraphicsExtractor g, EditorFluidIngredientView fluid, int x, int y) {
-		EditorRuntimeServices.get().renderFluid(g, fluid, x, y);
+		EditorRuntimeServices.presentation().renderFluid(g, fluid, x, y);
 	}
 
 	static void renderGeneric(GuiGraphicsExtractor g, EditorGenericIngredientView entry, int x, int y) {
-		EditorRuntimeServices.get().renderGeneric(g, entry, x, y);
+		EditorRuntimeServices.presentation().renderGeneric(g, entry, x, y);
 	}
 }

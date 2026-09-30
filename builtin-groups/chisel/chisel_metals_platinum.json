@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_metals_platinum",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_metals_platinum",
+    "fallback": "Chisel: Platinum Blocks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/metals_platinum"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

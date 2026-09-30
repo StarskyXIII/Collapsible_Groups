@@ -11,16 +11,13 @@ import java.util.TreeSet;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/**
- * Guards the bundled locale files against drifting apart: every key present in one
- * language file must exist in the other. Values are free to differ; key sets are not.
- */
 class LanguageFileSymmetryTest {
 
 	@Test
-	void englishAndTraditionalChineseShareTheExactSameKeySet() {
+	void manualEnglishAndTraditionalChineseShareTheSameKeySet() {
 		Set<String> english = keys(language("en_us"));
 		Set<String> chinese = keys(language("zh_tw"));
+
 
 		Set<String> missingInChinese = new TreeSet<>(english);
 		missingInChinese.removeAll(chinese);

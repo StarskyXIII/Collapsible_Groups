@@ -24,6 +24,17 @@ class ClientOnlyDistributionContractTest {
 	}
 
 	@Test
+	void forgeModFileIsSkippedOnDedicatedServers() throws IOException {
+		String metadata = Files.readString(root().resolve("forge/src/main/resources/META-INF/mods.toml"));
+		int clientOnlyFlag = metadata.indexOf("clientSideOnly = true");
+		int firstModDeclaration = metadata.indexOf("[[mods]]");
+
+		assertTrue(clientOnlyFlag >= 0, "Forge mod file must declare clientSideOnly = true");
+		assertTrue(clientOnlyFlag < firstModDeclaration,
+			"clientSideOnly must be a root mod-file property before [[mods]]");
+	}
+
+	@Test
 	void neoForgeEntrypointOnlyLoadsOnTheClient() throws IOException {
 		String source = Files.readString(root().resolve("neoforge").resolve(NEOFORGE_ENTRYPOINT));
 

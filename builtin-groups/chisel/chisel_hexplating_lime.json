@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_hexplating_lime",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_hexplating_lime",
+    "fallback": "Chisel: Lime Hexplating"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/hexplating_lime"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

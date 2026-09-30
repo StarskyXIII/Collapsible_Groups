@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_metals_nickel",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_metals_nickel",
+    "fallback": "Chisel: Nickel Blocks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/metals_nickel"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

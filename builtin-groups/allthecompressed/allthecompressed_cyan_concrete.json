@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_cyan_concrete",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_cyan_concrete",
+    "fallback": "Compressed Cyan Concrete"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:cyan_concrete_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cyan_concrete_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cyan_concrete_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cyan_concrete_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cyan_concrete_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cyan_concrete_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cyan_concrete_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cyan_concrete_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cyan_concrete_9x"
+      }
+    ]
+  }
+}

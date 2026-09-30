@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_sandstone_scribbles",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_sandstone_scribbles",
+    "fallback": "Chisel: Sandstone Scribbles"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/sandstone_scribbles"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

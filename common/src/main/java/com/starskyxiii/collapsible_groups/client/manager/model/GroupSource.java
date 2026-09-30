@@ -3,12 +3,18 @@ package com.starskyxiii.collapsible_groups.client.manager.model;
 public enum GroupSource {
 	USER,
 	BUILTIN,
+	RESOURCE_PACK,
 	KUBEJS;
 
 	public static GroupSource fromGroupId(String groupId) {
-		return switch (com.starskyxiii.collapsible_groups.group.GroupSource.fromGroupId(groupId)) {
+		return from(com.starskyxiii.collapsible_groups.group.GroupSource.fromGroupId(groupId));
+	}
+
+	public static GroupSource from(com.starskyxiii.collapsible_groups.group.GroupSource source) {
+		return switch (source) {
 			case USER -> USER;
 			case BUILTIN -> BUILTIN;
+			case RESOURCE_PACK -> RESOURCE_PACK;
 			case KUBEJS -> KUBEJS;
 		};
 	}
@@ -18,6 +24,6 @@ public enum GroupSource {
 	}
 
 	public boolean readOnlyDefinition() {
-		return this != USER;
+		return !userEditable();
 	}
 }

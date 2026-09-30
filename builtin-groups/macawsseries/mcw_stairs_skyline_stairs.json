@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_stairs_skyline_stairs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_stairs_skyline_stairs",
+    "fallback": "Macaw's Stairs: Skyline Stairs"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwstairs:skyline_stairs"
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_dripstone_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_dripstone_block",
+    "fallback": "Chipped: Dripstone Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:dripstone_block"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

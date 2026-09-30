@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_turbine_rotors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_turbine_rotors",
+    "fallback": "GregTech: Turbine Rotors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "id": "gtceu:turbine_rotor"
+      }
+    ]
+  }
+}

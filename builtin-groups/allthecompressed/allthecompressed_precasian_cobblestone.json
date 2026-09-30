@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_precasian_cobblestone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_precasian_cobblestone",
+    "fallback": "Compressed Precasian Cobblestone"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_cobblestone_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_cobblestone_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_cobblestone_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_cobblestone_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_cobblestone_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_cobblestone_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_cobblestone_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_cobblestone_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_cobblestone_9x"
+      }
+    ]
+  }
+}

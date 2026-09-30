@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_studs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_studs",
+    "fallback": "GregTech: Studs"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_ends_with": "_studs"
+      }
+    ]
+  }
+}

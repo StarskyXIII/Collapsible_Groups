@@ -1,0 +1,118 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_roofs_roofs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_roofs_roofs",
+    "fallback": "Macaw's Roofs: Roofs"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "mcwroofs"
+      },
+      {
+        "item_path_ends_with": "_roof"
+      },
+      {
+        "not": {
+          "any": [
+            {
+              "all": [
+                {
+                  "type": "item",
+                  "namespace": "mcwroofs"
+                },
+                {
+                  "item_path_ends_with": "_attic_roof"
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "type": "item",
+                  "namespace": "mcwroofs"
+                },
+                {
+                  "item_path_ends_with": "_lower_roof"
+                },
+                {
+                  "not": {
+                    "all": [
+                      {
+                        "type": "item",
+                        "namespace": "mcwroofs"
+                      },
+                      {
+                        "item_path_ends_with": "_upper_lower_roof"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "type": "item",
+                  "namespace": "mcwroofs"
+                },
+                {
+                  "item_path_ends_with": "_steep_roof"
+                },
+                {
+                  "not": {
+                    "all": [
+                      {
+                        "type": "item",
+                        "namespace": "mcwroofs"
+                      },
+                      {
+                        "item_path_ends_with": "_upper_steep_roof"
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "type": "item",
+                  "namespace": "mcwroofs"
+                },
+                {
+                  "item_path_ends_with": "_top_roof"
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "type": "item",
+                  "namespace": "mcwroofs"
+                },
+                {
+                  "item_path_ends_with": "_upper_lower_roof"
+                }
+              ]
+            },
+            {
+              "all": [
+                {
+                  "type": "item",
+                  "namespace": "mcwroofs"
+                },
+                {
+                  "item_path_ends_with": "_upper_steep_roof"
+                }
+              ]
+            }
+          ]
+        }
+      }
+    ]
+  }
+}

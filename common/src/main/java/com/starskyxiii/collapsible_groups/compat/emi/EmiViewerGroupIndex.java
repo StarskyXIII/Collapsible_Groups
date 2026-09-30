@@ -1,0 +1,340 @@
+package com.starskyxiii.collapsible_groups.compat.emi;
+
+import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
+import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
+import com.starskyxiii.collapsible_groups.viewer.GroupIndexUpdate;
+import com.starskyxiii.collapsible_groups.viewer.GroupProjectionEngine;
+import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
+import com.starskyxiii.collapsible_groups.viewer.ViewerGroupDisplaySnapshot;
+import com.starskyxiii.collapsible_groups.viewer.ViewerGroupPreviewSnapshot;
+import com.starskyxiii.collapsible_groups.viewer.ViewerHeaderIconResolver;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
+import com.starskyxiii.collapsible_groups.viewer.ViewerPreviewValue;
+import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
+import dev.emi.emi.api.stack.EmiIngredient;
+import net.minecraft.world.item.ItemStack;
+import org.jetbrains.annotations.Nullable;
+
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+
+/** EMI-owned candidate and editor-preview generation built from {@code EmiStackList.stacks}. */
+public final class EmiViewerGroupIndex implements ViewerGroupIndex {
+	private static final ExecutorService EXECUTOR = Executors.newSingleThreadExecutor(r -> {
+		Thread thread = new Thread(r, "CollapsibleGroups-EmiIndex");
+		thread.setDaemon(true);
+		return thread;
+	});
+
+	public record Generation(
+		long epoch,
+		long buildGeneration,
+		ViewerIngredientUniverse<EmiIngredient> universe,
+		GroupCandidateIndex candidates,
+		Map<String, List<ViewerIngredient<EmiIngredient>>> fullMatchItems,
+		Map<String, List<ViewerIngredient<EmiIngredient>>> fullMatchFluids,
+		Map<String, List<ViewerIngredient<EmiIngredient>>> fullMatchGeneric
+	) {
+		public Generation {
+			fullMatchItems = freeze(fullMatchItems);
+			fullMatchFluids = freeze(fullMatchFluids);
+			fullMatchGeneric = freeze(fullMatchGeneric);
+		}
+	}
+
+    public record ProjectableSnapshot(long epoch, ViewerIngredientUniverse<EmiIngredient> universe,
+        List<GroupDefinition> groups, GroupCandidateIndex candidates) {}
+
+    private volatile @Nullable ProjectableSnapshot projectable;
+
+	private final Executor executor;
+	private final java.util.function.BooleanSupplier runtimeCurrent;
+	private volatile @Nullable Generation published;
+	private volatile ViewerIngredientUniverse<EmiIngredient> sourceUniverse = emptyUniverse();
+	private volatile List<GroupDefinition> currentGroups = List.of();
+	private volatile long sourceEpoch = -1;
+	private volatile long requestedBuildGeneration;
+	private volatile long runningBuildGeneration = -1;
+	private volatile CompletableFuture<Void> readyFuture = new CompletableFuture<>();
+	private final List<CompletableFuture<Void>> readinessWaiters = new ArrayList<>();
+	private boolean rebuildRequested;
+	private volatile long revision;
+
+	public EmiViewerGroupIndex() { this(EXECUTOR); }
+
+	EmiViewerGroupIndex(java.util.function.BooleanSupplier runtimeCurrent) { this(EXECUTOR, runtimeCurrent); }
+
+	EmiViewerGroupIndex(Executor executor) {
+		this(executor, () -> true);
+	}
+
+	EmiViewerGroupIndex(Executor executor, java.util.function.BooleanSupplier runtimeCurrent) {
+		this.executor = executor;
+		this.runtimeCurrent = runtimeCurrent;
+		readinessWaiters.add(readyFuture);
+	}
+
+	public synchronized void updateSource(long epoch, ViewerIngredientUniverse<EmiIngredient> universe) {
+		sourceEpoch = epoch;
+		sourceUniverse = universe;
+	}
+
+	public synchronized CompletableFuture<Void> requestRebuild(long epoch,
+		ViewerIngredientUniverse<EmiIngredient> universe, List<GroupDefinition> groups) {
+		updateSource(epoch, universe);
+		currentGroups = List.copyOf(groups);
+        refreshProjectable();
+		requestedBuildGeneration++;
+		readyFuture = new CompletableFuture<>();
+		readinessWaiters.add(readyFuture);
+		rebuildRequested = true;
+		revision++;
+		startNextIfIdle();
+		return readyFuture;
+	}
+
+	private void startNextIfIdle() {
+		if (runningBuildGeneration >= 0 || !rebuildRequested) return;
+		long build = requestedBuildGeneration;
+		long epoch = sourceEpoch;
+		ViewerIngredientUniverse<EmiIngredient> universe = sourceUniverse;
+		List<GroupDefinition> groups = currentGroups;
+		Generation previous = published;
+		if (previous != null && (previous.epoch() != epoch
+			|| previous.universe().sourceToken() != universe.sourceToken())) previous = null;
+		Generation reusable = previous;
+		runningBuildGeneration = build;
+		rebuildRequested = false;
+		CompletableFuture<Generation> computation = CompletableFuture.supplyAsync(
+			() -> buildGeneration(epoch, build, universe, groups, reusable), executor);
+		computation.handle((generation, error) -> {
+			List<CompletableFuture<Void>> settled = List.of();
+			synchronized (this) {
+				if (error == null && build == requestedBuildGeneration && epoch == sourceEpoch
+					&& universe.sourceToken() == sourceUniverse.sourceToken() && runtimeCurrent.getAsBoolean()) {
+					published = generation;
+                    refreshProjectable();
+					revision++;
+					settled = drainReadinessWaiters();
+				}
+				runningBuildGeneration = -1;
+				if (build != requestedBuildGeneration) startNextIfIdle();
+				if (error != null && build == requestedBuildGeneration) {
+					settled = drainReadinessWaiters();
+				}
+			}
+			for (CompletableFuture<Void> waiter : settled) {
+				if (error == null) waiter.complete(null);
+				else waiter.completeExceptionally(error);
+			}
+			return null;
+		});
+	}
+
+	private List<CompletableFuture<Void>> drainReadinessWaiters() {
+		List<CompletableFuture<Void>> settled = List.copyOf(readinessWaiters);
+		readinessWaiters.clear();
+		return settled;
+	}
+
+	private static Generation buildGeneration(long epoch, long build,
+		ViewerIngredientUniverse<EmiIngredient> universe, List<GroupDefinition> groups, @Nullable Generation previous) {
+		long started = PerformanceTrace.begin();
+		GroupIndexUpdate update = GroupIndexUpdate.between(previous == null ? null : previous.candidates(), groups);
+		List<GroupDefinition> changedGroups = update.changedGroups();
+		GroupCandidateIndex changed = changedGroups.isEmpty()
+            ? new GroupCandidateIndex(Map.of(), Map.of(), 0, universe.ordered().size(), 0)
+            : GroupProjectionEngine.buildCandidateIndex(universe, changedGroups);
+		Map<String, List<ViewerIngredient<EmiIngredient>>> items = buckets(changedGroups);
+		Map<String, List<ViewerIngredient<EmiIngredient>>> fluids = buckets(changedGroups);
+		Map<String, List<ViewerIngredient<EmiIngredient>>> generic = buckets(changedGroups);
+		for (ViewerIngredient<EmiIngredient> ingredient : changedGroups.isEmpty() ? List.<ViewerIngredient<EmiIngredient>>of() : universe.ordered()) {
+			for (String groupId : changed.candidates().getOrDefault(ingredient.identity(), List.of())) {
+				switch (ingredient.kind()) {
+					case ITEM -> items.get(groupId).add(ingredient);
+					case FLUID -> fluids.get(groupId).add(ingredient);
+					case GENERIC -> generic.get(groupId).add(ingredient);
+				}
+			}
+		}
+		Generation generation = new Generation(epoch, build, universe,
+			update.mergeCandidates(previous == null ? null : previous.candidates(), changed),
+			update.mergeMatches(previous == null ? Map.of() : previous.fullMatchItems(), items),
+			update.mergeMatches(previous == null ? Map.of() : previous.fullMatchFluids(), fluids),
+			update.mergeMatches(previous == null ? Map.of() : previous.fullMatchGeneric(), generic));
+		PerformanceTrace.logIfSlow(
+			"EmiViewerGroupIndex.buildGeneration", started, 0,
+			"groups=" + groups.size() + " evaluated=" + changedGroups.size() + " reused=" + update.reusedIds().size());
+		return generation;
+	}
+
+	@Override public Optional<GroupCandidateIndex> candidates() {
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
+		return current == null ? Optional.empty() : Optional.of(current.candidates());
+	}
+
+	@Override public boolean ready() {
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
+		return current != null && current.epoch() == sourceEpoch
+			&& current.buildGeneration() == requestedBuildGeneration && runningBuildGeneration < 0;
+	}
+
+	@Override public CompletableFuture<Void> whenReady() { return readyFuture; }
+
+    public synchronized Optional<ProjectableSnapshot> projectableSnapshot() {
+        return runtimeCurrent.getAsBoolean() && projectable != null && projectable.epoch() == sourceEpoch
+            && projectable.universe().sourceToken() == sourceUniverse.sourceToken()
+            ? Optional.of(projectable) : Optional.empty();
+    }
+
+    private void refreshProjectable() {
+        Generation current = published;
+        if (current == null || current.epoch() != sourceEpoch
+            || current.universe().sourceToken() != sourceUniverse.sourceToken()) {
+            projectable = null;
+            return;
+        }
+        var candidates = GroupIndexUpdate.between(current.candidates(), currentGroups).projectableCandidates(current.candidates());
+        projectable = new ProjectableSnapshot(sourceEpoch, current.universe(),
+            List.copyOf(candidates.groupSnapshot().values()), candidates);
+    }
+
+	synchronized Optional<Generation> readyGenerationSnapshot() {
+		return ready() && published.universe().sourceToken() == sourceUniverse.sourceToken() && readyFuture.isDone()
+			&& !readyFuture.isCompletedExceptionally() && !readyFuture.isCancelled()
+			? Optional.of(published) : Optional.empty();
+	}
+
+	Map<ItemStack, String> resolveItemOwnership(List<ItemStack> entries, List<GroupDefinition> groups) {
+		return readyGenerationSnapshot().map(generation -> EmiItemOwnership.resolve(entries,
+			generation.universe(), GroupProjectionEngine.resolveOwnership(generation.candidates(), groups)))
+			.orElseGet(Map::of);
+	}
+
+	@Override public synchronized ViewerGroupDisplaySnapshot displaySnapshot() {
+		Generation captured = runtimeCurrent.getAsBoolean() ? published : null;
+		var readiness = readyFuture;
+		return new ViewerGroupDisplaySnapshot(captured == null ? null : captured.candidates(), group ->
+			captured == null ? Optional.empty() : preview(captured, group), readiness,
+			!readiness.isDone(), readiness.isCompletedExceptionally());
+	}
+
+	private static Optional<ViewerGroupPreviewSnapshot> preview(Generation current, GroupDefinition group) {
+		String groupId = group.id();
+		if (!current.fullMatchItems().containsKey(groupId)
+			|| !current.fullMatchFluids().containsKey(groupId)
+			|| !current.fullMatchGeneric().containsKey(groupId)) return Optional.empty();
+		var fallback = java.util.stream.Stream.of(current.fullMatchItems().get(groupId),
+			current.fullMatchFluids().get(groupId), current.fullMatchGeneric().get(groupId))
+			.flatMap(List::stream).limit(2).toList();
+		var headers = ViewerHeaderIconResolver.resolve(group.iconIds(), fallback, current.universe());
+		return Optional.of(new ViewerGroupPreviewSnapshot(
+			previewValues(current.fullMatchItems().get(groupId), true),
+			previewValues(current.fullMatchFluids().get(groupId), false),
+			previewValues(current.fullMatchGeneric().get(groupId), false), previewValues(headers, true)));
+	}
+
+	private static List<ViewerPreviewValue> previewValues(
+		List<ViewerIngredient<EmiIngredient>> ingredients, boolean items) {
+		return ingredients.stream().map(ingredient -> {
+			if (items && ingredient.view() instanceof ItemStackIngredientView item) {
+				return ViewerPreviewValue.item(item.stack());
+			}
+			return ViewerPreviewValue.rendered(
+				(graphics, x, y) -> ingredient.entry().render(graphics, x, y, 0));
+		}).toList();
+	}
+
+	public long revision() { return revision; }
+	public long epoch() { return sourceEpoch; }
+	public long requestedBuildGeneration() { return requestedBuildGeneration; }
+
+	@Override public Optional<String> resolveOwner(ViewerIngredientIdentity identity,
+		List<GroupDefinition> groups) {
+		return Optional.ofNullable(resolveOwnership(groups).get(identity));
+	}
+
+	@Override public Map<ViewerIngredientIdentity, String> resolveOwnership(List<GroupDefinition> groups) {
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
+		return current == null ? Map.of() : GroupProjectionEngine.resolveOwnership(current.candidates(), groups);
+	}
+
+	@Override public synchronized void onGroupChange(GroupChangeEvent.Kind kind, List<GroupDefinition> groups) {
+		currentGroups = List.copyOf(groups);
+		switch (kind) {
+			case FULL -> requestRebuild(sourceEpoch, sourceUniverse, groups);
+			case SOURCE_RELOAD, KUBEJS_REPLACE -> {
+				published = null;
+                projectable = null;
+				requestRebuild(sourceEpoch, sourceUniverse, groups);
+			}
+			case ENABLED, STRUCTURE -> { refreshProjectable(); revision++; }
+		}
+	}
+
+	public synchronized void failRebuild(Throwable failure) {
+		requestedBuildGeneration++;
+		rebuildRequested = false;
+		published = null;
+        projectable = null;
+		for (CompletableFuture<Void> waiter : drainReadinessWaiters()) waiter.completeExceptionally(failure);
+		if (!readyFuture.isDone()) readyFuture.completeExceptionally(failure);
+		revision++;
+	}
+
+	public synchronized void reset() {
+		sourceEpoch++;
+		requestedBuildGeneration++;
+		published = null;
+        projectable = null;
+		sourceUniverse = emptyUniverse();
+		currentGroups = List.of();
+		readyFuture = new CompletableFuture<>();
+		readinessWaiters.add(readyFuture);
+		rebuildRequested = false;
+		revision++;
+	}
+
+	public List<ViewerIngredient<EmiIngredient>> fullMatchItems(String groupId) {
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
+		return current == null ? List.of() : current.fullMatchItems().getOrDefault(groupId, List.of());
+	}
+
+	public List<ViewerIngredient<EmiIngredient>> fullMatchFluids(String groupId) {
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
+		return current == null ? List.of() : current.fullMatchFluids().getOrDefault(groupId, List.of());
+	}
+
+	public List<ViewerIngredient<EmiIngredient>> fullMatchGeneric(String groupId) {
+		Generation current = runtimeCurrent.getAsBoolean() ? published : null;
+		return current == null ? List.of() : current.fullMatchGeneric().getOrDefault(groupId, List.of());
+	}
+
+	private static Map<String, List<ViewerIngredient<EmiIngredient>>> buckets(List<GroupDefinition> groups) {
+		Map<String, List<ViewerIngredient<EmiIngredient>>> result = new LinkedHashMap<>();
+		groups.forEach(group -> result.put(group.id(), new ArrayList<>()));
+		return result;
+	}
+
+	private static Map<String, List<ViewerIngredient<EmiIngredient>>> freeze(
+		Map<String, List<ViewerIngredient<EmiIngredient>>> source) {
+		Map<String, List<ViewerIngredient<EmiIngredient>>> result = new LinkedHashMap<>();
+		source.forEach((key, value) -> result.put(key, List.copyOf(value)));
+		return Map.copyOf(result);
+	}
+
+	private static ViewerIngredientUniverse<EmiIngredient> emptyUniverse() {
+		return new ViewerIngredientUniverse<>(List.of());
+	}
+}

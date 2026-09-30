@@ -13,11 +13,13 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class JeiOverlayRenderContractTest {
-	private static final String GUI_EVENT_HANDLER = "mezz/jei/gui/events/GuiEventHandler.class";
-	private static final String OVERLAY_OWNER = "mezz/jei/gui/overlay/IngredientListOverlay";
+	private static final String GUI_EVENT_HANDLER =
+		"mezz/jei/gui/events/GuiEventHandler.class";
+	private static final String OVERLAY_OWNER =
+		"mezz/jei/gui/overlay/IngredientListOverlay";
 
 	@Test
-	void productionRenderPathCallsSplitOverlayPhases() throws IOException {
+	void productionRenderPathCallsIngredientOverlayBackgroundAndForegroundPhases() throws IOException {
 		assertProductionCall(
 			"drawOverlayBackgrounds",
 			"drawBackground",
@@ -32,15 +34,14 @@ class JeiOverlayRenderContractTest {
 
 	private static void assertProductionCall(String callerName, String targetName, String targetDescriptor)
 		throws IOException {
-		try (InputStream stream = JeiOverlayRenderContractTest.class.getClassLoader()
-			.getResourceAsStream(GUI_EVENT_HANDLER)) {
-			assertNotNull(stream, "JEI GuiEventHandler bytecode must be present");
-			ProductionCallVisitor visitor =
-				new ProductionCallVisitor(callerName, targetName, targetDescriptor);
+		ClassLoader classLoader = JeiOverlayRenderContractTest.class.getClassLoader();
+		try (InputStream stream = classLoader.getResourceAsStream(GUI_EVENT_HANDLER)) {
+			assertNotNull(stream, "JEI GuiEventHandler bytecode must be present on the test classpath");
+			ProductionCallVisitor visitor = new ProductionCallVisitor(callerName, targetName, targetDescriptor);
 			new ClassReader(stream).accept(visitor, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES);
-			assertTrue(visitor.callerFound, () -> "JEI caller missing: " + callerName);
+			assertTrue(visitor.callerFound, () -> "JEI production caller was not found: " + callerName);
 			assertTrue(visitor.targetCallFound, () ->
-				callerName + " must call " + OVERLAY_OWNER + "." + targetName + targetDescriptor);
+				callerName + " must INVOKEVIRTUAL " + OVERLAY_OWNER + "." + targetName + targetDescriptor);
 		}
 	}
 

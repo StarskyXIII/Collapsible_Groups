@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_pyramid_gates",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_pyramid_gates",
+    "fallback": "Macaw's Fences: Pyramid Gates"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:pyramid_gates"
+  }
+}

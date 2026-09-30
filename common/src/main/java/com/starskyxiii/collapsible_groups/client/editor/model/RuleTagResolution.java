@@ -46,9 +46,9 @@ public final class RuleTagResolution {
 		@Override
 		public boolean tagExists(TagRegistryKind registry, Identifier tagId) {
 			return switch (registry) {
-				case ITEM -> BuiltInRegistries.ITEM.getTags().anyMatch(tag -> tag.key().equals(TagKey.create(Registries.ITEM, tagId)));
-				case FLUID -> BuiltInRegistries.FLUID.getTags().anyMatch(tag -> tag.key().equals(TagKey.create(Registries.FLUID, tagId)));
-				case BLOCK -> BuiltInRegistries.BLOCK.getTags().anyMatch(tag -> tag.key().equals(TagKey.create(Registries.BLOCK, tagId)));
+				case ITEM -> BuiltInRegistries.ITEM.get(TagKey.create(Registries.ITEM, tagId)).isPresent();
+				case FLUID -> BuiltInRegistries.FLUID.get(TagKey.create(Registries.FLUID, tagId)).isPresent();
+				case BLOCK -> BuiltInRegistries.BLOCK.get(TagKey.create(Registries.BLOCK, tagId)).isPresent();
 			};
 		}
 	}

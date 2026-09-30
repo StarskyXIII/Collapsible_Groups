@@ -1,147 +1,13 @@
 package com.starskyxiii.collapsible_groups.config;
 
-import com.starskyxiii.collapsible_groups.platform.services.IConfigProvider;
-import net.neoforged.fml.ModList;
+import com.starskyxiii.collapsible_groups.platform.Services;
+import net.neoforged.fml.config.ModConfig;
 import net.neoforged.neoforge.common.ModConfigSpec;
 
-/**
- * Mod configuration registered through NeoForge's ModConfigSpec system.
- * Config file: config/collapsiblegroups/collapsiblegroups.toml
- *
- * Structure:
- *   [defaultGroups]
- *       enabled, loadGeneric, loadVanilla
- *       [defaultGroups.ModIntegration]
- *           loadModIntegration, loadAE2, loadRS2, loadEnderIO,
- *           loadChipped, loadRechiseled, loadMacawsSeries, loadChisel, loadApotheosis,
- *           loadIronsApothic, loadIronsSpellbooks
- *   [ui]
- *       showManagerButton
- *       showGroupBackgrounds
- *       collapsedGroupBackgroundColor, expandedGroupBackgroundColor
- *       groupNameColor, expandedGroupBorderColor
- *   [debug]
- *       enableTimingLogs, verifyStartupIndex, verifyEditorPreviewIndex
- */
-public final class NeoForgeConfig implements IConfigProvider {
-	private static final int COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT = 0x24FFFFFF;
-	private static final int EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT  = 0x24FFFFFF;
-	private static final int GROUP_NAME_COLOR_DEFAULT                 = 0x00FFAA00;
-	private static final int EXPANDED_GROUP_BORDER_COLOR_DEFAULT      = 0x66FFFFFF;
-
-	private static final String[] MACAWS_SERIES_MODS = {
-		"mcwwindows",
-		"mcwbridges",
-		"mcwdoors",
-		"mcwfences",
-		"mcwfurnitures",
-		"mcwlights",
-		"mcwpaths",
-		"mcwstairs",
-		"mcwtrpdoors",
-	};
-
-	// IConfigProvider
-
-	@Override public boolean loadDefaultGroups() { return LOAD_DEFAULT_GROUPS.get(); }
-	@Override public boolean loadGenericGroups()  { return LOAD_GENERIC_GROUPS.get();  }
-	@Override public boolean loadVanillaGroups()  { return LOAD_VANILLA_GROUPS.get();  }
-	@Override public boolean showManagerButton()       { return SHOW_MANAGER_BUTTON.get(); }
-	@Override public boolean showGroupBackgrounds()    { return SHOW_GROUP_BACKGROUNDS.get(); }
-	@Override public boolean searchUngroupSmallGroups() { return SEARCH_UNGROUP_SMALL_GROUPS.get(); }
-	@Override public int searchUngroupThreshold()       { return SEARCH_UNGROUP_THRESHOLD.get(); }
-	@Override public int collapsedGroupBackgroundColor() {
-		return ColorConfigParser.parseArgb(COLLAPSED_GROUP_BACKGROUND_COLOR.get(), COLLAPSED_GROUP_BACKGROUND_COLOR_DEFAULT);
-	}
-	@Override public int expandedGroupBackgroundColor() {
-		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BACKGROUND_COLOR.get(), EXPANDED_GROUP_BACKGROUND_COLOR_DEFAULT);
-	}
-	@Override public int groupNameColor() {
-		return ColorConfigParser.parseRgb(GROUP_NAME_COLOR.get(), GROUP_NAME_COLOR_DEFAULT);
-	}
-	@Override public int expandedGroupBorderColor() {
-		return ColorConfigParser.parseArgb(EXPANDED_GROUP_BORDER_COLOR.get(), EXPANDED_GROUP_BORDER_COLOR_DEFAULT);
-	}
-	@Override public boolean debugTimingEnabled()      { return DEBUG_TIMING_LOGS.get(); }
-	@Override public boolean debugStartupIndexVerificationEnabled() { return DEBUG_STARTUP_INDEX_VERIFY.get(); }
-	@Override public boolean debugEditorIndexVerificationEnabled() { return DEBUG_EDITOR_INDEX_VERIFY.get(); }
-
-
-	// defaultGroups
-
-	/** Master switch: set to false for a completely clean slate with no built-in groups. */
+public final class NeoForgeConfig extends AcceptedConfigProvider {
+    public static final ModConfigSpec.ConfigValue<java.util.List<? extends String>> DISABLED_BUILTIN_CATEGORIES;
+    public static final ModConfigSpec.BooleanValue SHOW_CATEGORY_SIDEBAR;
 	public static final ModConfigSpec.BooleanValue LOAD_DEFAULT_GROUPS;
-
-	/** Whether to load built-in generic cross-mod groups (potions, enchanted books, spawn eggs, etc.). */
-	public static final ModConfigSpec.BooleanValue LOAD_GENERIC_GROUPS;
-
-	/** Whether to load built-in vanilla groupings (wool, concrete, terracotta, etc.). */
-	public static final ModConfigSpec.BooleanValue LOAD_VANILLA_GROUPS;
-
-	// defaultGroups.ModIntegration
-
-	/** Master switch for all mod-integration groups. */
-	public static final ModConfigSpec.BooleanValue LOAD_MOD_INTEGRATION_GROUPS;
-
-	/**
-	 * Whether to load built-in AE2 groups.
-	 * Ignored if AE2 is not installed; the setting cannot take effect without the mod.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_AE2;
-
-	/**
-	 * Whether to load built-in Refined Storage 2 groups.
-	 * Ignored if Refined Storage 2 is not installed.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_RS2;
-
-	/**
-	 * Whether to load built-in EnderIO groups.
-	 * Ignored if EnderIO is not installed; the setting cannot take effect without the mod.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_ENDER_IO;
-
-	/**
-	 * Whether to load built-in Chipped block-variant groups.
-	 * Ignored if Chipped is not installed; the setting cannot take effect without the mod.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_CHIPPED;
-
-	/**
-	 * Whether to load built-in Rechiseled block-variant groups.
-	 * Ignored if Rechiseled is not installed; the setting cannot take effect without the mod.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_RECHISELED;
-
-	/**
-	 * Whether to load built-in Macaw's series groups.
-	 * Ignored if none of the supported Macaw's mods are installed.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_MACAWS_SERIES;
-
-	/**
-	 * Whether to load built-in Chisel block-variant groups.
-	 * Ignored if Chisel is not installed; the setting cannot take effect without the mod.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_CHISEL;
-
-	/**
-	 * Whether to load built-in Apotheosis gem groups.
-	 * Ignored if Apotheosis is not installed; the setting cannot take effect without the mod.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_APOTHEOSIS;
-
-	/**
-	 * Whether to load built-in Iron's Apothic gem groups.
-	 * Ignored if Iron's Apothic is not installed; the setting cannot take effect without the mod.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_IRONS_APOTHIC;
-
-	/**
-	 * Whether to load built-in Iron's Spellbooks scroll groups.
-	 * Ignored if Iron's Spellbooks is not installed; the setting cannot take effect without the mod.
-	 */
-	public static final ModConfigSpec.BooleanValue LOAD_IRONS_SPELLBOOKS;
 
 	// ui
 
@@ -192,99 +58,13 @@ public final class NeoForgeConfig implements IConfigProvider {
 			)
 			.translation("collapsible_groups.configuration.defaultGroups.enabled")
 			.define("enabled", true);
-		LOAD_GENERIC_GROUPS = builder
-			.comment("Whether to load built-in generic cross-mod groups (potions, enchanted books, spawn eggs, etc.)")
-			.translation("collapsible_groups.configuration.defaultGroups.loadGeneric")
-			.define("loadGeneric", true);
-		LOAD_VANILLA_GROUPS = builder
-			.comment("Whether to load built-in vanilla item groupings (wool, concrete, terracotta, etc.)")
-			.translation("collapsible_groups.configuration.defaultGroups.loadVanilla")
-			.define("loadVanilla", true);
-
-		// [defaultGroups.ModIntegration]
-		builder.translation("collapsible_groups.configuration.defaultGroups.ModIntegration").push("ModIntegration");
-		LOAD_MOD_INTEGRATION_GROUPS = builder
-			.comment(
-				"Whether to load built-in mod-integration groups.",
-				"Groups for mods that are not currently installed are always skipped."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadModIntegration")
-			.define("loadModIntegration", true);
-		LOAD_AE2 = builder
-			.comment(
-				"Whether to load built-in AE2 groups.",
-				"Has no effect if AE2 is not installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadAE2")
-			.define("loadAE2", true);
-		LOAD_RS2 = builder
-			.comment(
-				"Whether to load built-in RS2 groups.",
-				"Has no effect if RS2 is not installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadRS2")
-			.define("loadRS2", true);
-		LOAD_ENDER_IO = builder
-			.comment(
-				"Whether to load built-in EnderIO groups.",
-				"Has no effect if EnderIO is not installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadEnderIO")
-			.define("loadEnderIO", true);
-		LOAD_CHIPPED = builder
-			.comment(
-				"Whether to load built-in Chipped block-variant groups (one group per block type).",
-				"Has no effect if Chipped is not installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadChipped")
-			.define("loadChipped", true);
-		LOAD_RECHISELED = builder
-			.comment(
-				"Whether to load built-in Rechiseled block-variant groups (one group per block type).",
-				"Has no effect if Rechiseled is not installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadRechiseled")
-			.define("loadRechiseled", true);
-		LOAD_MACAWS_SERIES = builder
-			.comment(
-				"Whether to load built-in Macaw's series block-tag groups.",
-				"Has no effect if none of the supported Macaw's mods are installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadMacawsSeries")
-			.define("loadMacawsSeries", true);
-		LOAD_CHISEL = builder
-			.comment(
-				"Whether to load built-in Chisel block-variant groups (one group per carving tag).",
-				"Has no effect if Chisel is not installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadChisel")
-			.define("loadChisel", true);
-		LOAD_APOTHEOSIS = builder
-			.comment(
-				"Whether to load built-in Apotheosis gem groups (one group per gem type).",
-				"Has no effect if Apotheosis is not installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadApotheosis")
-			.define("loadApotheosis", true);
-		LOAD_IRONS_APOTHIC = builder
-			.comment(
-				"Whether to load built-in Iron's Apothic gem groups (one group per gem type).",
-				"Has no effect if Iron's Apothic is not installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadIronsApothic")
-			.define("loadIronsApothic", true);
-		LOAD_IRONS_SPELLBOOKS = builder
-			.comment(
-				"Whether to load built-in Iron's Spellbooks scroll groups (one group per spell).",
-				"Has no effect if Iron's Spellbooks is not installed."
-			)
-			.translation("collapsible_groups.configuration.defaultGroups.ModIntegration.loadIronsSpellbooks")
-			.define("loadIronsSpellbooks", true);
-		builder.pop(); // ModIntegration
-		builder.pop(); // defaultGroups
+        DISABLED_BUILTIN_CATEGORIES = builder.defineListAllowEmpty(java.util.List.of("disabledCategories"),
+            java.util.List.of(), SettingsSnapshot::validCategoryId);
+		builder.pop();
 
 		// [ui]
 		builder.translation("collapsible_groups.configuration.ui").push("ui");
+        SHOW_CATEGORY_SIDEBAR = builder.define("showCategorySidebar", true);
 		SHOW_MANAGER_BUTTON = builder
 			.comment("Whether to show the group manager button in the JEI ingredient list overlay.")
 			.translation("collapsible_groups.configuration.ui.showManagerButton")
@@ -368,118 +148,24 @@ public final class NeoForgeConfig implements IConfigProvider {
 		SPEC = builder.build();
 	}
 
-	// Convenience accessors with mod-presence guard
+    private static volatile ModConfig nativeConfig;
 
-	/**
-	 * Returns true only when the AE2 config flag is enabled AND AE2 is installed.
-	 * Always false when AE2 is absent, regardless of the stored config value.
-	 */
-	public static boolean shouldLoadAE2() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_AE2.get()
-			&& ModList.get().isLoaded("ae2");
-	}
+    public static void bind(ModConfig config) { nativeConfig = config; }
 
-	/**
-	 * Returns true only when the EnderIO config flag is enabled AND EnderIO is installed.
-	 * Always false when EnderIO is absent, regardless of the stored config value.
-	 */
-	public static boolean shouldLoadEnderIO() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_ENDER_IO.get()
-			&& ModList.get().isLoaded("enderio");
-	}
+    private final TomlSettingsStorage storage = new TomlSettingsStorage(
+        Services.PLATFORM.getConfigDir().resolve("collapsiblegroups/collapsiblegroups.toml"));
 
-	@Override public boolean shouldLoadRS2() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_RS2.get()
-			&& ModList.get().isLoaded("refinedstorage");
-	}
+    @Override public SettingsSnapshot read() throws Exception { return storage.read(); }
+    @Override public void write(SettingsSnapshot settings) throws Exception { storage.write(settings); }
 
-	@Override public boolean shouldLoadMacawsSeries() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_MACAWS_SERIES.get()
-			&& isAnyMacawsSeriesLoaded();
-	}
-
-	/**
-	 * Returns true only when the Chipped config flag is enabled AND Chipped is installed.
-	 * Always false when Chipped is absent, regardless of the stored config value.
-	 */
-	@Override public boolean shouldLoadChipped() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_CHIPPED.get()
-			&& ModList.get().isLoaded("chipped");
-	}
-
-	/**
-	 * Returns true only when the Chisel config flag is enabled AND Chisel is installed.
-	 * Always false when Chisel is absent, regardless of the stored config value.
-	 */
-	public static boolean shouldLoadChisel() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_CHISEL.get()
-			&& ModList.get().isLoaded("chisel");
-	}
-
-	/**
-	 * Returns true only when the Rechiseled config flag is enabled AND Rechiseled is installed.
-	 * Always false when Rechiseled is absent, regardless of the stored config value.
-	 */
-	@Override public boolean shouldLoadRechiseled() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_RECHISELED.get()
-			&& ModList.get().isLoaded("rechiseled");
-	}
-
-	/**
-	 * Returns true only when the Apotheosis config flag is enabled AND Apotheosis is installed.
-	 * Always false when Apotheosis is absent, regardless of the stored config value.
-	 */
-	public static boolean shouldLoadApotheosis() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_APOTHEOSIS.get()
-			&& ModList.get().isLoaded("apotheosis");
-	}
-
-	/**
-	 * Returns true only when the Iron's Apothic config flag is enabled AND Iron's Apothic is installed.
-	 * Always false when Iron's Apothic is absent, regardless of the stored config value.
-	 */
-	public static boolean shouldLoadIronsApothic() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_IRONS_APOTHIC.get()
-			&& ModList.get().isLoaded("irons_apothic");
-	}
-
-	/**
-	 * Returns true only when the Iron's Spellbooks config flag is enabled AND Iron's Spellbooks is installed.
-	 * Always false when Iron's Spellbooks is absent, regardless of the stored config value.
-	 */
-	public static boolean shouldLoadIronsSpellbooks() {
-		return LOAD_DEFAULT_GROUPS.get()
-			&& LOAD_MOD_INTEGRATION_GROUPS.get()
-			&& LOAD_IRONS_SPELLBOOKS.get()
-			&& ModList.get().isLoaded("irons_spellbooks");
-	}
+    @Override public void synchronize() throws Exception {
+        ModConfig config = nativeConfig;
+        if (config == null || config.getLoadedConfig() == null)
+            throw new IllegalStateException("Native config is not loaded");
+        SettingsSnapshot current = read();
+        current.write(config.getLoadedConfig().config()::set);
+        SPEC.afterReload();
+    }
 
 	public NeoForgeConfig() {}
-
-	private static boolean isAnyMacawsSeriesLoaded() {
-		for (String modId : MACAWS_SERIES_MODS) {
-			if (ModList.get().isLoaded(modId)) {
-				return true;
-			}
-		}
-		return false;
-	}
 }

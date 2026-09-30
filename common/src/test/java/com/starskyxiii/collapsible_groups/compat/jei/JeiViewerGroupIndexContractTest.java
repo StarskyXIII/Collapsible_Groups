@@ -7,7 +7,6 @@ import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
 import mezz.jei.api.runtime.IIngredientManager;
-import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestFactory;
@@ -31,7 +30,7 @@ class JeiViewerGroupIndexContractTest {
 	@TestFactory
 	Stream<DynamicTest> everyLifecycleTableCellIsEnforced() {
 		return Stream.of(GroupChangeEvent.Kind.FULL, GroupChangeEvent.Kind.ENABLED,
-				GroupChangeEvent.Kind.STRUCTURE, GroupChangeEvent.Kind.KUBEJS_REPLACE)
+				GroupChangeEvent.Kind.STRUCTURE, GroupChangeEvent.Kind.KUBEJS_REPLACE, GroupChangeEvent.Kind.SOURCE_RELOAD)
 			.flatMap(event -> Stream.of(Layer.values()).map(layer -> DynamicTest.dynamicTest(
 				event + " / " + layer, () -> assertCell(event, layer))));
 	}
@@ -41,13 +40,12 @@ class JeiViewerGroupIndexContractTest {
 		index.reset();
 		GroupDefinition enabled = group("contract_group", true);
 		GroupCandidateIndex originalCandidate = candidate(enabled);
-		index.publishGeneration(generation(originalCandidate, enabled));
+		index.publishGeneration(generation(originalCandidate, enabled, List.of(new Object())));
 		Map<?, ?> originalResolved = index.resolvedItemsCache();
-		Map<?, ?> originalFullMatch = index.fullMatchItems();
 		AtomicReference<String> rebuildThread = new AtomicReference<>();
 		index.configureRebuild(() -> {
 			rebuildThread.set(Thread.currentThread().getName());
-			return generation(candidate(enabled), enabled);
+			return generation(candidate(enabled), enabled, List.of(new Object(), new Object()));
 		}, Runnable::run, () -> {});
 
 		List<GroupDefinition> currentGroups = event == GroupChangeEvent.Kind.ENABLED
@@ -55,7 +53,8 @@ class JeiViewerGroupIndexContractTest {
 		index.onGroupChange(event, currentGroups);
 		index.whenReady().join();
 
-		boolean rebuild = event == GroupChangeEvent.Kind.FULL || event == GroupChangeEvent.Kind.KUBEJS_REPLACE;
+		boolean rebuild = event == GroupChangeEvent.Kind.FULL || event == GroupChangeEvent.Kind.KUBEJS_REPLACE
+			|| event == GroupChangeEvent.Kind.SOURCE_RELOAD;
 		switch (layer) {
 			case CANDIDATES -> {
 				if (rebuild) {
@@ -68,11 +67,9 @@ class JeiViewerGroupIndexContractTest {
 				else assertNotSame(originalResolved, index.resolvedItemsCache());
 				assertTrue(index.ready());
 			}
-			case FULL_MATCH -> {
-				if (rebuild) assertNotSame(originalFullMatch, index.fullMatchItems());
-				else assertEquals(originalFullMatch, index.fullMatchItems());
-			}
-			case PREVIEW -> assertTrue(index.previewCachesValid());
+			case FULL_MATCH -> assertEquals(rebuild ? 2 : 1,
+				index.displaySnapshot().preview(enabled).orElseThrow().fluids().size());
+			case PREVIEW -> assertTrue(index.displaySnapshot().preview(enabled).isPresent());
 		}
 	}
 
@@ -111,10 +108,16 @@ class JeiViewerGroupIndexContractTest {
 		assertSame(first, index.ensureReadyAsync(List.of(group)));
 		assertSame(stale, index.candidates().orElseThrow());
 		assertNull(index.resolvedItemsCache());
-		assertNotNull(index.fullMatchItems());
-		assertNotNull(index.fullMatchFluids());
-		assertNotNull(index.fullMatchGeneric());
+		assertTrue(index.displaySnapshot().preview(group).isPresent());
 		assertEquals(1, builds.get());
+		var display = index.displaySnapshot();
+		assertTrue(display.pending());
+		assertTrue(display.preview(group).isPresent());
+		index.updateUniverse(new ViewerIngredientUniverse<>(List.of()));
+		assertTrue(display.preview(group).isPresent());
+		index.onGroupChange(GroupChangeEvent.Kind.SOURCE_RELOAD, List.of(group));
+		assertTrue(index.displaySnapshot().preview(group).isEmpty());
+		assertTrue(display.preview(group).isPresent());
 		release.countDown();
 		first.join();
 		assertEquals(2, builds.get());
@@ -126,34 +129,26 @@ class JeiViewerGroupIndexContractTest {
 	}
 
 	@Test
-	void fullMatchEntryUpdateIsAtomicAndPublishedMapsAreReadOnly() {
+	void publishedPreviewKindsAreImmutableAndCapturedDisplaySurvivesReplacement() {
 		JeiViewerGroupIndex index = JeiViewerGroupIndex.instance();
 		index.reset();
 		GroupDefinition group = group("atomic_preview", true);
 		index.publishGeneration(generation(candidate(group), group));
-		JeiViewerGroupIndex.FullMatchCacheSnapshot before = index.fullMatchSnapshot();
-		assertNotNull(before.entry(group.id()));
-		assertTrue(before.entry(group.id()).items().isEmpty());
-
+		var before = index.displaySnapshot();
 		Object fluid = new Object();
 		GenericIngredientRef generic = new GenericIngredientRef("test:type", null, new Object());
-		index.updateFullMatchEntry(group.id(), List.of(), List.of(fluid), List.of(generic));
-
-		JeiViewerGroupIndex.FullMatchCacheSnapshot after = index.fullMatchSnapshot();
-		JeiViewerGroupIndex.FullMatchEntry updated = after.entry(group.id());
-		assertNotNull(updated);
-		assertTrue(updated.items().isEmpty());
-		assertEquals(List.of(fluid), updated.fluids());
-		assertEquals(List.of(generic), updated.generic());
-		assertTrue(before.entry(group.id()).items().isEmpty());
-		assertThrows(UnsupportedOperationException.class,
-			() -> after.items().put("forbidden", List.of()));
-		assertThrows(UnsupportedOperationException.class,
-			() -> after.fluids().remove(group.id()));
-
+		var replacement = new JeiViewerGroupIndex.Generation(candidate(group), Map.of(), Map.of(),
+			Map.of(group.id(), List.of()), Map.of(group.id(), List.of(fluid)), Map.of(group.id(), List.of(generic)), Map.of(), Map.of());
+		index.publishGeneration(replacement);
+		var after = index.displaySnapshot();
+		assertEquals(0, before.preview(group).orElseThrow().allValues().size());
+		assertEquals(1, after.preview(group).orElseThrow().fluids().size());
+		assertEquals(1, after.preview(group).orElseThrow().generic().size());
+		assertThrows(UnsupportedOperationException.class, () -> replacement.fullMatchItems().put("forbidden", List.of()));
+		assertThrows(UnsupportedOperationException.class, () -> replacement.fullMatchFluids().remove(group.id()));
 		index.invalidateFullMatch(group.id());
-		assertNull(index.fullMatchSnapshot().entry(group.id()));
-		assertNotNull(after.entry(group.id()));
+		assertTrue(index.displaySnapshot().preview(group).isEmpty());
+		assertTrue(after.preview(group).isPresent());
 	}
 
 	@Test
@@ -186,7 +181,7 @@ class JeiViewerGroupIndexContractTest {
 		index.onGroupChange(GroupChangeEvent.Kind.FULL, List.of(group));
 		assertTrue(firstEntered.await(10, TimeUnit.SECONDS));
 		CompletableFuture<Void> readiness = index.whenReady();
-		index.updateFullMatchEntry(group.id(), List.of(), List.of(new Object()), List.of());
+		index.invalidateFullMatch(group.id());
 		firstRelease.countDown();
 
 		readiness.join();
@@ -215,7 +210,7 @@ class JeiViewerGroupIndexContractTest {
 
 		index.onGroupChange(GroupChangeEvent.Kind.FULL, List.of(group));
 		assertThrows(CompletionException.class, () -> index.whenReady().join());
-		assertNotNull(index.fullMatchSnapshot().entry(group.id()));
+		assertTrue(index.displaySnapshot().preview(group).isPresent());
 		assertTrue(index.readyGenerationSnapshot().isEmpty());
 		assertEquals(0, listeners.get());
 
@@ -244,7 +239,7 @@ class JeiViewerGroupIndexContractTest {
 
 		index.publishGeneration(complete);
 		assertSame(context, index.readyGenerationSnapshot().orElseThrow().projectionContext());
-		index.setFullMatchCachesByGroup(Map.of(), Map.of(), Map.of());
+		index.invalidateFullMatch(group.id());
 		assertSame(context, index.readyGenerationSnapshot().orElseThrow().projectionContext());
 
 		index.publishGeneration(new JeiViewerGroupIndex.Generation(
@@ -272,10 +267,7 @@ class JeiViewerGroupIndexContractTest {
 
 		index.onGroupChange(GroupChangeEvent.Kind.KUBEJS_REPLACE, List.of(group));
 		assertTrue(entered.await(10, TimeUnit.SECONDS));
-		assertFalse(index.fullMatchSnapshot().complete());
-		assertNull(index.fullMatchItems());
-		assertNull(index.fullMatchFluids());
-		assertNull(index.fullMatchGeneric());
+		assertNull(index.displaySnapshot().candidates());
 		release.countDown();
 		index.whenReady().join();
 	}
@@ -316,7 +308,7 @@ class JeiViewerGroupIndexContractTest {
 		assertTrue(entered.await(10, TimeUnit.SECONDS));
 		CompletableFuture<Void> readiness = index.whenReady();
 		index.onGroupChange(secondKind, List.of(latest));
-		assertEquals(previewRetained, index.fullMatchSnapshot().complete());
+		assertEquals(previewRetained, (index.displaySnapshot().candidates() != null));
 		release.countDown();
 
 		readiness.join();
@@ -345,8 +337,13 @@ class JeiViewerGroupIndexContractTest {
 
 	private static JeiViewerGroupIndex.Generation generation(GroupCandidateIndex candidate,
 		GroupDefinition group) {
+		return generation(candidate, group, List.of());
+	}
+
+	private static JeiViewerGroupIndex.Generation generation(GroupCandidateIndex candidate,
+		GroupDefinition group, List<Object> fluids) {
 		return new JeiViewerGroupIndex.Generation(candidate, Map.of(group.id(), List.of()),
-			Map.of(group.id(), List.of()), Map.of(group.id(), List.of()), Map.of(group.id(), List.of()),
+			Map.of(group.id(), List.of()), Map.of(group.id(), List.of()), Map.of(group.id(), fluids),
 			Map.of(group.id(), List.of()), Map.of(), Map.of());
 	}
 

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_lower_bookshelf_drawer",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_lower_bookshelf_drawer",
+    "fallback": "Macaw's Furnitures: Lower Bookshelf Drawer"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:lower_bookshelf_drawer"
+  }
+}

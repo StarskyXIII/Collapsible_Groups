@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_netherrack",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_netherrack",
+    "fallback": "Compressed Netherrack"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:netherrack_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:netherrack_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:netherrack_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:netherrack_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:netherrack_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:netherrack_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:netherrack_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:netherrack_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:netherrack_9x"
+      }
+    ]
+  }
+}

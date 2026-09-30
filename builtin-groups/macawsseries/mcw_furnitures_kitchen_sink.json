@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_kitchen_sink",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_kitchen_sink",
+    "fallback": "Macaw's Furnitures: Kitchen Sink"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:kitchen_sink"
+  }
+}

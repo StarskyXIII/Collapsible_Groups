@@ -7,6 +7,7 @@ import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.client.editor.model.RuleTagResolution;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupDocumentFormat;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
@@ -28,17 +29,25 @@ final class EditorStateCore {
 	private final GroupFilterRuleDraft ruleDraft;
 	private final Runnable onRulesDraftChanged;
 	private final boolean saveAsNew;
+	private final boolean readOnlyFilter;
 	@Nullable
 	private final String sourceGroupId;
 
 	private GroupFilterRuleDraft.Node selectedRuleNode;
-	private GroupFilterRuleDraft.Node pendingRuleNode;
+	private RuleEditTransaction ruleEditTransaction;
 	private boolean contentsQuickEditAvailable;
 	// decoupled from contentsQuickEditAvailable. A hybrid draft (preserved advanced
 	// subtrees present) is still contents-editable but is NOT flat-index safe, so the
 	// indexed item preview must not be used for it — see canUseIndexedItemPreview().
 	private boolean flatIndexPreviewSafe;
 	private GroupFilter lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
+	private GroupFilterRuleDraft compiledDraft;
+	private Optional<GroupFilter> compiledFilter = Optional.empty();
+	private Optional<GroupFilter> validatedFilter;
+	private List<Component> validationErrors = List.of();
+	private int validationRuns;
+
+	private record RuleEditTransaction(GroupFilterRuleDraft snapshot, List<Integer> selectedPath) {}
 
 	// id sets of everything the current group's rules fully match, keyed the
 	// same way the source-grid ownership caches are (item registry id, fluid
@@ -66,17 +75,22 @@ final class EditorStateCore {
 	) {
 		this.existingDefinition = existingDefinition;
 		this.saveAsNew = saveAsNew;
+		this.readOnlyFilter = existingDefinition != null && existingDefinition.hasUnavailableFilter();
 		this.sourceGroupId = normalizeSourceGroupId(sourceGroupId);
 		this.onRulesDraftChanged = Objects.requireNonNull(onRulesDraftChanged, "onRulesDraftChanged");
-		this.ruleDraft = existingDefinition != null
-			? GroupFilterRuleDraft.decode(existingDefinition.filter())
-			: GroupFilterRuleDraft.empty();
+		this.ruleDraft = existingDefinition != null && !readOnlyFilter
+			? GroupFilterRuleDraft.decode(existingDefinition.filter(), documentFormat())
+			: GroupFilterRuleDraft.empty(documentFormat());
 		this.selectedRuleNode = ruleDraft.root();
 
 		buildCurrentFilter()
-			.filter(filter -> GroupFilterValidator.validate(filter).isEmpty())
+			.filter(filter -> validationErrors(Optional.of(filter)).isEmpty())
 			.ifPresent(filter -> lastValidPreviewFilter = filter);
 	}
+
+    private GroupDocumentFormat documentFormat() {
+        return existingDefinition == null ? GroupDocumentFormat.V1 : existingDefinition.documentFormat();
+    }
 
 	private static @Nullable String normalizeSourceGroupId(@Nullable String sourceGroupId) {
 		return sourceGroupId == null || sourceGroupId.isBlank() ? null : sourceGroupId;
@@ -92,7 +106,14 @@ final class EditorStateCore {
 	}
 
 	Optional<GroupFilter> buildCurrentFilter() {
-		return ruleDraft.toFilter();
+		if (readOnlyFilter) {
+			return Optional.of(existingDefinition.filter());
+		}
+		if (!ruleDraft.contentEquals(compiledDraft)) {
+			compiledFilter = ruleDraft.toFilter();
+			compiledDraft = ruleDraft.copy();
+		}
+		return compiledFilter;
 	}
 
 	GroupDefinition buildPreviewDefinition(String editId, String editName, boolean editEnabled) {
@@ -114,9 +135,10 @@ final class EditorStateCore {
 		GroupFilter previewFilter;
 		if (currentFilter.isEmpty()) {
 			previewFilter = EMPTY_PREVIEW_FILTER;
+			lastValidPreviewFilter = EMPTY_PREVIEW_FILTER;
 		} else {
 			previewFilter = currentFilter
-				.filter(filter -> GroupFilterValidator.validate(filter).isEmpty())
+				.filter(filter -> validationErrors(currentFilter).isEmpty())
 				.map(filter -> {
 					lastValidPreviewFilter = filter;
 					return filter;
@@ -147,8 +169,8 @@ final class EditorStateCore {
 	 * A hybrid draft is {@code editable=true} but {@code flatIndexSafe=false}.
 	 */
 	void setContentsEditability(boolean editable, boolean flatIndexSafe) {
-		this.contentsQuickEditAvailable = editable;
-		this.flatIndexPreviewSafe = flatIndexSafe;
+		this.contentsQuickEditAvailable = editable && !readOnlyFilter;
+		this.flatIndexPreviewSafe = flatIndexSafe && !readOnlyFilter;
 	}
 
 	void setContentsQuickEditAvailable(boolean contentsQuickEditAvailable) {
@@ -183,14 +205,15 @@ final class EditorStateCore {
 	}
 
 	void syncRulesFromContentsDraft(GroupFilterEditorDraft draft) {
-		if (!contentsQuickEditAvailable) {
+		if (!contentsQuickEditAvailable || ruleEditTransaction != null) {
 			return;
 		}
 		GroupFilterRuleDraft replacement = draft.toFilter()
-			.map(GroupFilterRuleDraft::decode)
-			.orElseGet(GroupFilterRuleDraft::empty);
+			.map(filter -> GroupFilterRuleDraft.decode(filter, documentFormat()))
+			.orElseGet(() -> GroupFilterRuleDraft.empty(documentFormat()));
 		ruleDraft.replaceWith(replacement);
 		selectedRuleNode = ruleDraft.root();
+		onRulesDraftChanged.run();
 	}
 
 	Optional<GroupDefinition> trySave(String editId, String editName, boolean editEnabled, boolean nameTouched) {
@@ -212,14 +235,14 @@ final class EditorStateCore {
 		if (!canSave(editName)) return Optional.empty();
 		Optional<GroupFilter> filter = buildCurrentFilter();
 		String id = idForSave(editId, editName);
+		var groups = EditorRuntimeServices.groups();
 		try {
 			GroupDefinition saved = shouldPreserveDisplayName(id, nameTouched)
 				? GroupEditorDefinitionFactory.createWithDisplayName(id, existingDefinition.displayName(), editEnabled,
 					filter.get(), existingDefinition, appearance, priority)
 				: GroupEditorDefinitionFactory.create(id, editName, editEnabled, filter.get(), existingDefinition,
 					appearance, priority);
-			EditorRuntimeServices.get().saveQuietly(saved);
-			return Optional.of(saved);
+			return groups.saveChecked(saved) ? Optional.of(saved) : Optional.empty();
 		} catch (IllegalArgumentException e) {
 			return Optional.empty();
 		}
@@ -233,12 +256,17 @@ final class EditorStateCore {
 	}
 
 	boolean canSave(String editName) {
-		return !(editName == null || editName.isBlank())
-			&& buildCurrentFilter().isPresent()
-			&& currentValidationErrors().isEmpty();
+        if (documentFormat() == GroupDocumentFormat.UNSUPPORTED) return false;
+		if (editName == null || editName.isBlank() || ruleEditTransaction != null) return false;
+		Optional<GroupFilter> filter = buildCurrentFilter();
+		return filter.isPresent() && validationErrors(filter).isEmpty();
 	}
 
 	List<Component> saveBlockedTooltip(String editName) {
+        if (documentFormat() == GroupDocumentFormat.UNSUPPORTED) {
+            return List.of(Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR),
+                Component.translatable(ModTranslationKeys.EDITOR_FILTER_UNAVAILABLE));
+        }
 		if (editName == null || editName.isBlank()) {
 			return List.of(
 				Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR),
@@ -255,7 +283,7 @@ final class EditorStateCore {
 		if (!errors.isEmpty()) {
 			return List.of(
 				Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR),
-				errors.getFirst()
+				errors.get(0)
 			);
 		}
 		return List.of();
@@ -273,7 +301,7 @@ final class EditorStateCore {
 		if (existingDefinition != null && !saveAsNew) {
 			return Component.translatable(ModTranslationKeys.EDITOR_PENDING_ID_EXISTING, id).getString();
 		}
-		String sanitized = EditorRuntimeServices.get().sanitizeGeneratedIdBase(editName);
+		String sanitized = EditorRuntimeServices.groups().sanitizeGeneratedIdBase(editName);
 		if (!sanitized.isEmpty()) {
 			return Component.translatable(ModTranslationKeys.EDITOR_PENDING_ID_ON_SAVE, id).getString();
 		}
@@ -286,6 +314,9 @@ final class EditorStateCore {
 	}
 
 	String contentsEditStatusLabel() {
+		if (readOnlyFilter) {
+			return Component.translatable(ModTranslationKeys.EDITOR_FILTER_UNAVAILABLE).getString();
+		}
 		return Component.translatable(contentsQuickEditAvailable
 			? ModTranslationKeys.EDITOR_FILTER_EDITABLE
 			: ModTranslationKeys.EDITOR_FILTER_READONLY).getString();
@@ -311,19 +342,20 @@ final class EditorStateCore {
 	}
 
 	boolean canInsertRuleRelative() {
-		return ruleDraft.canInsertRelativeTo(selectedRuleNode);
+		return !readOnlyFilter && ruleDraft.canInsertRelativeTo(selectedRuleNode);
 	}
 
 	boolean canWrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
-		return ruleDraft.canWrap(selectedRuleNode, kind);
+		return !readOnlyFilter && ruleDraft.canWrap(selectedRuleNode, kind);
 	}
 
 	boolean canDeleteSelectedRule() {
-		return selectedRuleNode != null;
+		return !readOnlyFilter && selectedRuleNode != null;
 	}
 
 	@Nullable
 	GroupFilterRuleDraft.Node insertRuleRelative(GroupFilterRuleDraft.NodeKind kind) {
+		if (readOnlyFilter) return null;
 		GroupFilterRuleDraft.Node node = ruleDraft.insertRelativeTo(selectedRuleNode, kind);
 		if (node != null) {
 			selectedRuleNode = node;
@@ -333,29 +365,62 @@ final class EditorStateCore {
 	}
 
 	@Nullable
-	GroupFilterRuleDraft.Node insertRuleRelativePending(GroupFilterRuleDraft.NodeKind kind) {
+	GroupFilterRuleDraft.Node beginInsertRule(GroupFilterRuleDraft.NodeKind kind) {
+		if (readOnlyFilter || ruleEditTransaction != null) {
+			return null;
+		}
+		if (ruleDraft.hasRoot() && ruleDraft.pathOf(selectedRuleNode).isEmpty()) {
+			return null;
+		}
+		beginRuleEditTransaction();
 		GroupFilterRuleDraft.Node node = insertRuleRelative(kind);
-		if (node != null) {
-			pendingRuleNode = node;
+		if (node == null) {
+			ruleEditTransaction = null;
 		}
 		return node;
 	}
 
-	boolean hasPendingRuleNode() {
-		return pendingRuleNode != null;
+	boolean beginRuleEdit(GroupFilterRuleDraft.Node node) {
+		if (readOnlyFilter || node == null || ruleEditTransaction != null
+			|| ruleDraft.pathOf(node).isEmpty()) {
+			return false;
+		}
+		selectedRuleNode = node;
+		beginRuleEditTransaction();
+		return true;
 	}
 
-	void commitPendingRuleNode() {
-		pendingRuleNode = null;
+	boolean hasRuleEditTransaction() {
+		return ruleEditTransaction != null;
 	}
 
-	void cancelPendingRuleNode() {
-		if (pendingRuleNode == null) {
+	boolean ruleEditChanged() {
+		return ruleEditTransaction != null
+			&& !ruleEditTransaction.snapshot().contentEquals(ruleDraft);
+	}
+
+	void commitRuleEdit() {
+        if (ruleDraft.flatten().stream().anyMatch(flat -> !flat.node().hasValidDataLiteral())) return;
+		ruleEditTransaction = null;
+	}
+
+	void cancelRuleEdit() {
+		RuleEditTransaction transaction = ruleEditTransaction;
+		if (transaction == null) {
 			return;
 		}
-		selectedRuleNode = pendingRuleNode;
-		pendingRuleNode = null;
-		deleteSelectedRule();
+		ruleEditTransaction = null;
+		ruleDraft.replaceWith(transaction.snapshot());
+		selectedRuleNode = ruleDraft.nodeAtPath(transaction.selectedPath());
+		if (selectedRuleNode == null) {
+			selectedRuleNode = ruleDraft.root();
+		}
+		onRulesDraftChanged.run();
+	}
+
+	private void beginRuleEditTransaction() {
+		List<Integer> path = ruleDraft.pathOf(selectedRuleNode).orElse(List.of());
+		ruleEditTransaction = new RuleEditTransaction(ruleDraft.copy(), path);
 	}
 
 	int unresolvedRuleCount(RuleTagResolution.TagExistenceLookup lookup) {
@@ -364,7 +429,7 @@ final class EditorStateCore {
 
 	@Nullable
 	GroupFilterRuleDraft.Node wrapSelectedRule(GroupFilterRuleDraft.NodeKind kind) {
-		if (selectedRuleNode == null) {
+		if (readOnlyFilter || selectedRuleNode == null) {
 			return null;
 		}
 		GroupFilterRuleDraft.Node node = ruleDraft.wrap(selectedRuleNode, kind);
@@ -376,10 +441,11 @@ final class EditorStateCore {
 	}
 
 	boolean canMoveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent) {
-		return ruleDraft.canMove(node, targetParent);
+		return !readOnlyFilter && ruleDraft.canMove(node, targetParent);
 	}
 
 	boolean moveRuleNode(GroupFilterRuleDraft.Node node, GroupFilterRuleDraft.Node targetParent, int index) {
+		if (readOnlyFilter) return false;
 		if (!ruleDraft.moveNode(node, targetParent, index)) {
 			return false;
 		}
@@ -389,7 +455,7 @@ final class EditorStateCore {
 	}
 
 	void deleteSelectedRule() {
-		if (selectedRuleNode == null) {
+		if (readOnlyFilter || selectedRuleNode == null) {
 			return;
 		}
 		selectedRuleNode = ruleDraft.delete(selectedRuleNode);
@@ -400,34 +466,49 @@ final class EditorStateCore {
 	}
 
 	void markRulesChanged() {
-		onRulesDraftChanged.run();
+		if (!readOnlyFilter) onRulesDraftChanged.run();
 	}
 
 	List<Component> currentValidationErrors() {
-		return buildCurrentFilter()
-			.map(GroupFilterValidator::validateComponents)
-			.orElse(List.of());
+		return validationErrors(buildCurrentFilter()).stream()
+			.<Component>map(Component::copy)
+			.toList();
+	}
+
+	private List<Component> validationErrors(Optional<GroupFilter> filter) {
+		if (!filter.equals(validatedFilter)) {
+			validationErrors = filter.map(GroupFilterValidator::validateComponents).orElse(List.of());
+			validatedFilter = filter;
+			validationRuns++;
+		}
+		return validationErrors;
+	}
+
+	int validationRuns() {
+		return validationRuns;
 	}
 
 	private String currentOrGeneratedId(String editId, String editName) {
+		var groups = EditorRuntimeServices.groups();
 		if (editId != null && !editId.isEmpty()) {
-			if (saveAsNew && EditorRuntimeServices.get().findGroup(editId).isPresent()) {
-				return EditorRuntimeServices.get().generateUniqueIdIncludingKubeJs(editName);
+			if (saveAsNew && groups.findGroup(editId).isPresent()) {
+				return groups.generateUniqueIdIncludingKubeJs(editName);
 			}
 			return editId;
 		}
 		if (editName == null || editName.isBlank()) {
 			return null;
 		}
-		return EditorRuntimeServices.get().generateUniqueId(editName);
+		return groups.generateUniqueId(editName);
 	}
 
 	private String idForSave(String editId, String editName) {
+		var groups = EditorRuntimeServices.groups();
 		if (editId != null && !editId.isEmpty()) {
-			if (!saveAsNew || EditorRuntimeServices.get().findGroup(editId).isEmpty()) {
+			if (!saveAsNew || groups.findGroup(editId).isEmpty()) {
 				return editId;
 			}
 		}
-		return saveAsNew ? EditorRuntimeServices.get().generateUniqueIdIncludingKubeJs(editName) : EditorRuntimeServices.get().generateUniqueId(editName);
+		return saveAsNew ? groups.generateUniqueIdIncludingKubeJs(editName) : groups.generateUniqueId(editName);
 	}
 }

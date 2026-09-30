@@ -14,5 +14,18 @@ public record ItemOwnershipBuildResult(
 	Map<ITypedIngredient<?>, GroupDefinition> ingredientGroupIndex,
 	Map<String, List<IngredientFilterItemIndex.ItemEntry>> fullMatchEntriesByGroup,
 	Map<String, List<IngredientFilterItemIndex.ItemEntry>> resolvedEntriesByGroup,
-	Map<String, Set<String>> itemIdToGroupIds
-) {}
+	Map<String, Set<String>> itemIdToGroupIds,
+	Map<String, String> evaluationFailures
+) {
+	public ItemOwnershipBuildResult(Map<ITypedIngredient<?>, GroupDefinition> owners,
+		Map<String, List<IngredientFilterItemIndex.ItemEntry>> fullMatches,
+		Map<String, List<IngredientFilterItemIndex.ItemEntry>> resolved,
+		Map<String, Set<String>> reverse) {
+		this(owners, fullMatches, resolved, reverse, Map.of());
+	}
+
+	public ItemOwnershipBuildResult withFailures(Map<String, String> failures) {
+		return new ItemOwnershipBuildResult(ingredientGroupIndex, fullMatchEntriesByGroup, resolvedEntriesByGroup,
+			itemIdToGroupIds, Map.copyOf(failures));
+	}
+}

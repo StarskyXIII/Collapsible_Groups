@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_windows_parapets",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_windows_parapets",
+    "fallback": "Macaw's Windows: Parapets"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwwindows:parapets"
+  }
+}

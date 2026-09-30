@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_pumpkin",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_pumpkin",
+    "fallback": "Chipped: Pumpkin"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:pumpkin"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

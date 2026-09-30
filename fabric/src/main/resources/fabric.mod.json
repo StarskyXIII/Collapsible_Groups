@@ -27,17 +27,12 @@
     ],
     "depends": {
         "fabricloader": ">=${fabric_loader_version}",
-        "fabric-api": "*",
+        "fabric-api": ">=${fabric_version}",
         "minecraft": "${minecraft_version}",
         "java": ">=${java_version}"
     },
     "suggests": {
-        "jei": ">=${jei_version}"
-    },
-    "breaks": {
-        "jei": [
-            "<${jei_version}"
-        ]
+		"jei": ">=${jei_version}"
     }
 }
   

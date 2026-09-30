@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_prismarine",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_prismarine",
+    "fallback": "Chisel: Prismarine"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/prismarine"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

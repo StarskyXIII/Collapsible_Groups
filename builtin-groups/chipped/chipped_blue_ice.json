@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_blue_ice",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_blue_ice",
+    "fallback": "Chipped: Blue Ice"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:blue_ice"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

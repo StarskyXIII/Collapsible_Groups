@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_cobweb",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_cobweb",
+    "fallback": "Chipped: Cobweb"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:cobweb"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

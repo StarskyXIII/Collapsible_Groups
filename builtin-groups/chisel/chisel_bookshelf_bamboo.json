@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_bookshelf_bamboo",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_bookshelf_bamboo",
+    "fallback": "Chisel: Bamboo Bookshelf"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/bookshelf_bamboo"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

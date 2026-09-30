@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_concrete_magenta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_concrete_magenta",
+    "fallback": "Chisel: Magenta Concrete"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/concrete_magenta"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 package com.starskyxiii.collapsible_groups.compat.jei.editor;
 
-import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
 import com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper;
+import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientIdentityResolver;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientRenderBridge;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
@@ -50,7 +50,7 @@ final class EditorGenericIngredientHelper {
 				: uid.valueId();
 			String identityValueId = uid.valueId();
 			List<Component> tooltipLines = renderer.getTooltip(ref.ingredient(), TooltipFlag.Default.NORMAL);
-			Component displayName = tooltipLines.isEmpty() ? Component.literal(resourceId) : tooltipLines.getFirst();
+			Component displayName = tooltipLines.isEmpty() ? Component.literal(resourceId) : tooltipLines.get(0);
 			Set<String> tagIds = helper.getTagStream(ref.ingredient())
 				.map(Object::toString)
 				.collect(Collectors.toCollection(LinkedHashSet::new));

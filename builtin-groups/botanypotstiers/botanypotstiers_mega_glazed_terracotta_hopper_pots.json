@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_botanypotstiers_mega_glazed_terracotta_hopper_pots",
+  "name": {
+    "translate": "collapsible_groups.group.__default_botanypotstiers_mega_glazed_terracotta_hopper_pots",
+    "fallback": "Mega Glazed Terracotta Hopper Botany Pots"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "botanypotstiers"
+      },
+      {
+        "item_path_starts_with": "mega_"
+      },
+      {
+        "item_path_ends_with": "_glazed_terracotta_hopper_botany_pot"
+      }
+    ]
+  }
+}

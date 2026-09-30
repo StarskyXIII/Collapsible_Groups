@@ -1,20 +1,70 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
+import com.starskyxiii.collapsible_groups.internal.query.IngredientCatalog;
+
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Collections;
 
 /** Ordered item, fluid, and generic ingredient universe supplied by a viewer. */
-public final class ViewerIngredientUniverse<E> {
+public final class ViewerIngredientUniverse<E>
+	implements IngredientCatalog<ViewerIngredient<E>, ViewerIngredientIdentity> {
 	private final List<ViewerIngredient<E>> ordered;
 	private final Map<ViewerIngredientIdentity, ViewerIngredient<E>> byIdentity;
+	private final Object sourceToken;
+	private final GroupEvaluationContext evaluationContext;
+	private IconIndex<E> iconIndex;
 
 	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered) {
+		this(ordered, null);
+	}
+
+	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered, Object sourceToken) {
+		this(ordered, sourceToken, defaultEvaluationContext(ordered));
+	}
+
+	public ViewerIngredientUniverse(List<ViewerIngredient<E>> ordered, Object sourceToken, GroupEvaluationContext evaluationContext) {
 		Map<ViewerIngredientIdentity, ViewerIngredient<E>> indexed = new LinkedHashMap<>();
 		for (ViewerIngredient<E> ingredient : ordered) indexed.putIfAbsent(ingredient.identity(), ingredient);
 		this.ordered = List.copyOf(indexed.values());
-		this.byIdentity = Map.copyOf(indexed);
+		this.byIdentity = Collections.unmodifiableMap(new LinkedHashMap<>(indexed));
+		this.sourceToken = sourceToken == null ? this : sourceToken;
+		this.evaluationContext = evaluationContext;
 	}
+
+	private static GroupEvaluationContext defaultEvaluationContext(List<? extends ViewerIngredient<?>> ordered) {
+		var types = new java.util.LinkedHashSet<>(java.util.Set.of("item", "fluid"));
+		ordered.forEach(ingredient -> types.add(ingredient.view().ingredientType()));
+		return GroupEvaluationContext.simple(types);
+	}
+
+	public GroupEvaluationContext evaluationContext() { return evaluationContext; }
+
+	private synchronized IconIndex<E> iconIndex() {
+		if (iconIndex != null) return iconIndex;
+		Map<IconKey, ViewerIngredient<E>> byValue = new LinkedHashMap<>();
+		Map<IconKey, ViewerIngredient<E>> byResource = new LinkedHashMap<>();
+		for (ViewerIngredient<E> ingredient : ordered) {
+			String type = ingredient.identity().typeId();
+			byValue.putIfAbsent(new IconKey(type, ingredient.identity().valueId()), ingredient);
+			var resource = ingredient.view().resourceLocation();
+			if (resource != null) byResource.putIfAbsent(new IconKey(type, resource.toString()), ingredient);
+		}
+		iconIndex = new IconIndex<>(Map.copyOf(byValue), Map.copyOf(byResource));
+		return iconIndex;
+	}
+
+	ViewerIngredient<E> findIcon(String type, String value) {
+		IconKey key = new IconKey(type, value);
+		IconIndex<E> index = iconIndex();
+		ViewerIngredient<E> exact = index.byValue().get(key);
+		return exact != null ? exact : index.byResource().get(key);
+	}
+
+	private record IconKey(String type, String value) {}
+	private record IconIndex<E>(Map<IconKey, ViewerIngredient<E>> byValue,
+		Map<IconKey, ViewerIngredient<E>> byResource) {}
 
 	public List<ViewerIngredient<E>> ordered() {
 		return ordered;
@@ -22,6 +72,11 @@ public final class ViewerIngredientUniverse<E> {
 
 	public Map<ViewerIngredientIdentity, ViewerIngredient<E>> byIdentity() {
 		return byIdentity;
+	}
+
+	@Override
+	public Object sourceToken() {
+		return sourceToken;
 	}
 
 	public List<ViewerIngredient<E>> items() {

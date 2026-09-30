@@ -30,6 +30,10 @@ public final class ViewerAdapterRegistry {
 		return List.copyOf(adapters.values());
 	}
 
+	public synchronized java.util.Optional<ViewerAdapter<?, ?>> activeAdapter() {
+		return adapters.values().stream().findFirst();
+	}
+
 	private final class AdapterRegistration implements ViewerRegistration {
 		private final String adapterId;
 		private final List<GroupChangeEvent.Subscription> subscriptions;

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_drill_heads",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_drill_heads",
+    "fallback": "GregTech: Drill Heads"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "_drill_head"
+      }
+    ]
+  }
+}

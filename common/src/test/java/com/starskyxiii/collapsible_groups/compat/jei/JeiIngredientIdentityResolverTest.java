@@ -49,7 +49,7 @@ class JeiIngredientIdentityResolverTest {
 	}
 
 	@Test
-	void strictResolutionNeverReplacesAMissingRawUidWithAnIdentifier() {
+	void strictResolutionNeverReplacesAMissingRawUidWithARegistryId() {
 		IIngredientType<String> type = type();
 
 		assertTrue(JeiIngredientIdentityResolver.resolveStrict(
@@ -89,7 +89,7 @@ class JeiIngredientIdentityResolverTest {
 				return typedUid;
 			}
 			@Override public Identifier getIdentifier(String ingredient) {
-				return Identifier.parse("test:" + ingredient);
+				return Identifier.fromNamespaceAndPath("test", ingredient);
 			}
 			@Override public String copyIngredient(String ingredient) { return ingredient; }
 			@Override public String getErrorInfo(String ingredient) { return ingredient; }
@@ -100,7 +100,6 @@ class JeiIngredientIdentityResolverTest {
 		return new ITypedIngredient<String>() {
 			@Override public IIngredientType<String> getType() { return type; }
 			@Override public String getIngredient() { return value; }
-			// Present in JEI 29.33, absent from the 29.20 baseline.
 			public ITypedIngredient<String> normalize(IIngredientHelper<String> helper) { return this; }
 		};
 	}

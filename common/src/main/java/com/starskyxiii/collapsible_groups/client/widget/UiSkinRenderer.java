@@ -1,6 +1,5 @@
 package com.starskyxiii.collapsible_groups.client.widget;
 
-import net.minecraft.client.renderer.RenderPipelines;
 import com.starskyxiii.collapsible_groups.Constants;
 import net.minecraft.client.gui.Font;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
@@ -23,6 +22,7 @@ public final class UiSkinRenderer {
 	private static final Identifier SEGMENT = sprite("ore_segment");
 	private static final Identifier SEGMENT_HOVER = sprite("ore_segment_hover");
 	private static final Identifier SEGMENT_PRESSED = sprite("ore_segment_pressed");
+	private static final Identifier SEGMENT_DISABLED = sprite("ore_segment_disabled");
 	private static final Identifier SEGMENT_SELECTED = sprite("ore_segment_selected");
 	private static final Identifier SEGMENT_SELECTED_HOVER = sprite("ore_segment_selected_hover");
 	private static final Identifier SEGMENT_SELECTED_PRESSED = sprite("ore_segment_selected_pressed");
@@ -86,6 +86,38 @@ public final class UiSkinRenderer {
 		SELECTED_PRESSED
 	}
 
+    public static ButtonState buttonState(boolean active, boolean selected, boolean hovered, boolean held) {
+        if (!active) return ButtonState.DISABLED;
+        if (selected) return held && hovered ? ButtonState.SELECTED_PRESSED
+            : hovered ? ButtonState.SELECTED_HOVERED : ButtonState.SELECTED;
+        return held && hovered ? ButtonState.PRESSED : hovered ? ButtonState.HOVERED : ButtonState.NORMAL;
+    }
+
+    public static void drawToolbarChevronButton(GuiGraphicsExtractor g, int x, int y, boolean right, ButtonState state) {
+        int offset = toolbarButtonOffset(state);
+        g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, toolbarButtonSprite(state), x, y + offset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
+        int color = state == ButtonState.DISABLED ? UiPalette.TEXT_DISABLED : 0xFFF2F2F2;
+        for (int row = 0; row < 9; row++) {
+            int step = 4 - Math.abs(4 - row);
+            int left = x + 6 + (right ? step : 4 - step);
+            g.fill(left, y + 5 + row + offset, left + 2, y + 6 + row + offset, color);
+        }
+    }
+
+	public static void drawCheckbox(GuiGraphicsExtractor g, int x, int y, boolean checked, boolean hovered) {
+		g.fill(x, y, x + 14, y + 14, UiPalette.OUTLINE_DARK);
+		g.fill(x + 1, y + 1, x + 13, y + 13, checked ? UiPalette.OUTLINE_SELECTED : UiPalette.SURFACE_DARK);
+		if (hovered) drawOutline(g, x, y, 14, 14, UiPalette.OUTLINE_HOVER);
+		if (checked) drawCheckboxMark(g, x, y, UiPalette.TEXT_SELECTED);
+	}
+
+	private static void drawCheckboxMark(GuiGraphicsExtractor g, int x, int y, int color) {
+		g.fill(x + 3, y + 7, x + 5, y + 9, color);
+		g.fill(x + 5, y + 9, x + 7, y + 11, color);
+		g.fill(x + 7, y + 6, x + 9, y + 9, color);
+		g.fill(x + 9, y + 4, x + 11, y + 7, color);
+	}
+
 	public static void drawScreenBars(GuiGraphicsExtractor g, int width, int height, int headerHeight, int footerHeight) {
 		int footerY = height - footerHeight;
 		g.fill(0, 0, width, headerHeight, UiPalette.SCREEN_BAR);
@@ -96,12 +128,12 @@ public final class UiSkinRenderer {
 
 	public static void drawPanel(GuiGraphicsExtractor g, int x, int y, int width, int height) {
 		g.fill(x, y, x + width, y + height, UiPalette.SURFACE_DARK);
-		g.blitSprite(RenderPipelines.GUI_TEXTURED, PANEL, x, y, width, height);
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, PANEL, x, y, width, height);
 	}
 
 	public static void drawCard(GuiGraphicsExtractor g, int x, int y, int width, int height, boolean hovered, int borderColor) {
 		g.fill(x, y, x + width, y + height, UiPalette.SURFACE_DARK);
-		g.blitSprite(RenderPipelines.GUI_TEXTURED, CARD, x, y, width, height);
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, CARD, x, y, width, height);
 		if (hovered) {
 			g.fill(x + 1, y + 1, x + width - 1, y + height - 1, UiPalette.CARD_BODY_HOVER);
 		}
@@ -112,12 +144,7 @@ public final class UiSkinRenderer {
 	                              String label, ButtonState state) {
 		warnNonDesignHeight("drawButton", width, height);
 		int depth = buttonVisualDepth(state);
-		Identifier sprite = buttonSprite(state);
-		if (sprite != null) {
-			g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, width, height);
-		} else {
-			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
-		}
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, buttonSprite(state), x, y, width, height);
 		drawControlFrame(g, x, y, width, height, depth);
 		int text = buttonTextColor(state);
 		int yOffset = buttonTextOffset(state);
@@ -128,22 +155,26 @@ public final class UiSkinRenderer {
 
 	public static void drawSegment(GuiGraphicsExtractor g, Font font, int x, int y, int width, int height,
 	                               String label, ButtonState state) {
-		int depth = segmentVisualDepth(state);
-		Identifier sprite = segmentSprite(state);
-		if (sprite != null) {
-			g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x + 1, y + 1, width - 2, height - 2);
-		} else {
-			drawButtonFallback(g, x + 1, y + depth + 1, width - 2, height - depth - 2, state);
-		}
+		int depth = buttonVisualDepth(state);
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, segmentSprite(state), x + 1, y + 1, width - 2, height - 2);
 		drawControlFrame(g, x, y, width, height, depth);
 		int text = buttonTextColor(state);
-		int yOffset = segmentTextOffset(state);
+		int yOffset = buttonTextOffset(state);
 		String clipped = font.plainSubstrByWidth(label, Math.max(0, width - 4));
 		g.text(font, clipped, x + Math.max(0, (width - font.width(clipped)) / 2),
 			centeredTextY(font, y, height) + yOffset, text, false);
 	}
 
-	private static void drawControlFrame(GuiGraphicsExtractor g, int x, int y, int width, int height, int depth) {
+	@FunctionalInterface
+	interface RectFill {
+		void fill(int left, int top, int right, int bottom, int color);
+	}
+
+	static void drawControlFrame(GuiGraphicsExtractor g, int x, int y, int width, int height, int depth) {
+		drawControlFrame(g::fill, x, y, width, height, depth);
+	}
+
+	static void drawControlFrame(RectFill g, int x, int y, int width, int height, int depth) {
 		int right = x + width;
 		int bottom = y + height;
 		int top = y + depth;
@@ -161,40 +192,18 @@ public final class UiSkinRenderer {
 		};
 	}
 
-	private static int segmentVisualDepth(ButtonState state) {
-		return switch (state) {
-			case HOVERED -> 1;
-			case PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 2;
-			case NORMAL, DISABLED -> 0;
-		};
-	}
 
-	private static Identifier segmentSprite(ButtonState state) {
+
+	static Identifier segmentSprite(ButtonState state) {
 		return switch (state) {
 			case NORMAL -> SEGMENT;
 			case HOVERED -> SEGMENT_HOVER;
 			case PRESSED -> SEGMENT_PRESSED;
-			case DISABLED -> SEGMENT;
+			case DISABLED -> SEGMENT_DISABLED;
 			case SELECTED -> SEGMENT_SELECTED;
 			case SELECTED_HOVERED -> SEGMENT_SELECTED_HOVER;
 			case SELECTED_PRESSED -> SEGMENT_SELECTED_PRESSED;
 		};
-	}
-
-	public static void drawIconButton(GuiGraphicsExtractor g, int x, int y, int buttonSize,
-	                                  Identifier icon, int iconSize, ButtonState state) {
-		warnNonDesignHeight("drawIconButton", buttonSize, buttonSize);
-		int depth = buttonVisualDepth(state);
-		Identifier sprite = buttonSprite(state);
-		if (sprite != null) {
-			g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, x, y, buttonSize, buttonSize);
-		} else {
-			drawButtonFallback(g, x + 1, y + depth + 1, buttonSize - 2, buttonSize - depth - 2, state);
-		}
-		drawControlFrame(g, x, y, buttonSize, buttonSize, depth);
-		int iconX = x + Math.max(0, (buttonSize - iconSize) / 2);
-		int iconY = y + Math.max(0, (buttonSize - iconSize) / 2) + buttonTextOffset(state);
-		g.blitSprite(RenderPipelines.GUI_TEXTURED, icon, iconX, iconY, iconSize, iconSize);
 	}
 
 	public static void drawToolbarIconButton(GuiGraphicsExtractor g, int x, int y, int width, int height,
@@ -202,26 +211,11 @@ public final class UiSkinRenderer {
 		int yOffset = toolbarButtonOffset(state);
 		int originX = x + Math.max(0, (width - TOOLBAR_ICON_WIDTH) / 2);
 		int originY = y + Math.max(0, (height - TOOLBAR_BUTTON_HEIGHT) / 2);
-		g.blitSprite(RenderPipelines.GUI_TEXTURED, toolbarButtonSprite(state),
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, toolbarButtonSprite(state),
 			originX - 1, originY + yOffset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
 
-		int iconColor = state == ButtonState.DISABLED ? 0x8CFFFFFF : 0xFFFFFFFF;
-		g.blitSprite(RenderPipelines.GUI_TEXTURED, icon, originX, originY + 1 + yOffset,
-			TOOLBAR_ICON_WIDTH, TOOLBAR_ICON_WIDTH, iconColor);
-	}
-
-	/** Draws the toolbar chrome with a compact text mark when no sprite icon exists. */
-	public static void drawToolbarTextButton(GuiGraphicsExtractor g, Font font, int x, int y, int width, int height,
-	                                         String mark, ButtonState state) {
-		int yOffset = toolbarButtonOffset(state);
-		int originX = x + Math.max(0, (width - TOOLBAR_ICON_WIDTH) / 2);
-		int originY = y + Math.max(0, (height - TOOLBAR_BUTTON_HEIGHT) / 2);
-		g.blitSprite(RenderPipelines.GUI_TEXTURED, toolbarButtonSprite(state),
-			originX - 1, originY + yOffset, TOOLBAR_BUTTON_WIDTH, TOOLBAR_BUTTON_HEIGHT);
-		int color = buttonTextColor(state);
-		String clipped = font.plainSubstrByWidth(mark, TOOLBAR_ICON_WIDTH);
-		g.text(font, clipped, originX + Math.max(0, (TOOLBAR_ICON_WIDTH - font.width(clipped)) / 2),
-			centeredTextY(font, originY, TOOLBAR_BUTTON_HEIGHT) + yOffset, color, false);
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, icon, originX, originY + 1 + yOffset, TOOLBAR_ICON_WIDTH, TOOLBAR_ICON_WIDTH,
+            state == ButtonState.DISABLED ? 0x8CFFFFFF : 0xFFFFFFFF);
 	}
 
 	private static Identifier buttonSprite(ButtonState state) {
@@ -245,27 +239,11 @@ public final class UiSkinRenderer {
 		};
 	}
 
-	private static int toolbarButtonOffset(ButtonState state) {
+	public static int toolbarButtonOffset(ButtonState state) {
 		return switch (state) {
 			case HOVERED, PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 1;
 			case NORMAL, DISABLED -> 0;
 		};
-	}
-
-	private static void drawButtonFallback(GuiGraphicsExtractor g, int x, int y, int width, int height, ButtonState state) {
-		if (width <= 0 || height <= 0) {
-			return;
-		}
-		int fill = switch (state) {
-			case NORMAL -> UiPalette.BUTTON_LIGHT;
-			case HOVERED -> UiPalette.BUTTON_LIGHT_HOVER;
-			case PRESSED -> UiPalette.BUTTON_LIGHT_PRESSED;
-			case DISABLED -> UiPalette.BUTTON_LIGHT_DISABLED;
-			case SELECTED -> UiPalette.BUTTON_PRIMARY;
-			case SELECTED_HOVERED -> UiPalette.BUTTON_PRIMARY_HOVER;
-			case SELECTED_PRESSED -> UiPalette.BUTTON_PRIMARY_PRESSED;
-		};
-		g.fill(x, y, x + width, y + height, fill);
 	}
 
 	private static int buttonTextColor(ButtonState state) {
@@ -276,7 +254,7 @@ public final class UiSkinRenderer {
 		};
 	}
 
-	private static int buttonTextOffset(ButtonState state) {
+	public static int buttonTextOffset(ButtonState state) {
 		return switch (state) {
 			case NORMAL, DISABLED -> -1;
 			case HOVERED -> 0;
@@ -284,20 +262,14 @@ public final class UiSkinRenderer {
 		};
 	}
 
-	private static int segmentTextOffset(ButtonState state) {
-		return switch (state) {
-			case NORMAL, DISABLED -> -1;
-			case HOVERED -> 0;
-			case PRESSED, SELECTED, SELECTED_HOVERED, SELECTED_PRESSED -> 1;
-		};
-	}
+
 
 	public static void drawSwitch(GuiGraphicsExtractor g, int x, int y, int width, int height,
-	                              boolean on, boolean active, boolean hovered, boolean pressed) {
-		Identifier sprite = switchSprite(on, active, hovered || pressed);
+	                              boolean on, boolean active, boolean hovered) {
+		Identifier sprite = switchSprite(on, active, hovered);
 		int visualX = x + (width - SWITCH_VISUAL_WIDTH) / 2;
 		int visualY = y + (height - SWITCH_VISUAL_HEIGHT) / 2;
-		g.blitSprite(RenderPipelines.GUI_TEXTURED, sprite, visualX, visualY, SWITCH_VISUAL_WIDTH, SWITCH_VISUAL_HEIGHT);
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, sprite, visualX, visualY, SWITCH_VISUAL_WIDTH, SWITCH_VISUAL_HEIGHT);
 	}
 
 	private static Identifier switchSprite(boolean on, boolean active, boolean hovered) {
@@ -319,7 +291,7 @@ public final class UiSkinRenderer {
 		int thumbHeight = Math.max(14, height * visibleHeight / contentHeight);
 		int travel = height - thumbHeight;
 		int thumbY = y + travel * scrollOffset / Math.max(1, contentHeight - visibleHeight);
-		g.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLBAR_THUMB, x, thumbY, 6, thumbHeight);
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, SCROLLBAR_THUMB, x, thumbY, 6, thumbHeight);
 	}
 
 	public static void drawMiniScrollbar(GuiGraphicsExtractor g, int x, int y, int height,
@@ -332,7 +304,7 @@ public final class UiSkinRenderer {
 		int travel = height - thumbHeight;
 		int maxRow = Math.max(1, totalRows - visibleRows);
 		int thumbY = y + travel * rowOffset / maxRow;
-		g.blitSprite(RenderPipelines.GUI_TEXTURED, SCROLLBAR_THUMB, x, thumbY, 5, thumbHeight);
+		g.blitSprite(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, SCROLLBAR_THUMB, x, thumbY, 5, thumbHeight);
 	}
 
 	public static void drawSlot(GuiGraphicsExtractor g, int x, int y, int size) {
@@ -438,17 +410,6 @@ public final class UiSkinRenderer {
 	/** Faint amber frame drawn around an overlap source cell (1px). */
 	private static final int OVERLAP_FRAME = 0x66F2C744;
 
-	/**
-	 * Overlap marker for a source cell whose JEI winner is another group: a faint
-	 * amber 1px frame plus an amber right-top triangle corner tab (matching the
-	 * icon picker's non-group language). Draw <em>after</em> {@code renderItem};
-	 * callers must raise z above the ingredient depth first (pushPose/translate),
-	 * since the ingredient renders at depth ~150 and plain fills would sit under it.
-	 *
-	 * @param x   left of the 16px icon region
-	 * @param y   top of the 16px icon region
-	 * @param size icon region size (typically 16)
-	 */
 	public static void drawOverlapMarker(GuiGraphicsExtractor g, int x, int y, int size) {
 		drawOutline(g, x, y, size, size, OVERLAP_FRAME);
 		drawCornerMarker(g, x, y, size, OVERLAP_ACCENT);
@@ -457,36 +418,11 @@ public final class UiSkinRenderer {
 	/** Faint green frame drawn around a selected / rule-covered source cell (1px). */
 	private static final int SELECTED_FRAME = 0x6670B95A;
 
-	/**
-	 * Selected-in-current-group marker for a source cell: a faint green 1px frame
-	 * plus a green right-top triangle corner tab. Symmetric to
-	 * {@link #drawOverlapMarker} (same frame/tab shape, green instead of amber),
-	 * shared by both explicit selections and rule-covered cells. Draw <em>after</em>
-	 * {@code renderItem}; callers must raise z above the ingredient depth first
-	 * (pushPose/translate), since the ingredient renders at depth ~150 and plain
-	 * fills would sit under it.
-	 *
-	 * @param x    left of the icon region
-	 * @param y    top of the icon region
-	 * @param size icon region size (typically 16)
-	 */
 	public static void drawSelectedMarker(GuiGraphicsExtractor g, int x, int y, int size) {
 		drawOutline(g, x, y, size, size, SELECTED_FRAME);
 		drawCornerMarker(g, x, y, size, UiPalette.OUTLINE_SELECTED);
 	}
 
-	/**
-	 * Generic right-top triangle corner tab, used to flag a source cell's state
-	 * (overlap amber, selected-in-current-group green, ...) without a full-cell
-	 * tint. Draw <em>after</em> {@code renderItem}; callers must raise z above the
-	 * ingredient depth first (pushPose/translate), since the ingredient renders at
-	 * depth ~150 and plain fills would sit under it.
-	 *
-	 * @param x     left of the icon region
-	 * @param y     top of the icon region
-	 * @param size  icon region size (typically 16)
-	 * @param color ARGB colour of the tab
-	 */
 	public static void drawCornerMarker(GuiGraphicsExtractor g, int x, int y, int size, int color) {
 		int right = x + size;
 		// Right-top triangle tab: rows shrink from the right edge inward.
@@ -504,15 +440,6 @@ public final class UiSkinRenderer {
 	private static final int REMOVE_BADGE_BORDER = 0xFF1E1E1F;
 	private static final int REMOVE_BADGE_MARK = 0xFFFFFFFF;
 
-	/**
-	 * Hover remove-× badge for a right-panel preview cell (removal only via a
-	 * discrete × hot-zone, never the whole cell). Anchored top-right of the 16px
-	 * icon region, overhanging by 1px. Draw <em>after</em> {@code renderItem} with
-	 * z raised above the ingredient depth (~150).
-	 *
-	 * @param iconX left of the 16px icon region
-	 * @param iconY top of the 16px icon region
-	 */
 	public static void drawRemoveBadge(GuiGraphicsExtractor g, int iconX, int iconY, boolean hovered) {
 		EditorChrome.Rect r = removeBadgeRect(iconX, iconY);
 		int bx = r.x();

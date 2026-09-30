@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_external_storages",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_external_storages",
+    "fallback": "RS2: Colored External Storages"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:external_storages"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:external_storage"
+        }
+      }
+    ]
+  }
+}

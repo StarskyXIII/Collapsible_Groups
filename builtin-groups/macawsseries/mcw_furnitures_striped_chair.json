@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_striped_chair",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_striped_chair",
+    "fallback": "Macaw's Furnitures: Striped Chair"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:striped_chair"
+  }
+}

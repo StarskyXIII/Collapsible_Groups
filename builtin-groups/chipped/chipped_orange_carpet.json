@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_orange_carpet",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_orange_carpet",
+    "fallback": "Chipped: Orange Carpet"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:orange_carpet"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

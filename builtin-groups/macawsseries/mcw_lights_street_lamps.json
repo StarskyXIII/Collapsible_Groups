@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_lights_street_lamps",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_lights_street_lamps",
+    "fallback": "Macaw's Lights: Street Lamps"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwlights:street_lamps"
+  }
+}

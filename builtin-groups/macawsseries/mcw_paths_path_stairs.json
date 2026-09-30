@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_paths_path_stairs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_paths_path_stairs",
+    "fallback": "Macaw's Paths: Path Stairs"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwpaths:path_stairs"
+  }
+}

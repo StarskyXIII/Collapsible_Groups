@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_sensors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_sensors",
+    "fallback": "GregTech: Sensors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "gtceu:sensors"
+      }
+    ]
+  }
+}

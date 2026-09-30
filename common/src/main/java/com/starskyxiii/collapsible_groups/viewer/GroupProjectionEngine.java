@@ -1,11 +1,11 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
-import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
-
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupCatalog;
+import com.starskyxiii.collapsible_groups.internal.query.IngredientCatalog;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -48,7 +48,7 @@ public final class GroupProjectionEngine {
 		Map<ViewerIngredientIdentity, GroupDefinition> owners = new LinkedHashMap<>();
 		ownership.forEach((identity, groupId) -> {
 			GroupDefinition group = groupsById.get(groupId);
-			if (group != null && group.enabled()) owners.put(identity, group);
+			if (group != null && com.starskyxiii.collapsible_groups.group.GroupRepository.isActive(group)) owners.put(identity, group);
 		});
 
 		Map<String, GroupDefinition> ownedGroups = new LinkedHashMap<>();
@@ -107,14 +107,14 @@ public final class GroupProjectionEngine {
 	}
 
 	public static <E> Map<ViewerIngredientIdentity, String> buildOwnership(
-		ViewerIngredientUniverse<E> universe,
+		IngredientCatalog<ViewerIngredient<E>, ViewerIngredientIdentity> universe,
 		List<GroupDefinition> groups
 	) {
 		return resolveOwnership(buildCandidateIndex(universe, groups), groups);
 	}
 
 	public static <E> GroupCandidateIndex buildCandidateIndex(
-		ViewerIngredientUniverse<E> universe,
+		IngredientCatalog<ViewerIngredient<E>, ViewerIngredientIdentity> universe,
 		List<GroupDefinition> groups
 	) {
 		List<GroupDefinition> priorityOrder = GroupCatalog.orderByPriority(groups);
@@ -123,6 +123,7 @@ public final class GroupProjectionEngine {
 		List<GroupDefinition> genericGroups = priorityOrder.stream().filter(GroupDefinition::hasGenericFilters).toList();
 		Map<ViewerIngredientIdentity, List<String>> candidates = new LinkedHashMap<>();
 		Map<String, GroupDefinition> snapshot = new LinkedHashMap<>();
+		Map<String, String> failures = new LinkedHashMap<>();
 		priorityOrder.forEach(group -> snapshot.put(group.id(), group));
 		long edges = 0;
 		int max = 0;
@@ -134,13 +135,14 @@ public final class GroupProjectionEngine {
 			};
 			List<String> matches = new ArrayList<>();
 			for (GroupDefinition group : applicable) {
-				if (group.compiledFilter().matches(ingredient.view())) matches.add(group.id());
+				if (GroupEvaluations.evaluate(group, ingredient.view(), failures)
+					== com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.Evaluation.MATCH) matches.add(group.id());
 			}
 			if (!matches.isEmpty()) candidates.put(ingredient.identity(), List.copyOf(matches));
 			edges += matches.size();
 			max = Math.max(max, matches.size());
 		}
-		return new GroupCandidateIndex(candidates, snapshot, edges, universe.ordered().size(), max);
+		return GroupCandidateIndex.completed(candidates, snapshot, edges, universe.ordered().size(), max, universe, failures);
 	}
 
 	public static Map<ViewerIngredientIdentity, String> resolveOwnership(
@@ -153,13 +155,13 @@ public final class GroupProjectionEngine {
 		candidates.candidates().forEach((identity, groupIds) -> {
 			for (String groupId : groupIds) {
 				GroupDefinition group = current.get(groupId);
-				if (group != null && group.enabled()) {
+				if (group != null && com.starskyxiii.collapsible_groups.group.GroupRepository.isActive(group)) {
 					result.put(identity, groupId);
 					break;
 				}
 			}
 		});
-		return Map.copyOf(result);
+		return Collections.unmodifiableMap(new LinkedHashMap<>(result));
 	}
 
 	private static boolean shouldUngroupForSearch(ViewerSearchSnapshot<?> search, int childCount) {

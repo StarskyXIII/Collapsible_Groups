@@ -16,9 +16,8 @@ import java.util.List;
  *
  * <p>Rendering approach based on REI's CollapsedEntriesBorderRenderer:
  * <ul>
- *   <li>All ingredients are scaled to 90% and centered within the 16x16 slot</li>
+ *   <li>All ingredients are scaled to 90% and centred within the 16?16 slot</li>
  *   <li>Up to 2 ingredients are offset diagonally to create a stacked appearance</li>
- *   <li>Z-depth separation (+10 per layer) prevents z-fighting</li>
  *   <li>A +/- indicator in the bottom-right corner shows the expand/collapse state</li>
  * </ul>
  *
@@ -38,19 +37,19 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 		List<ITypedIngredient<?>> items = icon.displayIngredients();
 		if (items.isEmpty()) return;
 
-		List<Layer> layers = layers(posX, posY, items.size());
-		for (int i = 0; i < layers.size(); i++) {
-			if (i > 0) {
-				g.nextStratum();
-			}
-			Layer layer = layers.get(i);
+		for (Layer layer : layers(posX, posY, items.size())) {
 			renderIngredient(g, items.get(layer.ingredientIndex()), layer);
 		}
 
 		// --- Expand/collapse indicator ---
-		g.nextStratum();
-		g.text(Minecraft.getInstance().font,
-			icon.isExpanded() ? "-" : "+", posX + 10, posY + 9, 0xFFFFFFFF, true);
+		g.pose().pushMatrix();
+		try {
+			g.nextStratum();
+			g.text(Minecraft.getInstance().font,
+				icon.isExpanded() ? "-" : "+", posX + 10, posY + 9, 0xFFFFFFFF, true);
+		} finally {
+			g.pose().popMatrix();
+		}
 	}
 
 	@Override
@@ -60,7 +59,7 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 	}
 
 	/**
-	 * Renders a single ingredient at the given absolute pixel position.
+	 * Renders a single ingredient at the given pixel offset.
 	 * Items use vanilla rendering; non-items delegate to JEI's renderer.
 	 */
 	@SuppressWarnings("unchecked")
@@ -73,12 +72,14 @@ public final class GroupIconRenderer implements IIngredientRenderer<GroupIcon> {
 			g.pose().scale(layer.scale(), layer.scale());
 			g.pose().translate(-layer.x(), -layer.y());
 
+			// Fast path: items use vanilla rendering (no JEI dependency)
 			var itemOpt = typed.getItemStack();
 			if (itemOpt.isPresent()) {
 				g.item(itemOpt.get(), layer.x(), layer.y());
 				return;
 			}
 
+			// Fallback: non-items use JEI's registered renderer
 			var runtime = JeiRuntimeHolder.get();
 			if (runtime != null) {
 				renderViaJei(g, (ITypedIngredient<Object>) typed, runtime, layer.x(), layer.y());

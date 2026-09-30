@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_petrified_honey",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_petrified_honey",
+    "fallback": "Productive Bees: Petrified Honey"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "productivebees"
+      },
+      {
+        "item_path_ends_with": "petrified_honey"
+      }
+    ]
+  }
+}

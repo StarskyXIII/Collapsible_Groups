@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_lights_wall_lanterns",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_lights_wall_lanterns",
+    "fallback": "Macaw's Lights: Wall Lanterns"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwlights:wall_lanterns"
+  }
+}

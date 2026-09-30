@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_bookshelf_spruce",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_bookshelf_spruce",
+    "fallback": "Chisel: Spruce Bookshelf"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/bookshelf_spruce"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_small_gears",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_small_gears",
+    "fallback": "GregTech: Small Gears"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:small_gears"
+      }
+    ]
+  }
+}

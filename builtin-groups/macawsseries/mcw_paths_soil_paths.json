@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_paths_soil_paths",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_paths_soil_paths",
+    "fallback": "Macaw's Paths: Soil Paths"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwpaths:soil_paths"
+  }
+}

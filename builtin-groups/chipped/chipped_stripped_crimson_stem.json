@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_stripped_crimson_stem",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_stripped_crimson_stem",
+    "fallback": "Chipped: Stripped Crimson Stem"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:stripped_crimson_stem"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

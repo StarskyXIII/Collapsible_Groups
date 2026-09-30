@@ -1,0 +1,27 @@
+{
+  "id": "legacy_nbt_rules",
+  "name": "Legacy NBT Rules",
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "nbt": {
+          "data_format": "minecraft:nbt",
+          "data": "{Potion:\"minecraft:healing\"}"
+        }
+      },
+      {
+        "not": {
+          "type": "item",
+          "nbt_path": "Potion",
+          "value": {
+            "data_format": "minecraft:nbt",
+            "data": "\"minecraft:healing\""
+          }
+        }
+      }
+    ]
+  },
+  "schema_version": 1
+}

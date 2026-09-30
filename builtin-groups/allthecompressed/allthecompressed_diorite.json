@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_diorite",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_diorite",
+    "fallback": "Compressed Diorite"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:diorite_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:diorite_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:diorite_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:diorite_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:diorite_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:diorite_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:diorite_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:diorite_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:diorite_9x"
+      }
+    ]
+  }
+}

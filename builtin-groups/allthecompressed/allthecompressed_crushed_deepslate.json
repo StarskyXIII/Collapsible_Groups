@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_crushed_deepslate",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_crushed_deepslate",
+    "fallback": "Compressed Crushed Deepslate"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_deepslate_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_deepslate_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_deepslate_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_deepslate_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_deepslate_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_deepslate_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_deepslate_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_deepslate_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_deepslate_9x"
+      }
+    ]
+  }
+}

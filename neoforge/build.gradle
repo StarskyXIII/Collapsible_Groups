@@ -4,6 +4,13 @@ plugins {
 }
 
 repositories {
+    mavenLocal {
+        content { includeGroup 'dev.emi' }
+    }
+    maven {
+        name = 'TerraformersMC'
+        url = 'https://maven.terraformersmc.com/'
+    }
     maven {
         name = 'BlameJared'
         url = 'https://maven.blamejared.com'
@@ -11,6 +18,11 @@ repositories {
     maven {
         name = 'KubeJS'
         url = 'https://maven.latvian.dev/releases'
+    }
+    maven {
+        name = 'KubeJSMirror'
+        url = 'https://maven.latvian.dev/mirror'
+        content { includeGroup 'com.github.rtyley' }
     }
 }
 
@@ -21,11 +33,6 @@ neoForge {
     if (at.exists()) {
         accessTransformers.from(at.absolutePath)
     }
-    // TODO: Re-enable parchment when available for MC 26.1
-    // parchment {
-    //     minecraftVersion = parchment_minecraft
-    //     mappingsVersion = parchment_version
-    // }
     runs {
         configureEach {
             systemProperty('neoforge.enabledGameTestNamespaces', mod_id)
@@ -51,6 +58,10 @@ neoForge {
             sourceSet sourceSets.main
         }
     }
+	unitTest {
+		enable()
+		testedMod = mods.getByName(mod_id)
+	}
 }
 
 sourceSets.main.resources { srcDir 'src/generated/resources' }
@@ -58,5 +69,27 @@ sourceSets.main.resources { srcDir 'src/generated/resources' }
 dependencies {
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
     runtimeOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-	compileOnly "dev.latvian.mods:kubejs-neoforge:${kubejs_version}"
+    compileOnly "dev.latvian.mods:kubejs-neoforge:${kubejs_version}"
+
+	testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
+	testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.1'
+	testRuntimeOnly "dev.latvian.mods:kubejs-neoforge:${providers.gradleProperty('kubejs_test_version').getOrElse(kubejs_version)}"
+	if (providers.gradleProperty('rhino_test_version').isPresent()) {
+		testRuntimeOnly("dev.latvian.mods:rhino:${providers.gradleProperty('rhino_test_version').get()}") {
+			version { strictly(providers.gradleProperty('rhino_test_version').get()) }
+		}
+	}
+}
+
+sourceSets.test {
+	compileClasspath += sourceSets.main.compileClasspath
+	runtimeClasspath += sourceSets.main.compileClasspath.filter {
+		!it.name.startsWith('kubejs-') && !it.name.startsWith('rhino-')
+	}
+}
+
+test {
+	useJUnitPlatform()
+	systemProperty 'cg.test.kubejsVersion', providers.gradleProperty('kubejs_test_version').getOrElse(kubejs_version)
 }

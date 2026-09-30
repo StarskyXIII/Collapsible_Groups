@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_vanilla_beds",
+  "name": {
+    "translate": "collapsible_groups.group.__default_vanilla_beds",
+    "fallback": "Vanilla Beds"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "minecraft:beds"
+      },
+      {
+        "type": "item",
+        "namespace": "minecraft"
+      }
+    ]
+  }
+}

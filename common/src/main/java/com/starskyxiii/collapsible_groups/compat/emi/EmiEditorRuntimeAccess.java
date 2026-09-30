@@ -1,0 +1,489 @@
+package com.starskyxiii.collapsible_groups.compat.emi;
+
+import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTypes;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTags;
+import com.starskyxiii.collapsible_groups.client.editor.EditorTagCatalog;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientIds;
+import com.starskyxiii.collapsible_groups.client.editor.EditorIdCatalog;
+import net.minecraft.resources.ResourceLocation;
+import com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics;
+import com.starskyxiii.collapsible_groups.Constants;
+import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientView;
+import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
+import com.starskyxiii.collapsible_groups.client.editor.EditorGroupOwnershipHelper;
+import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
+import com.starskyxiii.collapsible_groups.client.editor.ExactItemPreviewIndex;
+import com.starskyxiii.collapsible_groups.ingredient.GroupItemSelector;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
+import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
+import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewTooltip;
+import com.starskyxiii.collapsible_groups.client.preview.GroupSampleRenderer;
+import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
+import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchDocument;
+import com.starskyxiii.collapsible_groups.ingredient.IngredientSearchQuery;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
+import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
+import dev.emi.emi.api.stack.EmiIngredient;
+import dev.emi.emi.api.stack.EmiStack;
+import net.minecraft.ChatFormatting;
+import net.minecraft.client.gui.Font;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.network.chat.Component;
+import net.minecraft.world.item.ItemStack;
+
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
+
+/** EMI implementation of the editor boundary. No JEI runtime object is consulted. */
+final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
+	private final EmiViewerAdapter adapter;
+	private final EmiViewerGroupIndex index;
+	private ViewerIngredientUniverse<EmiIngredient> previewUniverse;
+	private ExactItemPreviewIndex previewIndex;
+	private final com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache renderCache =
+		new com.starskyxiii.collapsible_groups.client.preview.PreviewRenderCache();
+
+	private final EditorIngredientTypes.Cache typeCache = new EditorIngredientTypes.Cache();
+	private final EditorTagCatalog tagCatalog = new EditorTagCatalog();
+	private final EditorIdCatalog idCatalog = new EditorIdCatalog(256);
+
+	@Override public void updateIngredientIds(String requested) {
+		long started = beginTrace();
+		var universe = index.readyGenerationSnapshot().map(value -> value.universe()).orElse(null);
+		var types = universe == null ? null : adapter.editorIngredientTypes(universe);
+		var type = EditorIngredientIds.findType(types, requested);
+		idCatalog.update(universe, type == null ? requested : type.canonicalId(),
+			types == null ? EditorIngredientIds.Status.PENDING
+				: type == null ? EditorIngredientIds.Status.TYPE_MISSING : EditorIngredientIds.Status.READY,
+			() -> EditorIngredientIds.sources(type),
+			() -> index.readyGenerationSnapshot().map(value -> value.universe() == universe).orElse(false)
+				&& adapter.editorIngredientTypes(universe) != null);
+		logIfSlow("editor.ids", started, 50, requested);
+	}
+
+	@Override public EditorIngredientIds ingredientIds(String requested) {
+		var universe = index.readyGenerationSnapshot().map(value -> value.universe()).orElse(null);
+		var types = universe == null ? null : adapter.editorIngredientTypes(universe);
+		if (types == null) return EditorIngredientIds.PENDING;
+		var type = EditorIngredientIds.findType(types, requested);
+		return idCatalog.snapshot(universe, type == null ? requested : type.canonicalId());
+	}
+
+	@Override public void cancelIngredientIds() { idCatalog.cancel(); }
+
+	@Override public void updateIngredientTags(String requested) {
+		long started = beginTrace();
+		var generation = index.readyGenerationSnapshot();
+		var universe = generation.map(value -> value.universe()).orElse(null);
+		var types = universe == null ? null : adapter.editorIngredientTypes(universe);
+		var type = types == null ? null : types.stream().filter(value -> value.matchesId(requested)).findFirst().orElse(null);
+		String canonical = type == null ? requested : type.canonicalId();
+		tagCatalog.update(universe, canonical, types == null ? EditorIngredientTags.Status.PENDING
+			: type == null ? EditorIngredientTags.Status.TYPE_MISSING : EditorIngredientTags.Status.READY,
+			EditorIngredientTags.Coverage.REGISTRY_BACKED,
+			() -> type.ingredients().stream().map(ingredient -> {
+				if (ingredient.kind() != ViewerIngredient.Kind.GENERIC)
+					return new EditorTagCatalog.Source(null, () -> null);
+				var tags = ((EmiIngredientView) ingredient.view()).tags();
+				return new EditorTagCatalog.Source(tags.available() ? tags.existing() : null,
+					() -> tags.available() ? tags.existing().stream().map(ResourceLocation::toString) : null);
+			}).iterator(),
+			() -> index.readyGenerationSnapshot().map(value -> value.universe() == universe).orElse(false));
+		logIfSlow("editor.tags", started, 50, requested);
+	}
+
+	@Override public EditorIngredientTags ingredientTags(String requested) {
+		var universe = index.readyGenerationSnapshot().map(value -> value.universe()).orElse(null);
+		var types = universe == null ? null : adapter.editorIngredientTypes(universe);
+		String canonical = types == null ? requested : types.stream().filter(value -> value.matchesId(requested))
+			.map(value -> value.canonicalId()).findFirst().orElse(requested);
+		return tagCatalog.snapshot(universe, canonical);
+	}
+
+	@Override public void cancelIngredientTags() { tagCatalog.cancel(); }
+
+	@Override public EditorIngredientTypes ingredientTypes() {
+		var generation = index.readyGenerationSnapshot();
+		return typeCache.get(generation.map(value -> (Object) value.universe()).orElse(null), () -> {
+			var types = adapter.editorIngredientTypes(generation.orElseThrow().universe());
+			return types == null ? EditorIngredientTypes.PENDING : EditorIngredientTypes.from(types);
+		});
+	}
+
+	private Object tagGeneration;
+	private Map<String, TagQueryDiagnostics.Summary> tagSummaries = Map.of();
+	private static final TagQueryDiagnostics.Summary UNKNOWN_TAGS = TagQueryDiagnostics.summarize(List.of());
+
+	@Override public synchronized TagQueryDiagnostics tagDiagnostics(
+		String type, ResourceLocation tag) {
+		String canonical = IngredientTypeIds.getCanonicalId(type);
+		if (canonical == null) canonical = type;
+		if (canonical.equals("item") || canonical.equals("fluid")) return EditorRuntimeAccess.super.tagDiagnostics(type, tag);
+		var generation = index.readyGenerationSnapshot();
+		if (generation.isEmpty()) {
+			tagGeneration = null;
+			tagSummaries = Map.of();
+			return TagQueryDiagnostics.PENDING;
+		}
+		var universe = generation.get().universe();
+		if (tagGeneration != universe) {
+			Map<String, List<TagQueryDiagnostics.Source>> sources = new LinkedHashMap<>();
+			for (var ingredient : universe.ordered()) {
+				if (ingredient.kind() != ViewerIngredient.Kind.GENERIC) continue;
+				var tags = ((EmiIngredientView) ingredient.view()).tags();
+				sources.computeIfAbsent(ingredient.identity().typeId(), ignored -> new ArrayList<>())
+					.add(new TagQueryDiagnostics.Source(tags.available(), tags.existing()));
+			}
+			Map<String, TagQueryDiagnostics.Summary> summaries = new LinkedHashMap<>();
+			sources.forEach((id, values) -> summaries.put(id, TagQueryDiagnostics.summarize(values)));
+			tagSummaries = Map.copyOf(summaries);
+			tagGeneration = universe;
+		}
+		return tagSummaries.getOrDefault(canonical, UNKNOWN_TAGS).query(tag);
+	}
+
+	@Override public Object previewGeneration() {
+		if (!adapter.pollEditorReady()) return null;
+		return index.readyGenerationSnapshot().map(value -> (Object) value.universe()).orElse(null);
+	}
+
+	EmiEditorRuntimeAccess(EmiViewerAdapter adapter, EmiViewerGroupIndex index) {
+		this.adapter = adapter;
+		this.index = index;
+	}
+
+	@Override public List<ItemStack> allItems() {
+		return adapter.editorDisplayIngredients().stream()
+			.filter(value -> value.kind() == ViewerIngredient.Kind.ITEM)
+			.map(ViewerIngredient::entry).map(EmiIngredient::getEmiStacks).map(values -> values.get(0).getItemStack())
+			.filter(stack -> !stack.isEmpty()).toList();
+	}
+
+	@Override public List<EditorFluidIngredientView> allFluids(String traceName) {
+		return fluidViews(adapter.editorDisplayIngredients().stream()
+			.filter(value -> value.kind() == ViewerIngredient.Kind.FLUID).toList());
+	}
+
+	@Override public List<EditorGenericIngredientView> allGenericIngredients(String traceName) {
+		return genericViews(adapter.editorDisplayIngredients().stream()
+			.filter(value -> value.kind() == ViewerIngredient.Kind.GENERIC).toList());
+	}
+
+	@Override public List<GroupDefinition> allGroups() {
+		return GroupRepository.getAllIncludingScripted();
+	}
+
+	@Override public Map<ItemStack, List<String>> itemOwnership(List<ItemStack> entries,
+		List<GroupDefinition> otherGroups) {
+		Map<String, GroupDefinition> groups = new LinkedHashMap<>();
+		otherGroups.forEach(group -> groups.put(group.id(), group));
+		Map<ItemStack, List<String>> result = new IdentityHashMap<>();
+		index.resolveItemOwnership(entries, otherGroups).forEach((stack, owner) -> {
+			GroupDefinition group = groups.get(owner);
+			if (group != null) result.put(stack, List.of(EditorGroupOwnershipHelper.displayName(group)));
+		});
+		return result;
+	}
+	@Override public Map<String, Set<String>> fluidReverseIndex() { return reverseIndex(ViewerIngredient.Kind.FLUID); }
+
+	private Map<String, Set<String>> reverseIndex(ViewerIngredient.Kind kind) {
+		Map<ViewerIngredientIdentity, String> ownership = index.resolveOwnership(allGroups());
+		Map<String, Set<String>> result = new LinkedHashMap<>();
+		for (ViewerIngredient<EmiIngredient> ingredient : adapter.bootstrapContext().universe().ordered()) {
+			if (ingredient.kind() != kind) continue;
+			String owner = ownership.get(ingredient.identity());
+			if (owner == null || ingredient.view().resourceLocation() == null) continue;
+			result.computeIfAbsent(ingredient.view().resourceLocation().toString(), ignored -> new LinkedHashSet<>())
+				.add(owner);
+		}
+		return result;
+	}
+
+	@Override public List<EditorFluidIngredientView> filterFluids(List<EditorFluidIngredientView> entries,
+		Map<EditorFluidIngredientView, List<String>> ownership, boolean hideUsed, IngredientSearchQuery query) {
+		return entries.stream().filter(entry -> (!hideUsed || ownership.getOrDefault(entry, List.of()).isEmpty())
+			&& query.matches(entry.searchDocument())).toList();
+	}
+
+	@Override public List<EditorGenericIngredientView> filterGeneric(List<EditorGenericIngredientView> entries,
+		Map<EditorGenericIngredientView, List<String>> ownership, boolean hideUsed, IngredientSearchQuery query) {
+		return entries.stream().filter(entry -> (!hideUsed || ownership.getOrDefault(entry, List.of()).isEmpty())
+			&& query.matches(entry.searchDocument())).toList();
+	}
+
+	@Override public Map<EditorFluidIngredientView, List<String>> fluidOwnership(
+		List<EditorFluidIngredientView> entries, Map<String, String> names, List<GroupDefinition> groups,
+		Map<String, Set<String>> reverseIndex) {
+		return ownership(entries, groups, entry -> adapter.identityFor((EmiStack) entry.ingredient()));
+	}
+
+	@Override public Map<EditorGenericIngredientView, List<String>> genericOwnership(
+		List<EditorGenericIngredientView> entries, List<GroupDefinition> groups) {
+		return ownership(entries, groups,
+			entry -> new ViewerIngredientIdentity(entry.typeId(), entry.identityValueId()));
+	}
+
+	private <T> Map<T, List<String>> ownership(List<T> entries, List<GroupDefinition> groups,
+		java.util.function.Function<T, ViewerIngredientIdentity> identity) {
+		Map<String, GroupDefinition> byId = new LinkedHashMap<>();
+		groups.forEach(group -> byId.put(group.id(), group));
+		Map<ViewerIngredientIdentity, String> resolved = index.resolveOwnership(groups);
+		Map<T, List<String>> result = new IdentityHashMap<>();
+		for (T entry : entries) {
+			GroupDefinition group = byId.get(resolved.get(identity.apply(entry)));
+			if (group != null) result.put(entry, List.of(EditorGroupOwnershipHelper.displayName(group)));
+		}
+		return result;
+	}
+
+	@Override public void renderFluid(GuiGraphics graphics, EditorFluidIngredientView entry, int x, int y) {
+		((EmiIngredient) entry.ingredient()).render(graphics, x, y, 0);
+	}
+
+	@Override public void renderGeneric(GuiGraphics graphics, EditorGenericIngredientView entry, int x, int y) {
+		((EmiIngredient) entry.ingredient()).render(graphics, x, y, 0);
+	}
+
+	@Override public List<Component> fluidTooltip(EditorFluidIngredientView entry) {
+		return tooltipText((EmiStack) entry.ingredient(), entry.resourceId(), null);
+	}
+
+	@Override public List<Component> genericTooltip(EditorGenericIngredientView entry) {
+		return tooltipText((EmiStack) entry.ingredient(), entry.resourceId(), entry.typeId());
+	}
+
+	/** Explicit EMI ClientTooltipComponent -> editor Component boundary: use EMI's text source. */
+	private static List<Component> tooltipText(EmiStack stack, String resourceId, String typeId) {
+		List<Component> text = stack.getTooltipText();
+		List<Component> result = text == null ? new ArrayList<>() : new ArrayList<>(text);
+		if (result.isEmpty()) result.add(stack.getName());
+		result.add(Component.literal(resourceId).withStyle(ChatFormatting.DARK_GRAY));
+		if (typeId != null) result.add(Component.literal(typeId).withStyle(ChatFormatting.GRAY));
+		return List.copyOf(result);
+	}
+
+	@Override public List<ItemStack> resolveEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled) {
+		return resolveDraftItems(draft, enabled);
+	}
+
+	@Override public List<ItemStack> resolvePreviewItems(GroupDefinition prepared, GroupFilterEditorDraft draft, boolean indexed) {
+		return resolveItems(prepared);
+	}
+
+	@Override public List<ItemStack> resolveHybridEditorDraftItems(GroupFilterEditorDraft draft, boolean enabled) {
+		return resolveDraftItems(draft, enabled);
+	}
+
+	private List<ItemStack> resolveDraftItems(GroupFilterEditorDraft draft, boolean enabled) {
+		return draft.toFilter().map(filter -> resolveItems(new GroupDefinition("__editor_draft", "", enabled, filter)))
+			.orElse(List.of());
+	}
+
+	@Override public List<ItemStack> resolveItems(GroupDefinition definition) {
+		if (!definition.enabled()) return List.of();
+		var generation = index.readyGenerationSnapshot();
+		if (generation.isEmpty()) {
+			closeEditor();
+			return List.of();
+		}
+		var universe = generation.get().universe();
+		if (previewUniverse != universe) {
+			previewUniverse = universe;
+			previewIndex = new ExactItemPreviewIndex(universe.items().stream().map(ViewerIngredient::entry)
+				.map(EmiIngredient::getEmiStacks).map(values -> values.get(0).getItemStack())
+				.filter(stack -> !stack.isEmpty()).toList());
+		}
+		return previewIndex.resolve(definition.filter(), GroupItemSelector.exactDecodeContext());
+	}
+
+	@Override public synchronized void closeEditor() {
+		var client = net.minecraft.client.Minecraft.getInstance();
+		Runnable clearCatalogs = () -> { tagCatalog.clear(); idCatalog.clear(); };
+		if (client == null || client.isSameThread()) clearCatalogs.run(); else client.execute(clearCatalogs);
+		typeCache.clear();
+		tagGeneration = null;
+		tagSummaries = Map.of();
+		renderCache.clear();
+		previewUniverse = null;
+		previewIndex = null;
+	}
+
+	@Override public List<EditorFluidIngredientView> resolveFluids(GroupDefinition definition, String traceName) {
+		return fluidViews(matching(definition, ViewerIngredient.Kind.FLUID));
+	}
+
+	@Override public List<EditorGenericIngredientView> resolveGenericIngredients(GroupDefinition definition,
+		String traceName) {
+		return genericViews(matching(definition, ViewerIngredient.Kind.GENERIC));
+	}
+
+	private List<ViewerIngredient<EmiIngredient>> matching(GroupDefinition definition, ViewerIngredient.Kind kind) {
+		if (!definition.enabled()) return List.of();
+		return adapter.bootstrapContext().universe().ordered().stream()
+			.filter(value -> value.kind() == kind && definition.query().matches(value.view())).toList();
+	}
+
+	@Override public CompletableFuture<Void> prepareEditorEntry(GroupDefinition definition) {
+		return adapter.prepareEditorIndex();
+	}
+
+	private java.util.Optional<EmiViewerGroupIndex.Generation> cachedGeneration(GroupDefinition definition) {
+		return index.readyGenerationSnapshot().filter(generation -> {
+			GroupDefinition indexed = generation.candidates().groupSnapshot().get(definition.id());
+			return indexed != null && indexed.filter().equals(definition.filter())
+				&& indexed.documentFormat() == definition.documentFormat();
+		});
+	}
+
+	@Override public List<ItemStack> cachedFullMatchItems(GroupDefinition definition) {
+		return cachedGeneration(definition).map(g -> g.fullMatchItems().get(definition.id()).stream()
+			.map(ViewerIngredient::entry).map(EmiIngredient::getEmiStacks)
+			.map(values -> values.get(0).getItemStack()).filter(stack -> !stack.isEmpty()).toList()).orElse(null);
+	}
+
+	@Override public List<EditorFluidIngredientView> cachedFullMatchFluids(GroupDefinition definition, String traceName) {
+		return cachedGeneration(definition).map(g -> fluidViews(g.fullMatchFluids().get(definition.id()))).orElse(null);
+	}
+
+	@Override public List<EditorGenericIngredientView> cachedFullMatchGeneric(GroupDefinition definition, String traceName) {
+		return cachedGeneration(definition).map(g -> genericViews(g.fullMatchGeneric().get(definition.id()))).orElse(null);
+	}
+
+	@Override public boolean verifyItemIndex() { return false; }
+	@Override public long beginTrace() { return System.nanoTime(); }
+	@Override public void logIfSlow(String name, long startedAt, long thresholdMillis, String details) {
+		if (startedAt == 0L) return;
+		long elapsed = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startedAt);
+		if (elapsed >= thresholdMillis) Constants.LOG.info("[Perf] {} took {} ms {}", name, elapsed, details);
+	}
+	@Override public Optional<GroupDefinition> findGroup(String id) { return GroupRepository.findById(id); }
+	@Override public void saveQuietly(GroupDefinition definition) { GroupRepository.saveQuietly(definition); }
+    @Override public boolean saveChecked(GroupDefinition definition) { return GroupRepository.saveQuietlyChecked(definition); }
+	@Override public String sanitizeGeneratedIdBase(String name) {
+		return GroupRepository.sanitizeGeneratedIdBase(name);
+	}
+	@Override public String generateUniqueId(String name) { return GroupRepository.generateUniqueId(name); }
+	@Override public String generateUniqueIdIncludingKubeJs(String name) {
+		return GroupRepository.generateUniqueIdIncludingScripted(name);
+	}
+	@Override public void notifyViewer() { GroupRepository.notifyViewer(); }
+	@Override public boolean setEnabledQuietlyWithoutEvent(String id, boolean enabled) {
+		return GroupRepository.setEnabledQuietlyWithoutEvent(id, enabled);
+	}
+
+	@Override public List<PreviewEntry> resolveHeaderIcons(List<GroupIconDefinition> iconIds,
+		List<PreviewEntry> fallbackEntries) {
+		var generation = index.readyGenerationSnapshot();
+		if (generation.isEmpty()) return List.of();
+		Iterable<GroupIconDefinition> fallback = () -> fallbackEntries.stream().map(PreviewEntry::icon).iterator();
+		return com.starskyxiii.collapsible_groups.viewer.ViewerHeaderIconResolver.resolveDefinitions(
+			iconIds, fallback, generation.get().universe()).stream()
+			.map(EmiEditorRuntimeAccess::previewEntry).toList();
+	}
+
+	@Override public PreviewLayout renderPreview(GuiGraphics graphics, PreviewRect area, boolean expanded, int page,
+		AppearanceDraft appearance, List<PreviewEntry> headerIcons, List<PreviewEntry> entries, Font font,
+		PreviewFallbacks fallbacks, int mouseX, int mouseY, int heldPageDirection) {
+		GroupSampleRenderer.Layout layout = GroupSampleRenderer.render(graphics,
+			new GroupSampleRenderer.Rect(area.x(), area.y(), area.width(), area.height()), expanded, page,
+			appearance.toTheme(), previewEntries(headerIcons), previewEntries(entries), font,
+			new GroupSampleRenderer.Fallbacks(fallbacks.nameRgb(), fallbacks.collapsedHeaderArgb(),
+				fallbacks.expandedHeaderArgb(), fallbacks.expandedGroupArgb(), fallbacks.expandedBorderArgb()), mouseX, mouseY, heldPageDirection);
+		return previewLayout(layout);
+	}
+
+	@Override public PreviewLayout layoutPreview(PreviewRect area, boolean expanded, int itemCount, int page) {
+		GroupSampleRenderer.Layout layout = GroupSampleRenderer.layout(
+			new GroupSampleRenderer.Rect(area.x(), area.y(), area.width(), area.height()),
+			expanded, itemCount, page);
+		List<PreviewCell> cells = layout.cells().stream()
+			.map(cell -> new PreviewCell(rect(cell.rect()), cell.itemIndex(), cell.header()))
+			.toList();
+		return new PreviewLayout(rect(layout.area()), rect(layout.headerCell()), rect(layout.previousPageButton()),
+			rect(layout.nextPageButton()), cells, layout.page(), layout.pageCount(), layout.childCapacity(),
+			layout.itemCount());
+	}
+
+	private static PreviewRect rect(GroupSampleRenderer.Rect rect) {
+		return rect == null ? null : new PreviewRect(rect.x(), rect.y(), rect.width(), rect.height());
+	}
+
+	@Override public PreviewTooltip previewTooltip(String displayName, int nameColorRgb, int itemCount,
+		int fluidCount, int genericCount, boolean expanded, List<PreviewEntry> entries) {
+		GroupPreviewTooltip.Result result = GroupPreviewTooltip.build(displayName, nameColorRgb, itemCount,
+			fluidCount, genericCount, expanded, previewEntries(entries));
+		return new PreviewTooltip(result.lines(), result.visual());
+	}
+
+	private static List<EditorFluidIngredientView> fluidViews(
+		List<ViewerIngredient<EmiIngredient>> ingredients) {
+		List<EditorFluidIngredientView> result = new ArrayList<>(ingredients.size());
+		for (ViewerIngredient<EmiIngredient> ingredient : ingredients) {
+			EmiStack stack = ingredient.entry().getEmiStacks().get(0);
+			String id = ingredient.view().resourceLocation() == null ? stack.getId().toString()
+				: ingredient.view().resourceLocation().toString();
+			result.add(new EditorFluidIngredientView(stack, stack.getName(), id, search(stack, id,
+				ingredient.identity().typeId()), ItemStack.EMPTY));
+		}
+		return List.copyOf(result);
+	}
+
+	private static List<EditorGenericIngredientView> genericViews(
+		List<ViewerIngredient<EmiIngredient>> ingredients) {
+		List<EditorGenericIngredientView> result = new ArrayList<>(ingredients.size());
+		for (ViewerIngredient<EmiIngredient> ingredient : ingredients) {
+			EmiStack stack = ingredient.entry().getEmiStacks().get(0);
+			String id = ingredient.view().resourceLocation() == null ? stack.getId().toString()
+				: ingredient.view().resourceLocation().toString();
+			result.add(new EditorGenericIngredientView(ingredient.identity().typeId(), stack, stack,
+				stack.getName(), id, ingredient.identity().valueId(), Set.of(),
+				search(stack, id, ingredient.identity().typeId())));
+		}
+		return List.copyOf(result);
+	}
+
+	private static IngredientSearchDocument search(EmiStack stack, String id, String type) {
+		String namespace = id.contains(":") ? id.substring(0, id.indexOf(':')) : id;
+		return IngredientSearchDocument.of(List.of(stack.getName().getString(), id, type),
+			List.of(namespace), Set.of());
+	}
+
+	private static PreviewEntry previewEntry(ViewerIngredient<EmiIngredient> ingredient) {
+		return switch (ingredient.kind()) {
+			case ITEM -> PreviewEntry.item(ingredient.entry().getEmiStacks().get(0).getItemStack());
+			case FLUID -> PreviewEntry.fluid(fluidViews(List.of(ingredient)).get(0));
+			case GENERIC -> PreviewEntry.generic(genericViews(List.of(ingredient)).get(0));
+		};
+	}
+
+	private List<GroupPreviewEntry> previewEntries(List<PreviewEntry> entries) {
+		return renderCache.resolve(previewGeneration(), entries, entry -> switch (entry.kind()) {
+			case ITEM -> GroupPreviewEntry.ofItem((ItemStack) entry.value());
+			case FLUID -> GroupPreviewEntry.ofRenderer((graphics, x, y) ->
+				renderFluid(graphics, (EditorFluidIngredientView) entry.value(), x, y));
+			case GENERIC -> GroupPreviewEntry.ofRenderer((graphics, x, y) ->
+				renderGeneric(graphics, (EditorGenericIngredientView) entry.value(), x, y));
+		});
+	}
+
+	private static PreviewLayout previewLayout(GroupSampleRenderer.Layout layout) {
+		List<PreviewCell> cells = layout.cells().stream()
+			.map(cell -> new PreviewCell(rect(cell.rect()), cell.itemIndex(), cell.header())).toList();
+		return new PreviewLayout(rect(layout.area()), rect(layout.headerCell()), rect(layout.previousPageButton()),
+			rect(layout.nextPageButton()), cells, layout.page(), layout.pageCount(), layout.childCapacity(),
+			layout.itemCount());
+	}
+}

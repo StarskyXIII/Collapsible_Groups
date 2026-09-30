@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_jungle_planks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_jungle_planks",
+    "fallback": "Rechiseled: Jungle Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:jungle_planks"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

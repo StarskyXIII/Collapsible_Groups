@@ -43,5 +43,15 @@ public final class CgClientCommand {
 					)
 				)
 		);
+		dispatcher.register(ClientCommands.literal("cg")
+            .then(ClientCommands.literal("group_key")
+                .then(ClientCommands.literal("worklist")
+                    .then(ClientCommands.argument("locale", StringArgumentType.word())
+                        .suggests(LOCALE_SUGGESTIONS)
+                        .executes(ctx -> GroupKeyWorklistCommand.export(StringArgumentType.getString(ctx, "locale"), false, msg -> ctx.getSource().sendFeedback(msg)))
+                        .then(ClientCommands.literal("all")
+                            .executes(ctx -> GroupKeyWorklistCommand.export(StringArgumentType.getString(ctx, "locale"), false, msg -> ctx.getSource().sendFeedback(msg))))
+                        .then(ClientCommands.literal("missing")
+                            .executes(ctx -> GroupKeyWorklistCommand.export(StringArgumentType.getString(ctx, "locale"), true, msg -> ctx.getSource().sendFeedback(msg))))))));
 	}
 }

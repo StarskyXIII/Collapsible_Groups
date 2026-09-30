@@ -8,15 +8,7 @@ public final class TestConfigProvider implements IConfigProvider {
 		return false;
 	}
 
-	@Override
-	public boolean loadGenericGroups() {
-		return false;
-	}
 
-	@Override
-	public boolean loadVanillaGroups() {
-		return false;
-	}
 
 	@Override
 	public boolean showManagerButton() {

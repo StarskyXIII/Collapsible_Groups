@@ -14,7 +14,6 @@ java {
 }
 
 repositories {
-    mavenLocal()
     mavenCentral()
     // https://docs.gradle.org/current/userguide/declaring_repositories.html#declaring_content_exclusively_found_in_one_repository
     exclusiveContent {
@@ -106,7 +105,7 @@ processResources {
             'java_version'                 : java_version
     ]
 
-    filesMatching(['pack.mcmeta', 'fabric.mod.json', 'META-INF/mods.toml', 'META-INF/neoforge.mods.toml', '*.mixins.json']) {
+    filesMatching(['pack.mcmeta', 'fabric.mod.json', 'META-INF/mods.toml', 'META-INF/neoforge.mods.toml', '*.mixins.json', 'collapsible_groups-viewer-compat.properties']) {
         expand expandProps
     }
     inputs.properties(expandProps)
@@ -124,4 +123,22 @@ publishing {
             url System.getenv('local_maven_url')
         }
     }
+}
+
+sourceSets.main.java {
+    exclude '**/compat/emi/**', '**/mixin/MixinEmi*.java'
+}
+sourceSets.test.java {
+    exclude '**/compat/emi/**'
+}
+tasks.withType(JavaCompile).configureEach {
+    exclude '**/compat/emi/**', '**/mixin/MixinEmi*.java'
+    options.compilerArgs += ['-Xmaxerrs', '300']
+}
+
+tasks.withType(Javadoc).configureEach {
+    exclude '**/compat/emi/**', '**/mixin/MixinEmi*.java'
+}
+tasks.named('sourcesJar') {
+    exclude '**/compat/emi/**', '**/mixin/MixinEmi*.java'
 }

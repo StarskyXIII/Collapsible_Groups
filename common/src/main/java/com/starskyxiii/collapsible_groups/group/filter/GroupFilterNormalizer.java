@@ -26,7 +26,7 @@ public final class GroupFilterNormalizer {
 			}
 		}
 		if (normalized.size() == 1) {
-			return normalized.getFirst();
+			return normalized.get(0);
 		}
 		return new GroupFilter.Any(normalized);
 	}
@@ -42,16 +42,13 @@ public final class GroupFilterNormalizer {
 			}
 		}
 		if (normalized.size() == 1) {
-			return normalized.getFirst();
+			return normalized.get(0);
 		}
 		return new GroupFilter.All(normalized);
 	}
 
 	private static GroupFilter normalizeNot(GroupFilter child) {
 		GroupFilter normalizedChild = normalize(child);
-		if (normalizedChild instanceof GroupFilter.Not nested) {
-			return normalize(nested.child());
-		}
 		return new GroupFilter.Not(normalizedChild);
 	}
 }

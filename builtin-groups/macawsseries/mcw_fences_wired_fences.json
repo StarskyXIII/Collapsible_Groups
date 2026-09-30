@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_wired_fences",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_wired_fences",
+    "fallback": "Macaw's Fences: Wired Fences"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:wired_fences"
+  }
+}

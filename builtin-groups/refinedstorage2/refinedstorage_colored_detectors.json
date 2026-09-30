@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_detectors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_detectors",
+    "fallback": "RS2: Colored Detectors"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:detectors"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:detector"
+        }
+      }
+    ]
+  }
+}

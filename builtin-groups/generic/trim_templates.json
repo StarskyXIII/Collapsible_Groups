@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_trim_templates",
+  "name": {
+    "translate": "collapsible_groups.group.__default_trim_templates",
+    "fallback": "Trim Templates"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "tag": "minecraft:trim_templates"
+  }
+}

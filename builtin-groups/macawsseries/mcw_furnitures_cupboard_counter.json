@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_cupboard_counter",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_cupboard_counter",
+    "fallback": "Macaw's Furnitures: Cupboard Counter"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:cupboard_counter"
+  }
+}

@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_granite",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_granite",
+    "fallback": "Compressed Granite"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:granite_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:granite_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:granite_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:granite_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:granite_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:granite_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:granite_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:granite_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:granite_9x"
+      }
+    ]
+  }
+}

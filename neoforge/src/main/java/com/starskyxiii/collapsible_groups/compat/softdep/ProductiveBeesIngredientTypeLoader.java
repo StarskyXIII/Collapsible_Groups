@@ -24,6 +24,8 @@ public final class ProductiveBeesIngredientTypeLoader {
 			Constants.LOG.info("[CollapsibleGroups] Registered Productive Bees ingredient type.");
 		} catch (ClassNotFoundException e) {
 			// Productive Bees JEI plugin class not present - safe to ignore
+		} catch (LinkageError e) {
+			Constants.LOG.warn("[CollapsibleGroups] Failed to link Productive Bees' JEI ingredient type: {}", e.toString());
 		} catch (Exception e) {
 			Constants.LOG.warn("[CollapsibleGroups] Failed to register Productive Bees ingredient type: {}", e.getMessage());
 		}

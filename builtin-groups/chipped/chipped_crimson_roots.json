@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_crimson_roots",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_crimson_roots",
+    "fallback": "Chipped: Crimson Roots"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:crimson_roots"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

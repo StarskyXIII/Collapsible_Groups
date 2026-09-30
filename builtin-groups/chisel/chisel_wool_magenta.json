@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_wool_magenta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_wool_magenta",
+    "fallback": "Chisel: Magenta Wool"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/wool_magenta"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

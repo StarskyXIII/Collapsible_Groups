@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.manager;
 
-import net.minecraft.client.renderer.RenderPipelines;
+import com.mojang.blaze3d.systems.RenderSystem;
 import mezz.jei.api.gui.buttons.IButtonState;
 import mezz.jei.api.gui.buttons.IIconButtonController;
 import mezz.jei.api.gui.builder.ITooltipBuilder;
@@ -43,7 +43,7 @@ public class GroupsButtonController implements IIconButtonController {
 			guiGraphics.pose().pushMatrix();
 			guiGraphics.pose().translate(xOffset, yOffset);
 			guiGraphics.pose().scale(SCALE, SCALE);
-			guiGraphics.blit(RenderPipelines.GUI_TEXTURED, TEXTURE, 0, 0, 0f, 0f, 24, 24, 24, 24, 0xFFABABAB);
+			guiGraphics.blit(net.minecraft.client.renderer.RenderPipelines.GUI_TEXTURED, TEXTURE, 0, 0, 0f, 0f, 24, 24, 24, 24, 0xFFABABAB);
 			guiGraphics.pose().popMatrix();
 		}
 	};

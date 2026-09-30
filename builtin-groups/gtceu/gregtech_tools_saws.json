@@ -1,0 +1,27 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_tools_saws",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_tools_saws",
+    "fallback": "GregTech: Saws"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "type": "item",
+        "tag": "c:tools/saw"
+      },
+      {
+        "not": {
+          "type": "item",
+          "tag": "c:tools/buzzsaw"
+        }
+      }
+    ]
+  }
+}

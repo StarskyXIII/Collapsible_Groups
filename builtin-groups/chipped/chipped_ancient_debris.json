@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_ancient_debris",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_ancient_debris",
+    "fallback": "Chipped: Ancient Debris"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:ancient_debris"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

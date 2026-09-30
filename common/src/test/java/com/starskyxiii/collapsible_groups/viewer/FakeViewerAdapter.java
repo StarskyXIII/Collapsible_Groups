@@ -1,5 +1,6 @@
 package com.starskyxiii.collapsible_groups.viewer;
 
+import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 
 import java.util.ArrayList;
@@ -8,10 +9,28 @@ import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.function.Consumer;
 
 final class FakeViewerAdapter implements ViewerAdapter<String, String> {
+	private final String id;
 	private final ViewerIngredientUniverse<String> universe;
 	private final List<ViewerIngredientType<String>> ingredientTypes;
 	private final FakeSearchState searchState;
 	private final List<GroupChangeEvent.Kind> changes = new ArrayList<>();
+	private final ViewerGroupIndex groupIndex = new ViewerGroupIndex() {
+		@Override public java.util.Optional<GroupCandidateIndex> candidates() { return java.util.Optional.empty(); }
+		@Override public boolean ready() { return true; }
+		@Override public java.util.concurrent.CompletableFuture<Void> whenReady() {
+			return java.util.concurrent.CompletableFuture.completedFuture(null);
+		}
+		@Override public java.util.Optional<String> resolveOwner(ViewerIngredientIdentity identity,
+			List<com.starskyxiii.collapsible_groups.group.GroupDefinition> groups) { return java.util.Optional.empty(); }
+		@Override public java.util.Map<ViewerIngredientIdentity, String> resolveOwnership(
+			List<com.starskyxiii.collapsible_groups.group.GroupDefinition> groups) { return java.util.Map.of(); }
+		@Override public void onGroupChange(GroupChangeEvent.Kind kind,
+			List<com.starskyxiii.collapsible_groups.group.GroupDefinition> groups) { }
+	};
+	private final EditorRuntimeAccess editorRuntimeAccess = (EditorRuntimeAccess) java.lang.reflect.Proxy.newProxyInstance(
+		EditorRuntimeAccess.class.getClassLoader(), new Class<?>[]{EditorRuntimeAccess.class},
+		(proxy, method, args) -> method.getReturnType() == boolean.class ? false
+			: method.getReturnType() == long.class ? 0L : null);
 	private boolean runtimeAvailable;
 
 	FakeViewerAdapter(
@@ -19,6 +38,17 @@ final class FakeViewerAdapter implements ViewerAdapter<String, String> {
 		List<ViewerIngredientType<String>> ingredientTypes,
 		ViewerSearchSnapshot<String> initialSearch
 	) {
+		this("fake", universe, ingredientTypes, initialSearch);
+	}
+
+	FakeViewerAdapter(String id) {
+		this(id, new ViewerIngredientUniverse<>(List.of()), List.of(),
+			new ViewerSearchSnapshot<>("", List.of(), false, 0));
+	}
+
+	private FakeViewerAdapter(String id, ViewerIngredientUniverse<String> universe,
+		List<ViewerIngredientType<String>> ingredientTypes, ViewerSearchSnapshot<String> initialSearch) {
+		this.id = id;
 		this.universe = universe;
 		this.ingredientTypes = List.copyOf(ingredientTypes);
 		this.searchState = new FakeSearchState(initialSearch);
@@ -26,7 +56,7 @@ final class FakeViewerAdapter implements ViewerAdapter<String, String> {
 
 	@Override
 	public String id() {
-		return "fake";
+		return id;
 	}
 
 	@Override
@@ -112,6 +142,9 @@ final class FakeViewerAdapter implements ViewerAdapter<String, String> {
 			}
 		};
 	}
+
+	@Override public ViewerGroupIndex groupIndex() { return groupIndex; }
+	@Override public EditorRuntimeAccess editorRuntimeAccess() { return editorRuntimeAccess; }
 
 	@Override
 	public void onGroupChange(GroupChangeEvent.Kind kind) {

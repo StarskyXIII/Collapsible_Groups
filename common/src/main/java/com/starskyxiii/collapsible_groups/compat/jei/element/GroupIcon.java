@@ -1,13 +1,11 @@
 package com.starskyxiii.collapsible_groups.compat.jei.element;
 
-import com.mojang.serialization.Codec;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
 import net.minecraft.network.chat.Component;
 
-import java.util.Collections;
 import java.util.List;
 
 /**
@@ -21,11 +19,8 @@ import java.util.List;
  */
 public final class GroupIcon {
 	public static final IIngredientType<GroupIcon> TYPE = () -> GroupIcon.class;
-	/** Serializes only the groupId; display name and ingredients are rebuilt at runtime. */
-	public static final Codec<GroupIcon> CODEC = Codec.STRING.xmap(
-		id -> new GroupIcon(id, "", id, Collections.emptyList()),
-		GroupIcon::groupId
-	);
+    public static final com.mojang.serialization.Codec<GroupIcon> CODEC = com.mojang.serialization.Codec.STRING.xmap(
+        id -> new GroupIcon(id, "", id, List.of()), GroupIcon::groupId);
 
 	private final String groupId;
 	private final String groupTranslationKey;

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_duct_pipes",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_duct_pipes",
+    "fallback": "GregTech: Duct Pipes"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_ends_with": "_duct_pipe"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_cyan_wool",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_cyan_wool",
+    "fallback": "Chipped: Cyan Wool"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:cyan_wool"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

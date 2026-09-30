@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_triple_drawer",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_triple_drawer",
+    "fallback": "Macaw's Furnitures: Triple Drawer"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:triple_drawer"
+  }
+}

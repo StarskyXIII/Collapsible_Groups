@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_lodestone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_lodestone",
+    "fallback": "Chipped: Lodestone"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:lodestone"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

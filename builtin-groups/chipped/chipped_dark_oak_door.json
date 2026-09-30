@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_dark_oak_door",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_dark_oak_door",
+    "fallback": "Chipped: Dark Oak Door"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:dark_oak_door"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

@@ -1,6 +1,6 @@
 package com.starskyxiii.collapsible_groups.compat.jei.ui;
 
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
 import com.starskyxiii.collapsible_groups.platform.Services;
@@ -48,7 +48,7 @@ public final class GroupThemeResolver {
 	}
 
 	private static GroupTheme themeFor(String groupId) {
-		return GroupRegistry.findById(groupId)
+		return GroupRepository.findById(groupId)
 			.map(group -> group.theme())
 			.orElse(GroupTheme.EMPTY);
 	}

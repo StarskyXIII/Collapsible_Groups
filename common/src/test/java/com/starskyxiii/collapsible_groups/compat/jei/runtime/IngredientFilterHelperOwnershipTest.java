@@ -111,7 +111,6 @@ class IngredientFilterHelperOwnershipTest {
 			return value;
 		}
 
-		// Present in JEI 29.33, absent from the 29.20 baseline.
 		public ITypedIngredient<Object> normalize(IIngredientHelper<Object> helper) {
 			return this;
 		}

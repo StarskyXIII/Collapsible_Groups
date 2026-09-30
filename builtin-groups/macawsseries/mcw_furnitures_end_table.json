@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_furnitures_end_table",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_furnitures_end_table",
+    "fallback": "Macaw's Furnitures: End Table"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfurnitures:end_table"
+  }
+}

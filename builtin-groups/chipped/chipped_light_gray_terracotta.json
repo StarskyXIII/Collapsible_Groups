@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_light_gray_terracotta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_light_gray_terracotta",
+    "fallback": "Chipped: Light Gray Terracotta"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:light_gray_terracotta"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

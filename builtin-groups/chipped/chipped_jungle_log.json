@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_jungle_log",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_jungle_log",
+    "fallback": "Chipped: Jungle Log"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:jungle_log"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

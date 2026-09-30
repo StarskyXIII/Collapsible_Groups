@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glasspanedyed_cyan",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glasspanedyed_cyan",
+    "fallback": "Chisel: Cyan Dyed Glass Pane"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glasspanedyed_cyan"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

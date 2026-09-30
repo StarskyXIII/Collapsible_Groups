@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_darkstone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_darkstone",
+    "fallback": "Compressed Darkstone"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:darkstone_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:darkstone_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:darkstone_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:darkstone_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:darkstone_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:darkstone_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:darkstone_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:darkstone_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:darkstone_9x"
+      }
+    ]
+  }
+}

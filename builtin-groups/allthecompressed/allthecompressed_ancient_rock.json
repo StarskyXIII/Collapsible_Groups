@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_ancient_rock",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_ancient_rock",
+    "fallback": "Compressed Ancient Rock"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_rock_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_rock_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_rock_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_rock_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_rock_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_rock_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_rock_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_rock_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_rock_9x"
+      }
+    ]
+  }
+}

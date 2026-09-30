@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_data_access_hatches",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_data_access_hatches",
+    "fallback": "GregTech: Data Access Hatches"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "item_path_ends_with": "_data_access_hatch"
+          },
+          {
+            "type": "item",
+            "id": "gtceu:data_access_hatch"
+          }
+        ]
+      }
+    ]
+  }
+}

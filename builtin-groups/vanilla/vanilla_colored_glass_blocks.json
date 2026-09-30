@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_vanilla_colored_glass_blocks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_vanilla_colored_glass_blocks",
+    "fallback": "Vanilla Colored Glass Blocks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "c:glass_blocks"
+      },
+      {
+        "type": "item",
+        "tag": "c:dyed"
+      },
+      {
+        "type": "item",
+        "namespace": "minecraft"
+      }
+    ]
+  }
+}

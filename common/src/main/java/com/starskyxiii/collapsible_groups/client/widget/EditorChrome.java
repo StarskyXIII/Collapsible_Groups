@@ -19,10 +19,10 @@ public final class EditorChrome {
 	private static final int CHIP_ACTIVE_EDGE  = 0x66A9D4B7;
 	private static final int CHIP_EDGE         = 0x335E7C91;
 	private static final int HOVER_OVERLAY     = 0x16FFFFFF;
-	private static final int TAB_TEXT          = 0xFFDDECF6;
-	private static final int TAB_MUTED_TEXT    = 0xFF8FA8B7;
-	private static final int CHIP_TEXT         = 0xFFD7E8F1;
-	private static final int CHIP_MUTED_TEXT   = 0xFF9BB0BD;
+	private static final int TAB_TEXT          = 0xDDECF6;
+	private static final int TAB_MUTED_TEXT    = 0x8FA8B7;
+	private static final int CHIP_TEXT         = 0xD7E8F1;
+	private static final int CHIP_MUTED_TEXT   = 0x9BB0BD;
 
 	private EditorChrome() {}
 

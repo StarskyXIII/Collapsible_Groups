@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_waxed_oxidized_copper",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_waxed_oxidized_copper",
+    "fallback": "Chipped: Waxed Oxidized Copper"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:waxed_oxidized_copper"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

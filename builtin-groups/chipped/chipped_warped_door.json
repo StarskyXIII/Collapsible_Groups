@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_warped_door",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_warped_door",
+    "fallback": "Chipped: Warped Door"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:warped_door"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

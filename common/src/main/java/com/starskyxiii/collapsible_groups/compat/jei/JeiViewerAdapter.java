@@ -5,8 +5,11 @@ import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIconRenderer;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.GenericJeiIngredientView;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.compat.jei.runtime.PerformanceTrace;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.compat.jei.editor.JeiEditorRuntimeAccess;
+import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
+import com.starskyxiii.collapsible_groups.group.ScriptedGroupStore;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
@@ -17,13 +20,14 @@ import com.starskyxiii.collapsible_groups.viewer.GroupExpansionState;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.GroupProjectionEngine;
 import com.starskyxiii.collapsible_groups.viewer.ViewerAdapter;
-import com.starskyxiii.collapsible_groups.viewer.ViewerAdapterRegistry;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import com.starskyxiii.collapsible_groups.viewer.ViewerBookmarkPolicy;
 import com.starskyxiii.collapsible_groups.viewer.ViewerBootstrapContext;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientType;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
+import com.starskyxiii.collapsible_groups.viewer.ViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerOverlayHook;
 import com.starskyxiii.collapsible_groups.viewer.ViewerPresentation;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
@@ -39,11 +43,9 @@ import mezz.jei.api.ingredients.ITypedIngredient;
 import mezz.jei.api.runtime.IIngredientManager;
 import mezz.jei.api.runtime.IJeiRuntime;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
-import net.minecraft.world.item.Items;
 import net.minecraft.world.item.TooltipFlag;
 import org.jetbrains.annotations.Nullable;
 
@@ -62,7 +64,6 @@ import java.util.function.Consumer;
 /** JEI implementation of the recipe-viewer contract. */
 public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>, Component> {
 	private static final JeiViewerAdapter INSTANCE = new JeiViewerAdapter();
-	private static final ViewerAdapterRegistry REGISTRY = new ViewerAdapterRegistry();
 	private static final ViewerOverlayHook OVERLAY = new StandardOverlayHook();
 	private static final ViewerBookmarkPolicy<ITypedIngredient<?>> BOOKMARKS =
 		ViewerBookmarkPolicy.headersCannotBeBookmarked();
@@ -72,6 +73,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	private final JeiSearchState searchState = new JeiSearchState();
 	private final JeiBootstrapContext bootstrapContext = new JeiBootstrapContext();
 	private final ViewerPresentation<ITypedIngredient<?>, Component> presentation = new JeiPresentation();
+	private final EditorRuntimeAccess editorRuntimeAccess = new JeiEditorRuntimeAccess();
 
 	private JeiViewerAdapter() {}
 
@@ -80,16 +82,21 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	}
 
 	public static synchronized void registerRuntime() {
+		INSTANCE.editorRuntimeAccess.closeEditor();
 		if (runtimeRegistration != null) runtimeRegistration.close();
-		runtimeRegistration = REGISTRY.register(INSTANCE);
+		runtimeRegistration = ViewerLifecycleCoordinator.global().register(INSTANCE);
 	}
 
 	public static synchronized void unregisterRuntime() {
+		com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiIngredientSourceState.deactivate();
+		INSTANCE.editorRuntimeAccess.closeEditor();
+        JeiViewerGroupIndex.instance().reset();
 		if (runtimeRegistration != null) {
 			runtimeRegistration.close();
 			runtimeRegistration = null;
 		}
 		INSTANCE.bootstrapContext.clear();
+		ScriptedGroupStore.invalidate();
 		JeiIngredientTypeDiscovery.clearRuntimeTypes();
 		JeiHeaderIconResolver.clearWarnings();
 	}
@@ -133,8 +140,12 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		return OVERLAY;
 	}
 
+	@Override public ViewerGroupIndex groupIndex() { return JeiViewerGroupIndex.instance(); }
+	@Override public EditorRuntimeAccess editorRuntimeAccess() { return editorRuntimeAccess; }
+
 	@Override
 	public void onGroupChange(GroupChangeEvent.Kind kind) {
+		JeiViewerGroupIndex.instance().onGroupChange(kind, GroupRepository.getAllIncludingScripted());
 		searchState.publishCurrent();
 	}
 
@@ -144,10 +155,16 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	) {
 		JeiIngredientTypeDiscovery.discover(manager);
 		ProjectionContext context = bootstrapContext.update(ingredients, manager);
-		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRegistry.getAllIncludingKubeJs());
+		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRepository.getAllIncludingScripted());
 		JeiHeaderIconResolver.warnUnresolvedAfterBootstrap(
-			GroupRegistry.getAllIncludingKubeJs(), context.universe());
+			GroupRepository.getAllIncludingScripted(), context.universe());
 		return context;
+	}
+
+	/** Publishes the JEI universe, then lets the global lifecycle apply scripted groups once. */
+	public boolean universeReady(List<ITypedIngredient<?>> ingredients, IIngredientManager manager) {
+		updateBootstrap(ingredients, manager);
+		return ViewerLifecycleCoordinator.global().activeUniverseReady(id(), bootstrapContext);
 	}
 
 	public List<ITypedIngredient<?>> assembleHeaderIcons(
@@ -163,7 +180,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 
 	public void discoverRuntimeTypes(IIngredientManager manager) {
 		JeiIngredientTypeDiscovery.discover(manager);
-		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRegistry.getAllIncludingKubeJs());
+		JeiIngredientTypeDiscovery.warnUnresolvedTypesAfterBootstrap(GroupRepository.getAllIncludingScripted());
 	}
 
 	public GroupCandidateIndex buildOwnershipIndex(
@@ -193,7 +210,18 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		List<GroupDefinition> groups,
 		Map<ITypedIngredient<?>, List<String>> matches
 	) {
+		return buildOwnershipIndexFromMatches(ingredients, manager, groups, matches, Map.of());
+	}
+
+	public PreparedOwnershipBuild buildOwnershipIndexFromMatches(List<ITypedIngredient<?>> ingredients,
+		IIngredientManager manager, List<GroupDefinition> groups, Map<ITypedIngredient<?>, List<String>> matches,
+		Map<String, String> failures) {
 		ProjectionContext context = updateBootstrap(ingredients, manager);
+		return buildOwnershipIndexFromMatches(context, groups, matches, failures);
+	}
+
+	public PreparedOwnershipBuild buildOwnershipIndexFromMatches(ProjectionContext context,
+		List<GroupDefinition> groups, Map<ITypedIngredient<?>, List<String>> matches, Map<String, String> failures) {
 		ViewerIngredientUniverse<ITypedIngredient<?>> universe = context.universe();
 		JeiViewerGroupIndex.instance().updateUniverse(universe);
 		Map<ViewerIngredientIdentity, List<String>> candidates = new LinkedHashMap<>();
@@ -210,7 +238,7 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		Map<String, GroupDefinition> snapshot = new LinkedHashMap<>();
 		for (GroupDefinition group : groups) snapshot.put(group.id(), group);
 		return new PreparedOwnershipBuild(context,
-			new GroupCandidateIndex(candidates, snapshot, edges, candidates.size(), maxCandidates));
+			GroupCandidateIndex.completed(candidates, snapshot, edges, universe.ordered().size(), maxCandidates, universe, failures));
 	}
 
 	public record PreparedOwnershipBuild(
@@ -271,7 +299,18 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 	) {
 		List<ViewerIngredient<ITypedIngredient<?>>> entries = new ArrayList<>(ingredients.size());
 		for (ITypedIngredient<?> ingredient : ingredients) entries.add(createIngredient(ingredient, manager));
-		return new ViewerIngredientUniverse<>(entries);
+		Set<String> types = new LinkedHashSet<>();
+		for (IIngredientType<?> type : manager.getRegisteredIngredientTypes()) {
+			if (type == VanillaTypes.ITEM_STACK) types.add("item");
+			else if (type == JeiIngredientTypes.getFluidType()) types.add("fluid");
+			else {
+				String id = JeiIngredientTypes.getCanonicalId(type);
+				if (id != null) types.add(id);
+			}
+		}
+		entries.forEach(ingredient -> types.add(ingredient.view().ingredientType()));
+		return new ViewerIngredientUniverse<>(entries, null,
+			com.starskyxiii.collapsible_groups.viewer.GroupEvaluationContext.minecraft(types, Map.of()));
 	}
 
 	private static List<ITypedIngredient<?>> enumerate(IIngredientManager manager) {
@@ -311,7 +350,9 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 		} else if (typed.getType().equals(JeiIngredientTypes.getFluidType())) {
 			typeId = "fluid";
 			kind = ViewerIngredient.Kind.FLUID;
-			view = Services.PLATFORM.createFluidView(value);
+			JeiFluidIngredient fluid = JeiIngredientTypes.fluidIngredient(typed);
+			if (fluid == null) throw new IllegalArgumentException("JEI fluid type could not be converted");
+			view = fluid.fluid().view();
 		} else {
 			String registeredId = JeiIngredientTypes.getCanonicalId(typed.getType());
 			typeId = registeredId != null ? registeredId : fallbackTypeId(typed.getType());
@@ -401,21 +442,6 @@ public final class JeiViewerAdapter implements ViewerAdapter<ITypedIngredient<?>
 				header.group().displayName().fallback(),
 				display
 			);
-		}
-
-		private List<ITypedIngredient<?>> resolveIconIds(List<String> iconIds) {
-			IJeiRuntime runtime = JeiRuntimeHolder.get();
-			if (runtime == null || iconIds.isEmpty()) return List.of();
-			List<ITypedIngredient<?>> result = new ArrayList<>(iconIds.size());
-			for (String iconId : iconIds) {
-				Identifier location = Identifier.tryParse(iconId);
-				if (location == null) continue;
-				var item = BuiltInRegistries.ITEM.getValue(location);
-				if (item == Items.AIR) continue;
-				runtime.getIngredientManager().createTypedIngredient(VanillaTypes.ITEM_STACK, new ItemStack(item), false)
-					.ifPresent(result::add);
-			}
-			return List.copyOf(result);
 		}
 
 		private <T> void renderTyped(GuiGraphicsExtractor graphics, ITypedIngredient<T> typed, int x, int y) {

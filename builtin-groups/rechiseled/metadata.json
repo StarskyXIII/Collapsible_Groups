@@ -1,0 +1,18 @@
+{
+  "loaders": [
+    "fabric",
+    "forge",
+    "neoforge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.rechiseled",
+    "fallback": "Rechiseled"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "rechiseled"
+      }
+    ]
+  }
+}

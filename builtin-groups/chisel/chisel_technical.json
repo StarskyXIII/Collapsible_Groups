@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_technical",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_technical",
+    "fallback": "Chisel: Technical"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "any": [
+          {
+            "type": "item",
+            "tag": "chisel:carving/technical"
+          },
+          {
+            "type": "item",
+            "tag": "chisel:carving/technical_transparent"
+          }
+        ]
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

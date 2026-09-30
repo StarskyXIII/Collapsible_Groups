@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_mechanical2",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_mechanical2",
+    "fallback": "Chisel: Mechanical2"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/mechanical2"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

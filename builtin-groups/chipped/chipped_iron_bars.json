@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_iron_bars",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_iron_bars",
+    "fallback": "Chipped: Iron Bars"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:iron_bars"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

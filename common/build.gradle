@@ -20,7 +20,7 @@ repositories {
 }
 
 dependencies {
-    compileOnly group: 'org.spongepowered', name: 'mixin', version: '0.8.5'
+    compileOnly group: 'org.spongepowered', name: 'mixin', version: '0.8.7'
     // fabric and neoforge both bundle mixinextras, so it is safe to use it in common
     compileOnly group: 'io.github.llamalad7', name: 'mixinextras-common', version: '0.3.5'
     annotationProcessor group: 'io.github.llamalad7', name: 'mixinextras-common', version: '0.3.5'
@@ -31,13 +31,12 @@ dependencies {
     // JEI packages mezz.jei.gui.* only in full loader jars. The referenced GUI
     // implementation FQCNs are shared, so one full jar supplies compile symbols only.
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
-
     // Tests — pure Java logic only (path grammar, path navigation)
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.1'
     testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.10.1'
     testRuntimeOnly 'org.junit.platform:junit-platform-launcher:1.10.1'
-    testImplementation 'com.google.code.gson:gson:2.10.1'
+    testImplementation 'com.google.code.gson:gson:2.13.2'
     testImplementation 'org.ow2.asm:asm:9.9.1'
 }
 
@@ -52,16 +51,22 @@ sourceSets {
 			srcDir 'src/test/java'
             include 'com/starskyxiii/collapsible_groups/group/**/*.java'
             include 'com/starskyxiii/collapsible_groups/ingredient/**/*.java'
+			include 'com/starskyxiii/collapsible_groups/internal/version/data/**/*.java'
+			include 'com/starskyxiii/collapsible_groups/internal/query/**/*.java'
+			include 'com/starskyxiii/collapsible_groups/platform/fluid/**/*.java'
+			include 'com/starskyxiii/collapsible_groups/platform/TestPlatformHelper.java'
             include 'com/starskyxiii/collapsible_groups/viewer/**/*.java'
             include 'com/starskyxiii/collapsible_groups/client/**/*.java'
         }
         compileClasspath = files(
             sourceSets.main.output,
 			configurations.compileClasspath.filter { file ->
-				!file.name.toLowerCase(Locale.ROOT).startsWith('jei-')
+				!file.name.toLowerCase(Locale.ROOT).startsWith('jei-') &&
+				!file.name.toLowerCase(Locale.ROOT).startsWith('emi-')
 			},
 			configurations.testCompileClasspath.filter { file ->
-                !file.name.toLowerCase(Locale.ROOT).startsWith('jei-')
+                !file.name.toLowerCase(Locale.ROOT).startsWith('jei-') &&
+                !file.name.toLowerCase(Locale.ROOT).startsWith('emi-')
             }
         )
     }
@@ -70,17 +75,20 @@ sourceSets {
 tasks.named('compileNeutralCheckJava') {
     dependsOn tasks.named('classes')
     doFirst {
-        def jeiEntries = classpath.files.findAll { file ->
-            file.name.toLowerCase(Locale.ROOT).startsWith('jei-')
+        def viewerEntries = classpath.files.findAll { file ->
+            def name = file.name.toLowerCase(Locale.ROOT)
+            name.startsWith('jei-') || name.startsWith('emi-')
         }
-        if (!jeiEntries.isEmpty()) {
-            throw new GradleException("Neutral compile classpath contains JEI artifacts: ${jeiEntries}")
+        if (!viewerEntries.isEmpty()) {
+            throw new GradleException("Neutral compile classpath contains viewer artifacts: ${viewerEntries}")
         }
     }
 }
 
 tasks.named('check') {
     dependsOn tasks.named('compileNeutralCheckJava')
+    dependsOn rootProject.tasks.named('verifyNeutralLinkage')
+
 }
 
 test {
@@ -106,9 +114,26 @@ artifacts {
 
 tasks.named('processResources') {
     dependsOn(rootProject.tasks.named('generateGroupLang'))
+    from(rootProject.layout.buildDirectory.dir('generated/group-language'))
 }
 
 tasks.named('sourcesJar') {
     dependsOn(rootProject.tasks.named('generateGroupLang'))
+    from(rootProject.layout.buildDirectory.dir('generated/group-language'))
 }
 
+['processResources', 'sourcesJar'].each { taskName ->
+    tasks.named(taskName) {
+        dependsOn(rootProject.tasks.named('generateBuiltinGroups'))
+        from(layout.buildDirectory.dir('generated/builtin-groups'))
+    }
+}
+
+tasks.withType(Jar).configureEach {
+    includeEmptyDirs = false
+    exclude('assets/collapsible_groups/collapsible_groups/groups/**')
+}
+
+tasks.named('processResources') {
+    includeEmptyDirs = false
+}

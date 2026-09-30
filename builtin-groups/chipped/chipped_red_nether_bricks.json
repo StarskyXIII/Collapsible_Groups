@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_red_nether_bricks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_red_nether_bricks",
+    "fallback": "Chipped: Red Nether Bricks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:red_nether_bricks"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

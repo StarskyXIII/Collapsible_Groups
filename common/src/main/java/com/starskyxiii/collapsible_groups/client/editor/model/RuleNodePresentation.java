@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor.model;
 
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
+import com.starskyxiii.collapsible_groups.group.filter.RuleDescriptor;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 
 import java.util.List;
@@ -51,7 +52,11 @@ public final class RuleNodePresentation {
 				default -> ModTranslationKeys.EDITOR_RULES_CHIP_TAG;
 			};
 			case BLOCK_TAG -> ModTranslationKeys.EDITOR_RULES_CHIP_BLOCK_TAG;
-			case NAMESPACE -> ModTranslationKeys.EDITOR_RULES_CHIP_NAMESPACE;
+			case NAMESPACE -> switch (type) {
+				case TYPE_ITEM -> ModTranslationKeys.EDITOR_RULES_CHIP_ITEM_NAMESPACE;
+				case TYPE_FLUID -> ModTranslationKeys.EDITOR_RULES_CHIP_FLUID_NAMESPACE;
+				default -> ModTranslationKeys.EDITOR_RULES_CHIP_NAMESPACE;
+			};
 			case ITEM_PATH_STARTS_WITH -> ModTranslationKeys.EDITOR_RULES_CHIP_PATH_STARTS;
 			case ITEM_PATH_CONTAINS -> ModTranslationKeys.EDITOR_RULES_CHIP_PATH_CONTAINS;
 			case ITEM_PATH_ENDS_WITH -> ModTranslationKeys.EDITOR_RULES_CHIP_PATH_ENDS;
@@ -64,16 +69,21 @@ public final class RuleNodePresentation {
 	public static PickerKind pickerKind(GroupFilterRuleDraft.NodeKind kind, String ingredientType) {
 		Objects.requireNonNull(kind, "kind");
 		String type = normalizeType(ingredientType);
-		return switch (kind) {
-			case TAG -> switch (type) {
+		return switch (referencePickerSource(kind)) {
+			case INGREDIENT_TAGS -> switch (type) {
 				case TYPE_ITEM -> PickerKind.ITEM_TAG;
 				case TYPE_FLUID -> PickerKind.FLUID_TAG;
 				default -> PickerKind.NONE;
 			};
-			case BLOCK_TAG -> PickerKind.BLOCK_TAG;
-			case NAMESPACE -> PickerKind.NAMESPACE;
+			case BLOCK_TAGS -> PickerKind.BLOCK_TAG;
+			case INGREDIENT_NAMESPACES -> type.equals(TYPE_ITEM) || type.equals(TYPE_FLUID)
+				? PickerKind.NAMESPACE : PickerKind.NONE;
 			default -> PickerKind.NONE;
 		};
+	}
+
+	public static RuleDescriptor.ReferencePickerSource referencePickerSource(GroupFilterRuleDraft.NodeKind kind) {
+		return RuleDescriptor.forKind(Objects.requireNonNull(kind, "kind").filterKind()).referencePickerSource();
 	}
 
 	public static BlockAccent blockAccent(GroupFilterRuleDraft.NodeKind kind) {

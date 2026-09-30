@@ -36,7 +36,7 @@ class JeiIngredientRenderBridgeTest {
 	);
 
 	@Test
-	void bridgeCallsAbsolutePositionRenderer() throws IOException {
+	void bridgeStartsStratumBeforeCallingAbsolutePositionRenderer() throws IOException {
 		BridgeCallVisitor visitor = new BridgeCallVisitor();
 		readClass(
 			"com/starskyxiii/collapsible_groups/compat/jei/JeiIngredientRenderBridge.class",
@@ -44,7 +44,10 @@ class JeiIngredientRenderBridgeTest {
 		);
 
 		assertTrue(visitor.renderMethodFound, "bridge render method must be present");
+		assertTrue(visitor.stratumInstruction >= 0, "bridge must begin a render stratum before delegation");
 		assertTrue(visitor.fourArgRenderInstruction >= 0, "bridge must call JEI's absolute-position renderer");
+		assertTrue(visitor.stratumInstruction < visitor.fourArgRenderInstruction,
+			"GuiGraphicsExtractor.nextStratum must happen before JEI renderer delegation");
 		assertEquals(0, visitor.twoArgRenderCalls, "bridge must not call JEI's relative 2-arg renderer");
 	}
 
@@ -80,6 +83,7 @@ class JeiIngredientRenderBridgeTest {
 	private static final class BridgeCallVisitor extends ClassVisitor {
 		private boolean renderMethodFound;
 		private int instruction;
+		private int stratumInstruction = -1;
 		private int fourArgRenderInstruction = -1;
 		private int twoArgRenderCalls;
 
@@ -97,6 +101,9 @@ class JeiIngredientRenderBridgeTest {
 				public void visitMethodInsn(int opcode, String owner, String name, String descriptor,
 					boolean isInterface) {
 					int current = instruction++;
+					if (GUI_GRAPHICS.equals(owner) && "nextStratum".equals(name) && "()V".equals(descriptor)) {
+						stratumInstruction = current;
+					}
 					if (INGREDIENT_RENDERER.equals(owner) && "render".equals(name)) {
 						if (FOUR_ARG_RENDER.equals(descriptor)) fourArgRenderInstruction = current;
 						if (TWO_ARG_RENDER.equals(descriptor)) twoArgRenderCalls++;

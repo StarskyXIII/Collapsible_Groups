@@ -19,7 +19,11 @@ public abstract class MixinIngredientListRenderer {
 	@Final
 	private List<IngredientListSlot> slots;
 
-	@Inject(method = "render", at = @At("HEAD"))
+	@Inject(
+		method = "render(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V",
+		at = @At("HEAD"),
+		require = 1
+	)
 	private void cg$drawPreRenderBackgrounds(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
 		for (IngredientListSlot slot : this.slots) {
 			slot.getOptionalElement().ifPresent(element -> {

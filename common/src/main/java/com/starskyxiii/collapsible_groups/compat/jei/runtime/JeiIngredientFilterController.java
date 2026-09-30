@@ -2,18 +2,21 @@ package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.compat.jei.JeiIngredientTypes;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerAdapter;
+import com.starskyxiii.collapsible_groups.compat.jei.JeiFluidIngredient;
 import com.starskyxiii.collapsible_groups.compat.jei.JeiViewerGroupIndex;
 import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GenericChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupChildElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupHeaderElement;
 import com.starskyxiii.collapsible_groups.compat.jei.element.GroupIcon;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
+import com.starskyxiii.collapsible_groups.client.preview.GroupPreviewEntry;
 import com.starskyxiii.collapsible_groups.group.GroupChangeEvent;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
+import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
+import com.starskyxiii.collapsible_groups.viewer.GroupIndexUpdate;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
@@ -25,6 +28,7 @@ import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.MutableComponent;
+import net.minecraft.world.item.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -32,6 +36,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -61,8 +66,16 @@ public final class JeiIngredientFilterController {
 	private @Nullable List<String> baseListGroupIds;
 	private @Nullable Map<String, List<IElement<?>>> childrenByGroupId;
 	private @Nullable ViewerProjection<ITypedIngredient<?>> projection;
-	private @Nullable List<ITypedIngredient<?>> cachedFullList;
+	private volatile @Nullable List<ITypedIngredient<?>> cachedFullList;
+	private long sourceRevision;
+	private @Nullable IndexedSource indexedSource;
 	private String searchTextForCache = "";
+
+	private record IndexedSource(long revision, List<ITypedIngredient<?>> ingredients,
+		JeiViewerGroupIndex.Generation generation) {}
+
+	private record GroupMatches(GroupCandidateIndex candidates, Map<String, List<ItemStack>> items,
+		Map<String, List<Object>> fluids, Map<String, List<GenericIngredientRef>> generic) {}
 
 	public JeiIngredientFilterController(
 		Supplier<String> filterText,
@@ -83,6 +96,9 @@ public final class JeiIngredientFilterController {
 	}
 
 	public void initialize() {
+		JeiIngredientSourceState.deactivate();
+		sourceRevision++;
+		indexedSource = null;
 		if (fullChangeSubscription != null) fullChangeSubscription.close();
 		if (structureChangeSubscription != null) structureChangeSubscription.close();
 		if (enabledChangeSubscription != null) enabledChangeSubscription.close();
@@ -93,6 +109,7 @@ public final class JeiIngredientFilterController {
 		viewerIndex.reset();
 		viewerIndex.configureRebuild(this::buildConfiguredIndex, Minecraft.getInstance()::execute,
 			this::rebuildCompleted);
+		viewerIndex.configureSourceInvalidation(this::invalidateSource);
 		fullChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.FULL,
 			() -> handleIndexedChange(GroupChangeEvent.Kind.FULL));
 		structureChangeSubscription = GroupChangeEvent.subscribe(GroupChangeEvent.Kind.STRUCTURE,
@@ -121,11 +138,27 @@ public final class JeiIngredientFilterController {
 		notifyListeners.run();
 	}
 
+	private synchronized void invalidateSource() {
+		sourceRevision++;
+		indexedSource = null;
+		cachedFullList = null;
+		GroupRegistry.clearJeiAllItems();
+		GroupRegistry.clearJeiAllFluids();
+		clearStructureCaches();
+	}
+
 	private JeiViewerGroupIndex.Generation buildConfiguredIndex() {
-		List<ITypedIngredient<?>> snapshot = cachedFullList;
+		long revision;
+		List<ITypedIngredient<?>> snapshot;
+		synchronized (this) {
+			revision = sourceRevision;
+			snapshot = cachedFullList;
+		}
 		if (snapshot == null) snapshot = uncachedIngredients.apply("").toList();
-		cachedFullList = snapshot;
-		return buildIngredientGroupIndex(snapshot);
+		synchronized (this) {
+			if (sourceRevision == revision) cachedFullList = snapshot;
+		}
+		return buildIngredientGroupIndex(snapshot, revision);
 	}
 
 	private void rebuildCompleted() {
@@ -152,19 +185,51 @@ public final class JeiIngredientFilterController {
 		notifyListeners.run();
 	}
 
-	private JeiViewerGroupIndex.Generation buildIngredientGroupIndex(List<ITypedIngredient<?>> all) {
+	private JeiViewerGroupIndex.Generation buildIngredientGroupIndex(List<ITypedIngredient<?>> all, long revision) {
 		long traceStart = hooks.traceBuilds() ? PerformanceTrace.begin() : 0L;
 		List<GroupDefinition> allGroups = GroupRegistry.getAllIncludingKubeJs();
+		JeiViewerGroupIndex.Generation previous = null;
+		synchronized (this) {
+			if (indexedSource != null && indexedSource.revision() == revision && indexedSource.ingredients() == all) {
+				previous = indexedSource.generation();
+			}
+		}
+		JeiViewerAdapter.ProjectionContext context = previous == null
+			? JeiViewerAdapter.instance().updateBootstrap(all, ingredientManager) : previous.projectionContext();
+		GroupIndexUpdate update = GroupIndexUpdate.between(previous == null ? null : previous.candidates(), allGroups);
+		List<GroupDefinition> changedGroups = update.changedGroups();
+		GroupMatches changed = buildChangedGroups(all, changedGroups, context);
+		JeiViewerGroupIndex.Generation generation = JeiViewerGroupIndex.completeGeneration(
+			update.mergeCandidates(previous == null ? null : previous.candidates(), changed.candidates()),
+			update.mergeMatches(previous == null ? Map.of() : previous.fullMatchItems(), changed.items()),
+			update.mergeMatches(previous == null ? Map.of() : previous.fullMatchFluids(), changed.fluids()),
+			update.mergeMatches(previous == null ? Map.of() : previous.fullMatchGeneric(), changed.generic()),
+			context, update.groups());
+		synchronized (this) {
+			if (sourceRevision == revision) indexedSource = new IndexedSource(revision, all, generation);
+		}
+		if (hooks.traceBuilds()) {
+			PerformanceTrace.logIfSlow("MixinIngredientFilter.buildIngredientGroupIndex", traceStart, 0,
+				"ingredients=" + all.size() + " groups=" + allGroups.size()
+					+ " evaluated=" + changedGroups.size() + " reused=" + update.reusedIds().size());
+		}
+		return generation;
+	}
+
+	private GroupMatches buildChangedGroups(List<ITypedIngredient<?>> all, List<GroupDefinition> allGroups,
+		JeiViewerAdapter.ProjectionContext context) {
+        if (allGroups.isEmpty()) return new GroupMatches(
+            new GroupCandidateIndex(Map.of(), Map.of(), 0, context.universe().ordered().size(), 0), Map.of(), Map.of(), Map.of());
 		ItemOwnershipBuildResult itemResult =
 			IngredientFilterHelper.buildItemOwnershipResult(all, allGroups);
 		Map<ITypedIngredient<?>, GroupDefinition> index = itemResult.ingredientGroupIndex();
 		Map<ITypedIngredient<?>, List<String>> candidateGroups = new IdentityHashMap<>();
+		Map<String, String> failures = new LinkedHashMap<>(itemResult.evaluationFailures());
 		for (GroupDefinition group : allGroups) {
 			for (IngredientFilterItemIndex.ItemEntry entry : itemResult.fullMatchEntriesByGroup().get(group.id())) {
 				candidateGroups.computeIfAbsent(entry.typed(), ignored -> new ArrayList<>()).add(group.id());
 			}
 		}
-		Map<String, List<Object>> fluidsByGroup = new HashMap<>();
 		Map<String, List<Object>> fullMatchFluidsByGroup = new HashMap<>();
 		Map<String, List<GenericIngredientRef>> fullMatchGenericByGroup = new HashMap<>();
 		List<GroupDefinition> fluidGroups = allGroups.stream().filter(GroupDefinition::hasFluidFilters).toList();
@@ -172,95 +237,68 @@ public final class JeiIngredientFilterController {
 
 		for (ITypedIngredient<?> typed : all) {
 			if (typed.getItemStack().isPresent()) continue;
-			Object fluid = (!fluidGroups.isEmpty() || hooks.probeFluidWithoutGroups())
-				&& hooks.hasFluidType() ? hooks.fluidIngredient(typed) : null;
+			JeiFluidIngredient fluid = (!fluidGroups.isEmpty() || hooks.probeFluidWithoutGroups())
+				&& hooks.hasFluidType() ? JeiIngredientTypes.fluidIngredient(typed) : null;
 			if (fluid != null) {
-				GroupDefinition firstMatch = null;
 				for (GroupDefinition group : fluidGroups) {
-					if (!GroupMatcher.matchesFluidIgnoringEnabled(group, fluid)) continue;
+					if (com.starskyxiii.collapsible_groups.viewer.GroupEvaluations.evaluate(group, fluid.fluid().view(), failures)
+						!= com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.Evaluation.MATCH) continue;
 					candidateGroups.computeIfAbsent(typed, ignored -> new ArrayList<>()).add(group.id());
-					if (firstMatch == null && group.enabled()) {
-						firstMatch = group;
-						index.put(typed, group);
-						fluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid);
-					}
-					fullMatchFluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid);
+					fullMatchFluidsByGroup.computeIfAbsent(group.id(), ignored -> new ArrayList<>()).add(fluid.viewerValue());
 				}
 				continue;
 			}
 			if (!genericGroups.isEmpty() && hooks.canIndexGeneric(ingredientManager)) {
 				hooks.genericProbe().index(typed, ingredientManager, index, genericGroups,
-					fullMatchGenericByGroup, candidateGroups);
+					fullMatchGenericByGroup, candidateGroups, failures);
 			}
 		}
 
 		for (GroupDefinition group : allGroups) {
-			fluidsByGroup.putIfAbsent(group.id(), List.of());
 			fullMatchFluidsByGroup.putIfAbsent(group.id(), List.of());
 			fullMatchGenericByGroup.putIfAbsent(group.id(), List.of());
 		}
-		Map<String, Set<String>> fluidIds = new HashMap<>();
-		for (var entry : fluidsByGroup.entrySet()) {
-			for (Object fluid : entry.getValue()) {
-				String id = hooks.fluidId(fluid);
-				if (id != null) fluidIds.computeIfAbsent(id, ignored -> new HashSet<>()).add(entry.getKey());
-			}
-		}
 		JeiViewerAdapter.PreparedOwnershipBuild prepared =
 			JeiViewerAdapter.instance().buildOwnershipIndexFromMatches(
-			all, ingredientManager, allGroups, candidateGroups);
-		JeiViewerGroupIndex.Generation generation = new JeiViewerGroupIndex.Generation(
-			prepared.candidates(),
-			IngredientFilterHelper.toStackMap(itemResult.resolvedEntriesByGroup()),
-			fluidsByGroup,
+			context, allGroups, candidateGroups, failures);
+		return new GroupMatches(prepared.candidates(),
 			IngredientFilterHelper.toStackMap(itemResult.fullMatchEntriesByGroup()),
 			fullMatchFluidsByGroup,
-			fullMatchGenericByGroup,
-			itemResult.itemIdToGroupIds(),
-			fluidIds,
-			prepared.projectionContext()
+			fullMatchGenericByGroup
 		);
-		if (hooks.traceBuilds()) {
-			PerformanceTrace.logIfSlow("MixinIngredientFilter.buildIngredientGroupIndex", traceStart, 20,
-				"ingredients=" + all.size() + " indexSize=" + index.size()
-					+ " fluidGroups=" + fluidGroups.size() + " genericGroups=" + genericGroups.size()
-					+ " resolvedFluids=" + fluidsByGroup.size() + " fullMatchFluids="
-					+ fullMatchFluidsByGroup.size() + " fullMatchGeneric=" + fullMatchGenericByGroup.size()
-					+ " fluidIds=" + fluidIds.size());
-		}
-		return generation;
 	}
 
 	private void buildStructureCache(List<ITypedIngredient<?>> ingredients) {
 		long traceStart = hooks.traceBuilds() ? PerformanceTrace.begin() : 0L;
-		List<ITypedIngredient<?>> all = cachedFullList;
-		if (hooks.fluidCachePolicy() == FluidCachePolicy.INDEPENDENT) {
-			if (all == null) {
-				all = uncachedIngredients.apply("").toList();
-				cachedFullList = all;
+		JeiIngredientSourceState.SourceToken expected;
+		long revision;
+		List<ITypedIngredient<?>> all;
+		synchronized (this) {
+			expected = JeiIngredientSourceState.capture(ingredientManager);
+			revision = sourceRevision;
+			all = cachedFullList;
+		}
+		if (all == null) all = uncachedIngredients.apply("").toList();
+		synchronized (this) {
+			if (sourceRevision != revision) {
+				installRawStructure(ingredients);
+				return;
 			}
-			if (GroupRegistry.isJeiAllItemsEmpty()) {
-				GroupRegistry.setJeiAllItems(all.stream().flatMap(i -> i.getItemStack().stream()).toList());
-			}
-			if (hooks.hasFluidType() && GroupRegistry.isJeiAllFluidsEmpty()) {
-				GroupRegistry.setJeiAllFluids(extractFluids(all));
-			}
-		} else if (GroupRegistry.isJeiAllItemsEmpty()) {
-			if (all == null) all = uncachedIngredients.apply("").toList();
-			cachedFullList = all;
-			GroupRegistry.setJeiAllItems(all.stream().flatMap(i -> i.getItemStack().stream()).toList());
-			if (hooks.hasFluidType()) GroupRegistry.setJeiAllFluids(extractFluids(all));
-		} else if (all == null) {
-			all = uncachedIngredients.apply("").toList();
 			cachedFullList = all;
 		}
+		boolean needsItems = GroupRegistry.isJeiAllItemsEmpty();
+		boolean needsFluids = hooks.hasFluidType() && GroupRegistry.isJeiAllFluidsEmpty()
+			&& (needsItems || hooks.fluidCachePolicy() == FluidCachePolicy.INDEPENDENT);
+		JeiIngredientSourceState.install(expected,
+			needsItems ? all.stream().flatMap(i -> i.getItemStack().stream()).toList() : null,
+			needsFluids ? extractFluids(all) : null);
 
 		if (hooks.beforeIndex(all, ingredientManager)) {
 			viewerIndex.requestRebuild(GroupRegistry.getAllIncludingKubeJs());
 		}
 		List<GroupDefinition> groups = GroupRegistry.getAllIncludingKubeJs();
 		viewerIndex.ensureReadyAsync(groups);
-		JeiViewerGroupIndex.Generation readyGeneration = viewerIndex.readyGenerationSnapshot().orElse(null);
+		JeiViewerGroupIndex.ProjectableSnapshot readyGeneration = viewerIndex.projectableSnapshot().orElse(null);
 		if (readyGeneration == null) {
 			installRawStructure(ingredients);
 			if (hooks.traceBuilds()) {
@@ -275,7 +313,7 @@ public final class JeiIngredientFilterController {
 
 		ViewerProjection<ITypedIngredient<?>> projected = JeiViewerAdapter.instance().project(
 			ingredients, searchTextForCache, Services.CONFIG.searchUngroupSmallGroups(),
-			Services.CONFIG.searchUngroupThreshold(), groups, GroupRegistry::isExpandedById,
+			Services.CONFIG.searchUngroupThreshold(), readyGeneration.groups(), GroupRegistry::isExpandedById,
 			readyGeneration.projectionContext(), readyGeneration.candidates());
 		List<IElement<?>> newBaseList = new ArrayList<>();
 		List<String> newGroupIds = new ArrayList<>();
@@ -333,8 +371,8 @@ public final class JeiIngredientFilterController {
 	private List<Object> extractFluids(List<ITypedIngredient<?>> all) {
 		List<Object> fluids = new ArrayList<>();
 		for (ITypedIngredient<?> typed : all) {
-			Object fluid = hooks.fluidIngredient(typed);
-			if (fluid != null) fluids.add(fluid);
+			JeiFluidIngredient fluid = JeiIngredientTypes.fluidIngredient(typed);
+			if (fluid != null) fluids.add(fluid.viewerValue());
 		}
 		return List.copyOf(fluids);
 	}
@@ -372,13 +410,13 @@ public final class JeiIngredientFilterController {
 			switch (child.kind()) {
 				case ITEM -> child.entry().getItemStack().ifPresent(stack -> preview.add(GroupPreviewEntry.ofItem(stack)));
 				case FLUID -> {
-					Object fluid = hooks.previewFluid(child.entry());
-					if (fluid != null) preview.add(GroupPreviewEntry.ofFluid(fluid));
+					JeiFluidIngredient fluid = JeiIngredientTypes.fluidIngredient(child.entry());
+					if (fluid != null) preview.add(com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries.ofFluid(fluid.viewerValue()));
 				}
 				case GENERIC -> generic.add(child.entry());
 			}
 		}
-		preview.addAll(GroupPreviewEntry.fromTypedIngredients(generic));
+		preview.addAll(com.starskyxiii.collapsible_groups.compat.jei.preview.JeiGroupPreviewEntries.fromTypedIngredients(generic));
 		return new GroupHeaderElement(typedIcon,
 			buildCountLabel(header.itemCount(), header.fluidCount(), header.genericCount()), preview, onToggle);
 	}
@@ -417,10 +455,7 @@ public final class JeiIngredientFilterController {
 	public enum FluidCachePolicy { INDEPENDENT, WITH_ITEMS }
 
 	public interface PlatformHooks {
-		@Nullable Object fluidIngredient(ITypedIngredient<?> typed);
-		default @Nullable Object previewFluid(ITypedIngredient<?> typed) { return fluidIngredient(typed); }
 		boolean hasFluidType();
-		String fluidId(Object fluid);
 		IElement<?> createFluidChild(ITypedIngredient<?> typed, String groupId);
 		GenericProbe genericProbe();
 		FluidCachePolicy fluidCachePolicy();
@@ -435,7 +470,7 @@ public final class JeiIngredientFilterController {
 		void index(ITypedIngredient<?> typed, IIngredientManager manager,
 			Map<ITypedIngredient<?>, GroupDefinition> index, List<GroupDefinition> groups,
 			Map<String, List<GenericIngredientRef>> fullMatches,
-			Map<ITypedIngredient<?>, List<String>> candidateGroups);
+			Map<ITypedIngredient<?>, List<String>> candidateGroups, Map<String, String> failures);
 	}
 
 	public static GenericProbe castGenericProbe() {
@@ -450,13 +485,13 @@ public final class JeiIngredientFilterController {
 	private static <T> void indexGenericByCast(ITypedIngredient<?> typed, IIngredientManager manager,
 		Map<ITypedIngredient<?>, GroupDefinition> index, List<GroupDefinition> groups,
 		Map<String, List<GenericIngredientRef>> fullMatches,
-		Map<ITypedIngredient<?>, List<String>> candidateGroups) {
+		Map<ITypedIngredient<?>, List<String>> candidateGroups, Map<String, String> failures) {
 		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
 			IIngredientType<T> type = (IIngredientType<T>) entry.getValue();
 			ITypedIngredient<T> cast = typed.cast(type);
 			if (cast == null) continue;
 			indexGeneric(entry.getKey(), type, cast.getIngredient(), typed, manager, index, groups,
-				fullMatches, candidateGroups);
+				fullMatches, candidateGroups, failures);
 			return;
 		}
 	}
@@ -465,12 +500,12 @@ public final class JeiIngredientFilterController {
 	private static <T> void indexGenericByExactType(ITypedIngredient<?> typed, IIngredientManager manager,
 		Map<ITypedIngredient<?>, GroupDefinition> index, List<GroupDefinition> groups,
 		Map<String, List<GenericIngredientRef>> fullMatches,
-		Map<ITypedIngredient<?>, List<String>> candidateGroups) {
+		Map<ITypedIngredient<?>, List<String>> candidateGroups, Map<String, String> failures) {
 		for (Map.Entry<String, IIngredientType<?>> entry : JeiIngredientTypes.getAll().entrySet()) {
 			IIngredientType<T> type = (IIngredientType<T>) entry.getValue();
 			if (!typed.getType().equals(type)) continue;
 			indexGeneric(entry.getKey(), type, ((ITypedIngredient<T>) typed).getIngredient(), typed,
-				manager, index, groups, fullMatches, candidateGroups);
+				manager, index, groups, fullMatches, candidateGroups, failures);
 			break;
 		}
 	}
@@ -479,13 +514,15 @@ public final class JeiIngredientFilterController {
 	private static <T> void indexGeneric(String typeId, IIngredientType<T> type, T ingredient,
 		ITypedIngredient<?> typed, IIngredientManager manager, Map<ITypedIngredient<?>, GroupDefinition> index,
 		List<GroupDefinition> groups, Map<String, List<GenericIngredientRef>> fullMatches,
-		Map<ITypedIngredient<?>, List<String>> candidateGroups) {
+		Map<ITypedIngredient<?>, List<String>> candidateGroups, Map<String, String> failures) {
 		IIngredientHelper<T> helper = manager.getIngredientHelper(type);
 		GroupDefinition firstMatch = null;
 		for (GroupDefinition group : groups) {
-			if (!GroupMatcher.matchesGenericIgnoringEnabled(group, typeId, ingredient, helper)) continue;
+			if (com.starskyxiii.collapsible_groups.viewer.GroupEvaluations.evaluate(group,
+				new GenericJeiIngredientView<>(typeId, ingredient, helper), failures)
+				!= com.starskyxiii.collapsible_groups.group.filter.CompiledFilter.Evaluation.MATCH) continue;
 			candidateGroups.computeIfAbsent(typed, ignored -> new ArrayList<>()).add(group.id());
-			if (firstMatch == null && group.enabled()) {
+			if (firstMatch == null && com.starskyxiii.collapsible_groups.group.GroupRepository.isActive(group)) {
 				firstMatch = group;
 				index.put(typed, group);
 			}

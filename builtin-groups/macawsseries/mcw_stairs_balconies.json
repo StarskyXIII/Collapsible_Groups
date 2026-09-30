@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_stairs_balconies",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_stairs_balconies",
+    "fallback": "Macaw's Stairs: Balconies"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwstairs:balconies"
+  }
+}

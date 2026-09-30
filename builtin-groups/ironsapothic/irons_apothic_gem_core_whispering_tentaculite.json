@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_irons_apothic_gem_core_whispering_tentaculite",
+  "name": {
+    "translate": "collapsible_groups.group.__default_irons_apothic_gem_core_whispering_tentaculite",
+    "fallback": "Whispering Tentaculite Gems"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "apotheosis:gem"
+      },
+      {
+        "type": "item",
+        "component": "apotheosis:gem",
+        "value": {
+          "data_format": "minecraft:data_component",
+          "data": "irons_apothic:core/whispering_tentaculite"
+        }
+      }
+    ]
+  }
+}

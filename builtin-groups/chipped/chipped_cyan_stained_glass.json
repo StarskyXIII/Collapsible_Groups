@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_cyan_stained_glass",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_cyan_stained_glass",
+    "fallback": "Chipped: Cyan Stained Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:cyan_stained_glass"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

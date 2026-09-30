@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_sand",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_sand",
+    "fallback": "Compressed Sand"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:sand_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sand_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sand_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sand_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sand_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sand_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sand_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sand_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:sand_9x"
+      }
+    ]
+  }
+}

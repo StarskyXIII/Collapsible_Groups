@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_cobbled_deepslate",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_cobbled_deepslate",
+    "fallback": "Compressed Cobbled Deepslate"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:cobbled_deepslate_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cobbled_deepslate_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cobbled_deepslate_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cobbled_deepslate_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cobbled_deepslate_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cobbled_deepslate_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cobbled_deepslate_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cobbled_deepslate_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:cobbled_deepslate_9x"
+      }
+    ]
+  }
+}

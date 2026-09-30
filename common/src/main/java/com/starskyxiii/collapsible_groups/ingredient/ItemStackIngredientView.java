@@ -1,11 +1,11 @@
 package com.starskyxiii.collapsible_groups.ingredient;
 
 import com.google.gson.JsonElement;
-import com.google.gson.JsonParser;
-import com.google.gson.JsonPrimitive;
-import com.starskyxiii.collapsible_groups.group.filter.ComponentPathNavigator;
-import com.starskyxiii.collapsible_groups.group.filter.EncodedValueNormalizer;
-import net.minecraft.core.component.DataComponentType;
+import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccess;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataAccesses;
+import com.starskyxiii.collapsible_groups.internal.version.data.Minecraft121ItemDataAccess;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.resources.Identifier;
@@ -15,6 +15,7 @@ import net.minecraft.world.item.ItemStack;
 
 public final class ItemStackIngredientView implements IngredientView {
 	private static final String STACK_PREFIX = "stack:";
+	private static final ItemDataAccess<ItemStack, JsonElement> DATA_ACCESS = ItemDataAccesses.current();
 
 	private final ItemStack stack;
 	private final Identifier itemId;
@@ -23,6 +24,8 @@ public final class ItemStackIngredientView implements IngredientView {
 		this.stack = stack;
 		this.itemId = BuiltInRegistries.ITEM.getKey(stack.getItem());
 	}
+
+	public ItemStack stack() { return stack; }
 
 	@Override
 	public String ingredientType() {
@@ -50,7 +53,7 @@ public final class ItemStackIngredientView implements IngredientView {
 	@Override
 	public boolean matchesExactStack(String encodedStack) {
 		return GroupItemSelector.decodeExactSelector(STACK_PREFIX + encodedStack)
-			.map(decoded -> ItemStack.isSameItemSameComponents(decoded, GroupItemSelector.normalizedCopy(stack)))
+			.map(decoded -> DATA_ACCESS.exactStacks().equivalent(decoded, stack))
 			.orElse(false);
 	}
 
@@ -58,63 +61,34 @@ public final class ItemStackIngredientView implements IngredientView {
 	public boolean matchesDecodedExactStack(ItemStack decoded) {
 		// the reference was already decoded (and normalizedCopy'd) once by the folded
 		// exact-stack node; here we only normalize the candidate and compare item + components.
-		return ItemStack.isSameItemSameComponents(decoded, GroupItemSelector.normalizedCopy(stack));
+		return DATA_ACCESS.exactStacks().equivalent(decoded, stack);
 	}
 
 	@Override
 	public boolean hasComponent(String componentTypeId, String encodedValue) {
-		Identifier typeId = Identifier.tryParse(componentTypeId);
-		if (typeId == null) return false;
-		DataComponentType<?> type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(typeId).map(ref -> ref.value()).orElse(null);
-		if (type == null || type.codec() == null) return false;
-		return matchesComponentValue(type, encodedValue);
+		return DATA_ACCESS.matchesDataValue(stack, componentTypeId, encodedValue);
 	}
 
 	@Override
 	public boolean hasComponentPath(String componentTypeId, String path, String expectedValue) {
-		Identifier typeId = Identifier.tryParse(componentTypeId);
-		if (typeId == null) return false;
-		DataComponentType<?> type = BuiltInRegistries.DATA_COMPONENT_TYPE.get(typeId).map(ref -> ref.value()).orElse(null);
-		if (type == null || type.codec() == null) return false;
-		return matchesComponentPath(type, path, expectedValue);
+		return DATA_ACCESS.matchesDataPath(stack, componentTypeId, path, expectedValue);
 	}
 
-	private <T> boolean matchesComponentPath(DataComponentType<T> type, String path, String expectedValue) {
-		T actual = stack.get(type);
-		if (actual == null) return false;
-		return type.codec()
-			.encodeStart(GroupItemSelector.serializationContext(), actual)
-			.result()
-			.map(encoded -> {
-				JsonElement node = ComponentPathNavigator.navigatePath(encoded, path);
-				if (node == null) return false;
-				return matchesEncodedValue(node, expectedValue);
-			})
-			.orElse(false);
-	}
+    @Override
+    public CompiledFilter.Evaluation queryComponent(String componentTypeId, String legacyValue, ItemDataPayload payload) {
+        return DATA_ACCESS.evaluateDataValue(stack, componentTypeId, legacyValue, payload);
+    }
 
-	private <T> boolean matchesComponentValue(DataComponentType<T> type, String encodedValue) {
-		T actual = stack.get(type);
-		if (actual == null) return false;
-		return type.codec()
-			.encodeStart(GroupItemSelector.serializationContext(), actual)
-			.result()
-			.map(encoded -> matchesEncodedValue(encoded, encodedValue))
-			.orElse(false);
-	}
+    @Override
+    public CompiledFilter.Evaluation queryComponentPath(String componentTypeId, String path, String legacyValue, ItemDataPayload payload) {
+        return DATA_ACCESS.evaluateDataPath(stack, componentTypeId, path, legacyValue, payload);
+    }
+
+    public static boolean matchesEncodedValue(JsonElement encoded, ItemDataPayload payload) {
+        return Minecraft121ItemDataAccess.matchesEncodedValue(encoded, payload);
+    }
 
 	public static boolean matchesEncodedValue(JsonElement encoded, String encodedValue) {
-		// For string-encoded components (Identifiers, enums), compare the unwrapped value directly.
-		if (encoded instanceof JsonPrimitive p && p.isString()) {
-			return EncodedValueNormalizer.normalize(encoded).equals(encodedValue);
-		}
-		// For non-string types (numbers, objects, arrays), try structural JSON comparison.
-		try {
-			JsonElement expected = JsonParser.parseString(encodedValue);
-			return encoded.equals(expected);
-		} catch (RuntimeException e) {
-			// If the encodedValue isn't valid JSON, fall back to toString comparison.
-			return EncodedValueNormalizer.normalize(encoded).equals(encodedValue);
-		}
+		return Minecraft121ItemDataAccess.matchesEncodedValue(encoded, encodedValue);
 	}
 }

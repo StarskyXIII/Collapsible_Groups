@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_crushed_netherrack",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_crushed_netherrack",
+    "fallback": "Compressed Crushed Netherrack"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_netherrack_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_netherrack_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_netherrack_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_netherrack_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_netherrack_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_netherrack_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_netherrack_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_netherrack_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:crushed_netherrack_9x"
+      }
+    ]
+  }
+}

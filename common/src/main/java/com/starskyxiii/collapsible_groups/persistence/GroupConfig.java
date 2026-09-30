@@ -13,8 +13,14 @@ import com.starskyxiii.collapsible_groups.group.GroupDisplayName;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator;
+import com.starskyxiii.collapsible_groups.group.filter.FilterNodeCapabilities;
+import com.starskyxiii.collapsible_groups.group.filter.FilterNodeKind;
 import com.starskyxiii.collapsible_groups.group.GroupTheme;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataFormat;
+import com.starskyxiii.collapsible_groups.internal.version.data.MinecraftItemDataFormats;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
+import com.starskyxiii.collapsible_groups.group.GroupDocumentFormat;
 import com.starskyxiii.collapsible_groups.platform.Services;
 
 import java.io.IOException;
@@ -33,7 +39,8 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public final class GroupConfig {
-	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
+	private static final Gson GSON = new GsonBuilder().serializeNulls().setPrettyPrinting().create();
+	private static final int UNAVAILABLE_WARNING_LIMIT = 10;
 
 	private GroupConfig() {}
 
@@ -112,7 +119,11 @@ public final class GroupConfig {
 				&& obj.get("manager_sort_mode").getAsJsonPrimitive().isString()) {
 				managerSortMode = obj.get("manager_sort_mode").getAsString();
 			}
-			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode);
+			boolean showEmpty = obj.has("manager_show_empty") && obj.get("manager_show_empty").getAsBoolean();
+			String categoryFilter = obj.has("manager_category_filter") && obj.get("manager_category_filter").isJsonPrimitive()
+                && obj.get("manager_category_filter").getAsJsonPrimitive().isString() ? obj.get("manager_category_filter").getAsString() : "all";
+            boolean sidebarOpen = !obj.has("manager_sidebar_open") || obj.get("manager_sidebar_open").getAsBoolean();
+			return new UiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, showEmpty, categoryFilter, sidebarOpen);
 		} catch (Exception e) {
 			Constants.LOG.warn("Failed to load {}, using defaults: {}", label, e.getMessage());
 			return new UiState(true, true, false, UiState.SOURCE_FILTER_DEFAULT, UiState.SORT_MODE_DEFAULT);
@@ -121,6 +132,21 @@ public final class GroupConfig {
 
 	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
 	                               String managerSourceFilter, String managerSortMode) {
+		saveUiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, false);
+	}
+
+	public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+		String managerSourceFilter, String managerSortMode, boolean managerShowEmpty) {
+        saveUiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, managerShowEmpty, "all");
+    }
+
+    public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+        String managerSourceFilter, String managerSortMode, boolean managerShowEmpty, String managerCategoryFilter) {
+        saveUiState(showBuiltin, showKubeJs, hideUsed, managerSourceFilter, managerSortMode, managerShowEmpty, managerCategoryFilter, true);
+    }
+
+    public static void saveUiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
+        String managerSourceFilter, String managerSortMode, boolean managerShowEmpty, String managerCategoryFilter, boolean managerSidebarOpen) {
 		Path file = getUiStateFile();
 		try {
 			Files.createDirectories(file.getParent());
@@ -130,6 +156,9 @@ public final class GroupConfig {
 			obj.addProperty("hide_used", hideUsed);
 			obj.addProperty("manager_source_filter", managerSourceFilter);
 			obj.addProperty("manager_sort_mode", managerSortMode);
+			obj.addProperty("manager_show_empty", managerShowEmpty);
+            obj.addProperty("manager_category_filter", managerCategoryFilter);
+            obj.addProperty("manager_sidebar_open", managerSidebarOpen);
 			writeAtomically(file, GSON.toJson(obj));
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save UI state", e);
@@ -149,12 +178,18 @@ public final class GroupConfig {
 	}
 
 	public static void saveEnabledOverrides(Map<String, Boolean> overrides) {
+		saveEnabledOverridesChecked(overrides);
+	}
+
+	static boolean saveEnabledOverridesChecked(Map<String, Boolean> overrides) {
 		Path file = getEnabledOverridesFile();
 		try {
 			Files.createDirectories(file.getParent());
 			writeAtomically(file, serializeEnabledOverrides(overrides));
+			return true;
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to save enabled overrides", e);
+			return false;
 		}
 	}
 
@@ -207,6 +242,7 @@ public final class GroupConfig {
 
 	private static List<GroupDefinition> loadFromDir(Path dir) throws IOException {
 		List<GroupDefinition> result = new ArrayList<>();
+		AtomicInteger unavailableWarnings = new AtomicInteger();
 		try (var stream = Files.list(dir)) {
 			stream.filter(p -> p.toString().endsWith(".json"))
 				.sorted()
@@ -214,7 +250,20 @@ public final class GroupConfig {
 					try {
 						String json = Files.readString(path, StandardCharsets.UTF_8);
 						GroupDefinition def = fromJson(json);
-						if (def != null) result.add(def);
+						if (def != null) {
+							result.add(def);
+							if (def.hasUnavailableFilter()) {
+								int warningIndex = unavailableWarnings.getAndIncrement();
+								if (warningIndex < UNAVAILABLE_WARNING_LIMIT) {
+									Constants.LOG.warn(
+										"Group '{}' contains unavailable filter node(s) {} and will remain inert until supported; raw JSON is preserved.",
+										def.id(), FilterNodeCapabilities.unavailableKinds(def.filter())
+									);
+								} else if (warningIndex == UNAVAILABLE_WARNING_LIMIT) {
+									Constants.LOG.warn("Additional groups with unavailable filter nodes were loaded; further warnings are suppressed.");
+								}
+							}
+						}
 					} catch (Exception e) {
 						Constants.LOG.error("Failed to parse group file: {}", path, e);
 					}
@@ -225,17 +274,50 @@ public final class GroupConfig {
 
 	/** Saves a group definition to disk. Creates or overwrites the file. */
 	public static void save(GroupDefinition group) {
-		Path dir = getConfigDir();
-		try {
-			Files.createDirectories(dir);
-			writeAtomically(dir.resolve(group.id() + ".json"), toJson(group));
-		} catch (IOException e) {
+		saveChecked(group);
+	}
+
+	static boolean saveChecked(GroupDefinition group) {
+        if (group.documentFormat() == GroupDocumentFormat.UNSUPPORTED) return false;
+        Path dir = getConfigDir();
+        try {
+            if (hasProtectedDocument(dir, group.id())) return false;
+            String json = toJson(group);
+            Files.createDirectories(dir);
+            writeAtomically(dir.resolve(group.id() + ".json"), json);
+			return true;
+		} catch (IOException | IllegalArgumentException e) {
 			Constants.LOG.error("Failed to save group: {}", group.id(), e);
+			return false;
 		}
 	}
 
+    private static boolean hasProtectedDocument(Path directory, String id) throws IOException {
+        if (!Files.isDirectory(directory)) return false;
+        Path target = directory.resolve(id + ".json");
+        try (var paths = Files.list(directory)) {
+            for (Path path : paths.filter(file -> file.toString().endsWith(".json")).toList()) {
+                try {
+                    JsonObject raw = JsonParser.parseString(Files.readString(path, StandardCharsets.UTF_8)).getAsJsonObject();
+                    if (GroupDocumentFormat.inspect(raw) != GroupDocumentFormat.UNSUPPORTED) continue;
+                    if (path.equals(target)) return true;
+                    JsonElement storedId = raw.get("id");
+                    if (storedId != null && storedId.isJsonPrimitive() && storedId.getAsJsonPrimitive().isString()
+                        && id.equals(storedId.getAsString())) return true;
+                } catch (com.google.gson.JsonParseException | IllegalStateException e) {
+                    if (path.equals(target)) return true;
+                }
+            }
+        }
+        return false;
+    }
+
 	/** Deletes a group's config file from disk. */
 	public static void delete(String id) {
+		deleteChecked(id);
+	}
+
+	static boolean deleteChecked(String id) {
 		Path dir = getConfigDir();
 		try {
 			Constants.LOG.debug("Deleting group '{}' from {}", id, dir);
@@ -246,38 +328,31 @@ public final class GroupConfig {
 				Constants.LOG.debug("Deleted canonical group file for '{}': {}", id, canonicalPath);
 			}
 			if (!Files.exists(dir)) {
-				return;
+				return true;
 			}
 			try (var stream = Files.list(dir)) {
-				stream.filter(path -> path.toString().endsWith(".json"))
+				for (Path path : stream.filter(path -> path.toString().endsWith(".json"))
 					.filter(path -> !path.getFileName().toString().equals(id + ".json"))
-					.forEach(path -> deleteIfGroupIdMatches(path, id, deletedCount));
+					.toList()) {
+					if (!deleteIfGroupIdMatches(path, id, deletedCount)) return false;
+				}
 			}
 			if (deletedCount.get() == 0) {
 				Constants.LOG.warn("No group config files were deleted for id '{}' in {}", id, dir);
 			} else {
 				Constants.LOG.debug("Deleted {} group config file(s) for id '{}'", deletedCount.get(), id);
 			}
+			return true;
 		} catch (IOException e) {
 			Constants.LOG.error("Failed to delete group: {}", id, e);
+			return false;
 		}
 	}
 
 	public static GroupDefinition fromJson(String json) {
 		String id = null;
 		try {
-			ParsedGroupJson parsed = parseGroupJson(json);
-			id = parsed.id();
-			return new GroupDefinition(
-				parsed.id(),
-				parsed.displayName(),
-				parsed.enabled(),
-				parsed.filter(),
-				parsed.iconIds(),
-				parsed.theme(),
-				parsed.priority(),
-				parsed.extra()
-			);
+			return fromJsonChecked(json);
 		} catch (IllegalArgumentException e) {
 			Constants.LOG.error("Group '{}': {}", id, e.getMessage());
 			return null;
@@ -287,6 +362,12 @@ public final class GroupConfig {
 		}
 	}
 
+	public static GroupDefinition fromJsonChecked(String json) {
+		ParsedGroupJson parsed = parseGroupJson(json);
+		return new GroupDefinition(parsed.id(), parsed.displayName(), parsed.enabled(), parsed.filter(),
+			parsed.iconIds(), parsed.theme(), parsed.priority(), parsed.extra(), parsed.documentFormat(), parsed.rawDocument());
+	}
+
 	private static ParsedGroupJson parseGroupJson(String json) {
 		JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
 		String id = obj.has("id") ? obj.get("id").getAsString() : null;
@@ -294,7 +375,12 @@ public final class GroupConfig {
 			throw new IllegalArgumentException("Missing required non-blank 'id' field.");
 		}
 
-		GroupDisplayName displayName = parseDisplayName(id, obj.get("name"));
+		GroupDocumentFormat documentFormat = GroupDocumentFormat.inspect(obj);
+        if (documentFormat == GroupDocumentFormat.UNSUPPORTED) {
+            return new ParsedGroupJson(id, new GroupDisplayName.Localized(GroupTranslationHelper.keyForGroupId(id), id),
+                false, new GroupFilter.Unsupported(obj, "document"), List.of(), GroupTheme.EMPTY, 0, new JsonObject(), documentFormat, obj);
+        }
+        GroupDisplayName displayName = parseDisplayName(id, obj.get("name"));
 		boolean enabled = !obj.has("enabled") || obj.get("enabled").getAsBoolean();
 
 		if (!obj.has("filter")) {
@@ -311,11 +397,11 @@ public final class GroupConfig {
 			}
 		}
 
-		GroupFilter filter = parseFilter(obj.getAsJsonObject("filter"));
+		GroupFilter filter = parseFilter(obj.getAsJsonObject("filter"), documentFormat);
 		GroupTheme theme = parseTheme(id, obj.get("theme"));
 		int priority = parsePriority(id, obj.get("priority"));
 		JsonObject extra = parseExtra(id, obj.get("extra"));
-		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme, priority, extra);
+		return new ParsedGroupJson(id, displayName, enabled, filter, List.copyOf(iconIds), theme, priority, extra, documentFormat, null);
 	}
 
 	private static GroupIconDefinition parseIcon(JsonElement element) {
@@ -444,7 +530,9 @@ public final class GroupConfig {
 	}
 
 	public static String toJson(GroupDefinition group) {
-		JsonObject obj = new JsonObject();
+        if (group.documentFormat() == GroupDocumentFormat.UNSUPPORTED) return GSON.toJson(group.rawDocument());
+        JsonObject obj = new JsonObject();
+        if (group.documentFormat() == GroupDocumentFormat.V1) obj.addProperty("schema_version", 1);
 		obj.addProperty("id", group.id());
 
 		GroupDisplayName dn = group.displayName();
@@ -463,7 +551,7 @@ public final class GroupConfig {
 
 		if (!group.iconIds().isEmpty()) {
 			if (group.iconIds().size() == 1) {
-				obj.add("icon", serializeIcon(group.iconIds().getFirst()));
+				obj.add("icon", serializeIcon(group.iconIds().get(0)));
 			} else {
 				JsonArray iconArr = new JsonArray();
 				group.iconIds().forEach(icon -> iconArr.add(serializeIcon(icon)));
@@ -479,7 +567,7 @@ public final class GroupConfig {
 			obj.add("extra", group.extra());
 		}
 
-		obj.add("filter", serializeFilter(group.filter()));
+		obj.add("filter", serializeFilter(group.filter(), group.documentFormat()));
 		return GSON.toJson(obj);
 	}
 
@@ -509,59 +597,79 @@ public final class GroupConfig {
 
 	// package-private for testing (GroupConfigComponentPathTest)
 	static GroupFilter parseFilter(JsonObject obj) {
+        return parseFilter(obj, GroupDocumentFormat.LEGACY);
+    }
+
+    static GroupFilter parseFilter(JsonObject obj, GroupDocumentFormat documentFormat) {
+        if (documentFormat == GroupDocumentFormat.V1) {
+            if (obj.has("nbt") || obj.has("nbt_path")) return new GroupFilter.Unsupported(obj, obj.has("nbt_path") ? "nbt_path" : "nbt");
+            if (obj.has("component") || obj.has("stack")) {
+                java.util.Set<String> allowed = obj.has("stack") ? java.util.Set.of("type", "stack")
+                    : obj.has("path") ? java.util.Set.of("type", "component", "path", "value")
+                    : java.util.Set.of("type", "component", "value");
+                if (!allowed.equals(obj.keySet())) return new GroupFilter.Unsupported(obj, "item_data");
+            }
+        }
+		FilterNodeKind kind = nodeKind(obj);
+		if (kind == FilterNodeKind.UNKNOWN || !FilterNodeCapabilities.isAvailable(kind)) {
+			return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
+		}
 		if (obj.has("any")) {
 			List<GroupFilter> children = new ArrayList<>();
-			obj.getAsJsonArray("any").forEach(element -> children.add(parseFilter(element.getAsJsonObject())));
+			obj.getAsJsonArray("any").forEach(element -> children.add(parseFilter(element.getAsJsonObject(), documentFormat)));
 			return new GroupFilter.Any(children);
 		}
 		if (obj.has("all")) {
 			List<GroupFilter> children = new ArrayList<>();
-			obj.getAsJsonArray("all").forEach(element -> children.add(parseFilter(element.getAsJsonObject())));
+			obj.getAsJsonArray("all").forEach(element -> children.add(parseFilter(element.getAsJsonObject(), documentFormat)));
 			return new GroupFilter.All(children);
 		}
 		if (obj.has("not")) {
-			return new GroupFilter.Not(parseFilter(obj.getAsJsonObject("not")));
+			return new GroupFilter.Not(parseFilter(obj.getAsJsonObject("not"), documentFormat));
 		}
-		if (obj.has("component")) {
-			if (!obj.has("type")) {
-				throw new IllegalArgumentException("Component filter node requires explicit type='item': " + obj);
-			}
-			if (!"item".equals(obj.get("type").getAsString())) {
-				throw new IllegalArgumentException("Component filter node only supports type='item': " + obj);
-			}
-			if (!obj.has("value")) {
-				throw new IllegalArgumentException("Component filter node requires 'value': " + obj);
-			}
-			// Discriminator: component + path -> ComponentPath; component alone -> HasComponent.
-			// If path is present but fails grammar validation, fail fast rather than silently falling back.
-			if (obj.has("path")) {
-				String path = obj.get("path").getAsString();
-				if (!GroupFilterValidator.PATH_PATTERN.matcher(path).matches()) {
-					throw new IllegalArgumentException(
-						"ComponentPath node has invalid path grammar: '" + path
-						+ "'. Allowed: field, parent.child, array[n], array[n].field. Node: " + obj);
-				}
-				return new GroupFilter.ComponentPath(
-					obj.get("component").getAsString(),
-					path,
-					obj.get("value").getAsString()
-				);
-			}
-			return new GroupFilter.HasComponent(
-				obj.get("component").getAsString(),
-				obj.get("value").getAsString()
-			);
-		}
-		if (obj.has("stack")) {
-			if (!obj.has("type")) {
-				throw new IllegalArgumentException("ExactStack node requires explicit type='item': " + obj);
-			}
-			String type = obj.get("type").getAsString();
-			if (!"item".equals(type)) {
-				throw new IllegalArgumentException("ExactStack only supports type='item': " + obj);
-			}
-			return new GroupFilter.ExactStack(obj.get("stack").getAsString());
-		}
+        if (obj.has("component") || obj.has("stack")) {
+            try {
+                JsonElement type = obj.get("type");
+                if (type == null || documentFormat == GroupDocumentFormat.V1
+                    && (!type.isJsonPrimitive() || !type.getAsJsonPrimitive().isString())
+                    || !"item".equals(type.getAsString())) {
+                    throw new IllegalArgumentException("Item data requires type=item");
+                }
+                boolean exact = obj.has("stack");
+                JsonElement encoded = obj.get(exact ? "stack" : "value");
+                ItemDataPayload payload = documentFormat == GroupDocumentFormat.V1
+                    ? ItemDataPayload.fromJson(encoded, exact ? ItemDataPayload.ITEM_COMPONENTS : ItemDataPayload.DATA_COMPONENT) : null;
+                if (payload == null && (encoded == null || !encoded.isJsonPrimitive() || !encoded.getAsJsonPrimitive().isString())) {
+                    throw new IllegalArgumentException("Legacy data must be a string");
+                }
+                if (exact) {
+                    if (payload != null && !payload.data().isJsonObject()) throw new IllegalArgumentException("Stack data must be an object");
+                    return payload == null ? new GroupFilter.ExactStack(encoded.getAsString()) : new GroupFilter.ExactStack(payload);
+                }
+                JsonElement componentElement = obj.get("component");
+                if (documentFormat == GroupDocumentFormat.V1 && (componentElement == null || !componentElement.isJsonPrimitive()
+                    || !componentElement.getAsJsonPrimitive().isString() || componentElement.getAsString().isBlank()
+                    || net.minecraft.resources.Identifier.tryParse(componentElement.getAsString()) == null)) {
+                    throw new IllegalArgumentException("Invalid component identifier");
+                }
+                String component = componentElement.getAsString();
+                if (obj.has("path")) {
+                    JsonElement pathElement = obj.get("path");
+                    if (documentFormat == GroupDocumentFormat.V1 && (!pathElement.isJsonPrimitive() || !pathElement.getAsJsonPrimitive().isString())) {
+                        throw new IllegalArgumentException("Component path must be a string");
+                    }
+                    String path = pathElement.getAsString();
+                    if (!GroupFilterValidator.PATH_PATTERN.matcher(path).matches()) throw new IllegalArgumentException("ComponentPath node has invalid path grammar: " + path);
+                    return payload == null ? new GroupFilter.ComponentPath(component, path, encoded.getAsString())
+                        : new GroupFilter.ComponentPath(component, path, payload);
+                }
+                return payload == null ? new GroupFilter.HasComponent(component, encoded.getAsString())
+                    : new GroupFilter.HasComponent(component, payload);
+            } catch (RuntimeException invalid) {
+                if (documentFormat == GroupDocumentFormat.LEGACY) throw invalid;
+                return new GroupFilter.Unsupported(obj, recognizedKind(obj, kind));
+            }
+        }
 		if (obj.has("block_tag")) {
 			return new GroupFilter.BlockTag(obj.get("block_tag").getAsString());
 		}
@@ -586,19 +694,26 @@ public final class GroupConfig {
 
 	// package-private for testing (GroupConfigComponentPathTest)
 	static JsonObject serializeFilter(GroupFilter filter) {
+        return serializeFilter(filter, GroupDocumentFormat.LEGACY);
+    }
+
+    static JsonObject serializeFilter(GroupFilter filter, GroupDocumentFormat documentFormat) {
+		if (filter instanceof GroupFilter.Unsupported unsupported) {
+			return unsupported.rawJson();
+		}
 		JsonObject obj = new JsonObject();
 		switch (filter) {
 			case GroupFilter.Any any -> {
 				JsonArray arr = new JsonArray();
-				any.children().forEach(child -> arr.add(serializeFilter(child)));
+				any.children().forEach(child -> arr.add(serializeFilter(child, documentFormat)));
 				obj.add("any", arr);
 			}
 			case GroupFilter.All all -> {
 				JsonArray arr = new JsonArray();
-				all.children().forEach(child -> arr.add(serializeFilter(child)));
+				all.children().forEach(child -> arr.add(serializeFilter(child, documentFormat)));
 				obj.add("all", arr);
 			}
-			case GroupFilter.Not not -> obj.add("not", serializeFilter(not.child()));
+			case GroupFilter.Not not -> obj.add("not", serializeFilter(not.child(), documentFormat));
 			case GroupFilter.Id id -> {
 				obj.addProperty("type", id.ingredientType());
 				obj.addProperty("id", id.id());
@@ -617,39 +732,84 @@ public final class GroupConfig {
 			}
 			case GroupFilter.ExactStack stack -> {
 				obj.addProperty("type", "item");
-				obj.addProperty("stack", stack.encodedStack());
+				obj.add("stack", dataJson(stack.encodedStack(), stack.payload(), documentFormat, true));
 			}
 			case GroupFilter.HasComponent hc -> {
 				obj.addProperty("type", "item");
 				obj.addProperty("component", hc.componentTypeId());
-				obj.addProperty("value", hc.encodedValue());
+				obj.add("value", dataJson(hc.encodedValue(), hc.payload(), documentFormat, false));
 			}
 			case GroupFilter.ComponentPath cp -> {
 				obj.addProperty("type", "item");
 				obj.addProperty("component", cp.componentTypeId());
 				obj.addProperty("path", cp.path());
-				obj.addProperty("value", cp.expectedValue());
+				obj.add("value", dataJson(cp.expectedValue(), cp.payload(), documentFormat, false));
 			}
+			case GroupFilter.Unsupported ignored -> throw new AssertionError("Unsupported nodes return before serialization switch");
 		}
 		return obj;
 	}
 
-	private static void deleteIfGroupIdMatches(Path path, String id, AtomicInteger deletedCount) {
+    private static JsonElement dataJson(String encoded, ItemDataPayload payload, GroupDocumentFormat format, boolean exact) {
+        if (format == GroupDocumentFormat.LEGACY) {
+            if (payload != null) throw new IllegalArgumentException("Typed item data requires schema_version 1");
+            return new com.google.gson.JsonPrimitive(encoded);
+        }
+        if (payload != null) return payload.toJson();
+        if (!exact) throw new IllegalArgumentException("Legacy component data cannot be automatically converted to typed JSON");
+        return new ItemDataPayload(ItemDataPayload.ITEM_COMPONENTS, ItemDataPayload.parseLiteral(encoded)).toJson();
+    }
+
+	private static FilterNodeKind nodeKind(JsonObject obj) {
+		if (obj.has("any")) return FilterNodeKind.ANY;
+		if (obj.has("all")) return FilterNodeKind.ALL;
+		if (obj.has("not")) return FilterNodeKind.NOT;
+		if (obj.has("component")) return obj.has("path") ? FilterNodeKind.COMPONENT_PATH : FilterNodeKind.HAS_COMPONENT;
+		if (obj.has("stack")) return FilterNodeKind.EXACT_STACK;
+		if (obj.has("block_tag")) return FilterNodeKind.BLOCK_TAG;
+		if (obj.has("item_path_starts_with")) return FilterNodeKind.ITEM_PATH_STARTS_WITH;
+		if (obj.has("item_path_contains")) return FilterNodeKind.ITEM_PATH_CONTAINS;
+		if (obj.has("item_path_ends_with")) return FilterNodeKind.ITEM_PATH_ENDS_WITH;
+		if (obj.has("id")) return FilterNodeKind.ID;
+		if (obj.has("tag")) return FilterNodeKind.TAG;
+		if (obj.has("namespace")) return FilterNodeKind.NAMESPACE;
+		return FilterNodeKind.UNKNOWN;
+	}
+
+	private static String recognizedKind(JsonObject obj, FilterNodeKind kind) {
+		if (kind != FilterNodeKind.UNKNOWN) {
+			return kind.name().toLowerCase(java.util.Locale.ROOT);
+		}
+		for (String key : obj.keySet()) {
+			if (!"type".equals(key)) return key;
+		}
+		return "unknown";
+	}
+
+	private static boolean deleteIfGroupIdMatches(Path path, String id, AtomicInteger deletedCount) {
+		boolean matches;
 		try {
 			String json = Files.readString(path, StandardCharsets.UTF_8);
 			JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
-			if (obj.has("id") && id.equals(obj.get("id").getAsString())) {
-				if (Files.deleteIfExists(path)) {
-					deletedCount.incrementAndGet();
-					Constants.LOG.debug("Deleted matching group file for '{}': {}", id, path);
-				}
-			}
+			matches = obj.has("id") && id.equals(obj.get("id").getAsString());
 		} catch (Exception e) {
 			Constants.LOG.warn("Failed to inspect group file '{}' during delete cleanup: {}", path, e.getMessage());
+			return true;
+		}
+		if (!matches) return true;
+		try {
+			if (Files.deleteIfExists(path)) {
+				deletedCount.incrementAndGet();
+				Constants.LOG.debug("Deleted matching group file for '{}': {}", id, path);
+			}
+			return true;
+		} catch (IOException e) {
+			Constants.LOG.error("Failed to delete matching group file for '{}': {}", id, path, e);
+			return false;
 		}
 	}
 
-	private static void writeAtomically(Path targetFile, String json) throws IOException {
+	static void writeAtomically(Path targetFile, String json) throws IOException {
 		Path parent = targetFile.getParent();
 		Path tempFile = parent.resolve(targetFile.getFileName().toString() + ".tmp");
 		try {
@@ -688,11 +848,20 @@ public final class GroupConfig {
 		List<GroupIconDefinition> iconIds,
 		GroupTheme theme,
 		int priority,
-		JsonObject extra
+		JsonObject extra, GroupDocumentFormat documentFormat, JsonObject rawDocument
 	) {}
 
 	public record UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed,
-	                      String managerSourceFilter, String managerSortMode) {
+	                      String managerSourceFilter, String managerSortMode, boolean managerShowEmpty, String managerCategoryFilter, boolean managerSidebarOpen) {
+        public UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String source, String sort, boolean showEmpty, String category) {
+            this(showBuiltin, showKubeJs, hideUsed, source, sort, showEmpty, category, true);
+        }
+		public UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String source, String sort) {
+			this(showBuiltin, showKubeJs, hideUsed, source, sort, false, "all");
+		}
+        public UiState(boolean showBuiltin, boolean showKubeJs, boolean hideUsed, String source, String sort, boolean showEmpty) {
+            this(showBuiltin, showKubeJs, hideUsed, source, sort, showEmpty, "all");
+        }
 		public static final String SOURCE_FILTER_DEFAULT = "all";
 		public static final String SORT_MODE_DEFAULT = "priority";
 	}

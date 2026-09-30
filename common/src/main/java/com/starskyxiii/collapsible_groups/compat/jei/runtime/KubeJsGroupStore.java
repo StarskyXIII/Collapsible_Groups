@@ -1,8 +1,8 @@
 package com.starskyxiii.collapsible_groups.compat.jei.runtime;
 
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
+import com.starskyxiii.collapsible_groups.group.ScriptedGroupStore;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
@@ -17,50 +17,31 @@ final class KubeJsGroupStore {
 
 	private KubeJsGroupStore() {}
 
-	private static volatile List<GroupDefinition> groups = List.of();
-	private static volatile boolean applied = false;
-
 	static void setGroups(List<GroupDefinition> incoming) {
-		groups = List.copyOf(incoming);
+		ScriptedGroupStore.publish(incoming);
 	}
 
 	static boolean updateGroup(String id, UnaryOperator<GroupDefinition> updater) {
-		if (id == null || id.isBlank()) return false;
-		List<GroupDefinition> snapshot = groups;
-		List<GroupDefinition> updated = new ArrayList<>(snapshot.size());
-		boolean changed = false;
-		for (GroupDefinition group : snapshot) {
-			if (id.equals(group.id())) {
-				GroupDefinition next = updater.apply(group);
-				updated.add(next);
-				changed = true;
-			} else {
-				updated.add(group);
-			}
-		}
-		if (!changed) return false;
-		groups = List.copyOf(updated);
-		return true;
+		return ScriptedGroupStore.update(id, updater);
 	}
 
 	static List<GroupDefinition> getGroups() {
-		return groups;
+		return ScriptedGroupStore.groups();
 	}
 
 	static boolean isGroupsEmpty() {
-		return groups.isEmpty();
+		return ScriptedGroupStore.isEmpty();
 	}
 
 	static boolean isApplied() {
-		return applied;
+		return ScriptedGroupStore.isApplied();
 	}
 
 	static void markApplied() {
-		applied = true;
+		ScriptedGroupStore.markApplied();
 	}
 
 	static void clearAll() {
-		groups  = List.of();
-		applied = false;
+		ScriptedGroupStore.invalidate();
 	}
 }

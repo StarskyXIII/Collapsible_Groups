@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_apotheosis_potion_charm",
+  "name": {
+    "translate": "collapsible_groups.group.__default_apotheosis_potion_charm",
+    "fallback": "Potion Charms"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "id": "apotheosis:potion_charm"
+  }
+}

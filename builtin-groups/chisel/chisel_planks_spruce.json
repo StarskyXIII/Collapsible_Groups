@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_planks_spruce",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_planks_spruce",
+    "fallback": "Chisel: Spruce Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/planks_spruce"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

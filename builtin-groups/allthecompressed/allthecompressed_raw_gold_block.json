@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_raw_gold_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_raw_gold_block",
+    "fallback": "Compressed Block of Raw Gold"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:raw_gold_block_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:raw_gold_block_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:raw_gold_block_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:raw_gold_block_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:raw_gold_block_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:raw_gold_block_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:raw_gold_block_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:raw_gold_block_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:raw_gold_block_9x"
+      }
+    ]
+  }
+}

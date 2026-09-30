@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_blackstone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_blackstone",
+    "fallback": "Rechiseled: Blackstone"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:blackstone"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_double_wires",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_double_wires",
+    "fallback": "GregTech: 2x Wires"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "_double_wire"
+      }
+    ]
+  }
+}

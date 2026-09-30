@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_fences_cheval_de_frise",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_fences_cheval_de_frise",
+    "fallback": "Macaw's Fences: Cheval De Frise"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwfences:cheval_de_frise"
+  }
+}

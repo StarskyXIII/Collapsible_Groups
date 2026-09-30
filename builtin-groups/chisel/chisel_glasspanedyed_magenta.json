@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_glasspanedyed_magenta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_glasspanedyed_magenta",
+    "fallback": "Chisel: Magenta Dyed Glass Pane"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/glasspanedyed_magenta"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

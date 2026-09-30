@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_concrete_lime",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_concrete_lime",
+    "fallback": "Chisel: Lime Concrete"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/concrete_lime"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

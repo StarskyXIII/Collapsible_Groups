@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_dark_oak_leaves",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_dark_oak_leaves",
+    "fallback": "Chipped: Dark Oak Leaves"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:dark_oak_leaves"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

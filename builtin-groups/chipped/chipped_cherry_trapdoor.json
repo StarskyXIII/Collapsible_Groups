@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_cherry_trapdoor",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_cherry_trapdoor",
+    "fallback": "Chipped: Cherry Trapdoor"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:cherry_trapdoor"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

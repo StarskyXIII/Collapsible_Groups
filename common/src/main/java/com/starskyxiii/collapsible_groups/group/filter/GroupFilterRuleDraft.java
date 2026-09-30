@@ -1,6 +1,8 @@
 package com.starskyxiii.collapsible_groups.group.filter;
 
 import org.jetbrains.annotations.Nullable;
+import com.starskyxiii.collapsible_groups.group.GroupDocumentFormat;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,40 +18,44 @@ import java.util.Optional;
  */
 public final class GroupFilterRuleDraft {
 	public enum NodeKind {
-		ANY(true, 1, Integer.MAX_VALUE),
-		ALL(true, 1, Integer.MAX_VALUE),
-		NOT(true, 0, 1),
-		ID(false, 0, 0),
-		TAG(false, 0, 0),
-		BLOCK_TAG(false, 0, 0),
-		ITEM_PATH_STARTS_WITH(false, 0, 0),
-		ITEM_PATH_CONTAINS(false, 0, 0),
-		ITEM_PATH_ENDS_WITH(false, 0, 0),
-		NAMESPACE(false, 0, 0),
-		EXACT_STACK(false, 0, 0),
-		HAS_COMPONENT(false, 0, 0),
-		COMPONENT_PATH(false, 0, 0);
+		ANY(FilterNodeKind.ANY),
+		ALL(FilterNodeKind.ALL),
+		NOT(FilterNodeKind.NOT),
+		ID(FilterNodeKind.ID),
+		TAG(FilterNodeKind.TAG),
+		BLOCK_TAG(FilterNodeKind.BLOCK_TAG),
+		ITEM_PATH_STARTS_WITH(FilterNodeKind.ITEM_PATH_STARTS_WITH),
+		ITEM_PATH_CONTAINS(FilterNodeKind.ITEM_PATH_CONTAINS),
+		ITEM_PATH_ENDS_WITH(FilterNodeKind.ITEM_PATH_ENDS_WITH),
+		NAMESPACE(FilterNodeKind.NAMESPACE),
+		EXACT_STACK(FilterNodeKind.EXACT_STACK),
+		HAS_COMPONENT(FilterNodeKind.HAS_COMPONENT),
+		COMPONENT_PATH(FilterNodeKind.COMPONENT_PATH);
 
-		private final boolean compound;
-		private final int minChildren;
-		private final int maxChildren;
+		private final FilterNodeKind filterKind;
 
-		NodeKind(boolean compound, int minChildren, int maxChildren) {
-			this.compound = compound;
-			this.minChildren = minChildren;
-			this.maxChildren = maxChildren;
+		NodeKind(FilterNodeKind filterKind) {
+			this.filterKind = filterKind;
+		}
+
+		public FilterNodeKind filterKind() {
+			return filterKind;
 		}
 
 		public boolean compound() {
-			return compound;
+			return descriptor().compound();
 		}
 
 		public int minChildren() {
-			return minChildren;
+			return descriptor().draftMinChildren();
 		}
 
 		public int maxChildren() {
-			return maxChildren;
+			return descriptor().maxChildren();
+		}
+
+		private RuleDescriptor descriptor() {
+			return RuleDescriptor.forKind(filterKind);
 		}
 	}
 
@@ -61,10 +67,31 @@ public final class GroupFilterRuleDraft {
 		private String primaryValue = "";
 		private String secondaryValue = "";
 		private String tertiaryValue = "";
+        private boolean typedData;
 
 		private Node(NodeKind kind) {
 			this.kind = Objects.requireNonNull(kind, "kind");
 		}
+
+        public boolean typedData() { return typedData; }
+
+        public boolean hasValidDataLiteral() {
+            if (!typedData) return true;
+            String literal = switch (kind) {
+                case EXACT_STACK -> primaryValue;
+                case HAS_COMPONENT -> secondaryValue;
+                case COMPONENT_PATH -> tertiaryValue;
+                default -> null;
+            };
+            if (literal == null) return true;
+            try {
+                com.google.gson.JsonElement parsed = ItemDataPayload.parseLiteral(literal);
+                return kind != NodeKind.EXACT_STACK || parsed.isJsonObject();
+            } catch (IllegalArgumentException invalid) {
+                return false;
+            }
+        }
+
 
 		public NodeKind kind() {
 			return kind;
@@ -127,15 +154,31 @@ public final class GroupFilterRuleDraft {
 	public record FlatNode(Node node, int depth) {}
 
 	private Node root;
+    private GroupDocumentFormat documentFormat = GroupDocumentFormat.LEGACY;
 
 	public static GroupFilterRuleDraft empty() {
-		return new GroupFilterRuleDraft();
-	}
+        return empty(GroupDocumentFormat.LEGACY);
+    }
+
+    public static GroupFilterRuleDraft empty(GroupDocumentFormat format) {
+        GroupFilterRuleDraft draft = new GroupFilterRuleDraft();
+        draft.documentFormat = format;
+        return draft;
+    }
 
 	public static GroupFilterRuleDraft decode(@Nullable GroupFilter filter) {
-		GroupFilterRuleDraft draft = new GroupFilterRuleDraft();
+        return decode(filter, GroupDocumentFormat.LEGACY);
+    }
+
+    public static GroupFilterRuleDraft decode(@Nullable GroupFilter filter, GroupDocumentFormat format) {
+        GroupFilterRuleDraft draft = empty(format);
 		if (filter != null) {
+            if (FilterNodeCapabilities.containsUnavailable(filter)) {
+                throw new IllegalArgumentException("Unavailable filter nodes cannot be decoded into an editable rule draft");
+            }
 			draft.root = decodeNode(GroupFilterNormalizer.normalize(filter));
+            if (format == GroupDocumentFormat.V1) draft.flatten().stream()
+                .map(FlatNode::node).filter(node -> node.kind == NodeKind.EXACT_STACK).forEach(node -> node.typedData = true);
 		}
 		return draft;
 	}
@@ -155,10 +198,82 @@ public final class GroupFilterRuleDraft {
 	public void replaceWith(GroupFilterRuleDraft other) {
 		Objects.requireNonNull(other, "other");
 		root = other.root == null ? null : copyNode(other.root, null);
+        documentFormat = other.documentFormat;
+	}
+
+	public GroupFilterRuleDraft copy() {
+		GroupFilterRuleDraft copy = new GroupFilterRuleDraft();
+		copy.root = root == null ? null : copyNode(root, null);
+        copy.documentFormat = documentFormat;
+		return copy;
+	}
+
+	public boolean contentEquals(GroupFilterRuleDraft other) {
+		return other != null && documentFormat == other.documentFormat && nodesEqual(root, other.root);
+	}
+
+	public Optional<List<Integer>> pathOf(@Nullable Node node) {
+		if (node == null) {
+			return Optional.empty();
+		}
+		List<Integer> reversed = new ArrayList<>();
+		Node current = node;
+		while (current.parent != null) {
+			int index = current.parent.children.indexOf(current);
+			if (index < 0) {
+				return Optional.empty();
+			}
+			reversed.add(index);
+			current = current.parent;
+		}
+		if (current != root) {
+			return Optional.empty();
+		}
+		List<Integer> path = new ArrayList<>(reversed.size());
+		for (int i = reversed.size() - 1; i >= 0; i--) {
+			path.add(reversed.get(i));
+		}
+		return Optional.of(List.copyOf(path));
+	}
+
+	public @Nullable Node nodeAtPath(List<Integer> path) {
+		Objects.requireNonNull(path, "path");
+		Node current = root;
+		for (int index : path) {
+			if (current == null || index < 0 || index >= current.children.size()) {
+				return null;
+			}
+			current = current.children.get(index);
+		}
+		return current;
 	}
 
 	public Node createNode(NodeKind kind) {
-		return new Node(kind);
+		Node node = new Node(kind);
+        node.typedData = documentFormat == GroupDocumentFormat.V1;
+        return node;
+	}
+
+	private static boolean nodesEqual(@Nullable Node left, @Nullable Node right) {
+		if (left == right) {
+			return true;
+		}
+		if (left == null || right == null
+			|| left.kind != right.kind
+            || left.typedData != right.typedData
+			|| !left.ingredientType.equals(right.ingredientType)
+			|| !left.primaryValue.equals(right.primaryValue)
+			|| !left.secondaryValue.equals(right.secondaryValue)
+			|| !left.tertiaryValue.equals(right.tertiaryValue)
+			|| left.children.size() != right.children.size()) {
+			return false;
+		}
+		for (int i = 0; i < left.children.size(); i++) {
+			if (!nodesEqual(left.children.get(i), right.children.get(i))) {
+				return false;
+			}
+		}
+		return true;
 	}
 
 	public Node setRoot(NodeKind kind) {
@@ -371,6 +486,7 @@ public final class GroupFilterRuleDraft {
 		copy.primaryValue = source.primaryValue;
 		copy.secondaryValue = source.secondaryValue;
 		copy.tertiaryValue = source.tertiaryValue;
+        copy.typedData = source.typedData;
 		for (Node child : source.children) {
 			copy.children.add(copyNode(child, copy));
 		}
@@ -435,12 +551,14 @@ public final class GroupFilterRuleDraft {
 			case GroupFilter.ExactStack exactStack -> {
 				Node node = new Node(NodeKind.EXACT_STACK);
 				node.primaryValue = exactStack.encodedStack();
+                node.typedData = exactStack.payload() != null;
 				yield node;
 			}
 			case GroupFilter.HasComponent hasComponent -> {
 				Node node = new Node(NodeKind.HAS_COMPONENT);
 				node.primaryValue = hasComponent.componentTypeId();
 				node.secondaryValue = hasComponent.encodedValue();
+                node.typedData = hasComponent.payload() != null;
 				yield node;
 			}
 			case GroupFilter.ComponentPath componentPath -> {
@@ -448,12 +566,17 @@ public final class GroupFilterRuleDraft {
 				node.primaryValue = componentPath.componentTypeId();
 				node.secondaryValue = componentPath.path();
 				node.tertiaryValue = componentPath.expectedValue();
+                node.typedData = componentPath.payload() != null;
 				yield node;
 			}
+			case GroupFilter.Unsupported unsupported -> throw new IllegalArgumentException(
+				"Unavailable filter nodes cannot be decoded into an editable rule draft: " + unsupported.recognizedKind()
+			);
 		};
 	}
 
 	private static @Nullable GroupFilter encodeNode(Node node) {
+        if (!node.hasValidDataLiteral()) return null;
 		return switch (node.kind) {
 			case ANY -> encodeCompound(node, true);
 			case ALL -> encodeCompound(node, false);
@@ -461,7 +584,7 @@ public final class GroupFilterRuleDraft {
 				if (node.children.size() != 1) {
 					yield null;
 				}
-				GroupFilter child = encodeNode(node.children.getFirst());
+				GroupFilter child = encodeNode(node.children.get(0));
 				yield child == null ? null : Filters.not(child);
 			}
 			case ID -> Filters.id(node.ingredientType, node.primaryValue);
@@ -471,9 +594,15 @@ public final class GroupFilterRuleDraft {
 			case ITEM_PATH_CONTAINS -> Filters.itemPathContains(node.primaryValue);
 			case ITEM_PATH_ENDS_WITH -> Filters.itemPathEndsWith(node.primaryValue);
 			case NAMESPACE -> Filters.namespace(node.ingredientType, node.primaryValue);
-			case EXACT_STACK -> Filters.exactStack(node.primaryValue);
-			case HAS_COMPONENT -> Filters.itemComponent(node.primaryValue, node.secondaryValue);
-			case COMPONENT_PATH -> Filters.itemComponentPath(node.primaryValue, node.secondaryValue, node.tertiaryValue);
+			case EXACT_STACK -> node.typedData
+                ? new GroupFilter.ExactStack(new ItemDataPayload(ItemDataPayload.ITEM_COMPONENTS, ItemDataPayload.parseLiteral(node.primaryValue)))
+                : Filters.exactStack(node.primaryValue);
+			case HAS_COMPONENT -> node.typedData
+                ? new GroupFilter.HasComponent(node.primaryValue, new ItemDataPayload(ItemDataPayload.DATA_COMPONENT, ItemDataPayload.parseLiteral(node.secondaryValue)))
+                : Filters.itemComponent(node.primaryValue, node.secondaryValue);
+			case COMPONENT_PATH -> node.typedData
+                ? new GroupFilter.ComponentPath(node.primaryValue, node.secondaryValue, new ItemDataPayload(ItemDataPayload.DATA_COMPONENT, ItemDataPayload.parseLiteral(node.tertiaryValue)))
+                : Filters.itemComponentPath(node.primaryValue, node.secondaryValue, node.tertiaryValue);
 		};
 	}
 

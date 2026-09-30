@@ -113,15 +113,15 @@ class ItemPathEditorDraftTest {
 			GroupFilterClauseFormatter.format(new GroupFilter.ItemPathContains("_beam_"));
 
 		assertEquals(1, startsWithClauses.size());
-		assertEquals("Item Path Starts With", startsWithClauses.getFirst().label());
-		assertEquals("gutter_", startsWithClauses.getFirst().value());
+		assertEquals("Item Path Starts With", startsWithClauses.get(0).label());
+		assertEquals("gutter_", startsWithClauses.get(0).value());
 
 		assertEquals(1, endsWithClauses.size());
-		assertEquals("Item Path Ends With", endsWithClauses.getFirst().label());
-		assertEquals("_chair", endsWithClauses.getFirst().value());
+		assertEquals("Item Path Ends With", endsWithClauses.get(0).label());
+		assertEquals("_chair", endsWithClauses.get(0).value());
 
 		assertEquals(1, containsClauses.size());
-		assertEquals("Item Path Contains", containsClauses.getFirst().label());
-		assertEquals("_beam_", containsClauses.getFirst().value());
+		assertEquals("Item Path Contains", containsClauses.get(0).label());
+		assertEquals("_beam_", containsClauses.get(0).value());
 	}
 }

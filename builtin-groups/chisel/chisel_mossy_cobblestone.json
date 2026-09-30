@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_mossy_cobblestone",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_mossy_cobblestone",
+    "fallback": "Chisel: Mossy Cobblestone"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/mossy_cobblestone"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

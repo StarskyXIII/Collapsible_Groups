@@ -1,39 +1,36 @@
 package com.starskyxiii.collapsible_groups.client.editor;
 
+import com.starskyxiii.collapsible_groups.group.filter.Filters;
+
+import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientView;
+import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientView;
+import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeAccess;
+import com.starskyxiii.collapsible_groups.client.editor.EditorRuntimeServices;
 import com.starskyxiii.collapsible_groups.client.manager.model.GroupUiState;
-import com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef;
 import com.starskyxiii.collapsible_groups.client.manager.GroupManagerParent;
 import com.starskyxiii.collapsible_groups.client.editor.model.AppearanceDraft;
 import com.starskyxiii.collapsible_groups.client.editor.model.EditorContentFilter;
 import com.starskyxiii.collapsible_groups.client.preview.model.EditorPreviewSummary;
 import com.starskyxiii.collapsible_groups.client.editor.model.EditorShellMode;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewEntry;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.GroupPreviewTooltip;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.EditorItemUniverseProvider;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
 import com.starskyxiii.collapsible_groups.client.widget.EditorChrome;
 import com.starskyxiii.collapsible_groups.client.widget.EditorLayout;
-import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupSampleRenderer;
 import com.starskyxiii.collapsible_groups.client.widget.ConfirmDialog;
+import com.starskyxiii.collapsible_groups.client.widget.CommandPress;
 import com.starskyxiii.collapsible_groups.client.widget.EditorShellLayout;
-import com.starskyxiii.collapsible_groups.compat.jei.ui.OreUiEditBoxStyle;
 import com.starskyxiii.collapsible_groups.client.widget.UiPalette;
 import com.starskyxiii.collapsible_groups.client.widget.UiSkinRenderer;
+import com.starskyxiii.collapsible_groups.client.widget.SwitchHoverState;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.client.manager.model.SavedGroupContext;
 import com.starskyxiii.collapsible_groups.group.GroupThemeColors;
-import com.starskyxiii.collapsible_groups.ingredient.ItemUniverseProvider;
 import com.starskyxiii.collapsible_groups.i18n.ModTranslationKeys;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiGraphicsExtractor;
-import net.minecraft.client.gui.components.EditBox;
+import com.starskyxiii.collapsible_groups.client.widget.CompatEditBox;
 import net.minecraft.client.gui.components.Renderable;
 import net.minecraft.client.gui.screens.Screen;
-import net.minecraft.client.input.CharacterEvent;
-import net.minecraft.client.input.KeyEvent;
-import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.core.registries.BuiltInRegistries;
 import net.minecraft.locale.Language;
 import net.minecraft.network.chat.Component;
@@ -48,7 +45,8 @@ import org.lwjgl.glfw.GLFW;
 import java.util.List;
 import java.util.Optional;
 
-public class GroupEditorScreen extends Screen {
+public class GroupEditorScreen extends com.starskyxiii.collapsible_groups.client.widget.CompatScreen {
+    private final CommandPress<ConfirmDialog.Action> dialogPress = new CommandPress<>();
 	private static final int ERROR_TEXT_COLOR = 0xFFFF6B5F;
 	private static final int READY_TEXT_COLOR = 0xFF7FB95A;
 	private static final int UNRESOLVED_TEXT_COLOR = 0xFFE88A82;
@@ -72,7 +70,6 @@ public class GroupEditorScreen extends Screen {
 	private final GroupManagerParent parent;
 	private final SavedGroupContext.SaveKind saveKind;
 	private final GroupEditorState state;
-	private final ItemUniverseProvider itemUniverseProvider = EditorItemUniverseProvider.INSTANCE;
 	private final EditorItemSearchSession itemSearchSession = new EditorItemSearchSession();
 	private List<ItemStack> editorItemUniverse = List.of();
 	private final Component nameFieldHint = Component.translatable(ModTranslationKeys.EDITOR_NAME_HINT);
@@ -84,8 +81,8 @@ public class GroupEditorScreen extends Screen {
 	private EditorRightPanel rightPanel;
 	private EditorRulesPanel rulesPanel;
 	private EditorSettingsPanel settingsPanel;
-	private EditBox nameField;
-	private EditBox searchField;
+	private CompatEditBox nameField;
+	private CompatEditBox searchField;
 
 	private EditorShellMode activeMode = EditorShellMode.CONTENTS;
 	private EditorContentFilter activeContentFilter = EditorContentFilter.ITEMS;
@@ -100,6 +97,9 @@ public class GroupEditorScreen extends Screen {
 	private EditorShellMode heldMode = null;
 	private EditorContentFilter heldContentFilter = null;
 	private boolean hideUsedHeld = false;
+    private static final String HIDE_USED_SWITCH = "hide_used";
+    private final SwitchHoverState<String> hideUsedHover = new SwitchHoverState<>();
+    private final SwitchHoverState<String> settingsSwitchHover = new SwitchHoverState<>();
 	private boolean discardDialogOpen = false;
 	private boolean settingsPreviewExpanded = true;
 	private int settingsPreviewPage = 0;
@@ -150,7 +150,7 @@ public class GroupEditorScreen extends Screen {
 	@Nullable
 	private static String sourceDisplayName(@Nullable String sourceGroupId) {
 		if (sourceGroupId == null || sourceGroupId.isBlank()) return null;
-		return GroupRegistry.findById(sourceGroupId)
+		return EditorRuntimeServices.groups().findGroup(sourceGroupId)
 			.map(group -> group.displayName().resolveClientDisplayText())
 			.filter(name -> !name.isBlank())
 			.orElse(null);
@@ -158,22 +158,27 @@ public class GroupEditorScreen extends Screen {
 
 	@Override
 	protected void init() {
+		clearHeldControls();
+		if (rulesPanel != null) rulesPanel.onDeactivate();
+		if (settingsPanel != null) settingsPanel.onDeactivate();
+		editorItemUniverse = List.of();
+		itemSearchSession.clear();
+		state.itemSelection.clearCache();
+		previewCache.clear();
+		EditorRuntimeServices.get().closeEditor();
 		int loadGeneration = ++editorLoadGeneration;
 		shell = computeShellLayout();
 		layout = shell.panelLayout();
 		leftPanel = new EditorLeftPanel(state, this::onGroupChanged, itemSearchSession);
 		rightPanel = new EditorRightPanel(state, this::onGroupChanged);
 		rulesPanel = new EditorRulesPanel(state, font, this::onGroupChanged, this::editorItems, itemSearchSession);
+		rulesPanel.setDirtyGate(() -> dirty, value -> dirty = value);
 		settingsPanel = new EditorSettingsPanel(state, font, this::onGroupChanged,
-			this::settingsPreviewEntries);
+			this::settingsPreviewEntries, settingsSwitchHover);
 		settingsPanel.setDirtyGate(() -> dirty, value -> dirty = value);
 
-		List<EditorFluidIngredientView> allFluids = EditorRuntimeServices.get().allFluids(
-			"EditorLeftPanel.buildFluidViews");
-		List<EditorGenericIngredientView> allGenericIngredients =
-			EditorRuntimeServices.get().allGenericIngredients("EditorLeftPanel.buildGenericViews");
-		hasGenericIngredients = !allGenericIngredients.isEmpty();
-		leftPanel.init(editorItems(), allFluids, allGenericIngredients);
+		editorDataLoading = true;
+		leftPanel.init(List.of(), List.of(), List.of());
 		leftPanel.setHideUsed(GroupUiState.hideUsed());
 		initFields();
 		initRulesPanel();
@@ -183,12 +188,22 @@ public class GroupEditorScreen extends Screen {
 		rightPanel.clampScroll(previewLayout());
 		updateWidgetVisibility();
 		GroupDefinition entryDefinition = state.buildPreviewDefinition();
-		EditorRuntimeServices.get().prepareEditorEntry(entryDefinition).whenComplete((ignored, error) ->
-			minecraft.execute(() -> finishEditorEntryLoad(loadGeneration, error)));
+		var runtime = EditorRuntimeServices.get();
+		long revision = previewRevision;
+		runtime.prepareEditorEntry(entryDefinition).whenComplete((ignored, error) -> {
+			Object generation = runtime.previewGeneration();
+			minecraft.execute(() -> finishEditorEntryLoad(loadGeneration, revision, runtime, generation, error));
+		});
 	}
 
-	private void finishEditorEntryLoad(int loadGeneration, Throwable error) {
-		if (loadGeneration != editorLoadGeneration || minecraft.screen != this) return;
+	private void finishEditorEntryLoad(int loadGeneration, long revision, EditorRuntimeAccess runtime,
+		Object generation, Throwable error) {
+		if (!minecraft.isRunning() || loadGeneration != editorLoadGeneration || minecraft.screen != this) return;
+		if (runtime != EditorRuntimeServices.find().orElse(null) || generation == null || generation != runtime.previewGeneration()) {
+			editorDataLoading = false;
+			editorPreviewGeneration = new Object();
+			return;
+		}
 		if (error != null) {
 			editorDataLoading = false;
 			return;
@@ -199,15 +214,18 @@ public class GroupEditorScreen extends Screen {
 			"EditorLeftPanel.buildGenericViews");
 		hasGenericIngredients = !allGenericIngredients.isEmpty();
 		leftPanel.init(editorItems(), allFluids, allGenericIngredients);
-		rightPanel.rebuildFromPreparedCache();
+		if (revision != previewRevision || !rightPanel.rebuildFromPreparedCache()) rightPanel.rebuild();
 		applyContentFilter(activeContentFilter);
 		leftPanel.clampScroll(layout);
 		rightPanel.clampScroll(previewLayout());
 		editorDataLoading = false;
+		clearHeldControls();
+		editorPreviewGeneration = generation;
+		previewRuntime = runtime;
 	}
 
 	private List<ItemStack> editorItems() {
-		if (editorItemUniverse.isEmpty()) editorItemUniverse = List.copyOf(itemUniverseProvider.allStacks());
+		if (editorItemUniverse.isEmpty()) editorItemUniverse = EditorRuntimeServices.get().allItems();
 		return editorItemUniverse;
 	}
 
@@ -226,13 +244,13 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private void initFields() {
-		nameField = new EditBox(font, 0, 0, 1, font.lineHeight,
+		nameField = new CompatEditBox(font, 0, 0, 1, font.lineHeight,
 			Component.translatable(ModTranslationKeys.EDITOR_NAME_LABEL));
 		nameField.setMaxLength(64);
 		nameField.setBordered(false);
 		nameField.setTextColor(UiPalette.TEXT_PRIMARY);
 		nameField.setTextColorUneditable(UiPalette.TEXT_DISABLED);
-		nameField.setHint(OreUiEditBoxStyle.hint(nameFieldHint));
+		nameField.setHint(nameFieldHint);
 		positionField(nameField, shell.nameField());
 		nameField.setValue(state.editName);
 		nameField.setResponder(value -> {
@@ -242,13 +260,13 @@ public class GroupEditorScreen extends Screen {
 		});
 		addRenderableWidget(nameField);
 
-		searchField = new EditBox(font, 0, 0, 1, font.lineHeight,
+		searchField = new CompatEditBox(font, 0, 0, 1, font.lineHeight,
 			Component.translatable(ModTranslationKeys.EDITOR_SEARCH_LABEL));
 		searchField.setMaxLength(128);
 		searchField.setBordered(false);
 		searchField.setTextColor(UiPalette.TEXT_PRIMARY);
 		searchField.setTextColorUneditable(UiPalette.TEXT_DISABLED);
-		searchField.setHint(OreUiEditBoxStyle.hint(searchFieldHint));
+		searchField.setHint(searchFieldHint);
 		searchField.setResponder(value -> {
 			leftPanel.rebuildFilter(value);
 			leftPanel.clampScroll(layout);
@@ -277,7 +295,7 @@ public class GroupEditorScreen extends Screen {
 		if (activeMode == EditorShellMode.LOOK) settingsPanel.onActivate();
 	}
 
-	private void positionField(EditBox field, EditorShellLayout.Rect rect) {
+	private void positionField(CompatEditBox field, EditorShellLayout.Rect rect) {
 		field.setPosition(rect.x() + 5, UiSkinRenderer.textFieldTextY(font, rect.y(), rect.height()) + 1);
 		field.setWidth(Math.max(1, rect.width() - 10));
 	}
@@ -292,8 +310,28 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
+	public void removed() {
+		clearHeldControls();
+		previewCache.clear();
+		itemSearchSession.clear();
+		state.itemSelection.clearCache();
+		if (previewRuntime != null) previewRuntime.closeEditor();
+		EditorRuntimeServices.find().filter(runtime -> runtime != previewRuntime)
+			.ifPresent(EditorRuntimeAccess::closeEditor);
+		previewRuntime = null;
+		super.removed();
+	}
+
+	@Override
 	public boolean isPauseScreen() {
 		return false;
+	}
+
+	@Override
+	public void tick() {
+		super.tick();
+		if (!minecraft.isRunning()) return;
+		if (rulesPanel != null) rulesPanel.tick();
 	}
 
 	@Override
@@ -302,7 +340,21 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
+
 	public void extractRenderState(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
+		if (!minecraft.isRunning()) return;
+		var frame = performanceTrace.beginFrame(activeMode.name(), rightPanel.groupItems().size(),
+			minecraft.isWindowActive());
+		try {
+			renderEditor(g, mouseX, mouseY, partialTicks);
+		} finally {
+			performanceTrace.endFrame(frame);
+		}
+	}
+
+	private void renderEditor(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
+		refreshPreviewGeneration();
+        updateSwitchHover(mouseX, mouseY);
 		extractBackground(g, mouseX, mouseY, partialTicks);
 		UiSkinRenderer.drawScreenBars(g, this.width, this.height,
 			EditorShellLayout.HEADER_HEIGHT, EditorShellLayout.FOOTER_HEIGHT);
@@ -395,16 +447,7 @@ public class GroupEditorScreen extends Screen {
 		if (!showDisableSourceOption() || checkbox == null || label == null) return;
 
 		boolean hovered = disableSourceOptionContains(mouseX, mouseY);
-		g.fill(checkbox.x(), checkbox.y(), checkbox.right(), checkbox.bottom(), UiPalette.OUTLINE_DARK);
-		g.fill(checkbox.x() + 2, checkbox.y() + 2, checkbox.right() - 2, checkbox.bottom() - 2,
-			disableSourceAfterCopy ? UiPalette.OUTLINE_SELECTED : UiPalette.SURFACE_DARK);
-		if (hovered) {
-			UiSkinRenderer.drawOutline(g, checkbox.x(), checkbox.y(), checkbox.width(), checkbox.height(),
-				UiPalette.OUTLINE_HOVER);
-		}
-		if (disableSourceAfterCopy) {
-			renderCheckboxMark(g, checkbox);
-		}
+		UiSkinRenderer.drawCheckbox(g, checkbox.x(), checkbox.y(), disableSourceAfterCopy, hovered);
 
 		String text = disableSourceLabel().getString();
 		String clipped = font.plainSubstrByWidth(text, Math.max(0, label.width()));
@@ -421,15 +464,7 @@ public class GroupEditorScreen extends Screen {
 		return true;
 	}
 
-	private void renderCheckboxMark(GuiGraphicsExtractor g, EditorShellLayout.Rect checkbox) {
-		int color = UiPalette.TEXT_SELECTED;
-		int x = checkbox.x();
-		int y = checkbox.y();
-		g.fill(x + 3, y + 7, x + 5, y + 9, color);
-		g.fill(x + 5, y + 9, x + 7, y + 11, color);
-		g.fill(x + 7, y + 6, x + 9, y + 9, color);
-		g.fill(x + 9, y + 4, x + 11, y + 7, color);
-	}
+
 
 	private void renderShellPanels(GuiGraphicsExtractor g, int mouseX, int mouseY, float partialTicks) {
 		UiSkinRenderer.drawPanel(g, shell.editorPanel().x(), shell.editorPanel().y(),
@@ -445,13 +480,12 @@ public class GroupEditorScreen extends Screen {
 			renderSettingsPanel(g, mouseX, mouseY);
 		}
 		renderPreviewPanel(g, mouseX, mouseY);
-		if (editorDataLoading) {
-			Component loading = Component.translatable(ModTranslationKeys.EDITOR_LOADING);
-			int centerX = (shell.editorPanel().x() + shell.previewPanel().right()) / 2;
-			g.text(font, loading, centerX - font.width(loading) / 2,
-				shell.editorPanel().y() + shell.editorPanel().height() / 2,
-				UiPalette.TEXT_HINT, false);
-		}
+	}
+
+	private void renderLoading(GuiGraphicsExtractor g, EditorShellLayout.Rect area) {
+		g.centeredText(font, Component.translatable(ModTranslationKeys.EDITOR_LOADING),
+			area.x() + area.width() / 2, area.y() + (area.height() - font.lineHeight) / 2,
+			UiPalette.TEXT_HINT);
 	}
 
 	private void renderModeSegments(GuiGraphicsExtractor g, int mouseX, int mouseY) {
@@ -471,7 +505,12 @@ public class GroupEditorScreen extends Screen {
 		renderHideUsedButton(g, mouseX, mouseY);
 
 		renderSourceCount(g);
-		leftPanel.render(g, mouseX, mouseY, layout);
+		if (editorDataLoading) {
+			renderLoading(g, new EditorShellLayout.Rect(layout.leftGridX(), layout.gridTop(),
+				layout.leftGridWidth(), layout.gridHeight()));
+		} else {
+			leftPanel.render(g, mouseX, mouseY, layout);
+		}
 		renderOreScrollbar(g, layout.leftScrollbarX(), layout.gridTop(), layout.gridHeight(),
 			layout.leftRows(), leftPanel.totalRows(layout), leftPanel.scrollRow);
 	}
@@ -507,11 +546,11 @@ public class GroupEditorScreen extends Screen {
 
 	private void renderHideUsedButton(GuiGraphicsExtractor g, int mouseX, int mouseY) {
 		EditorShellLayout.Rect rect = shell.hideUsedButton();
-		boolean hovered = rect.contains(mouseX, mouseY);
+		boolean hovered = !discardDialogOpen && rect.contains(mouseX, mouseY) && hideUsedHover.allowsHover(HIDE_USED_SWITCH);
 		// boolean toggle uses a switch (matching the Manager enabled switch).
 		// drawSwitch centers a fixed-width visual inside the (wider) hit rect.
 		UiSkinRenderer.drawSwitch(g, rect.x(), rect.y(), rect.width(), rect.height(),
-			leftPanel.isHideUsed(), true, hovered, hideUsedHeld);
+			leftPanel.isHideUsed(), true, hovered);
 	}
 
 	private boolean isHideUsedHover(int mouseX, int mouseY) {
@@ -539,7 +578,7 @@ public class GroupEditorScreen extends Screen {
 		EditorShellLayout.Rect title = shell.contentTitle();
 		g.text(font, Component.translatable(ModTranslationKeys.ORE_EDITOR_MODE_SETTINGS),
 			title.x(), title.y(), UiPalette.TEXT_PRIMARY, false);
-		settingsPanel.render(g, mouseX, mouseY);
+		settingsPanel.render(g, mouseX, mouseY, !discardDialogOpen);
 	}
 
 	private void renderPreviewPanel(GuiGraphicsExtractor g, int mouseX, int mouseY) {
@@ -558,7 +597,9 @@ public class GroupEditorScreen extends Screen {
 		boolean blockPreviewHover = activeMode == EditorShellMode.RULES && rulesPanel.isModalOpen();
 		int panelMouseX = blockPreviewHover ? Integer.MIN_VALUE : mouseX;
 		int panelMouseY = blockPreviewHover ? Integer.MIN_VALUE : mouseY;
-		if (previewEntryCount() == 0) {
+		if (editorDataLoading && activeMode == EditorShellMode.RULES) {
+			renderLoading(g, shell.previewBody());
+		} else if (previewEntryCount() == 0) {
 			renderPreviewEmptyState(g);
 		} else {
 			rightPanel.render(g, panelMouseX, panelMouseY, previewLayout);
@@ -581,10 +622,15 @@ public class GroupEditorScreen extends Screen {
 		}
 
 		EditorShellLayout.Rect area = settingsPreviewAreaRect();
+		if (editorDataLoading) {
+			settingsPreviewLayout = null;
+			renderLoading(g, area);
+			return;
+		}
 		List<EditorRuntimeAccess.PreviewEntry> entries = settingsPreviewEntries();
 		settingsPreviewLayout = EditorRuntimeServices.get().renderPreview(g, sampleRect(area), settingsPreviewExpanded,
 			settingsPreviewPage, state.appearanceDraft, settingsSampleHeaderIcons(entries), entries,
-			font, sampleFallbacks());
+			font, sampleFallbacks(), mouseX, mouseY, pagePress.target() == null ? 0 : pagePress.target().direction());
 		settingsPreviewPage = settingsPreviewLayout.page();
 		recordSettingsPreviewHover(mouseX, mouseY);
 	}
@@ -625,11 +671,52 @@ public class GroupEditorScreen extends Screen {
 	/** Non-empty group items — same filter GroupSampleRenderer uses for child cells. */
 	/** Live-aligned preview entries for the collapsed header preview grid. */
 	private List<EditorRuntimeAccess.PreviewEntry> settingsPreviewEntries() {
-		List<EditorRuntimeAccess.PreviewEntry> entries = new java.util.ArrayList<>();
-		for (ItemStack stack : rightPanel.groupItems()) entries.add(EditorRuntimeAccess.PreviewEntry.item(stack));
-		for (var fluid : rightPanel.groupFluids()) entries.add(EditorRuntimeAccess.PreviewEntry.fluid(fluid));
-		for (var generic : rightPanel.groupGeneric()) entries.add(EditorRuntimeAccess.PreviewEntry.generic(generic));
-		return entries;
+		return rightPanel.previewEntries();
+	}
+
+	private final EditorPreviewCache previewCache = new EditorPreviewCache();
+	private final EditorPerformanceTrace performanceTrace = new EditorPerformanceTrace();
+	private record PageCommand(int direction, int page, Object generation) {}
+	private final CommandPress<PageCommand> pagePress = new CommandPress<>();
+	private boolean modalGesture;
+	private Object editorPreviewGeneration;
+	private EditorRuntimeAccess previewRuntime;
+	private long previewRevision;
+
+	private void refreshPreviewGeneration() {
+		var runtime = EditorRuntimeServices.get();
+		Object generation = runtime.previewGeneration();
+		if (editorDataLoading) return;
+		if (generation == editorPreviewGeneration && previewRuntime == runtime) return;
+		editorPreviewGeneration = generation;
+		if (previewRuntime != null && previewRuntime != runtime) previewRuntime.closeEditor();
+		previewRuntime = runtime;
+		previewCache.clear();
+		runtime.closeEditor();
+		editorItemUniverse = List.of();
+		itemSearchSession.clear();
+		state.itemSelection.clearCache();
+		leftPanel.init(List.of(), List.of(), List.of());
+		applyContentFilter(activeContentFilter);
+		rightPanel.clear();
+		if (generation == null) return;
+		var fluids = runtime.allFluids("EditorReload.fluids");
+		var generic = runtime.allGenericIngredients("EditorReload.generic");
+		hasGenericIngredients = !generic.isEmpty();
+		leftPanel.init(editorItems(), fluids, generic);
+		rightPanel.rebuild();
+		applyContentFilter(activeContentFilter);
+		rightPanel.clampScroll(previewLayout());
+	}
+
+	private void recordPreviewEntryTooltip(EditorRuntimeAccess.PreviewEntry entry) {
+		switch (entry.kind()) {
+			case ITEM -> previewHoverItem = (ItemStack) entry.value();
+			case FLUID -> previewHoverLines = EditorRuntimeServices.get()
+				.fluidTooltip((EditorFluidIngredientView) entry.value());
+			case GENERIC -> previewHoverLines = EditorRuntimeServices.get()
+				.genericTooltip((EditorGenericIngredientView) entry.value());
+		}
 	}
 
 	private EditorRuntimeAccess.PreviewRect sampleRect(EditorShellLayout.Rect area) {
@@ -652,7 +739,7 @@ public class GroupEditorScreen extends Screen {
 	private List<EditorRuntimeAccess.PreviewEntry> settingsSampleHeaderIcons(
 		List<EditorRuntimeAccess.PreviewEntry> fallbackEntries
 	) {
-		return EditorRuntimeServices.get().resolveHeaderIcons(
+		return previewCache.icons(EditorRuntimeServices.get(),
 			state.appearanceDraft.toIconIds(), fallbackEntries);
 	}
 
@@ -685,8 +772,7 @@ public class GroupEditorScreen extends Screen {
 		renderStackedEditorIcons(g, settingsSampleHeaderIcons(settingsPreviewEntries()), x, y);
 	}
 
-	private void renderStackedEditorIcons(GuiGraphicsExtractor g,
-		List<EditorRuntimeAccess.PreviewEntry> icons, int x, int y) {
+	private void renderStackedEditorIcons(GuiGraphicsExtractor g, List<EditorRuntimeAccess.PreviewEntry> icons, int x, int y) {
 		if (icons.isEmpty()) return;
 		g.pose().pushMatrix();
 		g.nextStratum();
@@ -699,25 +785,6 @@ public class GroupEditorScreen extends Screen {
 			renderPreviewEntry(g, icons.get(0), x + inset, y + inset);
 		}
 		g.pose().popMatrix();
-	}
-
-	private static void renderPreviewEntry(GuiGraphicsExtractor g,
-		EditorRuntimeAccess.PreviewEntry entry, int x, int y) {
-		switch (entry.kind()) {
-			case ITEM -> g.item((ItemStack) entry.value(), x, y);
-			case FLUID -> IngredientCellRenderer.renderFluid(g, (EditorFluidIngredientView) entry.value(), x, y);
-			case GENERIC -> IngredientCellRenderer.renderGeneric(g, (EditorGenericIngredientView) entry.value(), x, y);
-		}
-	}
-
-	private void recordPreviewEntryTooltip(EditorRuntimeAccess.PreviewEntry entry) {
-		switch (entry.kind()) {
-			case ITEM -> previewHoverItem = (ItemStack) entry.value();
-			case FLUID -> previewHoverLines = EditorRuntimeServices.get()
-				.fluidTooltip((EditorFluidIngredientView) entry.value());
-			case GENERIC -> previewHoverLines = EditorRuntimeServices.get()
-				.genericTooltip((EditorGenericIngredientView) entry.value());
-		}
 	}
 
 	private void renderCompactHeaderPreview(GuiGraphicsExtractor g, EditorShellLayout.Rect row) {
@@ -767,7 +834,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	/**
-	 * Settings-mode preview area: start just below the "JEI Preview" title
+	 * Settings-mode preview area: start just below the "Viewer Preview" title
 	 * and its operation hint, not the Contents/Rules 22px stacked-icon header the
 	 * shared {@code previewBody} bakes in — that offset left ~35px of dead space.
 	 */
@@ -808,10 +875,20 @@ public class GroupEditorScreen extends Screen {
 		}
 	}
 
+	private void renderPreviewEntry(GuiGraphicsExtractor g, EditorRuntimeAccess.PreviewEntry entry, int x, int y) {
+		switch (entry.kind()) {
+			case ITEM -> g.item((ItemStack) entry.value(), x, y);
+			case FLUID -> IngredientCellRenderer.renderFluid(
+				g, (EditorFluidIngredientView) entry.value(), x, y);
+			case GENERIC -> IngredientCellRenderer.renderGeneric(
+				g, (EditorGenericIngredientView) entry.value(), x, y);
+		}
+	}
+
 	private void renderFooter(GuiGraphicsExtractor g) {
 		int y = shell.footerStatus().y() + UiSkinRenderer.centeredTextY(font, 0, shell.footerStatus().height());
-		Component status = footerStatus();
 		int unresolvedCount = state.unresolvedRuleCount();
+		Component status = footerStatus(unresolvedCount);
 		int color = !state.canSave() ? ERROR_TEXT_COLOR
 			: unresolvedCount > 0 ? UNRESOLVED_TEXT_COLOR
 			: dirty ? READY_TEXT_COLOR : UiPalette.TEXT_HINT;
@@ -826,13 +903,12 @@ public class GroupEditorScreen extends Screen {
 			UiPalette.TEXT_HINT, false);
 	}
 
-	private Component footerStatus() {
+	private Component footerStatus(int unresolved) {
 		if (!state.canSave()) {
 			return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_SAVE_BLOCKED, saveDisabledReason().getString());
 		}
-		int unresolved = state.unresolvedRuleCount();
 		if (unresolved > 0) {
-			return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_UNRESOLVED, unresolved);
+			return Component.translatable(ModTranslationKeys.EDITOR_TAG_WARNING_COUNT, unresolved);
 		}
 		if (hasPendingSave()) return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_READY);
 		return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_CLEAN);
@@ -854,7 +930,7 @@ public class GroupEditorScreen extends Screen {
 			List.of(Component.translatable(ModTranslationKeys.ORE_EDITOR_DISCARD_DIALOG_BODY)),
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_DISCARD_DIALOG_CONFIRM),
 			Component.translatable(ModTranslationKeys.ORE_EDITOR_DISCARD_DIALOG_CANCEL),
-			mouseX, mouseY);
+			mouseX, mouseY, true, dialogPress.target());
 	}
 
 	private UiSkinRenderer.ButtonState buttonState(boolean active, boolean selected, boolean hovered, boolean held) {
@@ -875,10 +951,22 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
-		double mouseX = event.x();
-		double mouseY = event.y();
-		int button = event.button();
+	public boolean mouseClicked(double mouseX, double mouseY, int button) {
+		var click = performanceTrace.beginClick(activeMode.name(), rightPanel.groupItems().size());
+		try {
+			return handleEditorClick(mouseX, mouseY, button);
+		} finally {
+			performanceTrace.endClick(click);
+		}
+	}
+
+	private boolean handleEditorClick(double mouseX, double mouseY, int button) {
+        updateSwitchHover(mouseX, mouseY);
+		if (button == 0) {
+			clearHeldControls();
+			modalGesture = discardDialogOpen || activeMode == EditorShellMode.LOOK && settingsPanel.isModalOpen()
+				|| activeMode == EditorShellMode.RULES && rulesPanel.isModalOpen();
+		}
 		if (discardDialogOpen) {
 			handleDiscardDialogClick(mouseX, mouseY, button);
 			return true;
@@ -887,7 +975,7 @@ public class GroupEditorScreen extends Screen {
 			settingsPanel.mouseClicked(mouseX, mouseY, button);
 			return true;
 		}
-		if (button != 0) return super.mouseClicked(event, doubleClick);
+		if (button != 0) return super.mouseClicked(mouseX, mouseY, button);
 		if (activeMode == EditorShellMode.RULES && rulesPanel.isModalOpen()) {
 			rulesPanel.mouseClicked(mouseX, mouseY, button);
 			return true;
@@ -899,7 +987,7 @@ public class GroupEditorScreen extends Screen {
 			return true;
 		}
 		blurEditorFields();
-		if (super.mouseClicked(event, doubleClick)) return true;
+		if (super.mouseClicked(mouseX, mouseY, button)) return true;
 		if (handleModeClick(mouseX, mouseY)) return true;
 		if (activeMode == EditorShellMode.CONTENTS && handleContentsChromeClick(mouseX, mouseY)) return true;
 
@@ -924,7 +1012,7 @@ public class GroupEditorScreen extends Screen {
 		setFocused(nameField);
 		nameField.setFocused(true);
 		nameField.setTextColor(UiPalette.TEXT_PRIMARY);
-		nameField.mouseClicked(new MouseButtonEvent(mouseX, mouseY, new net.minecraft.client.input.MouseButtonInfo(button, 0)), false);
+		nameField.mouseClicked(mouseX, mouseY, button);
 		return true;
 	}
 
@@ -934,7 +1022,7 @@ public class GroupEditorScreen extends Screen {
 		if (activeMode == EditorShellMode.RULES) rulesPanel.clearFocus();
 		setFocused(searchField);
 		searchField.setFocused(true);
-		searchField.mouseClicked(new MouseButtonEvent(mouseX, mouseY, new net.minecraft.client.input.MouseButtonInfo(button, 0)), false);
+		searchField.mouseClicked(mouseX, mouseY, button);
 		return true;
 	}
 
@@ -988,20 +1076,13 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private boolean handleSettingsPreviewClick(double mouseX, double mouseY) {
+		if (editorDataLoading) return false;
 		EditorRuntimeAccess.PreviewLayout layout = settingsPreviewLayout != null
 			? settingsPreviewLayout
 			: EditorRuntimeServices.get().layoutPreview(sampleRect(settingsPreviewAreaRect()), settingsPreviewExpanded,
 				previewEntryCount(), settingsPreviewPage);
-		if (layout.previousPageButton() != null && layout.previousPageButton().contains(mouseX, mouseY)
-			&& layout.canPageBackward()) {
-			settingsPreviewPage = Math.max(0, layout.page() - 1);
-			return true;
-		}
-		if (layout.nextPageButton() != null && layout.nextPageButton().contains(mouseX, mouseY)
-			&& layout.canPageForward()) {
-			settingsPreviewPage = layout.page() + 1;
-			return true;
-		}
+		PageCommand page = pageCommandAt(layout, mouseX, mouseY);
+		if (page != null) { pagePress.begin(page); return true; }
 		if (layout.headerCell().contains(mouseX, mouseY)) {
 			settingsPreviewExpanded = !settingsPreviewExpanded;
 			settingsPreviewPage = 0;
@@ -1010,39 +1091,55 @@ public class GroupEditorScreen extends Screen {
 		return false;
 	}
 
+	private PageCommand pageCommandAt(EditorRuntimeAccess.PreviewLayout layout, double x, double y) {
+		if (editorDataLoading || layout == null) return null;
+		if (layout.canPageBackward() && layout.previousPageButton().contains(x, y))
+			return new PageCommand(-1, layout.page(), editorPreviewGeneration);
+		if (layout.canPageForward() && layout.nextPageButton().contains(x, y))
+			return new PageCommand(1, layout.page(), editorPreviewGeneration);
+		return null;
+	}
+
 	@Override
-	public boolean mouseReleased(MouseButtonEvent event) {
-		double mouseX = event.x();
-		double mouseY = event.y();
-		int button = event.button();
+	public boolean mouseReleased(double mouseX, double mouseY, int button) {
+		var release = performanceTrace.beginRelease(activeMode.name(), rightPanel.groupItems().size(),
+			button == 0 && saveButtonHeld && shell.saveButton().contains(mouseX, mouseY));
+		try {
+			return handleEditorRelease(mouseX, mouseY, button);
+		} finally {
+			performanceTrace.endRelease(release, minecraft.screen == parent.asScreen());
+		}
+	}
+
+	private boolean handleEditorRelease(double mouseX, double mouseY, int button) {
+        updateSwitchHover(mouseX, mouseY);
 		if (discardDialogOpen) {
-			clearHeldControls();
+			if (button == 0) executeDiscardAction(dialogPress.release(ConfirmDialog.hitTest(width, height, mouseX, mouseY)));
+			modalGesture = false;
 			return true;
 		}
-		if (activeMode == EditorShellMode.LOOK && settingsPanel.mouseReleased(mouseX, mouseY, button)) {
-			clearHeldControls();
-			return true;
-		}
+		boolean modalOwned = modalGesture || activeMode == EditorShellMode.LOOK && settingsPanel.isModalOpen()
+			|| activeMode == EditorShellMode.RULES && rulesPanel.isModalOpen();
+		modalGesture = false;
+		boolean panelHandled = activeMode == EditorShellMode.LOOK ? settingsPanel.mouseReleased(mouseX, mouseY, button)
+			: activeMode == EditorShellMode.RULES && rulesPanel.mouseReleased(mouseX, mouseY, button);
+		if (modalOwned || panelHandled) { clearHeldControls(); return true; }
 		if (button == 0) {
+			PageCommand page = pagePress.release(pageCommandAt(settingsPreviewLayout, mouseX, mouseY));
+			if (page != null && activeMode == EditorShellMode.LOOK) settingsPreviewPage = page.page() + page.direction();
 			if (saveButtonHeld && shell.saveButton().contains(mouseX, mouseY)) saveAndClose();
 			if (cancelButtonHeld && shell.cancelButton().contains(mouseX, mouseY)) requestClose();
-			if (disableSourceCheckboxHeld && disableSourceOptionContains(mouseX, mouseY)) {
-				disableSourceAfterCopy = !disableSourceAfterCopy;
-			}
+			if (disableSourceCheckboxHeld && disableSourceOptionContains(mouseX, mouseY)) disableSourceAfterCopy = !disableSourceAfterCopy;
 			if (heldMode != null && modeSegmentContains(heldMode, mouseX, mouseY)) switchMode(heldMode);
-			if (heldContentFilter != null && contentFilterContains(heldContentFilter, mouseX, mouseY)) {
-				applyContentFilter(heldContentFilter);
-			}
+			if (heldContentFilter != null && contentFilterContains(heldContentFilter, mouseX, mouseY)) applyContentFilter(heldContentFilter);
 			if (hideUsedHeld && shell.hideUsedButton().contains(mouseX, mouseY)) toggleHideUsed();
 			clearHeldControls();
 		}
 		if (activeMode == EditorShellMode.CONTENTS) {
 			leftPanel.mouseReleased(button);
 			rightPanel.mouseReleased(button);
-		} else if (activeMode == EditorShellMode.RULES) {
-			rulesPanel.mouseReleased(mouseX, mouseY, button);
 		}
-		return super.mouseReleased(event);
+		return super.mouseReleased(mouseX, mouseY, button);
 	}
 
 	private boolean modeSegmentContains(EditorShellMode mode, double mouseX, double mouseY) {
@@ -1093,7 +1190,10 @@ public class GroupEditorScreen extends Screen {
 
 	private void handleDiscardDialogClick(double mouseX, double mouseY, int button) {
 		if (button != 0) return;
-		ConfirmDialog.Action action = ConfirmDialog.hitTest(this.width, this.height, mouseX, mouseY);
+		dialogPress.begin(ConfirmDialog.hitTest(this.width, this.height, mouseX, mouseY));
+	}
+
+	private void executeDiscardAction(ConfirmDialog.Action action) {
 		if (action == ConfirmDialog.Action.PRIMARY) {
 			closeWithoutSaving();
 		} else if (action == ConfirmDialog.Action.SECONDARY) {
@@ -1107,7 +1207,6 @@ public class GroupEditorScreen extends Screen {
 			return;
 		}
 		settingsPanel.commitPriorityEdit();
-		settingsPanel.clearSwitchHoverSuppression();
 		clearHeldControls();
 		blurEditorFields();
 		if (dirty) {
@@ -1123,6 +1222,10 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private void clearHeldControls() {
+		pagePress.clear();
+		if (settingsPanel != null) settingsPanel.clearHeldCommand();
+		if (rulesPanel != null) rulesPanel.clearHeldCommand();
+        dialogPress.clear();
 		saveButtonHeld = false;
 		cancelButtonHeld = false;
 		disableSourceCheckboxHeld = false;
@@ -1132,10 +1235,8 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	@Override
-	public boolean keyPressed(KeyEvent event) {
-		int keyCode = event.key();
-		int scanCode = event.scancode();
-		int modifiers = event.modifiers();
+	public boolean keyPressed(int keyCode, int scanCode, int modifiers) {
+		clearHeldControls();
 		if (discardDialogOpen) {
 			if (keyCode == GLFW.GLFW_KEY_ESCAPE) discardDialogOpen = false;
 			return true;
@@ -1152,7 +1253,7 @@ public class GroupEditorScreen extends Screen {
 				blurEditorFields();
 				return true;
 			}
-			if (nameField.keyPressed(event)) return true;
+			if (nameField.keyPressed(keyCode, scanCode, modifiers)) return true;
 		}
 		if (searchField != null && searchField.visible && searchField.isFocused()) {
 			if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
@@ -1163,20 +1264,18 @@ public class GroupEditorScreen extends Screen {
 				}
 				return true;
 			}
-			if (searchField.keyPressed(event)) return true;
+			if (searchField.keyPressed(keyCode, scanCode, modifiers)) return true;
 		}
 		if (activeMode == EditorShellMode.RULES && rulesPanel.keyPressed(keyCode, scanCode, modifiers)) return true;
 		if (keyCode == GLFW.GLFW_KEY_ESCAPE) {
 			requestClose();
 			return true;
 		}
-		return super.keyPressed(event);
+		return super.keyPressed(keyCode, scanCode, modifiers);
 	}
 
 	@Override
-	public boolean charTyped(CharacterEvent event) {
-		char codePoint = (char) event.codepoint();
-		int modifiers = 0;
+	public boolean charTyped(int codePoint, int modifiers) {
 		if (discardDialogOpen) return true;
 		if (activeMode == EditorShellMode.LOOK && settingsPanel.charTyped(codePoint, modifiers)) {
 			return true;
@@ -1185,23 +1284,20 @@ public class GroupEditorScreen extends Screen {
 			rulesPanel.charTyped(codePoint, modifiers);
 			return true;
 		}
-		if (nameField != null && nameField.isFocused() && nameField.charTyped(event)) return true;
+		if (nameField != null && nameField.isFocused() && nameField.charTyped(codePoint, modifiers)) return true;
 		if (searchField != null && searchField.visible && searchField.isFocused()
-			&& searchField.charTyped(event)) return true;
+			&& searchField.charTyped(codePoint, modifiers)) return true;
 		if (activeMode == EditorShellMode.RULES && rulesPanel.charTyped(codePoint, modifiers)) return true;
-		return super.charTyped(event);
+		return super.charTyped(codePoint, modifiers);
 	}
 
 	@Override
-	public boolean mouseDragged(MouseButtonEvent event, double dragX, double dragY) {
-		double mouseX = event.x();
-		double mouseY = event.y();
-		int button = event.button();
+	public boolean mouseDragged(double mouseX, double mouseY, int button, double dragX, double dragY) {
+        updateSwitchHover(mouseX, mouseY);
 		if (discardDialogOpen) {
-			clearHeldControls();
 			return true;
 		}
-		if (button != 0) return super.mouseDragged(event, dragX, dragY);
+		if (button != 0) return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
 		if (activeMode == EditorShellMode.LOOK && settingsPanel.mouseDragged(mouseX, mouseY, button)) {
 			return true;
 		}
@@ -1215,11 +1311,13 @@ public class GroupEditorScreen extends Screen {
 		} else if (activeMode == EditorShellMode.RULES) {
 			if (rulesPanel.mouseDragged(mouseX, mouseY, button)) return true;
 		}
-		return super.mouseDragged(event, dragX, dragY);
+		return super.mouseDragged(mouseX, mouseY, button, dragX, dragY);
 	}
 
 	@Override
 	public boolean mouseScrolled(double mouseX, double mouseY, double scrollX, double scrollY) {
+        updateSwitchHover(mouseX, mouseY);
+		clearHeldControls();
 		if (discardDialogOpen) return true;
 		if (activeMode == EditorShellMode.LOOK && settingsPanel.mouseScrolled(mouseX, mouseY, scrollY)) {
 			return true;
@@ -1260,6 +1358,8 @@ public class GroupEditorScreen extends Screen {
 
 	private void switchMode(EditorShellMode mode) {
 		if (mode == activeMode) return;
+        hideUsedHover.clear();
+        settingsSwitchHover.clear();
 		if (activeMode == EditorShellMode.RULES) rulesPanel.onDeactivate();
 		if (activeMode == EditorShellMode.LOOK) settingsPanel.onDeactivate();
 		activeMode = mode;
@@ -1295,12 +1395,26 @@ public class GroupEditorScreen extends Screen {
 		return filter != EditorContentFilter.OTHER_TYPES || hasGenericIngredients;
 	}
 
+    private void updateSwitchHover(double mouseX, double mouseY) {
+        hideUsedHover.update(key -> activeMode == EditorShellMode.CONTENTS && shell != null
+            && shell.hideUsedButton().contains(mouseX, mouseY));
+        if (activeMode == EditorShellMode.LOOK && settingsPanel != null) settingsPanel.updateSwitchHover(mouseX, mouseY);
+        else settingsSwitchHover.clear();
+    }
+
+    @Override
+    public void mouseMoved(double mouseX, double mouseY) {
+        updateSwitchHover(mouseX, mouseY);
+        super.mouseMoved(mouseX, mouseY);
+    }
+
 	private void toggleHideUsed() {
 		boolean hide = !leftPanel.isHideUsed();
 		leftPanel.setHideUsed(hide);
 		GroupUiState.setHideUsed(hide);
 		leftPanel.rebuildFilter(searchQuery());
 		leftPanel.clampScroll(layout);
+        hideUsedHover.activated(HIDE_USED_SWITCH);
 	}
 
 	private String searchQuery() {
@@ -1308,6 +1422,7 @@ public class GroupEditorScreen extends Screen {
 	}
 
 	private void onGroupChanged() {
+		previewRevision++;
 		markDirty();
 		state.ensureRuleSelection();
 		rightPanel.rebuild();
@@ -1337,7 +1452,7 @@ public class GroupEditorScreen extends Screen {
 		if (!hasPendingSave() && state.canSave()) return Component.translatable(ModTranslationKeys.ORE_EDITOR_STATUS_CLEAN);
 		List<Component> tooltip = state.saveBlockedTooltip();
 		if (tooltip.isEmpty()) return Component.translatable(ModTranslationKeys.EDITOR_SAVE_ERROR);
-		return tooltip.size() > 1 ? tooltip.get(1) : tooltip.getFirst();
+		return tooltip.size() > 1 ? tooltip.get(1) : tooltip.get(0);
 	}
 
 	private void saveAndClose() {
@@ -1349,18 +1464,20 @@ public class GroupEditorScreen extends Screen {
 			return;
 		}
 		if (nameField != null) nameField.setTextColor(UiPalette.TEXT_PRIMARY);
-		GroupRegistry.invalidateFullMatchCache(saved.id());
-		GroupRegistry.populateFullMatchCacheFromSaved(saved);
-		disableSourceAfterCopyIfRequested();
-		parent.onGroupSaved(new SavedGroupContext(saved.id(), saveKind));
-		GroupRegistry.notifyJei();
+		var groups = EditorRuntimeServices.groups();
+		String warningKey = disableSourceAfterCopyIfRequested();
+		parent.onGroupSaved(new SavedGroupContext(saved.id(), saveKind, warningKey));
+		groups.notifyViewer();
 		Minecraft.getInstance().setScreen(parent.asScreen());
 	}
 
-	private void disableSourceAfterCopyIfRequested() {
+	private String disableSourceAfterCopyIfRequested() {
 		String sourceGroupId = state.sourceGroupId();
-		if (!state.isCopyDraft() || !disableSourceAfterCopy || sourceGroupId == null) return;
-		GroupRegistry.setEnabledQuietlyWithoutEvent(sourceGroupId, false);
+		if (!state.isCopyDraft() || !disableSourceAfterCopy || sourceGroupId == null) return null;
+		var groups = EditorRuntimeServices.groups();
+		if (groups.findGroup(sourceGroupId).isEmpty()) return ModTranslationKeys.MANAGER_COPY_SOURCE_MISSING;
+		return groups.setEnabledQuietlyWithoutEvent(sourceGroupId, false)
+			? null : ModTranslationKeys.MANAGER_COPY_SOURCE_DISABLE_FAILED;
 	}
 
 	private void clearRightHover() {

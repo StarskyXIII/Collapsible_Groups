@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_pumpkin",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_pumpkin",
+    "fallback": "Chisel: Pumpkin"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/pumpkin"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

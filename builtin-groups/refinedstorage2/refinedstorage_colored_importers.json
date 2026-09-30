@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_importers",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_importers",
+    "fallback": "RS2: Colored Importers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:importers"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:importer"
+        }
+      }
+    ]
+  }
+}

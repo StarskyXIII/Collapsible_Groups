@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_batteries",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_batteries",
+    "fallback": "GregTech: Batteries"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "type": "item",
+            "tag": "gtceu:batteries"
+          },
+          {
+            "all": [
+              {
+                "item_path_ends_with": "_battery"
+              },
+              {
+                "not": {
+                  "item_path_starts_with": "empty_"
+                }
+              }
+            ]
+          },
+          {
+            "type": "item",
+            "id": "gtceu:zero_point_module"
+          }
+        ]
+      }
+    ]
+  }
+}

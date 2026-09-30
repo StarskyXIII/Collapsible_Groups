@@ -38,6 +38,7 @@ public final class GroupFilterSummaryFormatter {
 			case GroupFilter.ExactStack ignored -> "exact stack";
 			case GroupFilter.HasComponent hc -> "has component " + hc.componentTypeId() + "=" + hc.encodedValue();
 			case GroupFilter.ComponentPath cp -> "component path " + cp.componentTypeId() + "/" + cp.path() + "=" + cp.expectedValue();
+			case GroupFilter.Unsupported unsupported -> "unavailable " + unsupported.recognizedKind();
 		};
 	}
 

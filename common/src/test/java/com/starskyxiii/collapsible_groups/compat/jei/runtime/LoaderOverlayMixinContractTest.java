@@ -6,7 +6,6 @@ import org.junit.jupiter.params.provider.ValueSource;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.regex.Pattern;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -17,27 +16,31 @@ class LoaderOverlayMixinContractTest {
 
 	@ParameterizedTest
 	@ValueSource(strings = {"fabric", "neoforge"})
-	void activeLoaderMixinUsesCrossVersionOverlayContracts(String loader) throws IOException {
+	void loaderMixinUsesRequiredSplitRenderContracts(String loader) throws IOException {
 		Path root = Path.of(System.getProperty("collapsibleGroupsRoot"));
 		String source = Files.readString(root.resolve(loader).resolve(MIXIN_PATH));
-
-		Pattern constructorHook = Pattern.compile(
-			"@Inject\\(\\s*" +
-				"method = \\\"<init>\\\",\\s*" +
-				"at = @At\\(\\\"TAIL\\\"\\),\\s*" +
-				"require = 1,\\s*" +
-				"allow = 1\\s*" +
-				"\\)\\s*" +
-				"private void cg\\$onInit\\(CallbackInfo ci\\)",
-			Pattern.DOTALL
-		);
-		assertTrue(constructorHook.matcher(source).find());
-		assertFalse(source.contains("method = \"<init>("));
-		assertFalse(source.contains("IIngredientGridConfig"));
-		assertTrue(source.contains("method = \"drawBackground("));
-		assertTrue(source.contains("method = \"drawForeground("));
-		assertTrue(source.contains("method = \"drawTooltips("));
-		assertTrue(source.contains("method = \"createInputHandler()"));
+		if (loader.equals("fabric")) {
+			assertTrue(source.contains("method = \"drawBackground\""));
+			assertTrue(source.contains("method = \"drawForeground\""));
+			assertTrue(source.contains("method = \"drawTooltips\""));
+		} else {
+			assertTrue(source.contains(
+				"method = \"drawBackground(Lnet/minecraft/client/gui/GuiGraphicsExtractor;)V\""));
+			assertTrue(source.contains(
+				"method = \"drawForeground(Lnet/minecraft/client/Minecraft;" +
+					"Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V\""));
+			assertTrue(source.contains(
+				"method = \"drawTooltips(Lnet/minecraft/client/Minecraft;" +
+					"Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V\""));
+		}
+		String inputHook = source.substring(source.lastIndexOf("\t@Inject("));
+		assertTrue(inputHook.contains("\"createInputHandler()Lmezz/jei/gui/input/IUserInputHandler;\""));
+		assertTrue(inputHook.contains("\"createInputHandler()Lmezz/jei/common/input/IUserInputHandler;\""));
+		assertTrue(inputHook.contains("method = {"));
+		assertTrue(inputHook.contains("require = 1"));
+		assertTrue(inputHook.contains("allow = 1"));
+		assertTrue(inputHook.contains("CallbackInfoReturnable<Object>"));
+		assertFalse(source.contains("import mezz.jei.common.input.IUserInputHandler;"));
 		assertFalse(source.contains("method = \"drawScreen"));
 		assertFalse(source.contains("require = 0"));
 	}

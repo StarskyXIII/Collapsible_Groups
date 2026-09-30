@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_red_sand",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_red_sand",
+    "fallback": "Compressed Red Sand"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:red_sand_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:red_sand_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:red_sand_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:red_sand_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:red_sand_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:red_sand_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:red_sand_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:red_sand_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:red_sand_9x"
+      }
+    ]
+  }
+}

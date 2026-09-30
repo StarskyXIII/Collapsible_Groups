@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_fluix_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_fluix_block",
+    "fallback": "Compressed Fluix Block"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:fluix_block_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:fluix_block_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:fluix_block_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:fluix_block_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:fluix_block_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:fluix_block_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:fluix_block_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:fluix_block_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:fluix_block_9x"
+      }
+    ]
+  }
+}

@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "id": "__default_enchanted_books",
+  "name": {
+    "translate": "collapsible_groups.group.__default_enchanted_books",
+    "fallback": "Enchanted Books"
+  },
+  "enabled": true,
+  "filter": {
+    "type": "item",
+    "id": "minecraft:enchanted_book"
+  }
+}

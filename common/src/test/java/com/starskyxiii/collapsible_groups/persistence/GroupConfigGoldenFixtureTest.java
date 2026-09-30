@@ -21,7 +21,8 @@ class GroupConfigGoldenFixtureTest {
 		"typed-icon-root-object.json",
 		"typed-icon-string-array.json",
 		"typed-icon-object-array.json",
-		"typed-icon-mixed-array.json"
+		"typed-icon-mixed-array.json",
+		"unknown-filter-node.json"
 	})
 	void groupDefinitionIsSemanticallyStableAcrossRoundTrip(String fixtureName) throws IOException {
 		String source = readFixture(fixtureName);

@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_lights_slab_lights",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_lights_slab_lights",
+    "fallback": "Macaw's Lights: Slab Lights"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwlights:slab_lights"
+  }
+}

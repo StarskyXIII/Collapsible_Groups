@@ -1,7 +1,9 @@
 package com.starskyxiii.collapsible_groups.compat.jei;
 
 import com.starskyxiii.collapsible_groups.ingredient.IngredientTypeIds;
+import com.starskyxiii.collapsible_groups.platform.fluid.FluidConversionResult;
 import mezz.jei.api.ingredients.IIngredientType;
+import mezz.jei.api.ingredients.ITypedIngredient;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
@@ -118,8 +120,25 @@ public final class JeiIngredientTypes {
 		return FluidTypeHolder.PROVIDER.getFluidType();
 	}
 
+	public static FluidConversionResult convertFluid(Object viewerValue) {
+		return FluidTypeHolder.PROVIDER.convertFluid(viewerValue);
+	}
+
+	public static @Nullable JeiFluidIngredient fluidIngredient(ITypedIngredient<?> typed) {
+		IIngredientType<?> fluidType = getFluidType();
+		if (fluidType == null || !typed.getType().equals(fluidType)) return null;
+		Object viewerValue = typed.getIngredient();
+		return new JeiFluidIngredient(viewerValue, convertFluid(viewerValue).require());
+	}
+
 	public interface FluidTypeProvider {
 		IIngredientType<?> getFluidType();
+
+		default FluidConversionResult convertFluid(Object viewerValue) {
+			return new FluidConversionResult.Unsupported(
+				"JEI fluid provider does not support " +
+					(viewerValue == null ? "null" : viewerValue.getClass().getName()));
+		}
 	}
 
 	private static final class FluidTypeHolder {

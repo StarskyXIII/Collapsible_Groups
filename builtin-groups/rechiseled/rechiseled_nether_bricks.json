@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_rechiseled_nether_bricks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_rechiseled_nether_bricks",
+    "fallback": "Rechiseled: Nether Bricks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "rechiseled:nether_bricks"
+      },
+      {
+        "type": "item",
+        "namespace": "rechiseled"
+      }
+    ]
+  }
+}

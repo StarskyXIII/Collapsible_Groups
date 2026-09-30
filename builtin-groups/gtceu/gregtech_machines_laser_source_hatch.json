@@ -1,0 +1,69 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_machines_laser_source_hatch",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_machines_laser_source_hatch",
+    "fallback": "GregTech: Laser Source Hatches"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "any": [
+          {
+            "item_path_starts_with": "ulv_"
+          },
+          {
+            "item_path_starts_with": "lv_"
+          },
+          {
+            "item_path_starts_with": "mv_"
+          },
+          {
+            "item_path_starts_with": "hv_"
+          },
+          {
+            "item_path_starts_with": "ev_"
+          },
+          {
+            "item_path_starts_with": "iv_"
+          },
+          {
+            "item_path_starts_with": "luv_"
+          },
+          {
+            "item_path_starts_with": "zpm_"
+          },
+          {
+            "item_path_starts_with": "uv_"
+          },
+          {
+            "item_path_starts_with": "uhv_"
+          },
+          {
+            "item_path_starts_with": "uev_"
+          },
+          {
+            "item_path_starts_with": "uiv_"
+          },
+          {
+            "item_path_starts_with": "uxv_"
+          },
+          {
+            "item_path_starts_with": "opv_"
+          },
+          {
+            "item_path_starts_with": "max_"
+          }
+        ]
+      },
+      {
+        "item_path_contains": "_laser_source_hatch"
+      }
+    ]
+  }
+}

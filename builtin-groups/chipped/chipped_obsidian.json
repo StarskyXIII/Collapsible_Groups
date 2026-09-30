@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_obsidian",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_obsidian",
+    "fallback": "Chipped: Obsidian"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:obsidian"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

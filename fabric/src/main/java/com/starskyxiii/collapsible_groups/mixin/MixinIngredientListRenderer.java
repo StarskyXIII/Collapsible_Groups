@@ -19,7 +19,14 @@ public abstract class MixinIngredientListRenderer {
 	@Final
 	private List<IngredientListSlot> slots;
 
-	@Inject(method = "render", at = @At("HEAD"))
+	// Fabric production jars use intermediary names for Minecraft types. Because this JEI
+	// target is remap=false, a selector containing the named GuiGraphicsExtractor descriptor would
+	// not be remapped and would fail to match render(class_332) at runtime.
+	@Inject(
+		method = "render",
+		at = @At("HEAD"),
+		require = 1
+	)
 	private void cg$drawPreRenderBackgrounds(GuiGraphicsExtractor guiGraphics, CallbackInfo ci) {
 		for (IngredientListSlot slot : this.slots) {
 			slot.getOptionalElement().ifPresent(element -> {

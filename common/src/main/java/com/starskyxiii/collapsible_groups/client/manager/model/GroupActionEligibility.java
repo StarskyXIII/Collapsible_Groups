@@ -37,7 +37,7 @@ public record GroupActionEligibility(
 				true,
 				true
 			);
-			case BUILTIN, KUBEJS -> new GroupActionEligibility(
+			case BUILTIN, RESOURCE_PACK, KUBEJS -> new GroupActionEligibility(
 				resolved,
 				true,
 				EnabledPersistenceKind.ENABLED_OVERRIDE_STORE,

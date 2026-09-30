@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_glass",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_glass",
+    "fallback": "Compressed Glass"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:glass_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glass_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glass_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glass_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glass_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glass_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glass_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glass_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:glass_9x"
+      }
+    ]
+  }
+}

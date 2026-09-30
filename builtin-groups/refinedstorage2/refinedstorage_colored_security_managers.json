@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_refinedstorage_colored_security_managers",
+  "name": {
+    "translate": "collapsible_groups.group.__default_refinedstorage_colored_security_managers",
+    "fallback": "RS2: Colored Security Managers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "refinedstorage:security_managers"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "refinedstorage:security_manager"
+        }
+      }
+    ]
+  }
+}

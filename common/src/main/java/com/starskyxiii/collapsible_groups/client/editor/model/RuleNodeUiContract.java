@@ -1,8 +1,7 @@
 package com.starskyxiii.collapsible_groups.client.editor.model;
 
-import com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator;
-
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterRuleDraft;
+import com.starskyxiii.collapsible_groups.group.filter.RuleDescriptor;
 
 import java.util.Arrays;
 import java.util.List;
@@ -39,37 +38,18 @@ public record RuleNodeUiContract(
 	 * required even though its picker/form UX otherwise treats it like a free-form field.
 	 */
 	public static RuleNodeUiContract forKind(GroupFilterRuleDraft.NodeKind kind) {
-		return switch (Objects.requireNonNull(kind, "kind")) {
-			case ANY, ALL -> compound(kind, kind.minChildren(), kind.minChildren(), kind.maxChildren());
-			case NOT -> compound(kind, kind.minChildren(), 1, kind.maxChildren());
-			case ID, TAG, NAMESPACE -> atomic(kind, RuleFixedOperator.NONE,
-				List.of(RuleFieldRole.INGREDIENT_TYPE, RuleFieldRole.PRIMARY_VALUE),
-				List.of(RuleFieldRole.PRIMARY_VALUE));
-			case BLOCK_TAG -> atomic(kind, RuleFixedOperator.NONE,
-				List.of(RuleFieldRole.PRIMARY_VALUE),
-				List.of(RuleFieldRole.PRIMARY_VALUE));
-			case ITEM_PATH_STARTS_WITH -> atomic(kind, RuleFixedOperator.ITEM_PATH_STARTS_WITH,
-				List.of(RuleFieldRole.PRIMARY_VALUE),
-				List.of(RuleFieldRole.PRIMARY_VALUE));
-			case ITEM_PATH_CONTAINS -> atomic(kind, RuleFixedOperator.ITEM_PATH_CONTAINS,
-				List.of(RuleFieldRole.PRIMARY_VALUE),
-				List.of(RuleFieldRole.PRIMARY_VALUE));
-			case ITEM_PATH_ENDS_WITH -> atomic(kind, RuleFixedOperator.ITEM_PATH_ENDS_WITH,
-				List.of(RuleFieldRole.PRIMARY_VALUE),
-				List.of(RuleFieldRole.PRIMARY_VALUE));
-			case EXACT_STACK -> atomic(kind, RuleFixedOperator.NONE,
-				List.of(RuleFieldRole.PRIMARY_VALUE),
-				List.of(RuleFieldRole.PRIMARY_VALUE));
-			case HAS_COMPONENT -> atomic(kind, RuleFixedOperator.NONE,
-				List.of(RuleFieldRole.PRIMARY_VALUE, RuleFieldRole.SECONDARY_VALUE),
-				List.of(RuleFieldRole.PRIMARY_VALUE, RuleFieldRole.SECONDARY_VALUE));
-			case COMPONENT_PATH -> atomic(
-				kind,
-				RuleFixedOperator.NONE,
-				List.of(RuleFieldRole.PRIMARY_VALUE, RuleFieldRole.SECONDARY_VALUE, RuleFieldRole.TERTIARY_VALUE),
-				List.of(RuleFieldRole.PRIMARY_VALUE, RuleFieldRole.SECONDARY_VALUE, RuleFieldRole.TERTIARY_VALUE)
-			);
-		};
+		Objects.requireNonNull(kind, "kind");
+		RuleDescriptor descriptor = RuleDescriptor.forKind(kind.filterKind());
+		List<RuleFieldRole> fieldRoles = descriptor.fieldRoles().stream()
+			.map(RuleNodeUiContract::toUiRole)
+			.toList();
+		List<RuleFieldRole> requiredRoles = descriptor.fieldRoles().stream()
+			.filter(descriptor.requiredRoles()::contains)
+			.map(RuleNodeUiContract::toUiRole)
+			.toList();
+		return new RuleNodeUiContract(kind, descriptor.compound(), descriptor.draftMinChildren(),
+			descriptor.validMinChildren(), descriptor.maxChildren(), descriptor.compound(), descriptor.compound(),
+			fieldRoles, requiredRoles, fixedOperator(kind));
 	}
 
 	public static List<RuleNodeUiContract> all() {
@@ -97,44 +77,22 @@ public record RuleNodeUiContract(
 		return requiredRoles.contains(Objects.requireNonNull(role, "role"));
 	}
 
-	private static RuleNodeUiContract compound(
-		GroupFilterRuleDraft.NodeKind kind,
-		int draftMinChildren,
-		int validMinChildren,
-		int maxChildren
-	) {
-		return new RuleNodeUiContract(
-			kind,
-			true,
-			draftMinChildren,
-			validMinChildren,
-			maxChildren,
-			true,
-			true,
-			List.of(),
-			List.of(),
-			RuleFixedOperator.NONE
-		);
+	private static RuleFieldRole toUiRole(RuleDescriptor.FieldRole role) {
+		return switch (role) {
+			case INGREDIENT_TYPE -> RuleFieldRole.INGREDIENT_TYPE;
+			case PRIMARY_VALUE -> RuleFieldRole.PRIMARY_VALUE;
+			case SECONDARY_VALUE -> RuleFieldRole.SECONDARY_VALUE;
+			case TERTIARY_VALUE -> RuleFieldRole.TERTIARY_VALUE;
+		};
 	}
 
-	private static RuleNodeUiContract atomic(
-		GroupFilterRuleDraft.NodeKind kind,
-		RuleFixedOperator fixedOperator,
-		List<RuleFieldRole> fieldRoles,
-		List<RuleFieldRole> requiredRoles
-	) {
-		return new RuleNodeUiContract(
-			kind,
-			false,
-			0,
-			0,
-			0,
-			false,
-			false,
-			fieldRoles,
-			requiredRoles,
-			fixedOperator
-		);
+	private static RuleFixedOperator fixedOperator(GroupFilterRuleDraft.NodeKind kind) {
+		return switch (kind) {
+			case ITEM_PATH_STARTS_WITH -> RuleFixedOperator.ITEM_PATH_STARTS_WITH;
+			case ITEM_PATH_CONTAINS -> RuleFixedOperator.ITEM_PATH_CONTAINS;
+			case ITEM_PATH_ENDS_WITH -> RuleFixedOperator.ITEM_PATH_ENDS_WITH;
+			default -> RuleFixedOperator.NONE;
+		};
 	}
 
 	private static void requireNonNegative(int value, String name) {

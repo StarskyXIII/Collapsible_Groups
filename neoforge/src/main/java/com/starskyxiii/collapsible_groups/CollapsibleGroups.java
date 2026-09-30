@@ -1,10 +1,12 @@
 package com.starskyxiii.collapsible_groups;
 
 import com.starskyxiii.collapsible_groups.config.NeoForgeConfig;
-import com.starskyxiii.collapsible_groups.compat.jei.runtime.GroupRegistry;
+import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.i18n.GroupLangBootstrap;
-import com.starskyxiii.collapsible_groups.compat.jei.preview.PreviewTooltipComponent;
-import com.starskyxiii.collapsible_groups.defaults.DefaultGroupProviders;
+import com.starskyxiii.collapsible_groups.client.preview.PreviewTooltipComponent;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
+import com.starskyxiii.collapsible_groups.viewer.JeiSoftDependencyBootstrap;
+import com.starskyxiii.collapsible_groups.viewer.LoaderViewerEnvironment;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.fml.ModContainer;
@@ -14,51 +16,76 @@ import net.neoforged.fml.config.ModConfig;
 import net.neoforged.fml.event.config.ModConfigEvent;
 import net.neoforged.fml.event.lifecycle.FMLClientSetupEvent;
 import net.neoforged.neoforge.client.event.RegisterClientCommandsEvent;
+import net.neoforged.neoforge.client.event.ClientPlayerNetworkEvent;
 import net.neoforged.neoforge.client.event.AddClientReloadListenersEvent;
 import net.neoforged.neoforge.client.event.RegisterClientTooltipComponentFactoriesEvent;
-import net.neoforged.neoforge.client.gui.ConfigurationScreen;
+
 import net.neoforged.neoforge.client.gui.IConfigScreenFactory;
 import net.neoforged.neoforge.common.NeoForge;
 
 import java.util.function.Function;
+import java.util.List;
 
 @Mod(value = Constants.MOD_ID, dist = Dist.CLIENT)
 public class CollapsibleGroups {
 
 	public CollapsibleGroups(IEventBus eventBus, ModContainer modContainer) {
+		LoaderViewerEnvironment.detectRuntime().requireCompatibleSelectedViewer();
 		// Register mod configuration (config/collapsiblegroups/collapsiblegroups.toml)
 		modContainer.registerConfig(ModConfig.Type.CLIENT, NeoForgeConfig.SPEC,
 			"collapsiblegroups/collapsiblegroups.toml");
 		// Register NeoForge's built-in configuration screen (Mods -> Config button)
-		modContainer.registerExtensionPoint(IConfigScreenFactory.class, ConfigurationScreen::new);
+		modContainer.registerExtensionPoint(IConfigScreenFactory.class, (container, parent) -> new com.starskyxiii.collapsible_groups.client.config.GroupConfigScreen(parent));
 
 		eventBus.addListener(this::onClientSetup);
 		eventBus.addListener(this::onConfigReload);
+		eventBus.addListener(this::onConfigLoading);
 		eventBus.addListener(this::registerTooltipComponentFactories);
 		eventBus.addListener(this::onRegisterReloadListeners);
 		NeoForge.EVENT_BUS.addListener(this::onRegisterClientCommands);
-
+		NeoForge.EVENT_BUS.addListener(this::onTagsUpdated);
 		if (ModList.get().isLoaded("kubejs")) {
+			NeoForge.EVENT_BUS.addListener(this::onClientLogout);
+		}
+
+		// Register the KubeJS remote-data listener on the game event bus only when
+		// KubeJS is present. The class is loaded lazily so KubeJS types are never
+		// touched when the mod is absent.
+		if (ModList.get().isLoaded("kubejs")
+			&& com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSCompatibility.isSupported()) {
 			NeoForge.EVENT_BUS.register(
 				com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSRemoteListener.class
 			);
 		}
 
-		// Register curated ingredient types for known mods via reflection so we
-		// have no compile-time dependency on them.
-		if (ModList.get().isLoaded("mekanism")) {
-			com.starskyxiii.collapsible_groups.compat.softdep.MekanismIngredientTypeLoader.register();
-		}
-		if (ModList.get().isLoaded("productivebees")) {
-			com.starskyxiii.collapsible_groups.compat.softdep.ProductiveBeesIngredientTypeLoader.register();
-		}
+		// These bridges reference third-party JEI plugin classes. Keep their class
+		// names out of this entrypoint and resolve them only when JEI wins selection.
+		JeiSoftDependencyBootstrap.registerSelected(
+			ViewerLifecycleCoordinator.isJeiSelected(),
+			modId -> ModList.get().isLoaded(modId),
+			List.of(
+				new JeiSoftDependencyBootstrap.Registration("mekanism",
+					"com.starskyxiii.collapsible_groups.compat.softdep.MekanismIngredientTypeLoader"),
+				new JeiSoftDependencyBootstrap.Registration("productivebees",
+					"com.starskyxiii.collapsible_groups.compat.softdep.ProductiveBeesIngredientTypeLoader")
+			)
+		);
 	}
+
+    private void onTagsUpdated(net.neoforged.neoforge.event.TagsUpdatedEvent event) {
+        if (event.getUpdateCause() == net.neoforged.neoforge.event.TagsUpdatedEvent.UpdateCause.CLIENT_PACKET_RECEIVED) {
+            net.minecraft.client.Minecraft.getInstance().execute(GroupRepository::notifySourceReload);
+        }
+    }
 
 	private void onRegisterReloadListeners(AddClientReloadListenersEvent event) {
 		event.addListener(
-			net.minecraft.resources.Identifier.fromNamespaceAndPath(Constants.MOD_ID, "overlay_lang"),
+            net.minecraft.resources.Identifier.fromNamespaceAndPath(Constants.MOD_ID, "overlay_lang"),
 			(net.minecraft.server.packs.resources.ResourceManagerReloadListener)
-				resourceManager -> GroupLangBootstrap.refresh()
+				resourceManager -> {
+                    GroupLangBootstrap.refresh();
+                    GroupRepository.reload(resourceManager);
+                }
 		);
 	}
 
@@ -66,20 +93,41 @@ public class CollapsibleGroups {
 		com.starskyxiii.collapsible_groups.command.CgClientCommand.register(event.getDispatcher());
 	}
 
-	private void onConfigReload(ModConfigEvent.Reloading event) {
-		if (event.getConfig().getSpec() == NeoForgeConfig.SPEC) {
-			reloadGroupsFromCurrentConfig();
-			GroupRegistry.notifyJei();
+	private void onClientLogout(ClientPlayerNetworkEvent.LoggingOut event) {
+		if (ModList.get().isLoaded("kubejs")
+			&& com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSCompatibility.isSupported()) {
+			com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSRemoteListener.clear();
 		}
 	}
 
+	private void onConfigReload(ModConfigEvent.Reloading event) {
+        if (event.getConfig().getSpec() == NeoForgeConfig.SPEC) {
+            NeoForgeConfig.bind(event.getConfig());
+            net.minecraft.client.Minecraft.getInstance().execute(() ->
+                com.starskyxiii.collapsible_groups.platform.Services.CONFIG.settings().reload());
+        }
+	}
+
+    private void onConfigLoading(ModConfigEvent.Loading event) {
+        if (event.getConfig().getSpec() == NeoForgeConfig.SPEC) NeoForgeConfig.bind(event.getConfig());
+    }
+
 	private void onClientSetup(FMLClientSetupEvent event) {
-		reloadGroupsFromCurrentConfig();
+		if (ModList.get().isLoaded("kubejs")
+			&& com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSCompatibility.isSupported()) {
+			ViewerLifecycleCoordinator.global().setScriptedGroupBootstrap(
+				com.starskyxiii.collapsible_groups.compat.kubejs.KubeJSGroupBridge::applyGroupsNeutral
+			);
+		}
+        event.enqueueWork(() -> {
+            com.starskyxiii.collapsible_groups.platform.Services.CONFIG.settings().initialize();
+            reloadGroupsFromCurrentConfig();
+        });
 	}
 
 	public static void reloadGroupsFromCurrentConfig() {
 		GroupLangBootstrap.refresh();
-		GroupRegistry.load(DefaultGroupProviders.loadAll("NeoForge", 8));
+		GroupRepository.load();
 	}
 
 	private void registerTooltipComponentFactories(RegisterClientTooltipComponentFactoriesEvent event) {

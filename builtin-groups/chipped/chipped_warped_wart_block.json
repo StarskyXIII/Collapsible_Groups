@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_warped_wart_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_warped_wart_block",
+    "fallback": "Chipped: Warped Wart Block"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:warped_wart_block"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

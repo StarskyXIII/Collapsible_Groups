@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_tin_block",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_tin_block",
+    "fallback": "Compressed Tin Block"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:tin_block_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tin_block_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tin_block_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tin_block_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tin_block_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tin_block_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tin_block_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tin_block_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:tin_block_9x"
+      }
+    ]
+  }
+}

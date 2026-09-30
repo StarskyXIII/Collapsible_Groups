@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_planks_dark_oak",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_planks_dark_oak",
+    "fallback": "Chisel: Dark Oak Planks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/planks_dark_oak"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

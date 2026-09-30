@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chisel_bookshelf_oak",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chisel_bookshelf_oak",
+    "fallback": "Chisel: Oak Bookshelf"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chisel:carving/bookshelf_oak"
+      },
+      {
+        "type": "item",
+        "namespace": "chisel"
+      }
+    ]
+  }
+}

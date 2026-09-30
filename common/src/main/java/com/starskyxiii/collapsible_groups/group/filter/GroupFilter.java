@@ -1,5 +1,8 @@
 package com.starskyxiii.collapsible_groups.group.filter;
 
+import com.google.gson.JsonObject;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
+
 import java.util.List;
 import java.util.Objects;
 
@@ -16,7 +19,8 @@ public sealed interface GroupFilter
 	        GroupFilter.Namespace,
 	        GroupFilter.ExactStack,
 	        GroupFilter.HasComponent,
-	        GroupFilter.ComponentPath {
+	        GroupFilter.ComponentPath,
+	        GroupFilter.Unsupported {
 
 	record Any(List<GroupFilter> children) implements GroupFilter {
 		public Any {
@@ -83,24 +87,76 @@ public sealed interface GroupFilter
 		}
 	}
 
-	record ExactStack(String encodedStack) implements GroupFilter {
+	record ExactStack(String encodedStack, ItemDataPayload payload) implements GroupFilter {
+        public ExactStack(String encodedStack) { this(encodedStack, null); }
+        public ExactStack(ItemDataPayload payload) { this(payload.data().toString(), payload); }
 		public ExactStack {
+            if (payload != null) encodedStack = payload.data().toString();
 			Objects.requireNonNull(encodedStack, "encodedStack");
 		}
 	}
 
-	record HasComponent(String componentTypeId, String encodedValue) implements GroupFilter {
+	record HasComponent(String componentTypeId, String encodedValue, ItemDataPayload payload) implements GroupFilter {
+        public HasComponent(String componentTypeId, String encodedValue) { this(componentTypeId, encodedValue, null); }
+        public HasComponent(String componentTypeId, ItemDataPayload payload) { this(componentTypeId, payload.data().toString(), payload); }
 		public HasComponent {
+            if (payload != null) encodedValue = payload.data().toString();
 			Objects.requireNonNull(componentTypeId, "componentTypeId");
 			Objects.requireNonNull(encodedValue, "encodedValue");
 		}
 	}
 
-	record ComponentPath(String componentTypeId, String path, String expectedValue) implements GroupFilter {
+	record ComponentPath(String componentTypeId, String path, String expectedValue, ItemDataPayload payload) implements GroupFilter {
+        public ComponentPath(String componentTypeId, String path, String expectedValue) { this(componentTypeId, path, expectedValue, null); }
+        public ComponentPath(String componentTypeId, String path, ItemDataPayload payload) { this(componentTypeId, path, payload.data().toString(), payload); }
 		public ComponentPath {
+            if (payload != null) expectedValue = payload.data().toString();
 			Objects.requireNonNull(componentTypeId, "componentTypeId");
 			Objects.requireNonNull(path, "path");
 			Objects.requireNonNull(expectedValue, "expectedValue");
+		}
+	}
+
+	/**
+	 * Opaque persistence placeholder for a node this runtime cannot evaluate.
+	 *
+	 * <p>The complete atomic JSON subtree is copied on construction and on access so callers cannot
+	 * accidentally mutate it. Persistence writes this subtree back directly instead of rebuilding it
+	 * through a version-specific DTO. Evaluation yields {@code UNAVAILABLE}; in particular, it is
+	 * never treated as {@code false}, which would make a surrounding {@code not} match everything.
+	 */
+	final class Unsupported implements GroupFilter {
+		private final JsonObject rawJson;
+		private final String recognizedKind;
+
+		public Unsupported(JsonObject rawJson, String recognizedKind) {
+			this.rawJson = Objects.requireNonNull(rawJson, "rawJson").deepCopy();
+			this.recognizedKind = Objects.requireNonNull(recognizedKind, "recognizedKind");
+		}
+
+		public JsonObject rawJson() {
+			return rawJson.deepCopy();
+		}
+
+		public String recognizedKind() {
+			return recognizedKind;
+		}
+
+		@Override
+		public boolean equals(Object object) {
+			return this == object || object instanceof Unsupported other
+				&& rawJson.equals(other.rawJson)
+				&& recognizedKind.equals(other.recognizedKind);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(rawJson, recognizedKind);
+		}
+
+		@Override
+		public String toString() {
+			return "Unsupported[recognizedKind=" + recognizedKind + ", rawJson=" + rawJson + ']';
 		}
 	}
 }

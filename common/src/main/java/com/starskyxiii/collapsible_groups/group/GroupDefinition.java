@@ -1,19 +1,21 @@
 package com.starskyxiii.collapsible_groups.group;
 
 import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
+import com.starskyxiii.collapsible_groups.group.filter.FilterNodeCapabilities;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilter;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterEditorDraft;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterNormalizer;
 import com.starskyxiii.collapsible_groups.group.filter.GroupFilterValidator;
 import com.starskyxiii.collapsible_groups.ingredient.ItemStackIngredientView;
+import com.starskyxiii.collapsible_groups.internal.query.CompiledGroupQuery;
 
 import com.google.gson.JsonObject;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 import com.starskyxiii.collapsible_groups.i18n.GroupTranslationHelper;
 import net.minecraft.world.item.ItemStack;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.function.Predicate;
 
 /**
  * Immutable definition of a collapsible ingredient group: ID, display name, enabled state, filter, icons, theme, priority, and extra metadata.
@@ -23,6 +25,8 @@ import java.util.function.Predicate;
  * the resolved display text for the current language (overlay ??Minecraft lang ??fallback).
  */
 public final class GroupDefinition {
+	private final GroupDocumentFormat documentFormat;
+	private final JsonObject rawDocument;
 	private final String id;
 	private final GroupDisplayName displayName;
 	private final boolean enabled;
@@ -31,7 +35,7 @@ public final class GroupDefinition {
 	private final GroupTheme theme;
 	private final int priority;
 	private final JsonObject extra;
-	private final CompiledFilter compiledFilter;
+	private final CompiledGroupQuery query;
 
 	public GroupDefinition(String id, String name, boolean enabled, GroupFilter filter) {
 		this(id, name, enabled, filter, List.of());
@@ -96,10 +100,24 @@ public final class GroupDefinition {
 		int priority,
 		JsonObject extra
 	) {
+        this(id, displayName, enabled, filter, iconIds, theme, priority, extra,
+            containsTypedData(filter) ? GroupDocumentFormat.V1 : GroupDocumentFormat.LEGACY, null);
+    }
+
+    public GroupDefinition(String id, GroupDisplayName displayName, boolean enabled, GroupFilter filter,
+        List<?> iconIds, GroupTheme theme, int priority, JsonObject extra,
+        GroupDocumentFormat documentFormat, JsonObject rawDocument) {
+        this.documentFormat = Objects.requireNonNull(documentFormat, "documentFormat");
+        this.rawDocument = rawDocument == null ? null : rawDocument.deepCopy();
+        if (documentFormat == GroupDocumentFormat.UNSUPPORTED && rawDocument == null) {
+            throw new IllegalArgumentException("Unsupported documents require their original JSON");
+        }
 		this.id = Objects.requireNonNull(id, "id");
 		this.displayName = Objects.requireNonNull(displayName, "displayName");
 		this.enabled = enabled;
-		this.filter = GroupFilterNormalizer.normalize(Objects.requireNonNull(filter, "filter"));
+		GroupFilter sourceFilter = documentFormat == GroupDocumentFormat.UNSUPPORTED
+            ? new GroupFilter.Unsupported(this.rawDocument, "document") : Objects.requireNonNull(filter, "filter");
+		this.filter = GroupFilterNormalizer.normalize(documentFormat == GroupDocumentFormat.V1 ? typedExactData(sourceFilter) : sourceFilter);
 		List<String> validationErrors = GroupFilterValidator.validate(this.filter);
 		if (!validationErrors.isEmpty()) {
 			throw new IllegalArgumentException("Invalid group filter: " + String.join("; ", validationErrors));
@@ -108,8 +126,35 @@ public final class GroupDefinition {
 		this.theme = Objects.requireNonNullElse(theme, GroupTheme.EMPTY);
 		this.priority = priority;
 		this.extra = copyExtra(extra);
-		this.compiledFilter = CompiledFilter.compile(this.filter);
+		this.query = CompiledGroupQuery.compile(this.filter, sourceFilter);
 	}
+
+    private static GroupFilter typedExactData(GroupFilter filter) {
+        return switch (filter) {
+            case GroupFilter.Any any -> new GroupFilter.Any(any.children().stream().map(GroupDefinition::typedExactData).toList());
+            case GroupFilter.All all -> new GroupFilter.All(all.children().stream().map(GroupDefinition::typedExactData).toList());
+            case GroupFilter.Not not -> new GroupFilter.Not(typedExactData(not.child()));
+            case GroupFilter.ExactStack exact -> exact.payload() == null
+                ? new GroupFilter.ExactStack(new ItemDataPayload(ItemDataPayload.ITEM_COMPONENTS, ItemDataPayload.parseLiteral(exact.encodedStack()))) : exact;
+            default -> filter;
+        };
+    }
+
+    public GroupDocumentFormat documentFormat() { return documentFormat; }
+
+    public JsonObject rawDocument() { return rawDocument == null ? null : rawDocument.deepCopy(); }
+
+    private static boolean containsTypedData(GroupFilter filter) {
+        return switch (filter) {
+            case GroupFilter.Any any -> any.children().stream().anyMatch(GroupDefinition::containsTypedData);
+            case GroupFilter.All all -> all.children().stream().anyMatch(GroupDefinition::containsTypedData);
+            case GroupFilter.Not not -> containsTypedData(not.child());
+            case GroupFilter.ExactStack stack -> stack.payload() != null;
+            case GroupFilter.HasComponent component -> component.payload() != null;
+            case GroupFilter.ComponentPath path -> path.payload() != null;
+            default -> false;
+        };
+    }
 
 	public static GroupDefinition of(String id, String name, GroupFilter filter) {
 		return new GroupDefinition(id, name, true, filter);
@@ -165,11 +210,19 @@ public final class GroupDefinition {
 	}
 
 	public CompiledFilter compiledFilter() {
-		return compiledFilter;
+		return query.evaluator();
+	}
+
+	public CompiledGroupQuery query() {
+		return query;
+	}
+
+	public boolean hasUnavailableFilter() {
+		return documentFormat == GroupDocumentFormat.UNSUPPORTED || FilterNodeCapabilities.containsUnavailable(filter);
 	}
 
 	public boolean matchesIgnoringEnabled(ItemStack stack) {
-		return compiledFilter.matches(new ItemStackIngredientView(stack));
+		return query.matches(new ItemStackIngredientView(stack));
 	}
 
 	public boolean matches(ItemStack stack) {
@@ -177,22 +230,19 @@ public final class GroupDefinition {
 	}
 
 	public boolean hasItemFilters() {
-		return hasFilterForType("item");
+		return query.plan().mayMatchItems();
 	}
 
 	public boolean hasFluidFilters() {
-		return hasFilterForType("fluid");
+		return query.plan().mayMatchFluids();
 	}
 
 	public boolean hasGenericFilters() {
-		return hasAtomicNodeMatching(filter, node -> {
-			String type = atomicType(node);
-			return type != null && !"item".equals(type) && !"fluid".equals(type);
-		});
+		return query.plan().mayMatchGeneric();
 	}
 
 	public GroupDefinition withEnabled(boolean enabled) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	/** Returns a copy with the given fallback name; the translation key is auto-generated from the group ID. */
@@ -204,60 +254,31 @@ public final class GroupDefinition {
 	}
 
 	public GroupDefinition withDisplayName(GroupDisplayName displayName) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withIconIds(List<?> iconIds) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withFilter(GroupFilter filter) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withTheme(GroupTheme theme) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withPriority(int priority) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public GroupDefinition withExtra(JsonObject extra) {
-		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return new GroupDefinition(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	public boolean isStructurallyEditable() {
-		return GroupFilterEditorDraft.decode(filter).structurallyEditable();
-	}
-
-	private boolean hasFilterForType(String type) {
-		return hasAtomicNodeMatching(filter, node -> type.equals(atomicType(node)));
-	}
-
-	private static boolean hasAtomicNodeMatching(GroupFilter filter, Predicate<GroupFilter> test) {
-		return switch (filter) {
-			case GroupFilter.Any any -> any.children().stream().anyMatch(child -> hasAtomicNodeMatching(child, test));
-			case GroupFilter.All all -> all.children().stream().anyMatch(child -> hasAtomicNodeMatching(child, test));
-			case GroupFilter.Not not -> hasAtomicNodeMatching(not.child(), test);
-			default -> test.test(filter);
-		};
-	}
-
-	private static String atomicType(GroupFilter node) {
-		return switch (node) {
-			case GroupFilter.Id id -> id.ingredientType();
-			case GroupFilter.Tag tag -> tag.ingredientType();
-			case GroupFilter.BlockTag ignored -> "item";
-			case GroupFilter.ItemPathStartsWith ignored -> "item";
-			case GroupFilter.ItemPathContains ignored -> "item";
-			case GroupFilter.ItemPathEndsWith ignored -> "item";
-			case GroupFilter.Namespace namespace -> namespace.ingredientType();
-			case GroupFilter.ExactStack ignored -> "item";
-			case GroupFilter.HasComponent ignored -> "item";
-			case GroupFilter.ComponentPath ignored -> "item";
-			default -> null;
-		};
+		return !hasUnavailableFilter() && GroupFilterEditorDraft.decode(filter).structurallyEditable();
 	}
 
 	private static JsonObject copyExtra(JsonObject extra) {
@@ -285,12 +306,13 @@ public final class GroupDefinition {
 			&& Objects.equals(filter, other.filter)
 			&& Objects.equals(iconIds, other.iconIds)
 			&& Objects.equals(theme, other.theme)
-			&& Objects.equals(extra, other.extra);
+			&& Objects.equals(extra, other.extra)
+            && documentFormat == other.documentFormat && Objects.equals(rawDocument, other.rawDocument);
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(id, displayName, enabled, filter, iconIds, theme, priority, extra);
+		return Objects.hash(id, displayName, enabled, filter, iconIds, theme, priority, extra, documentFormat, rawDocument);
 	}
 
 	@Override

@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "__default_botanypotstiers_mega_concrete_waxed_pots",
+  "name": {
+    "translate": "collapsible_groups.group.__default_botanypotstiers_mega_concrete_waxed_pots",
+    "fallback": "Mega Concrete Waxed Botany Pots"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "botanypotstiers"
+      },
+      {
+        "item_path_starts_with": "mega_"
+      },
+      {
+        "item_path_ends_with": "_concrete_waxed_botany_pot"
+      }
+    ]
+  }
+}

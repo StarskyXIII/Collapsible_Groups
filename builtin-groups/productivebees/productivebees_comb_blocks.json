@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "id": "__default_productivebees_comb_blocks",
+  "name": {
+    "translate": "collapsible_groups.group.__default_productivebees_comb_blocks",
+    "fallback": "Productive Bees: Comb Blocks"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "productivebees"
+      },
+      {
+        "any": [
+          {
+            "item_path_starts_with": "comb_"
+          },
+          {
+            "type": "item",
+            "id": "productivebees:configurable_comb"
+          }
+        ]
+      }
+    ]
+  }
+}

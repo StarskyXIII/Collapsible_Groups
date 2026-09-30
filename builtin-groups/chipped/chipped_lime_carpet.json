@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_lime_carpet",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_lime_carpet",
+    "fallback": "Chipped: Lime Carpet"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:lime_carpet"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

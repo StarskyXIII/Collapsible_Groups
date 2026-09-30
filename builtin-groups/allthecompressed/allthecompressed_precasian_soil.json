@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_precasian_soil",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_precasian_soil",
+    "fallback": "Compressed Precasian Soil"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_soil_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_soil_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_soil_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_soil_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_soil_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_soil_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_soil_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_soil_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:precasian_soil_9x"
+      }
+    ]
+  }
+}

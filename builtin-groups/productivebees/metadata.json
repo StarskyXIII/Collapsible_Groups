@@ -1,0 +1,16 @@
+{
+  "loaders": [
+    "neoforge"
+  ],
+  "category": {
+    "translate": "collapsible_groups.category.productivebees",
+    "fallback": "Productive Bees"
+  },
+  "requirement": {
+    "any": [
+      {
+        "mod": "productivebees"
+      }
+    ]
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_mangrove_roots",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_mangrove_roots",
+    "fallback": "Chipped: Mangrove Roots"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:mangrove_roots"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

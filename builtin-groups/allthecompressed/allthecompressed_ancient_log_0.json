@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_ancient_log_0",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_ancient_log_0",
+    "fallback": "Compressed Ancient Log"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_log_0_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_log_0_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_log_0_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_log_0_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_log_0_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_log_0_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_log_0_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_log_0_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:ancient_log_0_9x"
+      }
+    ]
+  }
+}

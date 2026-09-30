@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_windows_windows_four",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_windows_windows_four",
+    "fallback": "Macaw's Windows: Four Windows"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwwindows:windows_four"
+  }
+}

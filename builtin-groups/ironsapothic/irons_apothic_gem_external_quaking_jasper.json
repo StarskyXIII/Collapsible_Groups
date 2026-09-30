@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_irons_apothic_gem_external_quaking_jasper",
+  "name": {
+    "translate": "collapsible_groups.group.__default_irons_apothic_gem_external_quaking_jasper",
+    "fallback": "Quaking Jaspers"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "apotheosis:gem"
+      },
+      {
+        "type": "item",
+        "component": "apotheosis:gem",
+        "value": {
+          "data_format": "minecraft:data_component",
+          "data": "irons_apothic:external/quaking_jasper"
+        }
+      }
+    ]
+  }
+}

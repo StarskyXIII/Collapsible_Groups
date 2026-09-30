@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_terracotta",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_terracotta",
+    "fallback": "Compressed Terracotta"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:terracotta_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:terracotta_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:terracotta_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:terracotta_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:terracotta_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:terracotta_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:terracotta_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:terracotta_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:terracotta_9x"
+      }
+    ]
+  }
+}

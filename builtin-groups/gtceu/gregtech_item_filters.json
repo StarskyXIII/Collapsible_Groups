@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_item_filters",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_item_filters",
+    "fallback": "GregTech: Filters"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "gtceu:item_filter"
+      },
+      {
+        "type": "item",
+        "id": "gtceu:item_tag_filter"
+      },
+      {
+        "type": "item",
+        "id": "gtceu:smart_item_filter"
+      },
+      {
+        "type": "item",
+        "id": "gtceu:fluid_filter"
+      },
+      {
+        "type": "item",
+        "id": "gtceu:fluid_tag_filter"
+      }
+    ]
+  }
+}

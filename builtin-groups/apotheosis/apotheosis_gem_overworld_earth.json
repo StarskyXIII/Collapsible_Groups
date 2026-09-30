@@ -1,0 +1,25 @@
+{
+  "schema_version": 1,
+  "id": "__default_apotheosis_gem_overworld_earth",
+  "name": {
+    "translate": "collapsible_groups.group.__default_apotheosis_gem_overworld_earth",
+    "fallback": "Earth Gems"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "id": "apotheosis:gem"
+      },
+      {
+        "type": "item",
+        "component": "apotheosis:gem",
+        "value": {
+          "data_format": "minecraft:data_component",
+          "data": "apotheosis:overworld/earth"
+        }
+      }
+    ]
+  }
+}

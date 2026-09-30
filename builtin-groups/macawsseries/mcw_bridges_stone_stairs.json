@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_bridges_stone_stairs",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_bridges_stone_stairs",
+    "fallback": "Macaw's Bridges: Stone Stairs"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "block_tag": "mcwbridges:stone_stairs"
+      },
+      {
+        "not": {
+          "type": "item",
+          "id": "mcwbridges:glass_bridge_stair"
+        }
+      }
+    ]
+  }
+}

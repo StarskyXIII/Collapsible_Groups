@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_doors_nether_doors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_doors_nether_doors",
+    "fallback": "Macaw's Doors: Nether Doors"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwdoors:nether_doors"
+  }
+}

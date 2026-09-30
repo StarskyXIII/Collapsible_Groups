@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "id": "__default_allthecompressed_xychorium_storage_dark",
+  "name": {
+    "translate": "collapsible_groups.group.__default_allthecompressed_xychorium_storage_dark",
+    "fallback": "Compressed Dark Xychorium Gem Storage"
+  },
+  "enabled": true,
+  "filter": {
+    "any": [
+      {
+        "type": "item",
+        "id": "allthecompressed:xychorium_storage_dark_1x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:xychorium_storage_dark_2x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:xychorium_storage_dark_3x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:xychorium_storage_dark_4x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:xychorium_storage_dark_5x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:xychorium_storage_dark_6x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:xychorium_storage_dark_7x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:xychorium_storage_dark_8x"
+      },
+      {
+        "type": "item",
+        "id": "allthecompressed:xychorium_storage_dark_9x"
+      }
+    ]
+  }
+}

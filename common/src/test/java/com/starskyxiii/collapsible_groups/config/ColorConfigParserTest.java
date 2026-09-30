@@ -16,7 +16,7 @@ class ColorConfigParserTest {
 
 	@Test
 	void rgbValuesKeepFallbackAlpha() {
-		assertEquals(0x24FF0000, ColorConfigParser.parseArgb("#FF0000", 0x24FFFFFF));
+		assertEquals(0x18FF0000, ColorConfigParser.parseArgb("#FF0000", 0x18FFFFFF));
 		assertEquals(0x2400FF00, ColorConfigParser.parseArgb("0x00FF00", 0x24FFFFFF));
 	}
 

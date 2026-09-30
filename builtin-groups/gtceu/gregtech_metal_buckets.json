@@ -1,0 +1,20 @@
+{
+  "schema_version": 1,
+  "id": "__default_gregtech_metal_buckets",
+  "name": {
+    "translate": "collapsible_groups.group.__default_gregtech_metal_buckets",
+    "fallback": "GregTech: Fluid Buckets"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "namespace": "gtceu"
+      },
+      {
+        "item_path_contains": "_bucket"
+      }
+    ]
+  }
+}

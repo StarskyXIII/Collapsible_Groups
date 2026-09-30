@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "id": "__default_chipped_warped_roots",
+  "name": {
+    "translate": "collapsible_groups.group.__default_chipped_warped_roots",
+    "fallback": "Chipped: Warped Roots"
+  },
+  "enabled": true,
+  "filter": {
+    "all": [
+      {
+        "type": "item",
+        "tag": "chipped:warped_roots"
+      },
+      {
+        "type": "item",
+        "namespace": "chipped"
+      }
+    ]
+  }
+}

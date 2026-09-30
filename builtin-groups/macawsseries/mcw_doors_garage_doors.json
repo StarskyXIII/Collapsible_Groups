@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "__default_mcw_doors_garage_doors",
+  "name": {
+    "translate": "collapsible_groups.group.__default_mcw_doors_garage_doors",
+    "fallback": "Macaw's Doors: Garage Doors"
+  },
+  "enabled": true,
+  "filter": {
+    "block_tag": "mcwdoors:garage_doors"
+  }
+}

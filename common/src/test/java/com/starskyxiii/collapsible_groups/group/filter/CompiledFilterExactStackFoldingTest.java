@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  *
  * <p><b>Testability boundary:</b> a folded exact-stack node only decodes its selectors (and deep-
  * compares candidates) when it evaluates an {@code item}-typed view, and decoding goes through
- * {@code ItemStack.STRICT_SINGLE_ITEM_CODEC} + a live client registry, neither of which can be
+ * {@code ItemStack.CODEC} + a live client registry, neither of which can be
  * bootstrapped in a headless unit test (see {@code GroupManagerCardTest}'s note on {@code
  * ItemStack.EMPTY}). Touching those statics fails class initialization
  * ({@code ExceptionInInitializerError} — catchable, but the class then stays broken for the rest
@@ -29,13 +29,28 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  * concurrent first-initialization are left to in-game QA (pending — not yet performed). What
  * <em>is</em> unit-testable, and is asserted below, is the fold structure itself: because
  * {@link CompiledFilter}'s node checks the ingredient type <em>before</em> any decode, a
- * non-{@code item} view exercises folding + short-circuit without ever decoding. That lets us
- * prove (a) a whole run collapses to a single node (O(1) type checks regardless of run size),
- * (b) a type mismatch never inspects the resource location or decodes, (c) exact-stack runs
- * segment Id runs into separate nodes, and (d) the folded nodes evaluate in the original
+ * non-{@code item} view exercises folding + short-circuit without ever decoding. Generic cache
+ * mechanics are covered headlessly by {@link ExactStackMatcherCacheTest}; together these
+ * tests prove (a) top-level and {@code Any} singletons use the same cached-node type gate,
+ * (b) a whole run collapses to a single node (O(1) type checks regardless of run size),
+ * (c) a type mismatch never inspects the resource location or decodes, (d) exact-stack runs
+ * segment Id runs into separate nodes, and (e) the folded nodes evaluate in the original
  * encounter order (recorded call sequence + short-circuit probes).
  */
 class CompiledFilterExactStackFoldingTest {
+	@Test
+	void topLevelAndAnySingletonUseTheSameCachedTypeGate() {
+		CompiledFilter topLevel = CompiledFilter.compile(Filters.exactStack("same"));
+		CompiledFilter insideAny = CompiledFilter.compile(new GroupFilter.Any(List.of(Filters.exactStack("same"))));
+		RecordingIngredientView topLevelView = new RecordingIngredientView(
+			"fluid", Identifier.parse("minecraft:water"), null);
+		RecordingIngredientView anyView = new RecordingIngredientView(
+			"fluid", Identifier.parse("minecraft:water"), null);
+
+		assertEquals(topLevel.evaluate(topLevelView), insideAny.evaluate(anyView));
+		assertEquals(List.of("type"), topLevelView.calls);
+		assertEquals(topLevelView.calls, anyView.calls);
+	}
 
 	@Test
 	void exactStackRunFoldsToSingleNodeWithConstantTypeChecksRegardlessOfRunSize() {

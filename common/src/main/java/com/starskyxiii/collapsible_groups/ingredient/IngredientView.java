@@ -1,6 +1,7 @@
 package com.starskyxiii.collapsible_groups.ingredient;
 
 import com.starskyxiii.collapsible_groups.group.filter.CompiledFilter;
+import com.starskyxiii.collapsible_groups.internal.version.data.ItemDataPayload;
 
 import net.minecraft.resources.Identifier;
 import net.minecraft.world.item.ItemStack;
@@ -13,6 +14,10 @@ public interface IngredientView {
 	Identifier resourceLocation();
 
 	boolean hasTag(Identifier tagId);
+
+	default TagQueryResult queryTag(Identifier tagId) {
+		return hasTag(tagId) ? TagQueryResult.MATCH : TagQueryResult.NO_MATCH;
+	}
 
 	default boolean hasBlockTag(Identifier tagId) {
 		return false;
@@ -37,4 +42,13 @@ public interface IngredientView {
 	default boolean hasComponentPath(String componentTypeId, String path, String expectedValue) {
 		return false;
 	}
+    default CompiledFilter.Evaluation queryComponent(String componentTypeId, String legacyValue, ItemDataPayload payload) {
+        if (payload != null) return CompiledFilter.Evaluation.UNAVAILABLE;
+        return hasComponent(componentTypeId, legacyValue) ? CompiledFilter.Evaluation.MATCH : CompiledFilter.Evaluation.NO_MATCH;
+    }
+
+    default CompiledFilter.Evaluation queryComponentPath(String componentTypeId, String path, String legacyValue, ItemDataPayload payload) {
+        if (payload != null) return CompiledFilter.Evaluation.UNAVAILABLE;
+        return hasComponentPath(componentTypeId, path, legacyValue) ? CompiledFilter.Evaluation.MATCH : CompiledFilter.Evaluation.NO_MATCH;
+    }
 }

@@ -4,9 +4,11 @@ import com.starskyxiii.collapsible_groups.compat.jei.runtime.JeiRuntimeHolder;
 import com.starskyxiii.collapsible_groups.group.filter.Filters;
 import com.starskyxiii.collapsible_groups.group.GroupDefinition;
 import com.starskyxiii.collapsible_groups.group.GroupIconDefinition;
+import com.starskyxiii.collapsible_groups.group.ScriptedGroupStore;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientType;
 import com.starskyxiii.collapsible_groups.viewer.GroupCandidateIndex;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
+import com.starskyxiii.collapsible_groups.viewer.ViewerLifecycleCoordinator;
 import mezz.jei.api.ingredients.IIngredientHelper;
 import mezz.jei.api.ingredients.IIngredientType;
 import mezz.jei.api.ingredients.ITypedIngredient;
@@ -18,14 +20,39 @@ import org.junit.jupiter.api.Test;
 import java.lang.reflect.Proxy;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 @SuppressWarnings("removal")
 class JeiViewerAdapterBootstrapTest {
+	@Test
+	void runtimeTeardownMakesTheNextUniverseRecollectScriptedGroups() {
+		ViewerLifecycleCoordinator coordinator = new ViewerLifecycleCoordinator(
+			new ViewerLifecycleCoordinator.Environment(true, false, false), Set.of("jei"), ignored -> {});
+		int[] collections = {0};
+		coordinator.setScriptedGroupBootstrap(context -> {
+			collections[0]++;
+			ScriptedGroupStore.publish(List.of());
+		});
+		ScriptedGroupStore.publish(List.of());
+		ScriptedGroupStore.markApplied();
+
+		try {
+			assertFalse(coordinator.activeUniverseReady("jei", JeiViewerAdapter.instance().bootstrapContext()));
+			JeiViewerAdapter.unregisterRuntime();
+
+			assertTrue(coordinator.activeUniverseReady("jei", JeiViewerAdapter.instance().bootstrapContext()));
+			assertEquals(1, collections[0]);
+		} finally {
+			JeiViewerAdapter.unregisterRuntime();
+		}
+	}
+
 	@Test
 	@SuppressWarnings("unchecked")
 	void customTypeProjectsFromBootstrapBeforeRuntimeIsAvailable() {
@@ -70,7 +97,7 @@ class JeiViewerAdapterBootstrapTest {
 			);
 			ViewerProjection.GroupHeader<ITypedIngredient<?>> header = assertInstanceOf(
 				ViewerProjection.GroupHeader.class,
-				projection.entries().getFirst()
+				projection.entries().get(0)
 			);
 			assertEquals("__kjs_test_bootstrap", header.group().id());
 			assertEquals(List.of(oxygen, hydrogen), header.children().stream()
@@ -146,7 +173,7 @@ class JeiViewerAdapterBootstrapTest {
 				return new CollisionUid(ingredient.getIngredient());
 			}
 			@Override public Identifier getIdentifier(String ingredient) {
-				return Identifier.parse("test:" + ingredient);
+				return Identifier.fromNamespaceAndPath("test", ingredient);
 			}
 			@Override public String copyIngredient(String ingredient) { return ingredient; }
 			@Override public String getErrorInfo(String ingredient) { return ingredient; }
@@ -185,6 +212,53 @@ class JeiViewerAdapterBootstrapTest {
 
 	@Test
 	@SuppressWarnings("unchecked")
+	void managerHeaderUsesCurrentIconsFromCapturedGenerationWithoutRebuildingMatches() {
+		IIngredientType<String> type = new IIngredientType<>() {
+			@Override public Class<? extends String> getIngredientClass() { return String.class; }
+			@Override public String getUid() { return "test:manager_icon"; }
+		};
+		var oxygen = typed(type, "oxygen");
+		var hydrogen = typed(type, "hydrogen");
+		List<ITypedIngredient<?>> all = List.of(oxygen, hydrogen);
+		var helper = helper(type);
+		IIngredientManager manager = (IIngredientManager) Proxy.newProxyInstance(
+			getClass().getClassLoader(), new Class<?>[]{IIngredientManager.class}, (proxy, method, args) -> {
+				if (method.getName().equals("getRegisteredIngredientTypes")) return List.of(type);
+				if (method.getName().equals("getIngredientHelper")) return helper;
+				if (method.getName().equals("getAllTypedIngredients")) return all;
+				throw new UnsupportedOperationException(method.toString());
+			});
+		var group = new GroupDefinition("icons", "Icons", true, Filters.genericNamespace(type.getUid(), "test"));
+		var adapter = JeiViewerAdapter.instance();
+		var index = JeiViewerGroupIndex.instance();
+		index.reset();
+		try {
+			var candidates = adapter.buildOwnershipIndex(all, manager, List.of(group));
+			var context = adapter.updateBootstrap(all, manager);
+			var genericType = (IIngredientType<Object>) (IIngredientType<?>) type;
+			var refs = List.of(
+				new com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef(type.getUid(), genericType, "oxygen"),
+				new com.starskyxiii.collapsible_groups.compat.jei.data.GenericIngredientRef(type.getUid(), genericType, "hydrogen"));
+			var generation = new JeiViewerGroupIndex.Generation(candidates, Map.of(), Map.of(),
+				Map.of(group.id(), List.of()), Map.of(group.id(), List.of()), Map.of(group.id(), refs), Map.of(), Map.of(), context);
+			index.publishGeneration(generation);
+			var display = index.displaySnapshot();
+			adapter.updateBootstrap(List.of(), manager);
+			var edited = group.withIconIds(List.of(new GroupIconDefinition(type.getUid(), "test:hydrogen")));
+			assertEquals(1, display.preview(edited).orElseThrow().headers().size());
+			assertEquals(2, display.preview(edited).orElseThrow().generic().size());
+			assertSame(candidates, index.candidates().orElseThrow());
+			assertEquals(2, display.preview(group).orElseThrow().headers().size());
+			assertEquals(2, display.preview(group.withIconIds(List.of(
+				new GroupIconDefinition(type.getUid(), "test:missing")))).orElseThrow().headers().size());
+		} finally {
+			JeiViewerAdapter.unregisterRuntime();
+			index.reset();
+		}
+	}
+
+	@Test
+	@SuppressWarnings("unchecked")
 	void preparedOwnershipKeepsProjectionOnItsOwnBootstrapGeneration() {
 		IIngredientType<String> type = new IIngredientType<>() {
 			@Override public Class<? extends String> getIngredientClass() { return String.class; }
@@ -212,7 +286,6 @@ class JeiViewerAdapterBootstrapTest {
 			assertEquals(prepared.projectionContext().universe().byIdentity().keySet(),
 				prepared.candidates().candidates().keySet());
 
-			// Publish a different global bootstrap snapshot before projecting the prepared generation.
 			adapter.updateBootstrap(List.of(hydrogen), manager);
 			ViewerProjection<ITypedIngredient<?>> projection = adapter.project(
 				all, "", false, 0, List.of(group), id -> false,
@@ -239,13 +312,13 @@ class JeiViewerAdapterBootstrapTest {
 			}
 
 			@Override
-			public String getUid(String ingredient, UidContext context) {
+			public Object getUid(String ingredient, UidContext context) {
 				return "test:" + ingredient;
 			}
 
 			@Override
 			public Identifier getIdentifier(String ingredient) {
-				return Identifier.parse("test:" + ingredient);
+				return Identifier.fromNamespaceAndPath("test", ingredient);
 			}
 
 			@Override
@@ -272,7 +345,6 @@ class JeiViewerAdapterBootstrapTest {
 				return value;
 			}
 
-			// Present in JEI 29.33, absent from the 29.20 baseline.
 			public ITypedIngredient<String> normalize(IIngredientHelper<String> helper) {
 				return this;
 			}
