@@ -1,0 +1,46 @@
+import fs from 'node:fs/promises';
+import path from 'node:path';
+import assert from 'node:assert/strict';
+import {center,memberIds} from './driver.mjs';
+
+export async function inputSmoke(d) {
+ let s=await d.manager();await d.click(s.controls.new);
+ s=await d.state(s=>s.screen==='GroupEditorScreen'&&!s.loading);
+ await d.text(s.nameField,'Bridge Input');
+ await d.selectItem('item:minecraft:potion','potion');
+ s=await d.check('plain-potion-is-exact',s=>s.selectors.length===1&&s.selectors[0].startsWith('stack:')&&s.previewItems.length===1);
+ let potion=s.sourceCells.find(c=>c.id==='item:minecraft:potion');
+ await d.click(potion,2);
+ s=await d.check('ctrl-potion-selects-all-variants',s=>s.selectors.length===1&&s.selectors[0]==='minecraft:potion'&&s.previewItems.length>1);
+ await d.click(s.sourceCells.find(c=>c.id==='item:minecraft:potion'));
+ s=await d.check('ctrl-released-plain-potion-is-exact',s=>s.selectors.length===1&&s.selectors[0].startsWith('stack:')&&s.previewItems.length===1);
+ await d.click(s.sourceCells.find(c=>c.id==='item:minecraft:potion'));
+ s=await d.state(s=>s.selectors.length===0&&s.previewItems.length===0);
+ await d.text(s.search,'planks');
+ const expected=['item:minecraft:oak_planks','item:minecraft:spruce_planks','item:minecraft:birch_planks'];
+ s=await d.state(s=>expected.every(id=>s.sourceCells.some(c=>c.id===id)));
+ const cells=expected.map(id=>center(s.sourceCells.find(c=>c.id===id)));
+ await d.input({action:'drag',...cells[0],points:cells.slice(1).map(c=>[c.x,c.y])});
+ s=await d.check('drag-adds-only-visited-items',s=>JSON.stringify(memberIds(s))===JSON.stringify([...expected].sort()));
+ await d.capture('native-modifiers-drag');
+ await d.input({action:'drag',...cells[0],points:cells.slice(1).map(c=>[c.x,c.y])});
+ s=await d.check('drag-removes-only-visited-items',s=>s.previewItems.length===0&&s.selectors.length===0);
+ await d.click(s.sourceCells.find(c=>c.id===expected[0]));s=await d.state(s=>s.previewItems.length===1);
+ await d.click(s.controls.save);
+ s=await d.state(s=>s.screen==='GroupManagerScreen'&&s.groups.some(g=>g.name==='Bridge Input'));
+ const id=s.groups.find(g=>g.name==='Bridge Input').id;
+ await d.text(s.search,'Bridge Input');s=await d.state(s=>s.cards.some(c=>c.id===id));
+ await d.click(s.cards.find(c=>c.id===id).delete);
+ s=await d.check('plain-delete-requires-confirmation',s=>s.dialog&&s.groups.some(g=>g.id===id));
+ await d.click(s.dialogSecondary);s=await d.state(s=>!s.dialog&&s.cards.some(c=>c.id===id));
+ await d.click(s.cards.find(c=>c.id===id).delete,1);
+ s=await d.check('shift-delete-removes-without-dialog',s=>!s.dialog&&!s.groups.some(g=>g.id===id));
+ const file=path.join(d.session.manifest.gameDir,'config/collapsiblegroups/groups',id+'.json');
+ await assert.rejects(fs.access(file),{code:'ENOENT'});
+ const retained=d.report.groupId;
+ await d.text(s.search,'Bridge Smoke');s=await d.state(s=>s.cards.some(c=>c.id===retained));
+ await d.click(s.cards.find(c=>c.id===retained).delete);
+ s=await d.check('shift-released-delete-requires-confirmation',s=>s.dialog&&s.groups.some(g=>g.id===retained));
+ await d.click(s.dialogSecondary);
+ await d.state(s=>!s.dialog&&s.groups.some(g=>g.id===retained));
+}

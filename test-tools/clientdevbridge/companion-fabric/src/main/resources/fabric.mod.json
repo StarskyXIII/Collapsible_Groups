@@ -1,0 +1,1 @@
+{"schemaVersion":1,"id":"cgbridgeprobe","version":"0.1.0","name":"Collapsible Groups Test Probe","environment":"client","license":"MIT","mixins":["cgbridgeprobe.mixins.json"],"depends":{"fabricloader":">=0.19.5","minecraft":"26.1.2","clientdevbridge":"1.0.0","collapsible_groups":"2.0.0-beta3"}}

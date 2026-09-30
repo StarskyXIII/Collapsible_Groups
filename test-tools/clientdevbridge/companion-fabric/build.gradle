@@ -1,0 +1,21 @@
+plugins {
+ id 'java'
+ id 'net.fabricmc.fabric-loom' version '1.15.5'
+}
+group='com.starskyxiii'
+version='0.1.0'
+base.archivesName='cg-bridge-probe-26.1.2-fabric'
+repositories { mavenCentral(); maven { url='https://maven.fabricmc.net/' } }
+dependencies {
+ minecraft 'com.mojang:minecraft:26.1.2'
+ implementation 'net.fabricmc:fabric-loader:0.19.5'
+ compileOnly 'net.fabricmc.fabric-api:fabric-api:0.155.3+26.1.2'
+ compileOnly fileTree('libs') {include '*.jar'; exclude 'fabric-api-*.jar'}
+}
+sourceSets.main.java {
+ srcDir '../companion/src/main/java'
+ exclude '**/NeoPlatform.java', '**/ProbeMod.java'
+}
+processResources { from('../companion/src/main/resources') { include 'cgbridgeprobe.mixins.json' } }
+java.toolchain.languageVersion=JavaLanguageVersion.of(25)
+tasks.withType(JavaCompile).configureEach {options.encoding='UTF-8';options.release=25}

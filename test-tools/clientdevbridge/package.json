@@ -1,0 +1,12 @@
+{
+  "name": "cg-clientdevbridge-tests",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test runner/*.test.mjs",
+    "run": "node runner/run.mjs"
+  }
+}

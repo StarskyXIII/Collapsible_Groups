@@ -1,0 +1,107 @@
+{
+  "reviewed": "Minecraft 26.1.2 beta3 UI: mixed counts, controls, invalid-rule error, retained three-entry preview, and batch category labels. Excludes animated icons, caret and background.",
+  "captures": {
+    "manager-mixed": {
+      "file": "manager-mixed.png",
+      "sha256": "adb7497ae3793e166f10a5ed707951d3ff0ba3d53f332e2a9c40cf228cc253c4",
+      "regions": [
+        [
+          416,
+          132,
+          260,
+          46
+        ],
+        [
+          630,
+          300,
+          94,
+          42
+        ],
+        [
+          680,
+          146,
+          48,
+          26
+        ]
+      ],
+      "tolerance": 24,
+      "maxChangedRatio": 0.003
+    },
+    "invalid-rule-preview": {
+      "file": "invalid-rule-preview.png",
+      "sha256": "4057c633ab237cb8578b92d3c58bdfb959df43dbeb30449380c2a9fe6ecb1c26",
+      "regions": [
+        [
+          10,
+          10,
+          130,
+          32
+        ],
+        [
+          1032,
+          10,
+          235,
+          40
+        ],
+        [
+          24,
+          170,
+          938,
+          278
+        ],
+        [
+          1056,
+          207,
+          195,
+          45
+        ],
+        [
+          10,
+          755,
+          710,
+          35
+        ]
+      ],
+      "tolerance": 24,
+      "maxChangedRatio": 0.003
+    },
+    "beta-manager-category": {
+      "file": "beta-manager-category.png",
+      "sha256": "e635bb90f0058652366cdca542e886cee62a4613e19a40e470fdb526eb8c33a0",
+      "regions": [
+        [
+          350,
+          325,
+          280,
+          30
+        ],
+        [
+          754,
+          325,
+          280,
+          30
+        ],
+        [
+          816,
+          132,
+          260,
+          46
+        ],
+        [
+          1034,
+          298,
+          96,
+          46
+        ],
+        [
+          10,
+          253,
+          205,
+          35
+        ]
+      ],
+      "tolerance": 24,
+      "maxChangedRatio": 0.003
+    }
+  }
+}

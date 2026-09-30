@@ -1,0 +1,6 @@
+{
+  "java": "C:/Path/To/jdk-25/bin/javaw.exe",
+  "packTemplate": "D:/Path/To/Collapsible Groups-26.1.2/test-tools/clientdevbridge/pack-template.json",
+  "prism": "C:/Path/To/PrismLauncher/prismlauncher.exe",
+  "prismData": "C:/Users/You/AppData/Roaming/PrismLauncher"
+}

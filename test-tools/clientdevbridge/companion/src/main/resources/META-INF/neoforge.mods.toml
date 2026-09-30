@@ -1,0 +1,24 @@
+modLoader="javafml"
+loaderVersion="[4,)"
+license="MIT"
+[[mods]]
+modId="cgbridgeprobe"
+version="0.1.0"
+displayName="Collapsible Groups Test Probe"
+[[mixins]]
+config="cgbridgeprobe.mixins.json"
+[[dependencies.cgbridgeprobe]]
+modId="neoforge"
+type="required"
+versionRange="[26.1.2.99]"
+side="CLIENT"
+[[dependencies.cgbridgeprobe]]
+modId="clientdevbridge"
+type="required"
+versionRange="[1.0.0]"
+side="CLIENT"
+[[dependencies.cgbridgeprobe]]
+modId="collapsible_groups"
+type="required"
+versionRange="[2.0.0-beta3]"
+side="CLIENT"

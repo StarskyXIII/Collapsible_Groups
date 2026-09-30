@@ -1,0 +1,55 @@
+{
+  "minecraft": "26.1.2",
+  "neoforge": "26.1.2.99",
+  "fabricLoader": "0.19.5",
+  "mods": {
+    "clientdevbridge": {
+      "loader": "neoforge",
+      "modId": "clientdevbridge",
+      "file": "clientdevbridge-26.1.2-neoforge-1.0.0-172.jar",
+      "version": "1.0.0",
+      "sha256": "7d29fe0651037945f4223363d12a90d5a38a5892e3a7e05b9081b36306e4ee9e",
+      "url": "https://cyclopsmc.github.io/ClientDevBridge-Releases/org/cyclops/clientdevbridge/clientdevbridge-26.1.2-neoforge/1.0.0-172/clientdevbridge-26.1.2-neoforge-1.0.0-172.jar"
+    },
+    "jei": {
+      "loader": "neoforge",
+      "modId": "jei",
+      "file": "jei-26.1.2-neoforge-29.43.0.106.jar",
+      "version": "29.43.0.106",
+      "sha256": "a66fd1b3a258fc02f24a1068c9a7809ea4118cfae2414ace8f84a6fade8a1903",
+      "url": "https://maven.blamejared.com/mezz/jei/jei-26.1.2-neoforge/29.43.0.106/jei-26.1.2-neoforge-29.43.0.106.jar"
+    }
+  },
+  "extras": {
+    "fabric_bridge": {
+      "loader": "fabric",
+      "modId": "clientdevbridge",
+      "file": "clientdevbridge-26.1.2-fabric-1.0.0-172.jar",
+      "version": "1.0.0",
+      "sha256": "5627bcb26b9c917b3bd87db2009829b630a54b0ef3f864bd47585c87c0376e2f",
+      "url": "https://cyclopsmc.github.io/ClientDevBridge-Releases/org/cyclops/clientdevbridge/clientdevbridge-26.1.2-fabric/1.0.0-172/clientdevbridge-26.1.2-fabric-1.0.0-172.jar"
+    },
+    "fabric_jei": {
+      "loader": "fabric",
+      "modId": "jei",
+      "file": "jei-26.1.2-fabric-29.43.0.106.jar",
+      "version": "29.43.0.106",
+      "sha256": "352c594fecc491e30ed96e427e6c0617ea95ec134cb3482fce0c57ff9e65e739",
+      "url": "https://maven.blamejared.com/mezz/jei/jei-26.1.2-fabric/29.43.0.106/jei-26.1.2-fabric-29.43.0.106.jar"
+    },
+    "fabric-api": {
+      "loader": "fabric",
+      "modId": "fabric-api",
+      "file": "fabric-api-0.155.3+26.1.2.jar",
+      "version": "0.155.3+26.1.2",
+      "sha256": "7fe7bea3dbb7b2e9ff998ab583130cd62fab22ab8a5229656ff14b2e648c91dd",
+      "url": "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.155.3+26.1.2/fabric-api-0.155.3+26.1.2.jar"
+    }
+  },
+  "bridgeSource": {
+    "repository": "https://github.com/CyclopsMC/ClientDevBridge",
+    "branch": "master-26-lts",
+    "commit": "8cca17e24630a1dabc1851a1aec3f6738124b54b",
+    "artifactVersion": "1.0.0-172"
+  }
+}
