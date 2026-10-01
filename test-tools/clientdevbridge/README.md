@@ -2,7 +2,7 @@
 
 Run Collapsible Groups in isolated Prism Launcher instances and check its UI, saved groups, and behavior after restarting the game. ClientDevBridge and the companion probe drive the tests; neither is included in the mod's release JARs.
 
-Start with the two core JEI profiles.
+Start with the two core JEI profiles. Add the KubeJS profiles after the core setup is working.
 
 ## Before you start
 
@@ -83,6 +83,33 @@ A successful run reports `passed`. The audit then checks the latest recorded run
 
 Each run keeps its reports, screenshots, logs, and configuration backups in `evidence/suite-<timestamp>/`. Core checks cover group editing, item and fluid membership, search, drag input, batch actions, categories, invalid rules, and persistence. Image comparisons cover selected controls and text regions, not the whole screen; changes to the baseline images require manual review.
 
+## Optional: test KubeJS
+
+After completing the core setup, add either or both of these NeoForge profiles:
+
+| Profile | KubeJS | Rhino | Port |
+| --- | --- | --- | --- |
+| `neo-jei-kube` | 26.1.2-8.0.3 | 2101.2.7-build.85 | 25933 |
+| `neo-jei-kube-latest` | 26.1.2-8.0.6 | 2101.2.8-build.91 | 25934 |
+
+Both use Better Advanced Tooltips 2601.1.0-build.9. Keep these combinations: KubeJS 8.0.3 is incompatible with Rhino 2.8, and its bundled tooltip mod needs the build 9 override. The dependency scripts handle the pinned files.
+
+```powershell
+node runner/fetch.mjs neo-jei-kube neo-jei-kube-latest
+node runner/stage.mjs neo-jei-kube neo-jei-kube-latest
+node runner/prepare.mjs neo-jei-kube neo-jei-kube-latest
+node runner/run.mjs neo-jei-kube neo-jei-kube-latest
+node runner/audit-evidence.mjs neo-jei-kube neo-jei-kube-latest
+```
+
+Each profile runs 22 checks covering script reloads, changed and removed groups, tag and mod filters, recovery from script errors, world reentry, and cold restarts. The runner restores both the original group configuration and its test script after a verified shutdown. KubeJS screenshots are saved for manual review; these profiles have no image comparison baselines.
+
+To audit all four profiles together:
+
+```powershell
+node runner/audit-evidence.mjs neo-jei fabric-jei neo-jei-kube neo-jei-kube-latest
+```
+
 ## Rebuild and rerun
 
 When mod or probe code changes, close the test instances, repeat step 2, and deploy the rebuilt JARs to the profiles you want to test:
@@ -93,7 +120,7 @@ node runner/run.mjs neo-jei fabric-jei
 node runner/audit-evidence.mjs neo-jei fabric-jei
 ```
 
-`deploy` updates the mod and probe JARs and records their new hashes; it does not update loader or third-party dependency versions.
+Use the KubeJS profile names in these commands to update those instances instead. `deploy` updates the mod and probe JARs and records their new hashes; it does not update loader or third-party dependency versions.
 
 For a loader or dependency version change, finish any pending recovery, remove only the generated test instance in Prism, and repeat setup for that profile. If the mod version changes, also update the probe dependency metadata before rebuilding and preparing the replacement instance.
 
@@ -110,6 +137,8 @@ node runner/recover.mjs "evidence/<suite>/<profile>"
 ```
 
 This helper requires a previously verified client identity, all recorded client processes to have exited, and a closed port.
+
+**KubeJS recovery:** `recover.mjs` does not support these profiles. Restore the saved group configuration and restore `kubejs/client_scripts/cg_bridge_groups.js` from `kube-script-before.js`, or remove the test script if no original existed.
 
 **Startup failed before identity verification:** inspect the instance's process and port before restoring files manually. Keep the backups until recovery is complete.
 

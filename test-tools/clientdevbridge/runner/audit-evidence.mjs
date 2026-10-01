@@ -21,7 +21,7 @@ for(const id of requested) {
  for(const mod of Object.values(m.mods))assert.equal(hash(await fs.readFile(path.join(m.gameDir,'mods',mod.file))),mod.sha256,id+' deployed jar changed');
  assert.equal(report.restoration?.status,'passed',id+' config restoration');
  for(const exit of [report.firstQuit,report.quit,...(report.missingQuit?[report.missingQuit]:[])])assert(exit?.normalQuit&&exit.processExited,id+' shutdown');
- assert.equal(report.cases.length,({kube:15,generic:11,locale:4})[m.scenario]??46,id+' case count');
+ assert.equal(report.cases.length,({kube:22,generic:11,locale:4})[m.scenario]??46,id+' case count');
  assert(report.cases.every(c=>c.status==='passed'));
  for(const c of report.cases) {
   assert.equal(new Set(c.samples.map(s=>s.frame)).size,3,id+' frame witnesses');

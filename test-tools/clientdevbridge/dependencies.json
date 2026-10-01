@@ -44,6 +44,46 @@
       "version": "0.155.3+26.1.2",
       "sha256": "7fe7bea3dbb7b2e9ff998ab583130cd62fab22ab8a5229656ff14b2e648c91dd",
       "url": "https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.155.3+26.1.2/fabric-api-0.155.3+26.1.2.jar"
+    },
+    "kubejs": {
+      "loader": "neoforge",
+      "modId": "kubejs",
+      "file": "kubejs-neoforge-26.1.2-8.0.3.jar",
+      "version": "26.1.2-8.0.3",
+      "sha256": "cb04ca5df0e2a34a032fcf874b778a03a12f194fb617a4d7291e1711802b0c2e",
+      "url": "https://cdn.modrinth.com/data/umyGl7zF/versions/L68K2Wj0/kubejs-neoforge-26.1.2-8.0.3.jar"
+    },
+    "kubejs_latest": {
+      "loader": "neoforge",
+      "modId": "kubejs",
+      "file": "kubejs-neoforge-26.1.2-8.0.6.jar",
+      "version": "26.1.2-8.0.6",
+      "sha256": "36df262649e53c4b8256193198e7f5d225a6fec05f4b1e74e55c271e657ea5f0",
+      "url": "https://cdn.modrinth.com/data/umyGl7zF/versions/FzLyIIBB/kubejs-neoforge-26.1.2-8.0.6.jar"
+    },
+    "rhino": {
+      "loader": "neoforge",
+      "modId": "rhino",
+      "file": "rhino-2101.2.8-build.91.jar",
+      "version": "2101.2.8-build.91",
+      "sha256": "1d53d962aa4dac54bcbb4f998c1845980cf194318f1d6b1580ea6ac15cce5ef3",
+      "url": "https://cdn.modrinth.com/data/sk9knFPE/versions/SqkDvOLG/rhino-2101.2.8-build.91.jar"
+    },
+    "betteradvancedtooltips": {
+      "loader": "neoforge",
+      "modId": "betteradvancedtooltips",
+      "file": "better-advanced-tooltips-2601.1.0-build.9.jar",
+      "version": "2601.1.0-build.9",
+      "sha256": "1aef8ecc6f1b6c1952fed84c0302101019b2eb43c27d254152913b05a675143f",
+      "url": "https://cdn.modrinth.com/data/iHLDc0eo/versions/dYc3PUcQ/better-advanced-tooltips-2601.1.0-build.9.jar"
+    },
+    "rhino_legacy": {
+      "loader": "neoforge",
+      "modId": "rhino",
+      "file": "rhino-2101.2.7-build.85.jar",
+      "version": "2101.2.7-build.85",
+      "sha256": "e0e9b0e78edd380440266c0f4ea8d489dac851ef075a4566a66a6dae2f7bbb66",
+      "url": "https://cdn.modrinth.com/data/sk9knFPE/versions/cQ4POTah/rhino-2101.2.7-build.85.jar"
     }
   },
   "bridgeSource": {

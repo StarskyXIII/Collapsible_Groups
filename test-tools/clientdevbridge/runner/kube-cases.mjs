@@ -78,6 +78,24 @@ export async function kubeCore(d) {
  await members(d,kubeIds.beta,['item:minecraft:dirt','item:minecraft:cobblestone'],'kube-beta-replaced-members');
  await members(d,kubeIds.legacy,['item:minecraft:coal','item:minecraft:redstone'],'kube-unaffected-legacy-source');
  await d.capture('kube-reloaded');
+ await reload(d,'tags',['__kjs_bridge_tags','__kjs_fluid_bridge_water']);
+ let tags=await d.findHeader('__kjs_bridge_tags'),header=tags.overlayCells.find(c=>c.groupId==='__kjs_bridge_tags'&&c.role==='header');
+ if(!header.expanded)await d.click(header);
+ await d.check('kube-native-item-tag-members',s=>{
+  const actual=s.overlayCells.filter(c=>c.role==='child'&&c.groupId==='__kjs_bridge_tags').map(c=>c.id);
+  return actual.length>=10&&actual.every(id=>id.endsWith('_planks'))&&['oak','birch','crimson','warped'].every(wood=>actual.includes('item:minecraft:'+wood+'_planks'));
+ });
+ await d.manager();s=await d.state();await d.text(s.search,'Bridge Script Tagged Water');
+ await d.check('kube-native-fluid-tag-count',s=>s.filteredCount===1&&s.cards.some(c=>c.id==='__kjs_fluid_bridge_water'&&c.fluids===1));
+ await d.inventory();
+ s=await d.state();await d.text(s.viewerSearch,'water');
+ await d.check('kube-single-fluid-tag-remains-visible',s=>s.overlayCells.some(c=>c.id==='fluid:minecraft:water'&&c.role==='ingredient')&&!s.overlayCells.some(c=>c.role==='header'&&c.groupId==='__kjs_fluid_bridge_water'));
+ await d.capture('kube-native-tags');
+ await reload(d,'namespace',['__kjs_bridge_namespace','__kjs_fluid_bridge_namespace']);
+ await d.manager();s=await d.state();await d.text(s.search,'Bridge Script Vanilla');
+ await d.check('kube-native-namespace-counts',s=>s.filteredCount===2&&s.cards.some(c=>c.id==='__kjs_bridge_namespace'&&c.items>1000)&&s.cards.some(c=>c.id==='__kjs_fluid_bridge_namespace'&&c.fluids===3));
+ await d.inventory();
+ await members(d,'__kjs_fluid_bridge_namespace',['fluid:minecraft:water','fluid:minecraft:lava','fluid:minecraft:milk'],'kube-native-fluid-namespace-members');
  await reload(d,'failure',[],{failed:true});
  await d.check('kube-failure-has-no-partial-header',s=>!s.overlayCells.some(c=>c.groupId?.startsWith('__kjs_')));
  await reload(d,'v1',expected1);
