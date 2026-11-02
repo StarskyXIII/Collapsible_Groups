@@ -58,7 +58,7 @@ class JeiInternalAbiTest {
 			int.class, int.class, float.class));
 		assertNotNull(IngredientListOverlay.class.getDeclaredMethod(
 			"drawTooltips", Minecraft.class, GuiGraphicsExtractor.class, int.class, int.class));
-		assertNotNull(IngredientListOverlay.class.getDeclaredMethod("createInputHandler"));
+		assertNotNull(IngredientListOverlay.class.getDeclaredMethod("createInputArea", mezz.jei.common.input.IInternalKeyMappings.class));
 	}
 
 	@Test

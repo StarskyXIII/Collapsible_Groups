@@ -14,6 +14,7 @@ import org.spongepowered.asm.mixin.Shadow;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
@@ -48,7 +49,7 @@ public abstract class MixinIngredientListOverlay {
 
 	@Inject(
 		method = "drawForeground(Lnet/minecraft/client/Minecraft;Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V",
-		at = @At("TAIL"),
+		at = @At("RETURN"),
 		require = 1
 	)
 	private void cg$drawForegroundPhase(Minecraft minecraft, GuiGraphicsExtractor graphics, int mouseX, int mouseY,
@@ -59,7 +60,7 @@ public abstract class MixinIngredientListOverlay {
 
 	@Inject(
 		method = "drawTooltips(Lnet/minecraft/client/Minecraft;Lnet/minecraft/client/gui/GuiGraphicsExtractor;II)V",
-		at = @At("TAIL"),
+		at = @At("RETURN"),
 		require = 1
 	)
 	private void cg$drawTooltips(Minecraft minecraft, GuiGraphicsExtractor graphics, int mouseX, int mouseY, CallbackInfo ci) {
@@ -67,16 +68,17 @@ public abstract class MixinIngredientListOverlay {
 		this.cg$controller.drawTooltips(graphics, mouseX, mouseY);
 	}
 
-	@Inject(
-		method = "createInputHandler()Lmezz/jei/common/input/IInputTarget;",
-		at = @At("RETURN"),
-		cancellable = true,
+	// Wrap controls at their caller: optimized createInputHandler bytecode can reuse the this slot.
+	@ModifyArg(
+		method = "createInputArea(Lmezz/jei/common/input/IInternalKeyMappings;)Lmezz/jei/gui/input/InputArea;",
+		at = @At(value = "INVOKE", target = "Lmezz/jei/gui/input/InputArea$Builder;controls(Lmezz/jei/common/input/IInputTarget;)Lmezz/jei/gui/input/InputArea$Builder;"),
+		index = 0,
 		require = 1,
 		allow = 1
 	)
-	private void cg$wrapInputHandler(CallbackInfoReturnable<IInputTarget> cir) {
-		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return;
-		cir.setReturnValue(this.cg$controller.wrapInputHandler(cir.getReturnValue()));
+	private IInputTarget cg$wrapInputHandler(IInputTarget original) {
+		if (!ViewerLifecycleCoordinator.isJeiSelected() || this.cg$controller == null) return original;
+		return this.cg$controller.wrapInputHandler(original);
 	}
 
 	@Inject(method = "isMouseOver(DD)Z", at = @At("HEAD"), cancellable = true, require = 1)
