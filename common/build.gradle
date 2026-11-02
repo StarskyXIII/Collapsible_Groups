@@ -57,6 +57,7 @@ dependencies {
     testImplementation 'com.google.code.gson:gson:2.10.1'
     testImplementation 'org.ow2.asm:asm:9.7.1'
     testImplementation 'org.ow2.asm:asm-tree:9.7.1'
+    testImplementation 'org.ow2.asm:asm-analysis:9.7.1'
 }
 
 def jeiAbiArtifacts = ['fabric', 'forge', 'neoforge'].collectEntries { loader ->

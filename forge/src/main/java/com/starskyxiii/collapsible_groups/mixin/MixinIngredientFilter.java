@@ -66,9 +66,11 @@ public abstract class MixinIngredientFilter {
 	}
 
 	// These alter the empty-query source. Search-text invalidateCache deliberately is not a source change.
+	// Mark pending changes at entry: optimized JEI methods may reuse local slot 0 before returning.
+	// The controller consumes the flag only when getElements runs after JEI updates its dirty state.
 	@Inject(method = {"addIngredient", "onIngredientsAdded", "onIngredientsUpdated", "onIngredientsRemoved",
 		"onIngredientVisibilityChanged", "onIngredientsVisibilityChanged", "updateHidden",
-		"markSortIndexesDirty", "rebuildItemFilter"}, at = @At("TAIL"), require = 0)
+		"markSortIndexesDirty", "rebuildItemFilter"}, at = @At("HEAD"), require = 0)
 	private void cg$onSourceChanged(CallbackInfo ci) {
 		if (this.cg$controller != null) this.cg$controller.sourceChanged();
 	}

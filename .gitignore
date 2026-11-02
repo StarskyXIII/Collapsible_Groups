@@ -18,6 +18,10 @@ out
 build
 .gradle
 
+# Python-generated caches
+__pycache__/
+*.py[cod]
+
 # other
 eclipse
 run
