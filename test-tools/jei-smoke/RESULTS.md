@@ -1,3 +1,27 @@
+# JEI 15.74.0.234 compatibility — 2026-11-03
+
+Local patched CG 2.0.0-beta5, based on `5a0e1b3` plus the working-tree compatibility fix. Input wrapping moved to `InputArea.Builder.controls` in `createInputArea`; ingredient-source notifications mark pending changes at entry. Render callbacks cover every normal return, including empty search results.
+
+| Loader | Official JEI | In-game checks | Result |
+| --- | --- | ---: | --- |
+| Forge 47.4.23 | 15.74.0.234 | 8 | Passed |
+| Fabric 0.19.5 | 15.74.0.234 | 8 | Passed |
+
+Both final default-built JARs retain minimum JEI **15.74.0.225**. Official JEI JARs are unmodified. The checks cover visible search/manager controls, expansion/collapse, manager entry, empty search, manager entry from empty results, positive search and clearing search. Inputs use Minecraft keyboard/mouse handlers; assertions require three distinct frames and ticks. Both clients exited normally. Screenshots were inspected.
+
+The test-only grid observer wraps its caller's draw invocation, retaining a valid receiver on Forge's Mixin 0.8.5. Its owner/name selector accommodates Fabric's remapped Minecraft parameter types. Probes remain outside product builds.
+
+Full final build/checks passed: 1,075 common, 13 Forge and 13 Fabric JUnit tests, zero failures/errors/skips. The packaged ABI checks resolve the official **.234** test artifacts while the product remains built against its existing **.225** pin. Log: `build/issue30/verified-final-20261103.log`.
+
+Final local evidence (Git-ignored):
+
+- forge: `build/issue30-smoke/evidence/forge-2026-11-02T17-13-27-853Z/result.json`.
+- fabric: `build/issue30-smoke/evidence/fabric-2026-11-02T17-14-07-017Z/result.json`.
+
+These focused checks exclude drag operations, cold-restart persistence, multiplayer and performance measurements. No release was published.
+
+---
+
 # JEI 15.74.0.225 compatibility — 2026-10-20
 
 The local CG 2.0.0-beta4 build now targets JEI's `createInputHandler(IInternalKeyMappings)` method. Forge also adds intrinsic search-field bridges: the new JEI interface keeps the names `setValue` and `setFocused`, while Forge remaps the corresponding Minecraft overrides. The bridges call JEI's existing overrides, preserving its text colors, focus restoration, and search history. They leave an existing interface implementation intact.

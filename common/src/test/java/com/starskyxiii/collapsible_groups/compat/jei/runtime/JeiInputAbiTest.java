@@ -46,7 +46,7 @@ class JeiInputAbiTest {
 		for (String loader : List.of("forge", "fabric")) {
 			ClassNode mixin = readMixin(loader, "MixinIngredientListOverlay");
 			AnnotationNode input = method(mixin, "cg$wrapInputHandler").visibleAnnotations.stream()
-				.filter(a -> a.desc.endsWith("/Inject;")).findFirst().orElseThrow();
+				.filter(a -> a.desc.endsWith("/ModifyArg;")).findFirst().orElseThrow();
 			assertEquals(1, value(input, "require"));
 			assertEquals(1, value(input, "allow"));
 			ClassNode bookmarks = readMixin(loader, "MixinBookmarkList");
@@ -58,6 +58,13 @@ class JeiInputAbiTest {
 				try (ZipFile jar = new ZipFile(artifact.toFile())) {
 					ClassNode overlay = read(jar, "mezz/jei/gui/overlay/IngredientListOverlay");
 					assertEquals(1, overlay.methods.stream().filter(m -> ((List<?>) value(input, "method")).contains(m.name + m.desc)).count());
+					Object atValue = value(input, "at");
+					AnnotationNode at = (AnnotationNode) (atValue instanceof List<?> values ? values.get(0) : atValue);
+					assertEquals("INVOKE", value(at, "value"));
+					assertEquals(0, value(input, "index"));
+					assertEquals(1, Arrays.stream(method(overlay, "createInputArea").instructions.toArray())
+						.filter(MethodInsnNode.class::isInstance).map(MethodInsnNode.class::cast)
+						.filter(call -> value(at, "target").equals("L" + call.owner + ";" + call.name + call.desc)).count());
 					assertEquals("()Z", method(overlay, "isSearchDisplayed").desc);
 					AnnotationNode mouseOver = method(mixin, "cg$includeGroupsButton").visibleAnnotations.stream()
 						.filter(a -> a.desc.endsWith("/Inject;")).findFirst().orElseThrow();

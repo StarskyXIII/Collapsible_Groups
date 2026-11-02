@@ -91,12 +91,14 @@ class JeiSearchSourceInvalidationTest {
 			assertEquals(0, invalidations.get());
 
 			query.set("");
-			input.set(List.of(first, second, third)); // add
-			controller.sourceChanged();
+			controller.sourceChanged(); // entry hook runs before JEI changes its source
 			controller.sourceChanged(); // a nested visibility/add callback belongs to the same batch
 			controller.sourceChanged();
 			assertEquals(0, invalidations.get());
-			assertEquals(input.get(), entries(controller.getElements()));
+			assertEquals(1, sources.get(), "Entry notifications must not read the source before JEI finishes");
+			var added = JeiIngredientFilterHook.getElementsAfterDirtyStateUpdate(
+				() -> input.set(List.of(first, second, third)), controller::getElements);
+			assertEquals(input.get(), entries(added));
 			assertEquals(1, invalidations.get());
 			assertNotSame(initial, context.get());
 			var afterAdd = context.get();
