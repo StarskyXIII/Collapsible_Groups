@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.emi;
 
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 
 import java.util.List;
@@ -30,7 +30,7 @@ public final class ProjectedChildEmiIngredient implements EmiIngredient {
 	@Override public List<ClientTooltipComponent> getTooltip() { return delegate.getTooltip(); }
 
 	@Override
-	public void render(GuiGraphics graphics, int x, int y, float delta, int flags) {
+	public void render(GuiGraphicsExtractor graphics, int x, int y, float delta, int flags) {
 		delegate.render(graphics, x, y, delta, flags);
 	}
 }

@@ -11,12 +11,12 @@ import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.network.chat.Component;
 import net.minecraft.network.chat.TextColor;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
@@ -27,14 +27,14 @@ import java.util.UUID;
 public final class GroupHeaderEmiStack extends EmiStack {
 	private final ViewerProjection.GroupHeader<EmiIngredient> header;
 	private final GroupHeaderKey key;
-	private final ResourceLocation id;
+	private final Identifier id;
 
 	public GroupHeaderEmiStack(ViewerProjection.GroupHeader<EmiIngredient> header) {
 		this.header = header;
 		this.key = new GroupHeaderKey(header.group().id());
 		String hash = UUID.nameUUIDFromBytes(header.group().id().getBytes(StandardCharsets.UTF_8))
 			.toString().replace("-", "");
-		this.id = ResourceLocation.fromNamespaceAndPath("collapsible_groups", "group/" + hash);
+		this.id = Identifier.fromNamespaceAndPath("collapsible_groups", "group/" + hash);
 	}
 
 	public String groupId() { return header.group().id(); }
@@ -44,29 +44,26 @@ public final class GroupHeaderEmiStack extends EmiStack {
 	@Override public boolean isEmpty() { return false; }
 	@Override public DataComponentPatch getComponentChanges() { return DataComponentPatch.EMPTY; }
 	@Override public Object getKey() { return key; }
-	@Override public ResourceLocation getId() { return id; }
+	@Override public Identifier getId() { return id; }
 	@Override public Component getName() { return header.group().displayName().toComponent(); }
 
 	@Override
-	public void render(GuiGraphics graphics, int x, int y, float delta, int flags) {
+	public void render(GuiGraphicsExtractor graphics, int x, int y, float delta, int flags) {
 		List<ViewerIngredient<EmiIngredient>> previews = header.fallbackIconIngredients();
 		int previewFlags = flags & ~EmiIngredient.RENDER_AMOUNT;
-		graphics.pose().pushPose();
-		graphics.pose().translate(x, y, 0);
-		graphics.pose().scale(0.9f, 0.9f, 1f);
+		graphics.pose().pushMatrix();
+		graphics.pose().translate(x, y);
+		graphics.pose().scale(0.9f, 0.9f);
 		if (previews.size() == 1) {
 			previews.get(0).entry().render(graphics, 1, 1, delta, previewFlags);
 		} else if (!previews.isEmpty()) {
+			// Later draws layer on top, the front preview goes last
 			previews.get(1).entry().render(graphics, 2, 0, delta, previewFlags);
-			graphics.pose().translate(0, 0, 10);
 			previews.get(0).entry().render(graphics, 0, 2, delta, previewFlags);
 		}
-		graphics.pose().popPose();
-		graphics.pose().pushPose();
-		graphics.pose().translate(0, 0, 200);
+		graphics.pose().popMatrix();
 		String marker = header.expanded() ? "-" : "+";
-		graphics.drawString(Minecraft.getInstance().font, marker, x + 10, y + 9, 0xffffffff, true);
-		graphics.pose().popPose();
+		graphics.text(Minecraft.getInstance().font, marker, x + 10, y + 9, 0xffffffff, true);
 	}
 
 	@Override

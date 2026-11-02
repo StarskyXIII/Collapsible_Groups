@@ -40,7 +40,7 @@ import dev.emi.emi.runtime.EmiReloadManager;
 import dev.emi.emi.registry.EmiStackList;
 import dev.emi.emi.screen.EmiScreenManager;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.world.item.Item;
@@ -121,7 +121,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 	public synchronized void onGroupChange(GroupChangeEvent.Kind kind) {
 		if (kind == GroupChangeEvent.Kind.SOURCE_RELOAD) {
 			markDirty();
-			Minecraft.getInstance().tell(this::ensureUniverseReady);
+			Minecraft.getInstance().execute(this::ensureUniverseReady);
 			return;
 		}
 		if (!runtimeCurrent()) return;
@@ -176,7 +176,7 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 		if (refreshScheduled) return;
 		long scheduledEpoch = bootstrapGate.epoch();
 		refreshScheduled = true;
-		Minecraft.getInstance().tell(() -> {
+		Minecraft.getInstance().execute(() -> {
 			try {
 				if (scheduledEpoch != bootstrapGate.epoch()) return;
 				markDirty();
@@ -485,10 +485,10 @@ public final class EmiViewerAdapter implements ViewerAdapter<EmiIngredient, Clie
 
 	private static final class Presentation implements ViewerPresentation<EmiIngredient, ClientTooltipComponent> {
 		@Override public void renderIngredient(ViewerIngredient<EmiIngredient> ingredient, RenderContext context) {
-			if (context.drawingContext() instanceof GuiGraphics graphics) ingredient.entry().render(graphics, context.x(), context.y(), 0);
+			if (context.drawingContext() instanceof GuiGraphicsExtractor graphics) ingredient.entry().render(graphics, context.x(), context.y(), 0);
 		}
 		@Override public void renderHeader(ViewerProjection.GroupHeader<EmiIngredient> header, RenderContext context) {
-			if (context.drawingContext() instanceof GuiGraphics graphics) {
+			if (context.drawingContext() instanceof GuiGraphicsExtractor graphics) {
 				new GroupHeaderEmiStack(header).render(graphics, context.x(), context.y(), 0, -1);
 			}
 		}

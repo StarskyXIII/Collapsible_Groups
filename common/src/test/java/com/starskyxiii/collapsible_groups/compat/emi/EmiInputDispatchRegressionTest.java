@@ -16,7 +16,7 @@ class EmiInputDispatchRegressionTest {
 		assertTrue(controller.contains("case MOUSE_CLICK -> button.mouseClicked"));
 		assertTrue(controller.contains("case KEY_PRESS -> false"), "keys outside and inside the button must pass through");
 		assertTrue(controller.contains("!visible || !enabled"), "hidden, disabled, and external clicks pass through");
-		assertTrue(controller.contains("public void render(GuiGraphics graphics, int mouseX, int mouseY) {\n\t\tsyncState();"),
+		assertTrue(controller.contains("public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {\n\t\tsyncState();"),
 			"render must refresh readiness without reopening the inventory");
 		assertTrue(controller.contains("public boolean handleInput(Input input) {\n\t\tsyncState();"),
 			"input must not consume against stale readiness");

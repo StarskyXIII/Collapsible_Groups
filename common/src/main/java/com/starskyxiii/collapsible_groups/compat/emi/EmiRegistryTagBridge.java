@@ -5,7 +5,7 @@ import dev.emi.emi.api.stack.EmiRegistryAdapter;
 import dev.emi.emi.registry.EmiTags;
 import dev.emi.emi.util.InheritanceMap;
 import net.minecraft.core.Registry;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 final class EmiRegistryTagBridge {
-	record Tags(boolean available, Set<ResourceLocation> members, Set<ResourceLocation> existing, String reason) {
+	record Tags(boolean available, Set<Identifier> members, Set<Identifier> existing, String reason) {
 		static final Tags UNPREPARED = unavailable("unprepared_key");
 		static final Tags STANDARD = unavailable("standard_registry");
 		Tags {
@@ -22,7 +22,7 @@ final class EmiRegistryTagBridge {
 			existing = Set.copyOf(existing);
 		}
 		static Tags unavailable(String reason) { return new Tags(false, Set.of(), Set.of(), reason); }
-		TagQueryResult query(ResourceLocation tag) {
+		TagQueryResult query(Identifier tag) {
 			return !available ? TagQueryResult.UNAVAILABLE
 				: members.contains(tag) ? TagQueryResult.MATCH : TagQueryResult.NO_MATCH;
 		}
@@ -32,7 +32,7 @@ final class EmiRegistryTagBridge {
 	private final Map<EmiRegistryAdapter<?>, Registry<?>> registries = new IdentityHashMap<>();
 	private final Map<EmiRegistryAdapter<?>, Tags> failures = new IdentityHashMap<>();
 	private final Map<Registry<?>, Map<Object, Tags>> resolved = new IdentityHashMap<>();
-	private final Map<Registry<?>, Set<ResourceLocation>> existing = new IdentityHashMap<>();
+	private final Map<Registry<?>, Set<Identifier>> existing = new IdentityHashMap<>();
 	private final Map<Object, Tags> keys = new IdentityHashMap<>();
 	private final String failure;
 
@@ -80,11 +80,11 @@ final class EmiRegistryTagBridge {
 		@SuppressWarnings("unchecked") T value = (T) key;
 		var resourceKey = registry.getResourceKey(value);
 		if (resourceKey.isEmpty()) return Tags.unavailable("unregistered_key");
-		var holder = registry.getHolder(resourceKey.get());
+		var holder = registry.get(resourceKey.get());
 		if (holder.isEmpty() || !holder.get().isBound() || holder.get().value() != key)
 			return Tags.unavailable("invalid_holder");
-		Set<ResourceLocation> names = existing.computeIfAbsent(registry, ignored ->
-			registry.getTagNames().map(tag -> tag.location()).collect(Collectors.toUnmodifiableSet()));
+		Set<Identifier> names = existing.computeIfAbsent(registry, ignored ->
+			registry.listTagIds().map(tag -> tag.location()).collect(Collectors.toUnmodifiableSet()));
 		return new Tags(true, holder.get().tags().map(tag -> tag.location()).collect(Collectors.toSet()), names, "");
 	}
 

@@ -8,7 +8,7 @@ import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientType;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
 import dev.emi.emi.api.stack.EmiIngredient;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -23,7 +23,7 @@ class EmiBootstrapEntriesTest {
 		ViewerBootstrapContext<EmiIngredient> context = context(List.of(fluid));
 
 		assertEquals(List.of(), ViewerBootstrapEntries.itemStacks(context));
-		assertEquals(List.of(ResourceLocation.parse("minecraft:water")),
+		assertEquals(List.of(Identifier.parse("minecraft:water")),
 			ViewerBootstrapEntries.resourceIds(context, ViewerIngredient.Kind.FLUID));
 	}
 
@@ -44,8 +44,8 @@ class EmiBootstrapEntriesTest {
 	private static IngredientView view(String type, String id) {
 		return new IngredientView() {
 			@Override public String ingredientType() { return type; }
-			@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse(id); }
-			@Override public boolean hasTag(ResourceLocation tagId) { return false; }
+			@Override public Identifier resourceLocation() { return Identifier.parse(id); }
+			@Override public boolean hasTag(Identifier tagId) { return false; }
 			@Override public boolean matchesExactStack(String encodedStack) { return false; }
 		};
 	}

@@ -26,6 +26,8 @@ class EmiItemOwnershipTest {
 	@Test void copiedComponentsResolveExactlyAndUnknownOrUnserializableItemsStayUnowned() {
 		SharedConstants.tryDetectVersion();
 		Bootstrap.bootStrap();
+		net.minecraft.core.registries.BuiltInRegistries.DATA_COMPONENT_INITIALIZERS
+			.build(net.minecraft.data.registries.VanillaRegistries.createLookup()).forEach(pending -> pending.apply());
 		ItemStack first = new ItemStack(Items.STONE);
 		first.set(DataComponents.CUSTOM_NAME, Component.literal("first"));
 		ItemStack second = new ItemStack(Items.STONE);

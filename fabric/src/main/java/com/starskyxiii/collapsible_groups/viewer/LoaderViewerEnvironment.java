@@ -15,7 +15,7 @@ public final class LoaderViewerEnvironment {
 		boolean jei = loader.isModLoaded(ViewerSelectionPolicy.JEI);
 		boolean emi = loader.isModLoaded(ViewerSelectionPolicy.EMI);
 		boolean tmrv = loader.isModLoaded(ViewerSelectionPolicy.TMRV);
-		return ViewerCompatibilityEnvironment.detect(jei, emi, tmrv, false, () -> checkJei(loader));
+		return ViewerCompatibilityEnvironment.detect(jei, emi, tmrv, true, () -> checkJei(loader));
 	}
 
 	private static ViewerCompatibilityEnvironment.JeiVersionCheck checkJei(FabricLoader loader) {

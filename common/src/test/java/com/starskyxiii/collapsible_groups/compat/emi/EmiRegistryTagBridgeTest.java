@@ -8,8 +8,9 @@ import net.minecraft.core.MappedRegistry;
 import net.minecraft.core.RegistrationInfo;
 import net.minecraft.core.Registry;
 import net.minecraft.resources.ResourceKey;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.tags.TagKey;
+import net.minecraft.tags.TagLoader;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -19,8 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static org.junit.jupiter.api.Assertions.*;
 
 class EmiRegistryTagBridgeTest {
-	private static final ResourceLocation TAG = ResourceLocation.parse("test:tag");
-	private static final ResourceLocation EMPTY = ResourceLocation.parse("test:empty");
+	private static final Identifier TAG = Identifier.parse("test:tag");
+	private static final Identifier EMPTY = Identifier.parse("test:empty");
 	interface Marker {}
 	static class Value {}
 	static class Child extends Value implements Marker {}
@@ -34,8 +35,8 @@ class EmiRegistryTagBridgeTest {
 		assertEquals(TagQueryResult.MATCH, tags.query(TAG));
 		assertEquals(TagQueryResult.NO_MATCH, tags.query(EMPTY));
 		assertTrue(tags.existing().contains(EMPTY));
-		assertFalse(tags.existing().contains(ResourceLocation.parse("test:missing")));
-		registry.bindTags(Map.of(TagKey.create(registry.key(), TAG), List.of()));
+		assertFalse(tags.existing().contains(Identifier.parse("test:missing")));
+		registry.prepareTagReload(new TagLoader.LoadResult<>(registry.key(), Map.of(TagKey.create(registry.key(), TAG), List.of()))).apply();
 		for (int i = 0; i < 1000; i++) {
 			assertSame(tags, bridge.resolve(value));
 			assertEquals(TagQueryResult.MATCH, tags.query(TAG));
@@ -83,7 +84,7 @@ class EmiRegistryTagBridgeTest {
 		Child child = new Child();
 		var first = registry(parent);
 		var second = registry(child);
-		second.bindTags(Map.of(TagKey.create(second.key(), TAG), List.of()));
+		second.prepareTagReload(new TagLoader.LoadResult<>(second.key(), Map.of(TagKey.create(second.key(), TAG), List.of()))).apply();
 		var bridge = new EmiRegistryTagBridge(Map.of(Value.class,
 			adapter(Value.class, first, new AtomicInteger()), Child.class,
 			adapter(Child.class, second, new AtomicInteger())));
@@ -98,7 +99,7 @@ class EmiRegistryTagBridgeTest {
 		@SuppressWarnings("unchecked") Registry<Value> wrong = (Registry<Value>) java.lang.reflect.Proxy.newProxyInstance(
 			getClass().getClassLoader(), new Class<?>[]{Registry.class}, (proxy, method, args) -> switch (method.getName()) {
 				case "getResourceKey" -> real.getResourceKey(registered);
-				case "getHolder" -> real.getHolder(real.getResourceKey(registered).orElseThrow());
+				case "get" -> real.get(real.getResourceKey(registered).orElseThrow());
 				default -> throw new AssertionError(method.getName());
 			});
 		assertEquals(TagQueryResult.UNAVAILABLE, new EmiRegistryTagBridge(Map.of(Value.class,
@@ -106,11 +107,11 @@ class EmiRegistryTagBridgeTest {
 	}
 
 	private static <T> MappedRegistry<T> registry(T value) {
-		var key = ResourceKey.<T>createRegistryKey(ResourceLocation.parse("test:registry"));
+		var key = ResourceKey.<T>createRegistryKey(Identifier.parse("test:registry"));
 		var registry = new MappedRegistry<T>(key, Lifecycle.stable());
-		var holder = registry.register(ResourceKey.create(key, ResourceLocation.parse("test:value")), value, RegistrationInfo.BUILT_IN);
-		registry.freeze();
+		var holder = registry.register(ResourceKey.create(key, Identifier.parse("test:value")), value, RegistrationInfo.BUILT_IN);
 		registry.bindTags(Map.of(TagKey.create(key, TAG), List.of(holder), TagKey.create(key, EMPTY), List.of()));
+		registry.freeze();
 		return registry;
 	}
 

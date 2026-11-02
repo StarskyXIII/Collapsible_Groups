@@ -13,6 +13,9 @@ neoForge {
 }
 
 repositories {
+    mavenLocal {
+        content { includeGroup 'dev.emi' }
+    }
     maven {
         name = 'BlameJared'
         url = 'https://maven.blamejared.com'
@@ -31,6 +34,7 @@ dependencies {
     // JEI packages mezz.jei.gui.* only in full loader jars. The referenced GUI
     // implementation FQCNs are shared, so one full jar supplies compile symbols only.
     compileOnly "mezz.jei:jei-${minecraft_version}-neoforge:${jei_version}"
+    compileOnly "dev.emi:emi-xplat:${emi_version}"
     // Tests — pure Java logic only (path grammar, path navigation)
     testImplementation 'org.junit.jupiter:junit-jupiter-api:5.10.1'
     testImplementation 'org.junit.jupiter:junit-jupiter-params:5.10.1'

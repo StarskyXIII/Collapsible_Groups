@@ -23,6 +23,8 @@ class EmiDisabledEditorPreviewTest {
 	@Test void disabledLivePreviewIsEmptyButPreparedPreviewSurvivesToggleAndReopen() {
 		SharedConstants.tryDetectVersion();
 		Bootstrap.bootStrap();
+		net.minecraft.core.registries.BuiltInRegistries.DATA_COMPONENT_INITIALIZERS
+			.build(net.minecraft.data.registries.VanillaRegistries.createLookup()).forEach(pending -> pending.apply());
 		ItemStack stone = new ItemStack(Items.STONE);
 		var universe = new ViewerIngredientUniverse<EmiIngredient>(List.of(new ViewerIngredient<>(
 			new ViewerIngredientIdentity("item", "stone"), ViewerIngredient.Kind.ITEM,

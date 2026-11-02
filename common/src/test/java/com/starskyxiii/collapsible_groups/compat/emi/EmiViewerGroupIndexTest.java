@@ -7,7 +7,7 @@ import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientUniverse;
 import dev.emi.emi.api.stack.EmiIngredient;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayDeque;
@@ -105,8 +105,8 @@ class EmiViewerGroupIndexTest {
 		var entry = new ViewerIngredient<>(new ViewerIngredientIdentity("item", "one"), ViewerIngredient.Kind.ITEM,
 			emiIngredient(), new IngredientView() {
 				public String ingredientType() { return "item"; }
-				public ResourceLocation resourceLocation() { return ResourceLocation.parse("test:one"); }
-				public boolean hasTag(ResourceLocation tag) { calls.merge(tag.getPath(), 1, Integer::sum); return true; }
+				public Identifier resourceLocation() { return Identifier.parse("test:one"); }
+				public boolean hasTag(Identifier tag) { calls.merge(tag.getPath(), 1, Integer::sum); return true; }
 				public boolean matchesExactStack(String encoded) { return false; }
 			});
 		var universe = new ViewerIngredientUniverse<>(List.of(entry));
@@ -266,8 +266,8 @@ class EmiViewerGroupIndexTest {
 			new ViewerIngredientIdentity("item", "broken"), ViewerIngredient.Kind.ITEM, emiIngredient(),
 			new IngredientView() {
 				@Override public String ingredientType() { return "item"; }
-				@Override public ResourceLocation resourceLocation() { throw new IllegalStateException("broken"); }
-				@Override public boolean hasTag(ResourceLocation tagId) { return false; }
+				@Override public Identifier resourceLocation() { throw new IllegalStateException("broken"); }
+				@Override public boolean hasTag(Identifier tagId) { return false; }
 				@Override public boolean matchesExactStack(String encodedStack) { return false; }
 			});
 		CompletableFuture<Void> requested = index.requestRebuild(10,
@@ -320,8 +320,8 @@ class EmiViewerGroupIndexTest {
 		return new ViewerIngredient<>(new ViewerIngredientIdentity("item", identity), ViewerIngredient.Kind.ITEM,
 			emiIngredient(), new IngredientView() {
 				@Override public String ingredientType() { return "item"; }
-				@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse(id); }
-				@Override public boolean hasTag(ResourceLocation tagId) { return false; }
+				@Override public Identifier resourceLocation() { return Identifier.parse(id); }
+				@Override public boolean hasTag(Identifier tagId) { return false; }
 				@Override public boolean matchesExactStack(String encodedStack) { return false; }
 			});
 	}

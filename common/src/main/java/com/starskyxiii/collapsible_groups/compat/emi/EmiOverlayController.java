@@ -10,10 +10,13 @@ import dev.emi.emi.screen.EmiScreenBase;
 import dev.emi.emi.runtime.EmiReloadManager;
 import dev.emi.emi.screen.widget.SizedButtonWidget;
 import net.minecraft.client.Minecraft;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
+import net.minecraft.client.renderer.RenderPipelines;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.gui.screens.Screen;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 
 import java.util.List;
 
@@ -21,7 +24,7 @@ import java.util.List;
 public final class EmiOverlayController implements ViewerOverlayHook {
 	private static final EmiOverlayController INSTANCE = new EmiOverlayController();
 	private static final int SIZE = 20;
-	private static final ResourceLocation ICON = ResourceLocation.fromNamespaceAndPath(
+	private static final Identifier ICON = Identifier.fromNamespaceAndPath(
 		"collapsible_groups", "textures/gui/groups_button.png");
 	private boolean visible;
 	private boolean enabled;
@@ -38,15 +41,15 @@ public final class EmiOverlayController implements ViewerOverlayHook {
 		syncState();
 	}
 
-	public void render(GuiGraphics graphics, int mouseX, int mouseY) {
+	public void render(GuiGraphicsExtractor graphics, int mouseX, int mouseY) {
 		syncState();
 		if (!visible) return;
-		button.render(graphics, mouseX, mouseY, 0);
-		graphics.pose().pushPose();
-		graphics.pose().translate(x + 2, y + 2, 10);
-		graphics.pose().scale(16f / 24f, 16f / 24f, 1f);
-		graphics.blit(ICON, 0, 0, 0f, 0f, 24, 24, 24, 24);
-		graphics.pose().popPose();
+		button.extractRenderState(graphics, mouseX, mouseY, 0);
+		graphics.pose().pushMatrix();
+		graphics.pose().translate(x + 2, y + 2);
+		graphics.pose().scale(16f / 24f, 16f / 24f);
+		graphics.blit(RenderPipelines.GUI_TEXTURED, ICON, 0, 0, 0f, 0f, 24, 24, 24, 24);
+		graphics.pose().popMatrix();
 	}
 
 	@Override public boolean shouldShowButton(boolean configuredVisible, boolean ingredientListVisible) {
@@ -63,7 +66,8 @@ public final class EmiOverlayController implements ViewerOverlayHook {
 		syncState();
 		if (!ViewerLifecycleCoordinator.isEmiSelected() || !visible || !enabled) return false;
 		return switch (input.type()) {
-			case MOUSE_CLICK -> button.mouseClicked(input.mouseX(), input.mouseY(), input.button());
+			case MOUSE_CLICK -> button.mouseClicked(new MouseButtonEvent(input.mouseX(), input.mouseY(),
+				new MouseButtonInfo(input.button(), 0)), false);
 			case KEY_PRESS -> false;
 		};
 	}

@@ -6,7 +6,7 @@ import com.starskyxiii.collapsible_groups.ingredient.IngredientView;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredient;
 import com.starskyxiii.collapsible_groups.viewer.ViewerIngredientIdentity;
 import com.starskyxiii.collapsible_groups.viewer.ViewerProjection;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -34,8 +34,8 @@ class EmiProjectionTranslationTest {
 		return new ViewerIngredient<>(new ViewerIngredientIdentity("item", value), ViewerIngredient.Kind.ITEM,
 			value, new IngredientView() {
 				@Override public String ingredientType() { return "item"; }
-				@Override public ResourceLocation resourceLocation() { return ResourceLocation.parse("minecraft:stone"); }
-				@Override public boolean hasTag(ResourceLocation tagId) { return false; }
+				@Override public Identifier resourceLocation() { return Identifier.parse("minecraft:stone"); }
+				@Override public boolean hasTag(Identifier tagId) { return false; }
 				@Override public boolean matchesExactStack(String encodedStack) { return false; }
 			});
 	}

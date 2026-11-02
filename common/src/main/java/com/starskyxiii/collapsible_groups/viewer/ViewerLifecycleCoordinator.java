@@ -14,7 +14,7 @@ public final class ViewerLifecycleCoordinator {
 	public static final String JEI = ViewerSelectionPolicy.JEI;
 	public static final String EMI = ViewerSelectionPolicy.EMI;
 	public static final String TMRV_MOD_ID = ViewerSelectionPolicy.TMRV;
-	private static final Set<String> SUPPORTED_VIEWERS = Set.of(JEI);
+	private static final Set<String> SUPPORTED_VIEWERS = Set.of(JEI, EMI);
 
 	private final ViewerAdapterRegistry registry = new ViewerAdapterRegistry();
 	private final Set<String> supportedViewerIds;

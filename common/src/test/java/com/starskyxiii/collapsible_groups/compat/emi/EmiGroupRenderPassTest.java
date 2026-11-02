@@ -3,7 +3,7 @@ package com.starskyxiii.collapsible_groups.compat.emi;
 import com.starskyxiii.collapsible_groups.client.preview.GroupSlotPosition;
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import org.junit.jupiter.api.Test;
 
@@ -33,6 +33,6 @@ class EmiGroupRenderPassTest {
 		@Override public float getChance() { return 1; }
 		@Override public EmiIngredient setChance(float chance) { return this; }
 		@Override public List<ClientTooltipComponent> getTooltip() { return List.of(); }
-		@Override public void render(GuiGraphics graphics, int x, int y, float delta, int flags) {}
+		@Override public void render(GuiGraphicsExtractor graphics, int x, int y, float delta, int flags) {}
 	}
 }

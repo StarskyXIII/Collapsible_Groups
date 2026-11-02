@@ -6,7 +6,7 @@ import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientTags;
 import com.starskyxiii.collapsible_groups.client.editor.EditorTagCatalog;
 import com.starskyxiii.collapsible_groups.client.editor.EditorIngredientIds;
 import com.starskyxiii.collapsible_groups.client.editor.EditorIdCatalog;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import com.starskyxiii.collapsible_groups.ingredient.TagQueryDiagnostics;
 import com.starskyxiii.collapsible_groups.Constants;
 import com.starskyxiii.collapsible_groups.client.editor.EditorFluidIngredientView;
@@ -32,7 +32,7 @@ import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.ChatFormatting;
 import net.minecraft.client.gui.Font;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.item.ItemStack;
 
@@ -99,7 +99,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 					return new EditorTagCatalog.Source(null, () -> null);
 				var tags = ((EmiIngredientView) ingredient.view()).tags();
 				return new EditorTagCatalog.Source(tags.available() ? tags.existing() : null,
-					() -> tags.available() ? tags.existing().stream().map(ResourceLocation::toString) : null);
+					() -> tags.available() ? tags.existing().stream().map(Identifier::toString) : null);
 			}).iterator(),
 			() -> index.readyGenerationSnapshot().map(value -> value.universe() == universe).orElse(false));
 		logIfSlow("editor.tags", started, 50, requested);
@@ -128,7 +128,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 	private static final TagQueryDiagnostics.Summary UNKNOWN_TAGS = TagQueryDiagnostics.summarize(List.of());
 
 	@Override public synchronized TagQueryDiagnostics tagDiagnostics(
-		String type, ResourceLocation tag) {
+		String type, Identifier tag) {
 		String canonical = IngredientTypeIds.getCanonicalId(type);
 		if (canonical == null) canonical = type;
 		if (canonical.equals("item") || canonical.equals("fluid")) return EditorRuntimeAccess.super.tagDiagnostics(type, tag);
@@ -249,11 +249,11 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 		return result;
 	}
 
-	@Override public void renderFluid(GuiGraphics graphics, EditorFluidIngredientView entry, int x, int y) {
+	@Override public void renderFluid(GuiGraphicsExtractor graphics, EditorFluidIngredientView entry, int x, int y) {
 		((EmiIngredient) entry.ingredient()).render(graphics, x, y, 0);
 	}
 
-	@Override public void renderGeneric(GuiGraphics graphics, EditorGenericIngredientView entry, int x, int y) {
+	@Override public void renderGeneric(GuiGraphicsExtractor graphics, EditorGenericIngredientView entry, int x, int y) {
 		((EmiIngredient) entry.ingredient()).render(graphics, x, y, 0);
 	}
 
@@ -394,7 +394,7 @@ final class EmiEditorRuntimeAccess implements EditorRuntimeAccess {
 			.map(EmiEditorRuntimeAccess::previewEntry).toList();
 	}
 
-	@Override public PreviewLayout renderPreview(GuiGraphics graphics, PreviewRect area, boolean expanded, int page,
+	@Override public PreviewLayout renderPreview(GuiGraphicsExtractor graphics, PreviewRect area, boolean expanded, int page,
 		AppearanceDraft appearance, List<PreviewEntry> headerIcons, List<PreviewEntry> entries, Font font,
 		PreviewFallbacks fallbacks, int mouseX, int mouseY, int heldPageDirection) {
 		GroupSampleRenderer.Layout layout = GroupSampleRenderer.render(graphics,

@@ -5,11 +5,11 @@ import com.starskyxiii.collapsible_groups.client.editor.EditorGenericIngredientV
 import dev.emi.emi.api.stack.EmiStack;
 import net.minecraft.ChatFormatting;
 import net.minecraft.SharedConstants;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import net.minecraft.core.component.DataComponentPatch;
 import net.minecraft.network.chat.Component;
-import net.minecraft.resources.ResourceLocation;
+import net.minecraft.resources.Identifier;
 import net.minecraft.server.Bootstrap;
 import net.minecraft.world.item.ItemStack;
 import org.junit.jupiter.api.BeforeAll;
@@ -93,7 +93,7 @@ class EmiEditorTooltipTest {
 		@Override public boolean isEmpty() { return false; }
 		@Override public DataComponentPatch getComponentChanges() { return DataComponentPatch.EMPTY; }
 		@Override public Object getKey() { return ID; }
-		@Override public ResourceLocation getId() { return ResourceLocation.parse(ID); }
-		@Override public void render(GuiGraphics graphics, int x, int y, float delta, int flags) {}
+		@Override public Identifier getId() { return Identifier.parse(ID); }
+		@Override public void render(GuiGraphicsExtractor graphics, int x, int y, float delta, int flags) {}
 	}
 }

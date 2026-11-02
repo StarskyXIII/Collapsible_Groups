@@ -2,7 +2,7 @@ package com.starskyxiii.collapsible_groups.compat.emi;
 
 import dev.emi.emi.api.stack.EmiIngredient;
 import dev.emi.emi.api.stack.EmiStack;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 import net.minecraft.client.gui.screens.inventory.tooltip.ClientTooltipComponent;
 import org.junit.jupiter.api.Test;
 
@@ -61,6 +61,6 @@ class ProjectedChildEmiIngredientTest {
 		@Override public float getChance() { return chance; }
 		@Override public EmiIngredient setChance(float value) { return new FakeIngredient(amount, value, stacks, tooltip); }
 		@Override public List<ClientTooltipComponent> getTooltip() { return tooltip; }
-		@Override public void render(GuiGraphics graphics, int x, int y, float delta, int flags) {}
+		@Override public void render(GuiGraphicsExtractor graphics, int x, int y, float delta, int flags) {}
 	}
 }

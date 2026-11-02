@@ -33,7 +33,7 @@ public final class LoaderViewerEnvironment {
 	}
 
 	private static ViewerCompatibilityEnvironment detect(ArtifactVersion jei, boolean emi, boolean tmrv) {
-		return ViewerCompatibilityEnvironment.detect(jei != null, emi, tmrv, false, () -> compare(jei));
+		return ViewerCompatibilityEnvironment.detect(jei != null, emi, tmrv, true, () -> compare(jei));
 	}
 
 	private static ViewerCompatibilityEnvironment.JeiVersionCheck compare(ArtifactVersion detected) {

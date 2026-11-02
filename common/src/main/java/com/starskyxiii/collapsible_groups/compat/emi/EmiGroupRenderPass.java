@@ -6,7 +6,7 @@ import com.starskyxiii.collapsible_groups.compat.jei.ui.GroupThemeResolver;
 import com.starskyxiii.collapsible_groups.group.GroupRepository;
 import com.starskyxiii.collapsible_groups.platform.Services;
 import dev.emi.emi.api.stack.EmiIngredient;
-import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.GuiGraphicsExtractor;
 
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -27,7 +27,7 @@ public final class EmiGroupRenderPass {
 		return null;
 	}
 
-	public static void drawTints(GuiGraphics graphics,
+	public static void drawTints(GuiGraphicsExtractor graphics,
 		List<GroupSlotPosition> positions) {
 		if (!Services.CONFIG.showGroupBackgrounds()) return;
 		for (var position : positions) {
@@ -41,7 +41,7 @@ public final class EmiGroupRenderPass {
 		}
 	}
 
-	public static void drawBorders(GuiGraphics graphics,
+	public static void drawBorders(GuiGraphicsExtractor graphics,
 		List<GroupSlotPosition> positions) {
 		Map<String, List<int[]>> childrenByGroup = new LinkedHashMap<>();
 		for (var position : positions) {
@@ -51,15 +51,9 @@ public final class EmiGroupRenderPass {
 			}
 		}
 		if (childrenByGroup.isEmpty()) return;
-		graphics.pose().pushPose();
-		graphics.pose().translate(0, 0, 200);
-		try {
-			for (var entry : childrenByGroup.entrySet()) {
-				ConnectedSlotBorderRenderer.drawBorder(graphics, entry.getValue(),
-					GroupThemeResolver.expandedGroupBorderColor(entry.getKey()));
-			}
-		} finally {
-			graphics.pose().popPose();
+		for (var entry : childrenByGroup.entrySet()) {
+			ConnectedSlotBorderRenderer.drawBorder(graphics, entry.getValue(),
+				GroupThemeResolver.expandedGroupBorderColor(entry.getKey()));
 		}
 	}
 }

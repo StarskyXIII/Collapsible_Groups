@@ -125,20 +125,7 @@ publishing {
     }
 }
 
-sourceSets.main.java {
-    exclude '**/compat/emi/**', '**/mixin/MixinEmi*.java'
-}
-sourceSets.test.java {
-    exclude '**/compat/emi/**'
-}
 tasks.withType(JavaCompile).configureEach {
-    exclude '**/compat/emi/**', '**/mixin/MixinEmi*.java'
     options.compilerArgs += ['-Xmaxerrs', '300']
 }
 
-tasks.withType(Javadoc).configureEach {
-    exclude '**/compat/emi/**', '**/mixin/MixinEmi*.java'
-}
-tasks.named('sourcesJar') {
-    exclude '**/compat/emi/**', '**/mixin/MixinEmi*.java'
-}
